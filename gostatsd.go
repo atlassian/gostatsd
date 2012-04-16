@@ -1,17 +1,27 @@
 package main
 
 import (
-	"net"
 	"fmt"
 	"log"
-	"time"
-	"strings"
+	"math"
+	"net"
 	"regexp"
+	"sort"
 	"strconv"
+	"strings"
+	"time"
 )
 
-const flushInterval = 10
-const GRAPHITE_SERVER = "localhost:1234"
+
+var flushInterval time.Duration
+var graphiteServer string
+var percentThresholds []float64
+
+func init() {
+	flushInterval = 10 * time.Second
+	graphiteServer = "localhost:1234"
+	percentThresholds = []float64{90.0}
+}
 
 type MetricType int
 
@@ -74,8 +84,35 @@ func metricListener(metrics chan Metric) {
 type MetricMap map[string]float64
 type MetricListMap map[string][]float64
 
+func round(v float64) float64 {
+	return math.Floor(v + 0.5)
+}
+
+func average(vals []float64) float64 {
+	sum := 0.0
+	for _, v := range vals {
+		sum += v
+	}
+	return sum / float64(len(vals))
+}
+
+func thresholdStats(vals []float64, threshold float64) (mean, upper float64) {
+	if count := len(vals); count > 1 {
+		idx := int(round(((100 - threshold) / 100) * float64(count)))
+		thresholdCount := count - idx
+		thresholdValues := vals[:thresholdCount]
+
+		mean = average(thresholdValues)
+		upper = thresholdValues[len(thresholdValues) - 1]
+	} else {
+		mean = vals[0]
+		upper = vals[0]
+	}
+	return mean, upper
+}
+
 func flushMetrics(counters MetricMap, gauges MetricMap, timers MetricListMap, flushInterval time.Duration) {
-	conn, err := net.Dial("tcp", GRAPHITE_SERVER)
+	conn, err := net.Dial("tcp", graphiteServer)
 	if err != nil {
 		log.Printf("Could not contact Graphite server")
 		return
@@ -97,13 +134,30 @@ func flushMetrics(counters MetricMap, gauges MetricMap, timers MetricListMap, fl
 		numStats += 1
 	}
 
+	for k, v := range timers {
+		if count := len(v); count > 0 {
+			sort.Float64s(v)
+			min := v[0]
+			max := v[count-1]
+
+			fmt.Fprintf(conn, "stats.timers.%s.lower %f %d\n", k, min, now)
+			fmt.Fprintf(conn, "stats.timers.%s.upper %f %d\n", k, max, now)
+			fmt.Fprintf(conn, "stats.timers.%s.count %d %d\n", k, count, now)
+
+			for _, threshold := range percentThresholds {
+				mean, upper := thresholdStats(v, threshold)
+				thresholdName := strconv.FormatFloat(threshold, 'f', 1, 64)
+				fmt.Fprintf(conn, "stats.timers.%s.mean_%s %f %d\n", k, thresholdName, mean, now)
+				fmt.Fprintf(conn, "stats.timers.%s.upper_%s %f %d\n", k, thresholdName, upper, now)
+			}
+			numStats += 1
+		}
+	}
 	fmt.Fprintf(conn, "statsd.numStats %d %d\n", numStats, now)
 
 }
 
 func metricAggregator(metrics chan Metric) {
-	flushInterval := time.Duration(flushInterval * time.Second)
-
 	var counters = make(MetricMap)
 	var gauges = make(MetricMap)
 	var timers = make(MetricListMap)
@@ -230,7 +284,7 @@ func parseMessage(msg string) ([]Metric, error) {
 		metric := Metric{metricType, bucket, metricValue}
 		metricList = append(metricList, metric)
 	}
-	
+
 	return metricList, nil
 }
 
