@@ -56,17 +56,16 @@ func (m Metric) String() string {
 }
 
 func main () {
-	var metrics = make(chan Metric)
-	go metricListener(metrics)
-	go metricAggregator(metrics)
+	var metricChan = make(chan Metric)
+	go metricListener(metricChan)
+	go metricAggregator(metricChan)
 	// Run forever
 	select {}
 }
 
-func metricListener(metrics chan Metric) {
+func metricListener(metricChan chan Metric) {
 	conn, err := net.ListenPacket("udp", ":8125")
 	if err != nil {
-		// Do something about it
 		log.Fatal(err)
 		return
 	}
@@ -74,10 +73,10 @@ func metricListener(metrics chan Metric) {
 	for {
 		nbytes, _, err := conn.ReadFrom(msg)
 		if err != nil {
-			log.Fatal(err)
+			log.Printf("%s", err)
 			continue
 		}
-		go handleMessage(metrics, string(msg[:nbytes]))
+		go handleMessage(metricChan, string(msg[:nbytes]))
 	}
 }
 
@@ -157,7 +156,7 @@ func flushMetrics(counters MetricMap, gauges MetricMap, timers MetricListMap, fl
 
 }
 
-func metricAggregator(metrics chan Metric) {
+func metricAggregator(metricChan chan Metric) {
 	var counters = make(MetricMap)
 	var gauges = make(MetricMap)
 	var timers = make(MetricListMap)
@@ -168,8 +167,7 @@ func metricAggregator(metrics chan Metric) {
 
 	for {
 		select {
-		case metric := <-metrics:
-			log.Printf("Got %s", metric)
+		case metric := <-metricChan: // Incoming metrics
 			switch metric.Type {
 			case COUNTER:
 				v, ok := counters[metric.Bucket]
@@ -189,7 +187,7 @@ func metricAggregator(metrics chan Metric) {
 					timers[metric.Bucket] = []float64{metric.Value}
 				}
 			}
-		case <-flushTimer.C:
+		case <-flushTimer.C: // Time to flush to graphite
 			go flushMetrics(counters, gauges, timers, flushInterval)
 
 			// Reset counters
@@ -288,14 +286,13 @@ func parseMessage(msg string) ([]Metric, error) {
 	return metricList, nil
 }
 
-func handleMessage(metric_chan chan Metric, msg string) {
+func handleMessage(metricChan chan Metric, msg string) {
 	metrics, err := parseMessage(msg)
 	if err != nil {
 		log.Printf("Error parsing metric %s", err)
 	} else {
 		for _, metric := range metrics {
-			log.Printf("%s", metric)
-			metric_chan <- metric
+			metricChan <- metric
 		}
 	}
 }
