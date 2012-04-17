@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"log"
 	"math"
@@ -57,6 +58,25 @@ func (m Metric) String() string {
 
 type MetricMap map[string]float64
 type MetricListMap map[string][]float64
+
+func (m MetricListMap) String() string {
+	buf := new(bytes.Buffer)
+	for k, v := range m {
+		buf.Write([]byte(fmt.Sprint(k)))
+		for _, v2 := range v {
+			buf.Write([]byte(fmt.Sprintf("\t%f\n", k, v2)))
+		}
+	}
+	return buf.String()
+}
+
+func (m MetricMap) String() string {
+	buf := new(bytes.Buffer)
+	for k, v := range m {
+		buf.Write([]byte(fmt.Sprintf("%s: %f\n", k, v)))
+	}
+	return buf.String()
+}
 
 type ConsoleRequest struct {
 	Command string
@@ -205,11 +225,11 @@ func metricAggregator(metricChan chan Metric, consoleChan chan ConsoleRequest) {
 				case "stats":
 					result = "stats:\n"
 				case "counters":
-					result = "counters:\n"
+					result = fmt.Sprint(counters)
 				case "timers":
-					result = "timers:\n"
+					result = fmt.Sprint(timers)
 				case "gauges":
-					result = "gauges:\n"
+					result = fmt.Sprint(gauges)
 				case "delcounters":
 					for _, k := range parts[1:] {
 						delete(counters, k)
