@@ -13,7 +13,6 @@ import (
 	"time"
 )
 
-
 var flushInterval time.Duration
 var graphiteServer string
 var percentThresholds []float64
@@ -28,7 +27,7 @@ type MetricType float64
 
 // Enumeration, see http://golang.org/doc/effective_go.html#constants
 const (
-	_ = iota
+	_                = iota
 	ERROR MetricType = 1 << (10 * iota)
 	COUNTER
 	TIMER
@@ -48,14 +47,14 @@ func (m MetricType) String() string {
 }
 
 type Metric struct {
-	Type MetricType
+	Type   MetricType
 	Bucket string
-	Value float64
+	Value  float64
 }
 
 type MetricAggregatorStats struct {
-	BadLines int
-	LastMessage time.Time
+	BadLines          int
+	LastMessage       time.Time
 	GraphiteLastFlush time.Time
 	GraphiteLastError time.Time
 }
@@ -87,13 +86,13 @@ func (m MetricMap) String() string {
 }
 
 type ConsoleRequest struct {
-	Command string
+	Command    string
 	ResultChan chan string
 }
 
 type ConsoleSession struct {
 	RequestChan chan string
-	ResultChan chan string
+	ResultChan  chan string
 }
 
 func round(v float64) float64 {
@@ -115,7 +114,7 @@ func thresholdStats(vals []float64, threshold float64) (mean, upper float64) {
 		thresholdValues := vals[:thresholdCount]
 
 		mean = average(thresholdValues)
-		upper = thresholdValues[len(thresholdValues) - 1]
+		upper = thresholdValues[len(thresholdValues)-1]
 	} else {
 		mean = vals[0]
 		upper = vals[0]
@@ -248,37 +247,37 @@ func metricAggregator(metricChan chan Metric, consoleChan chan ConsoleRequest) {
 		case consoleRequest := <-consoleChan:
 			var result string
 			switch parts := strings.Split(strings.TrimSpace(consoleRequest.Command), " "); parts[0] {
-				case "help":
-					result = "Commands: stats, counters, timers, gauges, delcounters, deltimers, delgauges, quit\n"
-				case "stats":
-					result = fmt.Sprintf(
-						"Invalid messages received: %d\n" +
-						"Last message received: %s\n" +
-						"Last flush to Graphite: %s\n" +
+			case "help":
+				result = "Commands: stats, counters, timers, gauges, delcounters, deltimers, delgauges, quit\n"
+			case "stats":
+				result = fmt.Sprintf(
+					"Invalid messages received: %d\n"+
+						"Last message received: %s\n"+
+						"Last flush to Graphite: %s\n"+
 						"Last error from Graphite: %s\n",
-						stats.BadLines, stats.LastMessage, stats.GraphiteLastFlush, stats.GraphiteLastError)
-				case "counters":
-					result = fmt.Sprint(counters)
-				case "timers":
-					result = fmt.Sprint(timers)
-				case "gauges":
-					result = fmt.Sprint(gauges)
-				case "delcounters":
-					for _, k := range parts[1:] {
-						delete(counters, k)
-					}
-				case "deltimers":
-					for _, k := range parts[1:] {
-						delete(timers, k)
-					}
-				case "delgauges":
-					for _, k := range parts[1:] {
-						delete(gauges, k)
-					}
-				case "quit":
-					result = "quit"
-				default:
-					result = fmt.Sprintf("unknown command: %s\n", parts[0])
+					stats.BadLines, stats.LastMessage, stats.GraphiteLastFlush, stats.GraphiteLastError)
+			case "counters":
+				result = fmt.Sprint(counters)
+			case "timers":
+				result = fmt.Sprint(timers)
+			case "gauges":
+				result = fmt.Sprint(gauges)
+			case "delcounters":
+				for _, k := range parts[1:] {
+					delete(counters, k)
+				}
+			case "deltimers":
+				for _, k := range parts[1:] {
+					delete(timers, k)
+				}
+			case "delgauges":
+				for _, k := range parts[1:] {
+					delete(gauges, k)
+				}
+			case "quit":
+				result = "quit"
+			default:
+				result = fmt.Sprintf("unknown command: %s\n", parts[0])
 			}
 			consoleRequest.ResultChan <- result
 		}
@@ -421,7 +420,7 @@ func consoleServer(consoleChan chan ConsoleRequest) {
 	}
 }
 
-func main () {
+func main() {
 	var metricChan = make(chan Metric)
 	var consoleChan = make(chan ConsoleRequest)
 	go metricListener(metricChan)
