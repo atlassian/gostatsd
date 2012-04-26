@@ -13,6 +13,13 @@ import (
 	"time"
 )
 
+// Regular expressions used for bucket name normalization
+var (
+	regSpaces  = regexp.MustCompile("\\s+")
+	regSlashes = regexp.MustCompile("\\/")
+	regInvalid = regexp.MustCompile("[^a-zA-Z_\\-0-9\\.]")
+)
+
 var flushInterval time.Duration
 var graphiteServer string
 var percentThresholds []float64
@@ -284,11 +291,12 @@ func metricAggregator(metricChan chan Metric, consoleChan chan ConsoleRequest) {
 	}
 }
 
+
+// Normalize a bucket name by replacing or translating invalid characters
 func normalizeBucketName(name string) string {
-	spaces, _ := regexp.Compile("\\s+")
-	slashes, _ := regexp.Compile("\\/")
-	invalid, _ := regexp.Compile("[^a-zA-Z_\\-0-9\\.]")
-	return invalid.ReplaceAllString(slashes.ReplaceAllString(spaces.ReplaceAllString(name, "_"), "-"), "")
+	nospaces := regSpaces.ReplaceAllString(name, "_")
+	noslashes := regSlashes.ReplaceAllString(nospaces, "-")
+	return regInvalid.ReplaceAllString(noslashes, "")
 }
 
 func parseMessage(msg string) ([]Metric, error) {
