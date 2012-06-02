@@ -1,4 +1,4 @@
-package main
+package statsd
 
 import (
 	"bytes"
@@ -373,8 +373,8 @@ func handleMessage(metricChan chan Metric, msg string) {
 	}
 }
 
-func metricListener(metricChan chan Metric) {
-	conn, err := net.ListenPacket("udp", ":8125")
+func metricListener(addr string, metricChan chan Metric) {
+	conn, err := net.ListenPacket("udp", addr)
 	if err != nil {
 		log.Fatal(err)
 		return
@@ -411,8 +411,8 @@ func consoleClient(conn net.Conn, consoleChan chan ConsoleRequest) {
 	}
 }
 
-func consoleServer(consoleChan chan ConsoleRequest) {
-	ln, err := net.Listen("tcp", ":8126")
+func consoleServer(addr string, consoleChan chan ConsoleRequest) {
+	ln, err := net.Listen("tcp", addr)
 	if err != nil {
 		log.Fatal(err)
 		return
@@ -428,12 +428,13 @@ func consoleServer(consoleChan chan ConsoleRequest) {
 	}
 }
 
-func main() {
+func ListenAndServe(metric_addr string, console_addr string) error {
 	var metricChan = make(chan Metric)
 	var consoleChan = make(chan ConsoleRequest)
-	go metricListener(metricChan)
+	go metricListener(metric_addr, metricChan)
 	go metricAggregator(metricChan, consoleChan)
-	go consoleServer(consoleChan)
+	go consoleServer(console_addr, consoleChan)
 	// Run forever
 	select {}
+	return nil
 }
