@@ -232,7 +232,9 @@ func metricAggregator(graphiteAddr string, metricChan chan Metric, consoleChan c
 			}
 			stats.LastMessage = time.Now()
 		case <-flushTimer.C: // Time to flush to graphite
-			go graphite.SendMetrics(aggregateMetrics(counters, gauges, timers, flushInterval))
+			go func() {
+				flushChan <- graphite.SendMetrics(aggregateMetrics(counters, gauges, timers, flushInterval))
+			}()
 
 			// Reset counters
 			new_counters := make(MetricMap)
