@@ -6,7 +6,7 @@ import (
 )
 
 func main() {
-	err := statsd.ListenAndServe(":8125", ":8126")
+	err := statsd.ListenAndServe(":8125", ":8126", "localhost:1234")
 	if err != nil {
 		log.Fatal(err)
 	}
