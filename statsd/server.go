@@ -20,12 +20,10 @@ var (
 	regInvalid = regexp.MustCompile("[^a-zA-Z_\\-0-9\\.]")
 )
 
-var flushInterval time.Duration
 var graphiteServer string
 var percentThresholds []float64
 
 func init() {
-	flushInterval = 10 * time.Second
 	percentThresholds = []float64{90.0}
 }
 
@@ -71,7 +69,6 @@ func (m Metric) String() string {
 
 type MetricMap map[string]float64
 type MetricListMap map[string][]float64
-
 
 type GraphiteClient struct {
 	conn *net.Conn
@@ -158,13 +155,13 @@ func aggregateMetrics(counters MetricMap, gauges MetricMap, timers MetricListMap
 
 	for k, v := range counters {
 		perSecond := v / flushInterval.Seconds()
-		metrics["stats." + k] = perSecond
-		metrics["stats_counts." + k] = v
+		metrics["stats."+k] = perSecond
+		metrics["stats_counts."+k] = v
 		numStats += 1
 	}
 
 	for k, v := range gauges {
-		metrics["stats.gauges." + k] = v
+		metrics["stats.gauges."+k] = v
 		numStats += 1
 	}
 
@@ -174,15 +171,15 @@ func aggregateMetrics(counters MetricMap, gauges MetricMap, timers MetricListMap
 			min := v[0]
 			max := v[count-1]
 
-			metrics["stats.timers." + k + ".lower"] = min
-			metrics["stats.timers." + k + ".upper"] = max
-			metrics["stats.timers." + k + ".count"] = float64(count)
+			metrics["stats.timers."+k+".lower"] = min
+			metrics["stats.timers."+k+".upper"] = max
+			metrics["stats.timers."+k+".count"] = float64(count)
 
 			for _, threshold := range percentThresholds {
 				mean, upper := thresholdStats(v, threshold)
 				thresholdName := strconv.FormatFloat(threshold, 'f', 1, 64)
-				metrics["stats.timers." + k + "mean_" + thresholdName] = mean
-				metrics["stats.timers." + k + "upper_" + thresholdName] = upper
+				metrics["stats.timers."+k+"mean_"+thresholdName] = mean
+				metrics["stats.timers."+k+"upper_"+thresholdName] = upper
 			}
 			numStats += 1
 		}
@@ -191,7 +188,7 @@ func aggregateMetrics(counters MetricMap, gauges MetricMap, timers MetricListMap
 	return metrics
 }
 
-func metricAggregator(graphiteAddr string, metricChan chan Metric, consoleChan chan ConsoleRequest) (err error) {
+func metricAggregator(graphiteAddr string, metricChan chan Metric, consoleChan chan ConsoleRequest, flushInterval time.Duration) (err error) {
 	graphite, err := NewGraphiteClient(graphiteAddr)
 	if err != nil {
 		return
@@ -306,7 +303,6 @@ func metricAggregator(graphiteAddr string, metricChan chan Metric, consoleChan c
 
 	return
 }
-
 
 // Normalize a bucket name by replacing or translating invalid characters
 func normalizeBucketName(name string) string {
@@ -444,11 +440,11 @@ func consoleServer(addr string, consoleChan chan ConsoleRequest) {
 	}
 }
 
-func ListenAndServe(metricAddr string, consoleAddr string, graphiteAddr string) error {
+func ListenAndServe(metricAddr string, consoleAddr string, graphiteAddr string, flushInterval time.Duration) error {
 	var metricChan = make(chan Metric)
 	var consoleChan = make(chan ConsoleRequest)
 	go metricListener(metricAddr, metricChan)
-	go metricAggregator(graphiteAddr, metricChan, consoleChan)
+	go metricAggregator(graphiteAddr, metricChan, consoleChan, flushInterval)
 	go consoleServer(consoleAddr, consoleChan)
 	// Run forever
 	select {}
