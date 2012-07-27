@@ -1,8 +1,11 @@
 package statsd
 
 import (
+	"fmt"
 	"log"
 	"net"
+	"strconv"
+	"strings"
 )
 
 // DefaultMetricsAddr is the default address on which a MetricReceiver will listen
@@ -54,7 +57,6 @@ func (r *MetricReceiver) Receive(c net.PacketConn) error {
 			log.Printf("%s", err)
 			continue
 		}
-		log.Printf("%s", msg[:nbytes])
 		go r.handleMessage(msg[:nbytes])
 	}
 	panic("not reached")
@@ -69,4 +71,67 @@ func (srv *MetricReceiver) handleMessage(msg []byte) {
 	for _, metric := range metrics {
 		srv.Handler.HandleMetric(metric)
 	}
+}
+
+func parseMessage(msg string) ([]Metric, error) {
+	metricList := []Metric{}
+
+	segments := strings.Split(strings.TrimSpace(msg), ":")
+	if len(segments) < 1 {
+		return metricList, fmt.Errorf("ill-formatted message: %s", msg)
+	}
+
+	bucket := segments[0]
+	var values []string
+	if len(segments) == 1 {
+		values = []string{"1"}
+	} else {
+		values = segments[1:]
+	}
+
+	for _, value := range values {
+		fields := strings.Split(value, "|")
+
+		metricValue, err := strconv.ParseFloat(fields[0], 64)
+		if err != nil {
+			return metricList, fmt.Errorf("%s: bad metric value \"%s\"", bucket, fields[0])
+		}
+
+		var metricTypeString string
+		if len(fields) == 1 {
+			metricTypeString = "c"
+		} else {
+			metricTypeString = fields[1]
+		}
+
+		var metricType MetricType
+		switch metricTypeString {
+		case "ms":
+			// Timer
+			metricType = TIMER
+		case "g":
+			// Gauge
+			metricType = GAUGE
+		default:
+			// Counter, allows skipping of |c suffix
+			metricType = COUNTER
+
+			var rate float64
+			if len(fields) == 3 {
+				var err error
+				rate, err = strconv.ParseFloat(fields[2][1:], 64)
+				if err != nil {
+					return metricList, fmt.Errorf("%s: bad rate %s", fields[2])
+				}
+			} else {
+				rate = 1
+			}
+			metricValue = metricValue / rate
+		}
+
+		metric := Metric{metricType, bucket, metricValue}
+		metricList = append(metricList, metric)
+	}
+
+	return metricList, nil
 }
