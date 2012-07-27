@@ -373,17 +373,6 @@ func parseMessage(msg string) ([]Metric, error) {
 	return metricList, nil
 }
 
-func handleMessage(metricChan chan Metric, msg string) {
-	metrics, err := parseMessage(msg)
-	if err != nil {
-		log.Printf("Error parsing metric %s", err)
-	} else {
-		for _, metric := range metrics {
-			metricChan <- metric
-		}
-	}
-}
-
 func consoleClient(conn net.Conn, consoleChan chan ConsoleRequest) {
 	defer conn.Close()
 
