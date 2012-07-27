@@ -384,23 +384,6 @@ func handleMessage(metricChan chan Metric, msg string) {
 	}
 }
 
-func metricListener(addr string, metricChan chan Metric) {
-	conn, err := net.ListenPacket("udp", addr)
-	if err != nil {
-		log.Fatal(err)
-		return
-	}
-	msg := make([]byte, 1024)
-	for {
-		nbytes, _, err := conn.ReadFrom(msg)
-		if err != nil {
-			log.Printf("%s", err)
-			continue
-		}
-		go handleMessage(metricChan, string(msg[:nbytes]))
-	}
-}
-
 func consoleClient(conn net.Conn, consoleChan chan ConsoleRequest) {
 	defer conn.Close()
 
@@ -442,7 +425,13 @@ func consoleServer(addr string, consoleChan chan ConsoleRequest) {
 func ListenAndServe(metricAddr string, consoleAddr string, graphiteAddr string, flushInterval time.Duration) error {
 	var metricChan = make(chan Metric)
 	var consoleChan = make(chan ConsoleRequest)
-	go metricListener(metricAddr, metricChan)
+
+	f := func(metric Metric) {
+		metricChan <- metric
+	}
+	s := MetricReceiver{metricAddr, f}
+
+	go s.ListenAndReceive()
 	go metricAggregator(graphiteAddr, metricChan, consoleChan, flushInterval)
 	go consoleServer(consoleAddr, consoleChan)
 	// Run forever
