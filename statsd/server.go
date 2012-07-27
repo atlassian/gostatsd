@@ -429,7 +429,7 @@ func ListenAndServe(metricAddr string, consoleAddr string, graphiteAddr string, 
 	f := func(metric Metric) {
 		metricChan <- metric
 	}
-	s := MetricReceiver{metricAddr, f}
+	s := MetricReceiver{metricAddr, HandlerFunc(f)}
 
 	go s.ListenAndReceive()
 	go metricAggregator(graphiteAddr, metricChan, consoleChan, flushInterval)
