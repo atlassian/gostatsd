@@ -20,7 +20,6 @@ var (
 	regInvalid = regexp.MustCompile("[^a-zA-Z_\\-0-9\\.]")
 )
 
-var graphiteServer string
 var percentThresholds []float64
 
 func init() {
