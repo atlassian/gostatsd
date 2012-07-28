@@ -51,6 +51,14 @@ type MetricAggregator struct {
 	timers        MetricListMap
 }
 
+func NewMetricAggregator(sender MetricSender, flushInterval time.Duration) (a MetricAggregator) {
+	a = MetricAggregator{}
+	a.FlushInterval = flushInterval
+	a.Sender = sender
+	a.MetricChan = make(chan Metric)
+	return
+}
+
 func (m *MetricAggregator) flush() (metrics MetricMap) {
 	metrics = make(MetricMap)
 	numStats := 0

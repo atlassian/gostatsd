@@ -10,9 +10,7 @@ func ListenAndServe(metricAddr string, consoleAddr string, graphiteAddr string, 
 		return err
 	}
 
-	aggregator := MetricAggregator{}
-	aggregator.FlushInterval = flushInterval
-	aggregator.Sender = &graphite
+	aggregator := NewMetricAggregator(&graphite, flushInterval)
 
 	f := func(metric Metric) {
 		aggregator.MetricChan <- metric
