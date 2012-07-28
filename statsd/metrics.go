@@ -3,14 +3,6 @@ package statsd
 import (
 	"bytes"
 	"fmt"
-	"regexp"
-)
-
-// Regular expressions used for bucket name normalization
-var (
-	regSpaces  = regexp.MustCompile("\\s+")
-	regSlashes = regexp.MustCompile("\\/")
-	regInvalid = regexp.MustCompile("[^a-zA-Z_\\-0-9\\.]")
 )
 
 type MetricType float64

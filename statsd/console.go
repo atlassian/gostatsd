@@ -10,7 +10,7 @@ import (
 const DefaultConsoleAddr = ":8126"
 
 // ConsoleServer is an object that listens for telnet connection on a TCP address Addr
-// and provides a console interface to a manage a MetricsAggregator
+// and provides a console interface to a manage a MetricAggregator
 type ConsoleServer struct {
 	Addr       string
 	Aggregator *MetricAggregator

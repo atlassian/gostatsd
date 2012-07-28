@@ -4,7 +4,15 @@ import (
 	"bytes"
 	"fmt"
 	"net"
+	"regexp"
 	"time"
+)
+
+// Regular expressions used for bucket name normalization
+var (
+	regSpaces  = regexp.MustCompile("\\s+")
+	regSlashes = regexp.MustCompile("\\/")
+	regInvalid = regexp.MustCompile("[^a-zA-Z_\\-0-9\\.]")
 )
 
 // normalizeBucketName cleans up a bucket name by replacing or translating invalid characters
