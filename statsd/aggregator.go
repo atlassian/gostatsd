@@ -14,43 +14,36 @@ func init() {
 	percentThresholds = []float64{90.0}
 }
 
-type MetricAggregatorStats struct {
+// metricAggregatorStats is a bookkeeping structure for statistics about a MetricAggregator
+type metricAggregatorStats struct {
 	BadLines          int
 	LastMessage       time.Time
 	GraphiteLastFlush time.Time
 	GraphiteLastError time.Time
 }
 
-func thresholdStats(vals []float64, threshold float64) (mean, upper float64) {
-	if count := len(vals); count > 1 {
-		idx := int(round(((100 - threshold) / 100) * float64(count)))
-		thresholdCount := count - idx
-		thresholdValues := vals[:thresholdCount]
-
-		mean = average(thresholdValues)
-		upper = thresholdValues[len(thresholdValues)-1]
-	} else {
-		mean = vals[0]
-		upper = vals[0]
-	}
-	return mean, upper
-}
-
+// MetricSender is an interface that can be implemented by objects which
+// could be connected to a MetricAggregator
 type MetricSender interface {
 	SendMetrics(MetricMap) error
 }
 
+// MetricAggregator is an object that aggregates statsd metrics.
+// The function NewMetricAggregator should be used to create the objects.
+//
+// Incoming metrics should be sent to the MetricChan channel.
 type MetricAggregator struct {
 	sync.Mutex
 	MetricChan    chan Metric   // Channel on which metrics are received
 	FlushInterval time.Duration // How often to flush metrics to the sender
-	Sender        MetricSender
-	stats         MetricAggregatorStats
+	Sender        MetricSender  // The sender to which metrics are flushed
+	stats         metricAggregatorStats
 	counters      MetricMap
 	gauges        MetricMap
 	timers        MetricListMap
 }
 
+// NewMetricAggregator creates a new MetricAggregator object
 func NewMetricAggregator(sender MetricSender, flushInterval time.Duration) (a MetricAggregator) {
 	a = MetricAggregator{}
 	a.FlushInterval = flushInterval
@@ -59,6 +52,7 @@ func NewMetricAggregator(sender MetricSender, flushInterval time.Duration) (a Me
 	return
 }
 
+// flush prepares the contents of a MetricAggregator for sending via the Sender
 func (m *MetricAggregator) flush() (metrics MetricMap) {
 	metrics = make(MetricMap)
 	numStats := 0
@@ -98,6 +92,7 @@ func (m *MetricAggregator) flush() (metrics MetricMap) {
 	return metrics
 }
 
+// Reset clears the contents of a MetricAggregator
 func (a *MetricAggregator) Reset() {
 	// Reset counters
 	new_counters := make(MetricMap)
@@ -121,6 +116,7 @@ func (a *MetricAggregator) Reset() {
 	a.gauges = new_gauges
 }
 
+// receiveMetric is called for each incoming metric on MetricChan
 func (a *MetricAggregator) receiveMetric(m Metric) {
 	defer a.Unlock()
 	a.Lock()
@@ -149,6 +145,8 @@ func (a *MetricAggregator) receiveMetric(m Metric) {
 	a.stats.LastMessage = time.Now()
 }
 
+// Aggregate starts the MetricAggregator so it begins consuming metrics from MetricChan
+// and flushing them periodically via its Sender
 func (m *MetricAggregator) Aggregate() {
 	m.counters = make(MetricMap)
 	m.gauges = make(MetricMap)

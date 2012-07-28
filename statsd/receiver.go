@@ -73,6 +73,7 @@ func (srv *MetricReceiver) handleMessage(msg []byte) {
 	}
 }
 
+// parseMessage parses a message string string in to a list of metrics
 func parseMessage(msg string) ([]Metric, error) {
 	metricList := []Metric{}
 
