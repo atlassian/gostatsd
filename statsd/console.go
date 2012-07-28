@@ -44,17 +44,29 @@ type consoleConn struct {
 }
 
 func (c *consoleConn) serve() {
+	defer c.conn.Close()
 	buf := make([]byte, 1024)
 
 	for {
+		c.conn.Write([]byte("console> "))
 		nbytes, err := c.conn.Read(buf)
 		if err != nil {
 			// Connection has likely closed
 			return
 		}
 
+		var command string
+		var args []string
 		var result string
-		switch parts := strings.Fields(string(buf[:nbytes])); parts[0] {
+
+		if parts := strings.Fields(string(buf[:nbytes])); len(parts) > 0 {
+			command = parts[0]
+			if len(parts) > 1 {
+				args = parts[1:]
+			}
+		}
+
+		switch command {
 		case "help":
 			result = "Commands: stats, counters, timers, gauges, delcounters, deltimers, delgauges, quit\n"
 		case "stats":
@@ -83,32 +95,31 @@ func (c *consoleConn) serve() {
 			c.server.Aggregator.Unlock()
 		case "delcounters":
 			c.server.Aggregator.Lock()
-			for _, k := range parts[1:] {
+			for _, k := range args {
 				delete(c.server.Aggregator.counters, k)
 			}
 			c.server.Aggregator.Unlock()
 		case "deltimers":
 			c.server.Aggregator.Lock()
-			for _, k := range parts[1:] {
+			for _, k := range args {
 				delete(c.server.Aggregator.timers, k)
 			}
 			c.server.Aggregator.Unlock()
 		case "delgauges":
 			c.server.Aggregator.Lock()
-			for _, k := range parts[1:] {
+			for _, k := range args {
 				delete(c.server.Aggregator.gauges, k)
 			}
 			c.server.Aggregator.Unlock()
 		case "quit":
-			result = "quit"
+			result = "goodbye\n"
 		default:
-			result = fmt.Sprintf("unknown command: %s\n", parts[0])
+			result = fmt.Sprintf("unknown command: %s\n", command)
 		}
 
-		if result == "quit" {
+		c.conn.Write([]byte(result))
+		if result == "goodbye\n" {
 			return
-		} else {
-			c.conn.Write([]byte(result))
 		}
 	}
 }
