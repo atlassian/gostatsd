@@ -29,8 +29,26 @@ func init() {
 
 func main() {
 	flag.Parse()
-	err := statsd.ListenAndServe(metricsAddr, consoleAddr, graphiteAddr, flushInterval)
+
+	// Start the metric aggregator
+	graphite, err := statsd.NewGraphiteClient(graphiteAddr)
 	if err != nil {
 		log.Fatal(err)
 	}
+	aggregator := statsd.NewMetricAggregator(&graphite, flushInterval)
+	go aggregator.Aggregate()
+
+	// Start the metric receiver
+	f := func(metric statsd.Metric) {
+		aggregator.MetricChan <- metric
+	}
+	receiver := statsd.MetricReceiver{metricsAddr, statsd.HandlerFunc(f)}
+	go receiver.ListenAndReceive()
+
+	// Start the console
+	console := statsd.ConsoleServer{consoleAddr, &aggregator}
+	go console.ListenAndServe()
+
+	// Listen forever
+	select {}
 }
