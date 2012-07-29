@@ -5,9 +5,9 @@ import (
 	"fmt"
 )
 
+// MetricType is an enumeration of all the possible types of Metric
 type MetricType float64
 
-// Enumeration, see http://golang.org/doc/effective_go.html#constants
 const (
 	_                = iota
 	ERROR MetricType = 1 << (10 * iota)
@@ -28,16 +28,19 @@ func (m MetricType) String() string {
 	return "unknown"
 }
 
+// Metric represents a single data collected datapoint
 type Metric struct {
-	Type   MetricType
-	Bucket string
-	Value  float64
+	Type   MetricType // The type of metric
+	Bucket string     // The name of the bucket where the metric belongs
+	Value  float64    // The numeric value of the metric
 }
 
 func (m Metric) String() string {
 	return fmt.Sprintf("{%s, %s, %f}", m.Type, m.Bucket, m.Value)
 }
 
+// MetricMap is used for storing aggregated Metric values.
+// The keys of the map are metric bucket names.
 type MetricMap map[string]float64
 
 func (m MetricMap) String() string {
@@ -48,6 +51,8 @@ func (m MetricMap) String() string {
 	return buf.String()
 }
 
+// MetricListMap is simlar to MetricMap but instead of storing a single aggregated 
+// Metric value it stores a list of all collected values.
 type MetricListMap map[string][]float64
 
 func (m MetricListMap) String() string {
