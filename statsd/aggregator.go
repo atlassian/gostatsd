@@ -149,10 +149,7 @@ func (m *MetricAggregator) Aggregate() {
 
 			flushed := m.flush()
 			go func() {
-				e := m.Sender.SendMetrics(flushed)
-				if e != nil {
-					flushChan <- e
-				}
+				flushChan <- m.Sender.SendMetrics(flushed)
 			}()
 			m.Reset()
 			flushTimer = time.NewTimer(m.FlushInterval)

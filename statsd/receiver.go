@@ -1,11 +1,12 @@
 package statsd
 
 import (
+	"bytes"
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"strconv"
-	"strings"
 )
 
 // DefaultMetricsAddr is the default address on which a MetricReceiver will listen
@@ -64,75 +65,63 @@ func (r *MetricReceiver) Receive(c net.PacketConn) error {
 
 // handleMessage handles the contents of a datagram and attempts to parse a Metric from each line
 func (srv *MetricReceiver) handleMessage(msg []byte) {
-	metrics, err := parseMessage(string(msg))
-	if err != nil {
-		log.Printf("Error parsing metric %s", err)
-	}
-	for _, metric := range metrics {
-		srv.Handler.HandleMetric(metric)
+	buf := bytes.NewBuffer(msg)
+	for {
+		line, err := buf.ReadBytes('\n')
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			log.Printf("error reading message: %s", err)
+			return
+		}
+
+		metric, err := parseLine(line[:len(line)-1])
+		if err != nil {
+			log.Printf("error parsing metric: %s", err)
+			continue
+		}
+		go srv.Handler.HandleMetric(metric)
 	}
 }
 
-// parseMessage parses a message string string in to a list of metrics
-func parseMessage(msg string) ([]Metric, error) {
-	metricList := []Metric{}
+func parseLine(line []byte) (Metric, error) {
+	var metric Metric
 
-	segments := strings.Split(strings.TrimSpace(msg), ":")
-	if len(segments) < 1 {
-		return metricList, fmt.Errorf("ill-formatted message: %s", msg)
+	buf := bytes.NewBuffer(line)
+	bucket, err := buf.ReadBytes(':')
+	if err != nil {
+		return metric, fmt.Errorf("error parsing metric: %s", err)
+	}
+	metric.Bucket = string(bucket[:len(bucket)-1])
+
+	value, err := buf.ReadBytes('|')
+	if err != nil {
+		return metric, fmt.Errorf("error parsing metric: %s", err)
+	}
+	metric.Value, err = strconv.ParseFloat(string(value[:len(value)-1]), 64)
+	if err != nil {
+		return metric, fmt.Errorf("error parsing value of metric: %s", err)
 	}
 
-	bucket := segments[0]
-	var values []string
-	if len(segments) == 1 {
-		values = []string{"1"}
-	} else {
-		values = segments[1:]
+	metricType := buf.Bytes()
+	if err != nil && err != io.EOF {
+		return metric, fmt.Errorf("error parsing metric: %s", err)
 	}
 
-	for _, value := range values {
-		fields := strings.Split(value, "|")
-
-		metricValue, err := strconv.ParseFloat(fields[0], 64)
-		if err != nil {
-			return metricList, fmt.Errorf("%s: bad metric value \"%s\"", bucket, fields[0])
-		}
-
-		var metricTypeString string
-		if len(fields) == 1 {
-			metricTypeString = "c"
-		} else {
-			metricTypeString = fields[1]
-		}
-
-		var metricType MetricType
-		switch metricTypeString {
-		case "ms":
-			// Timer
-			metricType = TIMER
-		case "g":
-			// Gauge
-			metricType = GAUGE
-		default:
-			// Counter, allows skipping of |c suffix
-			metricType = COUNTER
-
-			var rate float64
-			if len(fields) == 3 {
-				var err error
-				rate, err = strconv.ParseFloat(fields[2][1:], 64)
-				if err != nil {
-					return metricList, fmt.Errorf("%s: bad rate %s", fields[2])
-				}
-			} else {
-				rate = 1
-			}
-			metricValue = metricValue / rate
-		}
-
-		metric := Metric{metricType, bucket, metricValue}
-		metricList = append(metricList, metric)
+	switch string(metricType[:len(metricType)]) {
+	case "ms":
+		// Timer
+		metric.Type = TIMER
+	case "g":
+		// Gauge
+		metric.Type = GAUGE
+	case "c":
+		metric.Type = COUNTER
+	default:
+		err = fmt.Errorf("invalid metric type: %q", metricType)
+		return metric, err
 	}
 
-	return metricList, nil
+	return metric, nil
 }
