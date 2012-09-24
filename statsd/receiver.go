@@ -76,12 +76,17 @@ func (srv *MetricReceiver) handleMessage(msg []byte) {
 			return
 		}
 
-		metric, err := parseLine(line[:len(line)-1])
-		if err != nil {
-			log.Printf("error parsing metric: %s", err)
-			continue
+		lineLength := len(line)
+		// Only process lines with more than one character
+		if lineLength > 1 {
+			metric, err := parseLine(line[:lineLength-1])
+			if err != nil {
+				log.Println(line)
+				log.Println(err)
+				continue
+			}
+			go srv.Handler.HandleMetric(metric)
 		}
-		go srv.Handler.HandleMetric(metric)
 	}
 }
 
@@ -91,22 +96,23 @@ func parseLine(line []byte) (Metric, error) {
 	buf := bytes.NewBuffer(line)
 	bucket, err := buf.ReadBytes(':')
 	if err != nil {
-		return metric, fmt.Errorf("error parsing metric: %s", err)
+		fmt.Println(line)
+		return metric, fmt.Errorf("error parsing metric name: %s", err)
 	}
 	metric.Bucket = string(bucket[:len(bucket)-1])
 
 	value, err := buf.ReadBytes('|')
 	if err != nil {
-		return metric, fmt.Errorf("error parsing metric: %s", err)
+		return metric, fmt.Errorf("error parsing metric value: %s", err)
 	}
 	metric.Value, err = strconv.ParseFloat(string(value[:len(value)-1]), 64)
 	if err != nil {
-		return metric, fmt.Errorf("error parsing value of metric: %s", err)
+		return metric, fmt.Errorf("error converting metric value: %s", err)
 	}
 
 	metricType := buf.Bytes()
 	if err != nil && err != io.EOF {
-		return metric, fmt.Errorf("error parsing metric: %s", err)
+		return metric, fmt.Errorf("error parsing metric type: %s", err)
 	}
 
 	switch string(metricType[:len(metricType)]) {

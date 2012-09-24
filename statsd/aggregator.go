@@ -46,23 +46,26 @@ func NewMetricAggregator(sender MetricSender, flushInterval time.Duration) (a Me
 }
 
 // flush prepares the contents of a MetricAggregator for sending via the Sender
-func (m *MetricAggregator) flush() (metrics MetricMap) {
+func (a *MetricAggregator) flush() (metrics MetricMap) {
+	defer a.Unlock()
+	a.Lock()
+
 	metrics = make(MetricMap)
 	numStats := 0
 
-	for k, v := range m.counters {
-		perSecond := v / m.FlushInterval.Seconds()
+	for k, v := range a.counters {
+		perSecond := v / a.FlushInterval.Seconds()
 		metrics["stats."+k] = perSecond
 		metrics["stats_counts."+k] = v
 		numStats += 1
 	}
 
-	for k, v := range m.gauges {
+	for k, v := range a.gauges {
 		metrics["stats.gauges."+k] = v
 		numStats += 1
 	}
 
-	for k, v := range m.timers {
+	for k, v := range a.timers {
 		if count := len(v); count > 0 {
 			sort.Float64s(v)
 			min := v[0]
@@ -80,26 +83,18 @@ func (m *MetricAggregator) flush() (metrics MetricMap) {
 
 // Reset clears the contents of a MetricAggregator
 func (a *MetricAggregator) Reset() {
-	// Reset counters
-	new_counters := make(MetricMap)
+	defer a.Unlock()
+	a.Lock()
+
 	for k := range a.counters {
-		new_counters[k] = 0
+		a.counters[k] = 0
 	}
-	a.counters = new_counters
 
-	// Reset timers
-	new_timers := make(MetricListMap)
 	for k := range a.timers {
-		new_timers[k] = []float64{}
+		a.timers[k] = []float64{}
 	}
-	a.timers = new_timers
 
-	// Keep values of gauges
-	new_gauges := make(MetricMap)
-	for k, v := range a.gauges {
-		new_gauges[k] = v
-	}
-	a.gauges = new_gauges
+	// No reset for gauges, they keep the last value
 }
 
 // receiveMetric is called for each incoming metric on MetricChan
@@ -133,38 +128,34 @@ func (a *MetricAggregator) receiveMetric(m Metric) {
 
 // Aggregate starts the MetricAggregator so it begins consuming metrics from MetricChan
 // and flushing them periodically via its Sender
-func (m *MetricAggregator) Aggregate() {
-	m.counters = make(MetricMap)
-	m.gauges = make(MetricMap)
-	m.timers = make(MetricListMap)
+func (a *MetricAggregator) Aggregate() {
+	a.counters = make(MetricMap)
+	a.gauges = make(MetricMap)
+	a.timers = make(MetricListMap)
 	flushChan := make(chan error)
-	flushTimer := time.NewTimer(m.FlushInterval)
+	flushTimer := time.NewTimer(a.FlushInterval)
 
 	for {
 		select {
-		case metric := <-m.MetricChan: // Incoming metrics
-			m.receiveMetric(metric)
+		case metric := <-a.MetricChan: // Incoming metrics
+			a.receiveMetric(metric)
 		case <-flushTimer.C: // Time to flush to graphite
-			m.Lock()
-
-			flushed := m.flush()
+			flushed := a.flush()
 			go func() {
-				flushChan <- m.Sender.SendMetrics(flushed)
+				flushChan <- a.Sender.SendMetrics(flushed)
 			}()
-			m.Reset()
-			flushTimer = time.NewTimer(m.FlushInterval)
-
-			m.Unlock()
+			a.Reset()
+			flushTimer = time.NewTimer(a.FlushInterval)
 		case flushResult := <-flushChan:
-			m.Lock()
+			a.Lock()
 
 			if flushResult != nil {
 				log.Printf("Sending metrics to Graphite failed: %s", flushResult)
-				m.stats.GraphiteLastError = time.Now()
+				a.stats.GraphiteLastError = time.Now()
 			} else {
-				m.stats.GraphiteLastFlush = time.Now()
+				a.stats.GraphiteLastFlush = time.Now()
 			}
-			m.Unlock()
+			a.Unlock()
 		}
 	}
 
