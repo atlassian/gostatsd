@@ -3,16 +3,9 @@ package statsd
 import (
 	"log"
 	"sort"
-	"strconv"
 	"sync"
 	"time"
 )
-
-var percentThresholds []float64
-
-func init() {
-	percentThresholds = []float64{90.0}
-}
 
 // metricAggregatorStats is a bookkeeping structure for statistics about a MetricAggregator
 type metricAggregatorStats struct {
@@ -78,13 +71,6 @@ func (m *MetricAggregator) flush() (metrics MetricMap) {
 			metrics["stats.timers."+k+".lower"] = min
 			metrics["stats.timers."+k+".upper"] = max
 			metrics["stats.timers."+k+".count"] = float64(count)
-
-			for _, threshold := range percentThresholds {
-				mean, upper := thresholdStats(v, threshold)
-				thresholdName := strconv.FormatFloat(threshold, 'f', 1, 64)
-				metrics["stats.timers."+k+"mean_"+thresholdName] = mean
-				metrics["stats.timers."+k+"upper_"+thresholdName] = upper
-			}
 			numStats += 1
 		}
 	}
