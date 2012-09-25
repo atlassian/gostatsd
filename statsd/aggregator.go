@@ -37,12 +37,15 @@ type MetricAggregator struct {
 }
 
 // NewMetricAggregator creates a new MetricAggregator object
-func NewMetricAggregator(sender MetricSender, flushInterval time.Duration) (a MetricAggregator) {
-	a = MetricAggregator{}
+func NewMetricAggregator(sender MetricSender, flushInterval time.Duration) MetricAggregator {
+	a := MetricAggregator{}
 	a.FlushInterval = flushInterval
 	a.Sender = sender
 	a.MetricChan = make(chan Metric)
-	return
+	a.Counters = make(MetricMap)
+	a.Gauges = make(MetricMap)
+	a.Timers = make(MetricListMap)
+	return a
 }
 
 // flush prepares the contents of a MetricAggregator for sending via the Sender
@@ -129,9 +132,6 @@ func (a *MetricAggregator) receiveMetric(m Metric) {
 // Aggregate starts the MetricAggregator so it begins consuming metrics from MetricChan
 // and flushing them periodically via its Sender
 func (a *MetricAggregator) Aggregate() {
-	a.Counters = make(MetricMap)
-	a.Gauges = make(MetricMap)
-	a.Timers = make(MetricListMap)
 	flushChan := make(chan error)
 	flushTimer := time.NewTimer(a.FlushInterval)
 
