@@ -46,7 +46,7 @@ func main() {
 	go receiver.ListenAndReceive()
 
 	// Start the console
-	console := statsd.ConsoleServer{consoleAddr, &aggregator}
+	console := statsd.WebConsoleServer{consoleAddr, &aggregator}
 	go console.ListenAndServe()
 
 	// Listen forever

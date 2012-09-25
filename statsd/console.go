@@ -84,39 +84,39 @@ func (c *consoleConn) serve() {
 					"Last message received: %s\n"+
 					"Last flush to Graphite: %s\n"+
 					"Last error from Graphite: %s\n",
-				c.server.Aggregator.stats.BadLines,
-				c.server.Aggregator.stats.LastMessage,
-				c.server.Aggregator.stats.GraphiteLastFlush,
-				c.server.Aggregator.stats.GraphiteLastError)
+				c.server.Aggregator.Stats.BadLines,
+				c.server.Aggregator.Stats.LastMessage,
+				c.server.Aggregator.Stats.LastFlush,
+				c.server.Aggregator.Stats.LastFlushError)
 			c.server.Aggregator.Unlock()
 		case "counters":
 			c.server.Aggregator.Lock()
-			result = fmt.Sprint(c.server.Aggregator.counters)
+			result = fmt.Sprint(c.server.Aggregator.Counters)
 			c.server.Aggregator.Unlock()
 		case "timers":
 			c.server.Aggregator.Lock()
-			result = fmt.Sprint(c.server.Aggregator.timers)
+			result = fmt.Sprint(c.server.Aggregator.Timers)
 			c.server.Aggregator.Unlock()
 		case "gauges":
 			c.server.Aggregator.Lock()
-			result = fmt.Sprint(c.server.Aggregator.gauges)
+			result = fmt.Sprint(c.server.Aggregator.Gauges)
 			c.server.Aggregator.Unlock()
 		case "delcounters":
 			c.server.Aggregator.Lock()
 			for _, k := range args {
-				delete(c.server.Aggregator.counters, k)
+				delete(c.server.Aggregator.Counters, k)
 			}
 			c.server.Aggregator.Unlock()
 		case "deltimers":
 			c.server.Aggregator.Lock()
 			for _, k := range args {
-				delete(c.server.Aggregator.timers, k)
+				delete(c.server.Aggregator.Timers, k)
 			}
 			c.server.Aggregator.Unlock()
 		case "delgauges":
 			c.server.Aggregator.Lock()
 			for _, k := range args {
-				delete(c.server.Aggregator.gauges, k)
+				delete(c.server.Aggregator.Gauges, k)
 			}
 			c.server.Aggregator.Unlock()
 		case "quit":
