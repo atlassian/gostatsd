@@ -53,18 +53,20 @@ func (r *MetricReceiver) Receive(c net.PacketConn) error {
 
 	msg := make([]byte, 1024)
 	for {
-		nbytes, _, err := c.ReadFrom(msg)
+		nbytes, addr, err := c.ReadFrom(msg)
 		if err != nil {
 			log.Printf("%s", err)
 			continue
 		}
-		go r.handleMessage(msg[:nbytes])
+		buf := make([]byte, nbytes)
+		copy(buf, msg[:nbytes])
+		go r.handleMessage(addr, buf)
 	}
 	panic("not reached")
 }
 
 // handleMessage handles the contents of a datagram and attempts to parse a Metric from each line
-func (srv *MetricReceiver) handleMessage(msg []byte) {
+func (srv *MetricReceiver) handleMessage(addr net.Addr, msg []byte) {
 	buf := bytes.NewBuffer(msg)
 	for {
 		line, err := buf.ReadBytes('\n')
@@ -72,7 +74,7 @@ func (srv *MetricReceiver) handleMessage(msg []byte) {
 			break
 		}
 		if err != nil {
-			log.Printf("error reading message: %s", err)
+			log.Printf("error reading message from %s: %s", addr, err)
 			return
 		}
 
@@ -81,8 +83,7 @@ func (srv *MetricReceiver) handleMessage(msg []byte) {
 		if lineLength > 1 {
 			metric, err := parseLine(line[:lineLength-1])
 			if err != nil {
-				log.Println(line)
-				log.Println(err)
+				log.Println("error parsing line %q from %s: %s", line, addr, err)
 				continue
 			}
 			go srv.Handler.HandleMetric(metric)
@@ -96,7 +97,6 @@ func parseLine(line []byte) (Metric, error) {
 	buf := bytes.NewBuffer(line)
 	bucket, err := buf.ReadBytes(':')
 	if err != nil {
-		fmt.Println(line)
 		return metric, fmt.Errorf("error parsing metric name: %s", err)
 	}
 	metric.Bucket = string(bucket[:len(bucket)-1])
