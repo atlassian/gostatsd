@@ -16,7 +16,7 @@ type metricAggregatorStats struct {
 }
 
 // MetricSender is an interface that can be implemented by objects which
-// could be connected to a MetricAggregator
+// can provide metrics to a MetricAggregator
 type MetricSender interface {
 	SendMetrics(MetricMap) error
 }

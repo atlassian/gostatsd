@@ -6,7 +6,7 @@ import (
 )
 
 // WebConsoleServer is an object that listens for HTTP connection on a TCP address Addr
-// and provides a web
+// and provides a web interface for its MetricAggregator
 type WebConsoleServer struct {
 	Addr       string
 	Aggregator *MetricAggregator
