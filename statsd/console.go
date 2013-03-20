@@ -2,7 +2,7 @@ package statsd
 
 import (
 	"fmt"
-	"github.com/kisielk/cmd.go"
+	"github.com/kisielk/cmd"
 	"net"
 )
 
