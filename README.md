@@ -51,7 +51,7 @@ In your source code:
     import "github.com/kisielk/gostatsd/statsd"
 
 Documentation can be found via `go doc github.com/kisielk/gostatsd/statsd` or at
-http://go.pkgdoc.org/github.com/kisielk/gostatsd/statsd
+http://godoc.org/github.com/kisielk/gostatsd/statsd
 
 [etsy]: http://www.etsy.com
 [statsd]: http://www.github.com/etsy/statsd
