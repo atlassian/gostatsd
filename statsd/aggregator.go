@@ -21,6 +21,15 @@ type MetricSender interface {
 	SendMetrics(MetricMap) error
 }
 
+// The MetricSenderFunc type is an adapter to allow the use of ordinary functions as metric senders
+type MetricSenderFunc func(MetricMap)
+
+// SendMetrics calls f(m)
+func (f MetricSenderFunc) SendMetrics(m MetricMap) error {
+	f(m)
+	return nil
+}
+
 // MetricAggregator is an object that aggregates statsd metrics.
 // The function NewMetricAggregator should be used to create the objects.
 //
