@@ -92,7 +92,7 @@ func (srv *MetricReceiver) handleMessage(addr net.Addr, msg []byte) {
 			go srv.Handler.HandleMetric(metric)
 		}
 
-		if readerr != nil && readerr == io.EOF {
+		if readerr == io.EOF {
 			// if was EOF, finished handling
 			return
 		}
