@@ -1,10 +1,10 @@
 VERSION_VAR := main.Version
 GIT_VAR := main.GitCommit
 BUILD_DATE_VAR := main.BuildDate
-REPO_VERSION := $(shell git tag)
+REPO_VERSION := $(shell git describe --abbrev=0 --tags)
 BUILD_DATE := $(shell date +%Y-%m-%d-%H:%M)
 GIT_HASH := $(shell git rev-parse --short HEAD)
-GOBUILD_VERSION_ARGS := -ldflags "-X $(VERSION_VAR)=$(REPO_VERSION) -X $(GIT_VAR)=$(GIT_HASH) -X $(BUILD_DATE_VAR)=$(BUILD_DATE)"
+GOBUILD_VERSION_ARGS := -ldflags "-s -X $(VERSION_VAR)=$(REPO_VERSION) -X $(GIT_VAR)=$(GIT_HASH) -X $(BUILD_DATE_VAR)=$(BUILD_DATE)"
 BINARY_NAME := gostatsd
 IMAGE_NAME := jtblin/$(BINARY_NAME)
 ARCH ?= darwin
@@ -44,15 +44,17 @@ commit-hook:
 	cp dev/commit-hook.sh .git/hooks/pre-commit
 
 cross:
-	CGO_ENABLED=0 GOOS=linux go build $(GOBUILD_VERSION_ARGS) -a -installsuffix cgo -o build/bin/linux/$(BINARY_NAME) .
+	CGO_ENABLED=0 GOOS=linux go build -o build/bin/linux/$(BINARY_NAME) $(GOBUILD_VERSION_ARGS) -a -installsuffix cgo  github.com/jtblin/$(BINARY_NAME)
 
 docker: cross
 	cd build && docker build -t $(IMAGE_NAME):$(GIT_HASH) .
 
-release: check test docker
+release: test docker
 	docker push $(IMAGE_NAME):$(GIT_HASH)
 	docker tag -f $(IMAGE_NAME):$(GIT_HASH) $(IMAGE_NAME):latest
 	docker push $(IMAGE_NAME):latest
+	docker tag -f $(IMAGE_NAME):$(GIT_HASH) $(IMAGE_NAME):$(REPO_VERSION)
+	docker push $(IMAGE_NAME):$(REPO_VERSION)
 
 run: build
 	./build/bin/$(ARCH)/$(BINARY_NAME) --backends=stdout --verbose
