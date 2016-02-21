@@ -1,3 +1,15 @@
+0.4.0
+-----
+- Add datadog backend
+
+0.3.1
+-----
+- Fix reset of metrics
+
+0.3.0
+-----
+- Implement tags handling: use tags in metric names
+
 0.2.0
 -----
 - Implement support for pluggable backends

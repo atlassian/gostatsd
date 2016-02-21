@@ -99,6 +99,8 @@ type Counter struct {
 	Value     int64   // The numeric value of the metric
 }
 
+// TODO: review using gob instead?
+
 // EachCounter iterates over each counter
 func EachCounter(c map[string]map[string]Counter, f func(string, string, Counter)) {
 	for key, value := range c {

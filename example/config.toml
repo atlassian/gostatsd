@@ -1,2 +1,7 @@
 [graphite]
 	address = "192.168.99.100:2003" # running sitespeedio/graphite on OSX with docker-machine
+
+[datadog]
+
+	api_key = "my-secret-key" # Datadog API key required.
+
