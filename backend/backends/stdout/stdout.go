@@ -30,18 +30,10 @@ func NewStdoutClient() (backend.MetricSender, error) {
 }
 
 // Regular expressions used for bucket name normalization
-var (
-	regSemiColon = regexp.MustCompile(":")
-	regSpaces    = regexp.MustCompile("\\s+")
-	regSlashes   = regexp.MustCompile("\\/")
-	regInvalid   = regexp.MustCompile("[^a-zA-Z_\\-0-9\\.]")
-)
+var regSemiColon = regexp.MustCompile(":")
 
 // normalizeBucketName cleans up a bucket name by replacing or translating invalid characters
-func normalizeBucketName(name string, tagsKey string) string {
-	nospaces := regSpaces.ReplaceAllString(name, "_")
-	noslashes := regSlashes.ReplaceAllString(nospaces, "-")
-	bucket := regInvalid.ReplaceAllString(noslashes, "")
+func normalizeBucketName(bucket string, tagsKey string) string {
 	tags := strings.Split(tagsKey, ",")
 	for _, tag := range tags {
 		bucket += "." + regSemiColon.ReplaceAllString(tag, "_")

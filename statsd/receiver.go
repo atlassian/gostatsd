@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -18,6 +19,13 @@ const (
 	UDPPacketSize      = 1500
 )
 
+// Regular expressions used for metric name normalization
+var (
+	regSpaces  = regexp.MustCompile("\\s+")
+	regSlashes = regexp.MustCompile("\\/")
+	regInvalid = regexp.MustCompile("[^a-zA-Z_\\-0-9\\.]")
+)
+
 // Objects implementing the Handler interface can be used to handle metrics for a MetricReceiver
 type Handler interface {
 	HandleMetric(m types.Metric)
@@ -29,6 +37,13 @@ type HandlerFunc func(types.Metric)
 // HandleMetric calls f(m)
 func (f HandlerFunc) HandleMetric(m types.Metric) {
 	f(m)
+}
+
+// normalizeMetricName cleans up a metric name by replacing or translating invalid characters
+func normalizeMetricName(name string) string {
+	nospaces := regSpaces.ReplaceAllString(name, "_")
+	noslashes := regSlashes.ReplaceAllString(nospaces, "-")
+	return regInvalid.ReplaceAllString(noslashes, "")
 }
 
 // MetricReceiver receives data on its listening port and converts lines in to Metrics.
@@ -113,7 +128,7 @@ func parseLine(line []byte) (types.Metric, error) {
 	if err != nil {
 		return metric, fmt.Errorf("error parsing metric name: %s", err)
 	}
-	metric.Name = string(name[:len(name)-1])
+	metric.Name = normalizeMetricName(string(name[:len(name)-1]))
 
 	value, err := buf.ReadBytes('|')
 	if err != nil {
