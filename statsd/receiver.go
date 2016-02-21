@@ -109,11 +109,11 @@ func parseLine(line []byte) (types.Metric, error) {
 	var metric types.Metric
 
 	buf := bytes.NewBuffer(line)
-	bucket, err := buf.ReadBytes(':')
+	name, err := buf.ReadBytes(':')
 	if err != nil {
 		return metric, fmt.Errorf("error parsing metric name: %s", err)
 	}
-	metric.Bucket = string(bucket[:len(bucket)-1])
+	metric.Name = string(name[:len(name)-1])
 
 	value, err := buf.ReadBytes('|')
 	if err != nil {
@@ -172,23 +172,14 @@ func parseLine(line []byte) (types.Metric, error) {
 		metric.Value = metric.Value / sampleRate
 	}
 
-	log.Debugf("tags: %+v", metric.Tags)
 	log.Debugf("metric: %+v", metric)
 	return metric, nil
 }
 
-func parseTags(fragment string) (tags []types.Tag, err error) {
+func parseTags(fragment string) (tags types.Tags, err error) {
 	if strings.HasPrefix(fragment, "#") {
 		fragment = fragment[1:]
-		bits := strings.Split(fragment, ",")
-		for _, bit := range bits {
-			s := strings.Split(bit, ":")
-			tag := types.Tag{Key: s[0]}
-			if len(s) > 1 {
-				tag.Value = s[1]
-			}
-			tags = append(tags, tag)
-		}
+		tags.Items = strings.Split(fragment, ",")
 	} else {
 		err = fmt.Errorf("unknown delimiter: %s", fragment[0:1])
 	}

@@ -29,9 +29,7 @@ type MetricAggregator struct {
 	FlushInterval time.Duration          // How often to flush metrics to the sender
 	Senders       []backend.MetricSender // The sender to which metrics are flushed
 	Stats         metricAggregatorStats
-	Counters      types.MetricMap
-	Gauges        types.MetricMap
-	Timers        types.MetricListMap
+	types.MetricMap
 }
 
 // NewMetricAggregator creates a new MetricAggregator object
@@ -40,9 +38,6 @@ func NewMetricAggregator(senders []backend.MetricSender, flushInterval time.Dura
 	a.FlushInterval = flushInterval
 	a.Senders = senders
 	a.MetricChan = make(chan types.Metric)
-	a.Counters = make(types.MetricMap)
-	a.Gauges = make(types.MetricMap)
-	a.Timers = make(types.MetricListMap)
 	return a
 }
 
@@ -51,50 +46,56 @@ func (a *MetricAggregator) flush() (metrics types.MetricMap) {
 	defer a.Unlock()
 	a.Lock()
 
-	metrics = make(types.MetricMap)
 	numStats := 0
 
-	for k, v := range a.Counters {
-		perSecond := v / a.FlushInterval.Seconds()
-		metrics["stats."+k] = perSecond
-		metrics["stats_counts."+k] = v
+	types.EachCounter(a.Counters, func(key, tagsKey string, counter types.Counter) {
+		perSecond := float64(counter.Value) / a.FlushInterval.Seconds()
+		counter.PerSecond = perSecond
+		a.Counters[key][tagsKey] = counter
 		numStats += 1
+	})
+
+	for _, gauges := range a.Gauges {
+		numStats += len(gauges)
 	}
 
-	for k, v := range a.Gauges {
-		metrics["stats.gauges."+k] = v
-		numStats += 1
-	}
-
-	for k, v := range a.Timers {
-		if count := len(v); count > 0 {
-			sort.Float64s(v)
-			min := v[0]
-			max := v[count-1]
-
-			metrics["stats.timers."+k+".lower"] = min
-			metrics["stats.timers."+k+".upper"] = max
-			metrics["stats.timers."+k+".count"] = float64(count)
+	types.EachTimer(a.Timers, func(key, tagsKey string, timer types.Timer) {
+		if count := len(timer.Values); count > 0 {
+			sort.Float64s(timer.Values)
+			timer.Min = timer.Values[0]
+			timer.Max = timer.Values[count-1]
+			timer.Count = len(timer.Values)
+			a.Timers[key][tagsKey] = timer
 			numStats += 1
 		}
+	})
+
+	return types.MetricMap{
+		NumStats: numStats,
+		Counters: a.Counters,
+		Timers:   a.Timers,
+		Gauges:   a.Gauges,
 	}
-	metrics["statsd.numStats"] = float64(numStats)
-	return metrics
 }
 
 // Reset clears the contents of a MetricAggregator
 func (a *MetricAggregator) Reset() {
-	log.Debug("Reset metrics")
 	defer a.Unlock()
 	a.Lock()
+	a.NumStats = 0
 
-	for k := range a.Counters {
-		a.Counters[k] = 0
-	}
+	types.EachCounter(a.Counters, func(key, tagsKey string, counter types.Counter) {
+		counter.Value = 0
+		counter.PerSecond = 0
+		a.Counters[key][tagsKey] = counter
+	})
 
-	for k := range a.Timers {
-		a.Timers[k] = []float64{}
-	}
+	types.EachTimer(a.Timers, func(key, tagsKey string, timer types.Timer) {
+		timer.Values = []float64{}
+		timer.Min = 0
+		timer.Max = 0
+		a.Timers[key][tagsKey] = timer
+	})
 
 	// No reset for gauges, they keep the last value
 }
@@ -104,23 +105,56 @@ func (a *MetricAggregator) receiveMetric(m types.Metric) {
 	defer a.Unlock()
 	a.Lock()
 
+	tagsKey := m.Tags.String()
 	switch m.Type {
 	case types.COUNTER:
-		v, ok := a.Counters[m.Bucket]
+		v, ok := a.Counters[m.Name]
 		if ok {
-			a.Counters[m.Bucket] = v + m.Value
+			c, ok := v[tagsKey]
+			if ok {
+				c.Value = c.Value + int64(m.Value)
+				a.Counters[m.Name][tagsKey] = c
+			} else {
+				a.Counters[m.Name] = make(map[string]types.Counter)
+				a.Counters[m.Name][tagsKey] = types.Counter{Value: int64(m.Value)}
+			}
 		} else {
-			a.Counters[m.Bucket] = m.Value
+			a.Counters = make(map[string]map[string]types.Counter)
+			a.Counters[m.Name] = make(map[string]types.Counter)
+			a.Counters[m.Name][tagsKey] = types.Counter{Value: int64(m.Value)}
 		}
 	case types.GAUGE:
-		a.Gauges[m.Bucket] = m.Value
-	case types.TIMER:
-		v, ok := a.Timers[m.Bucket]
+		// TODO: handle +/-
+		v, ok := a.Gauges[m.Name]
 		if ok {
-			v = append(v, m.Value)
-			a.Timers[m.Bucket] = v
+			g, ok := v[tagsKey]
+			if ok {
+				g.Value = m.Value
+				a.Gauges[m.Name][tagsKey] = g
+			} else {
+				a.Gauges[m.Name] = make(map[string]types.Gauge)
+				a.Gauges[m.Name][tagsKey] = types.Gauge{Value: m.Value}
+			}
 		} else {
-			a.Timers[m.Bucket] = []float64{m.Value}
+			a.Gauges = make(map[string]map[string]types.Gauge)
+			a.Gauges[m.Name] = make(map[string]types.Gauge)
+			a.Gauges[m.Name][tagsKey] = types.Gauge{Value: m.Value}
+		}
+	case types.TIMER:
+		v, ok := a.Timers[m.Name]
+		if ok {
+			t, ok := v[tagsKey]
+			if ok {
+				t.Values = append(t.Values, m.Value)
+				a.Timers[m.Name][tagsKey] = t
+			} else {
+				a.Timers[m.Name] = make(map[string]types.Timer)
+				a.Timers[m.Name][tagsKey] = types.Timer{Values: []float64{m.Value}}
+			}
+		} else {
+			a.Timers = make(map[string]map[string]types.Timer)
+			a.Timers[m.Name] = make(map[string]types.Timer)
+			a.Timers[m.Name][tagsKey] = types.Timer{Values: []float64{m.Value}}
 		}
 	case types.ERROR:
 		a.Stats.BadLines += 1
@@ -138,7 +172,7 @@ func (a *MetricAggregator) Aggregate() {
 		select {
 		case metric := <-a.MetricChan: // Incoming metrics
 			a.receiveMetric(metric)
-		case <-flushTimer.C: // Time to flush to graphite
+		case <-flushTimer.C: // Time to flush to the backends
 			flushed := a.flush()
 			for _, sender := range a.Senders {
 				s := sender
@@ -153,7 +187,7 @@ func (a *MetricAggregator) Aggregate() {
 			a.Lock()
 
 			if flushResult != nil {
-				log.Printf("Sending metrics to backends failed: %s", flushResult)
+				log.Printf("Sending metrics to backend failed: %s", flushResult)
 				a.Stats.LastFlushError = time.Now()
 			} else {
 				a.Stats.LastFlush = time.Now()

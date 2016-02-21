@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"regexp"
+	"strings"
 	"time"
 
 	"github.com/jtblin/gostatsd/backend"
@@ -30,26 +31,50 @@ func NewStdoutClient() (backend.MetricSender, error) {
 
 // Regular expressions used for bucket name normalization
 var (
-	regSpaces  = regexp.MustCompile("\\s+")
-	regSlashes = regexp.MustCompile("\\/")
-	regInvalid = regexp.MustCompile("[^a-zA-Z_\\-0-9\\.]")
+	regSemiColon = regexp.MustCompile(":")
+	regSpaces    = regexp.MustCompile("\\s+")
+	regSlashes   = regexp.MustCompile("\\/")
+	regInvalid   = regexp.MustCompile("[^a-zA-Z_\\-0-9\\.]")
 )
 
 // normalizeBucketName cleans up a bucket name by replacing or translating invalid characters
-func normalizeBucketName(name string) string {
+func normalizeBucketName(name string, tagsKey string) string {
 	nospaces := regSpaces.ReplaceAllString(name, "_")
 	noslashes := regSlashes.ReplaceAllString(nospaces, "-")
-	return regInvalid.ReplaceAllString(noslashes, "")
+	bucket := regInvalid.ReplaceAllString(noslashes, "")
+	tags := strings.Split(tagsKey, ",")
+	for _, tag := range tags {
+		bucket += "." + regSemiColon.ReplaceAllString(tag, "_")
+	}
+	return bucket
+}
+
+// SampleConfig returns the sample config for the stdout backend
+func (s *StdoutClient) SampleConfig() string {
+	return ""
 }
 
 // SendMetrics sends the metrics in a MetricsMap to the Graphite server
 func (client *StdoutClient) SendMetrics(metrics types.MetricMap) error {
 	buf := new(bytes.Buffer)
 	now := time.Now().Unix()
-	for k, v := range metrics {
-		nk := normalizeBucketName(k)
-		fmt.Fprintf(buf, "%s %f %d\n", nk, v, now)
-	}
+	types.EachCounter(metrics.Counters, func(key, tagsKey string, counter types.Counter) {
+		nk := normalizeBucketName(key, tagsKey)
+		fmt.Fprintf(buf, "stats.counter.%s.count %d %d\n", nk, counter.Value, now)
+		fmt.Fprintf(buf, "stats.counter.%s.per_second %f %d\n", nk, counter.PerSecond, now)
+	})
+	types.EachTimer(metrics.Timers, func(key, tagsKey string, timer types.Timer) {
+		nk := normalizeBucketName(key, tagsKey)
+		fmt.Fprintf(buf, "stats.timers.%s.lower %f %d\n", nk, timer.Min, now)
+		fmt.Fprintf(buf, "stats.timers.%s.upper %f %d\n", nk, timer.Max, now)
+		fmt.Fprintf(buf, "stats.timers.%s.count %f %d\n", nk, timer.Count, now)
+	})
+	types.EachGauge(metrics.Gauges, func(key, tagsKey string, gauge types.Gauge) {
+		nk := normalizeBucketName(key, tagsKey)
+		fmt.Fprintf(buf, "stats.gauge.%s %f %d\n", nk, gauge.Value, now)
+	})
+	fmt.Fprintf(buf, "statsd.numStats %d %d\n", metrics.NumStats, now)
+
 	_, err := buf.WriteTo(log.StandardLogger().Writer())
 	if err != nil {
 		return err

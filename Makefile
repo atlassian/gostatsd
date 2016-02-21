@@ -60,6 +60,7 @@ run: build
 	./build/bin/$(ARCH)/$(BINARY_NAME) --backends=stdout --verbose
 
 run-docker: cross
+	cd build/ && docker-compose rm -f
 	docker-compose -f build/docker-compose.yml build
 	docker-compose -f build/docker-compose.yml up --force-recreate
 

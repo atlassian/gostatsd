@@ -5,12 +5,12 @@ import (
 	"fmt"
 	"net"
 	"regexp"
+	"strings"
 	"time"
 
 	"github.com/jtblin/gostatsd/backend"
 	"github.com/jtblin/gostatsd/types"
 
-	log "github.com/Sirupsen/logrus"
 	"github.com/spf13/viper"
 )
 
@@ -23,18 +23,30 @@ func init() {
 	})
 }
 
+const sampleConfig = `
+[graphite]
+	# graphite host or ip address
+	address = "ip:2003"
+`
+
 // Regular expressions used for bucket name normalization
 var (
-	regSpaces  = regexp.MustCompile("\\s+")
-	regSlashes = regexp.MustCompile("\\/")
-	regInvalid = regexp.MustCompile("[^a-zA-Z_\\-0-9\\.]")
+	regSemiColon = regexp.MustCompile(":")
+	regSpaces    = regexp.MustCompile("\\s+")
+	regSlashes   = regexp.MustCompile("\\/")
+	regInvalid   = regexp.MustCompile("[^a-zA-Z_\\-0-9\\.]")
 )
 
 // normalizeBucketName cleans up a bucket name by replacing or translating invalid characters
-func normalizeBucketName(name string) string {
+func normalizeBucketName(name string, tagsKey string) string {
 	nospaces := regSpaces.ReplaceAllString(name, "_")
 	noslashes := regSlashes.ReplaceAllString(nospaces, "-")
-	return regInvalid.ReplaceAllString(noslashes, "")
+	bucket := regInvalid.ReplaceAllString(noslashes, "")
+	tags := strings.Split(tagsKey, ",")
+	for _, tag := range tags {
+		bucket += "." + regSemiColon.ReplaceAllString(tag, "_")
+	}
+	return bucket
 }
 
 // GraphiteClient is an object that is used to send messages to a Graphite server's UDP interface
@@ -44,18 +56,38 @@ type GraphiteClient struct {
 
 // SendMetrics sends the metrics in a MetricsMap to the Graphite server
 func (client *GraphiteClient) SendMetrics(metrics types.MetricMap) error {
+	if metrics.NumStats == 0 {
+		return nil
+	}
 	buf := new(bytes.Buffer)
 	now := time.Now().Unix()
-	for k, v := range metrics {
-		nk := normalizeBucketName(k)
-		fmt.Fprintf(buf, "%s %f %d\n", nk, v, now)
-		log.Debugf("Graphite payload %s %f %d", nk, v, now)
-	}
+	types.EachCounter(metrics.Counters, func(key, tagsKey string, counter types.Counter) {
+		nk := normalizeBucketName(key, tagsKey)
+		fmt.Fprintf(buf, "stats_count.%s %d %d\n", nk, counter.Value, now)
+		fmt.Fprintf(buf, "stats.%s %f %d\n", nk, counter.PerSecond, now)
+	})
+	types.EachTimer(metrics.Timers, func(key, tagsKey string, timer types.Timer) {
+		nk := normalizeBucketName(key, tagsKey)
+		fmt.Fprintf(buf, "stats.timers.%s.lower %f %d\n", nk, timer.Min, now)
+		fmt.Fprintf(buf, "stats.timers.%s.upper %f %d\n", nk, timer.Max, now)
+		fmt.Fprintf(buf, "stats.timers.%s.count %f %d\n", nk, timer.Count, now)
+	})
+	types.EachGauge(metrics.Gauges, func(key, tagsKey string, gauge types.Gauge) {
+		nk := normalizeBucketName(key, tagsKey)
+		fmt.Fprintf(buf, "stats.gauge.%s %f %d\n", nk, gauge.Value, now)
+	})
+	fmt.Fprintf(buf, "statsd.numStats %d %d\n", metrics.NumStats, now)
+
 	_, err := buf.WriteTo(*client.conn)
 	if err != nil {
 		return fmt.Errorf("error sending to graphite: %s", err)
 	}
 	return nil
+}
+
+// SampleConfig returns the sample config for the graphite backend
+func (g *GraphiteClient) SampleConfig() string {
+	return sampleConfig
 }
 
 // NewGraphiteClient constructs a GraphiteClient object by connecting to an address

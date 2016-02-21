@@ -9,9 +9,12 @@ import (
 
 func TestParseLine(t *testing.T) {
 	tests := map[string]types.Metric{
-		"foo.bar.baz:2|c": {Bucket: "foo.bar.baz", Value: 2.0, Type: types.COUNTER, Tags: []types.Tag{}},
-		"abc.def.g:3|g":   {Bucket: "abc.def.g", Value: 3, Type: types.GAUGE, Tags: []types.Tag{}},
-		"def.g:10|ms":     {Bucket: "def.g", Value: 10, Type: types.TIMER, Tags: []types.Tag{}},
+		"foo.bar.baz:2|c": {Name: "foo.bar.baz", Value: 2.0, Type: types.COUNTER, Tags: types.Tags{Items: []string{}}},
+		"abc.def.g:3|g":   {Name: "abc.def.g", Value: 3, Type: types.GAUGE, Tags: types.Tags{Items: []string{}}},
+		"def.g:10|ms":     {Name: "def.g", Value: 10, Type: types.TIMER, Tags: types.Tags{Items: []string{}}},
+		"smp.rte:5|c|@0.1":     {Name: "smp.rte", Value: 50, Type: types.COUNTER, Tags: types.Tags{Items: []string{}}},
+		"smp.rte:5|c|@0.1|#foo:bar,baz":     {Name: "smp.rte", Value: 50, Type: types.COUNTER, Tags: types.Tags{Items: []string{"baz", "foo:bar"}}},
+		"smp.rte:5|c|#foo:bar,baz":     {Name: "smp.rte", Value: 5, Type: types.COUNTER, Tags: types.Tags{Items: []string{"baz", "foo:bar"}}},
 	}
 
 	for input, expected := range tests {

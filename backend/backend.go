@@ -19,6 +19,8 @@ type Factory func() (MetricSender, error)
 type MetricSender interface {
 	// Name returns the name of the backend
 	Name() string
+	// SampleConfig returns the sample config for the backend
+	SampleConfig() string
 	// ProcessFlush flushes the metrics to the backend
 	SendMetrics(metrics types.MetricMap) error
 }

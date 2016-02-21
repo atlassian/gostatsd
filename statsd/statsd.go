@@ -28,8 +28,7 @@ type StatsdServer struct {
 // NewStatsdServer will create a new StatsdServer with default values.
 func NewStatsdServer() *StatsdServer {
 	return &StatsdServer{
-		Backends: []string{"graphite"},
-		//ConfigPath:     "./config.toml",
+		Backends:       []string{"graphite"},
 		MetricsAddr:    ":8125",
 		ConsoleAddr:    ":8126",
 		WebConsoleAddr: ":8181",
