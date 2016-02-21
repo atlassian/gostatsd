@@ -32,10 +32,10 @@ func (m MetricType) String() string {
 
 // Metric represents a single data collected datapoint
 type Metric struct {
-	Type      MetricType // The type of metric
-	Name      string     // The name of the metric
-	Value     float64    // The numeric value of the metric
-	Tags      Tags       // The tags for the metric
+	Type  MetricType // The type of metric
+	Name  string     // The name of the metric
+	Value float64    // The numeric value of the metric
+	Tags  Tags       // The tags for the metric
 }
 
 // Tags represents a list of tags
@@ -80,7 +80,7 @@ type MetricMap struct {
 func (m MetricMap) String() string {
 	buf := new(bytes.Buffer)
 	EachCounter(m.Counters, func(k, tags string, counter Counter) {
-		fmt.Fprintf(buf, "stats.counter.%s: %f tags=%s\n", k, counter.Value, tags)
+		fmt.Fprintf(buf, "stats.counter.%s: %d tags=%s\n", k, counter.Value, tags)
 	})
 	EachTimer(m.Timers, func(k, tags string, timer Timer) {
 		for _, value := range timer.Values {
@@ -108,6 +108,18 @@ func EachCounter(c map[string]map[string]Counter, f func(string, string, Counter
 	}
 }
 
+// CopyCounters performs a deep copy of a map of counters into a new map
+func CopyCounters(source map[string]map[string]Counter) map[string]map[string]Counter {
+	destination := make(map[string]map[string]Counter)
+	EachCounter(source, func(key, tags string, counter Counter) {
+		if _, ok := destination[key]; !ok {
+			destination[key] = make(map[string]Counter)
+		}
+		destination[key][tags] = counter
+	})
+	return destination
+}
+
 // Timer is used for storing aggregated values for timers.
 type Timer struct {
 	Count  int       // The number of timers in the series
@@ -125,6 +137,18 @@ func EachTimer(c map[string]map[string]Timer, f func(string, string, Timer)) {
 	}
 }
 
+// CopyTimers performs a deep copy of a map of timers into a new map
+func CopyTimers(source map[string]map[string]Timer) map[string]map[string]Timer {
+	destination := make(map[string]map[string]Timer)
+	EachTimer(source, func(key, tags string, timer Timer) {
+		if _, ok := destination[key]; !ok {
+			destination[key] = make(map[string]Timer)
+		}
+		destination[key][tags] = timer
+	})
+	return destination
+}
+
 // Timer is used for storing aggregated values for gauges.
 type Gauge struct {
 	Value float64 // The numeric value of the metric
@@ -137,4 +161,16 @@ func EachGauge(c map[string]map[string]Gauge, f func(string, string, Gauge)) {
 			f(key, tags, gauge)
 		}
 	}
+}
+
+// CopyGauges performs a deep copy of a map of gauges into a new map
+func CopyGauges(source map[string]map[string]Gauge) map[string]map[string]Gauge {
+	destination := make(map[string]map[string]Gauge)
+	EachGauge(source, func(key, tags string, gauge Gauge) {
+		if _, ok := destination[key]; !ok {
+			destination[key] = make(map[string]Gauge)
+		}
+		destination[key][tags] = gauge
+	})
+	return destination
 }
