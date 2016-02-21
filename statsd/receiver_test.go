@@ -1,14 +1,17 @@
 package statsd
 
 import (
+	"reflect"
 	"testing"
+
+	"github.com/jtblin/gostatsd/types"
 )
 
 func TestParseLine(t *testing.T) {
-	tests := map[string]Metric{
-		"foo.bar.baz:2|c": Metric{Bucket: "foo.bar.baz", Value: 2.0, Type: COUNTER},
-		"abc.def.g:3|g":   Metric{Bucket: "abc.def.g", Value: 3, Type: GAUGE},
-		"def.g:10|ms":     Metric{Bucket: "def.g", Value: 10, Type: TIMER},
+	tests := map[string]types.Metric{
+		"foo.bar.baz:2|c": {Bucket: "foo.bar.baz", Value: 2.0, Type: types.COUNTER, Tags: []types.Tag{}},
+		"abc.def.g:3|g":   {Bucket: "abc.def.g", Value: 3, Type: types.GAUGE, Tags: []types.Tag{}},
+		"def.g:10|ms":     {Bucket: "def.g", Value: 10, Type: types.TIMER, Tags: []types.Tag{}},
 	}
 
 	for input, expected := range tests {
@@ -17,7 +20,7 @@ func TestParseLine(t *testing.T) {
 			t.Errorf("test %s error: %s", input, err)
 			continue
 		}
-		if result != expected {
+		if reflect.DeepEqual(result, expected) {
 			t.Errorf("test %s: expected %s, got %s", input, expected, result)
 			continue
 		}

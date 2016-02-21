@@ -1,0 +1,2 @@
+[graphite]
+	address = "graphite:2003"

@@ -1,2 +1,3 @@
-gostatsd/gostatsd
 example/example
+build/bin/
+vendor/

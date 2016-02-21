@@ -1,0 +1,6 @@
+package: github.com/jtblin/gostatsd
+import:
+- package: github.com/Sirupsen/logrus
+- package: github.com/kisielk/cmd
+- package: github.com/spf13/pflag
+- package: github.com/spf13/viper

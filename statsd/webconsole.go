@@ -30,8 +30,8 @@ table, th, td {
 <h1>gostatsd</h1>
 <p>Bad lines received: {{.Stats.BadLines}}</p>
 <p>Last messsage received: {{.Stats.LastMessage}}</p>
-<p>Last flush to graphite: {{.Stats.LastFlush}}</p>
-<p>Last error flushing to graphite: {{.Stats.LastFlushError}}</p>
+<p>Last flush to backends: {{.Stats.LastFlush}}</p>
+<p>Last error flushing to backends: {{.Stats.LastFlushError}}</p>
 <h2>Counters</h2>
 <table>
 <tr><th>Bucket</th><th>Value</th></tr>

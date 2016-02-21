@@ -2,8 +2,9 @@ package statsd
 
 import (
 	"fmt"
-	"github.com/kisielk/cmd"
 	"net"
+
+	"github.com/kisielk/cmd"
 )
 
 // DefaultConsoleAddr is the default address on which a ConsoleServer will listen
@@ -64,8 +65,8 @@ func (c *consoleConn) serve() {
 			return fmt.Sprintf(
 				"Invalid messages received: %d\n"+
 					"Last message received: %s\n"+
-					"Last flush to Graphite: %s\n"+
-					"Last error from Graphite: %s\n",
+					"Last flush to backends: %s\n"+
+					"Last error from backends: %s\n",
 				c.server.Aggregator.Stats.BadLines,
 				c.server.Aggregator.Stats.LastMessage,
 				c.server.Aggregator.Stats.LastFlush,

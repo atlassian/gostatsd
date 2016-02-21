@@ -1,10 +1,14 @@
 package statsd
 
 import (
-	"log"
 	"sort"
 	"sync"
 	"time"
+
+	"github.com/jtblin/gostatsd/backend"
+	"github.com/jtblin/gostatsd/types"
+
+	log "github.com/Sirupsen/logrus"
 )
 
 // metricAggregatorStats is a bookkeeping structure for statistics about a MetricAggregator
@@ -15,53 +19,39 @@ type metricAggregatorStats struct {
 	LastFlushError time.Time
 }
 
-// MetricSender is an interface that can be implemented by objects which
-// can provide metrics to a MetricAggregator
-type MetricSender interface {
-	SendMetrics(MetricMap) error
-}
-
-// The MetricSenderFunc type is an adapter to allow the use of ordinary functions as metric senders
-type MetricSenderFunc func(MetricMap) error
-
-// SendMetrics calls f(m)
-func (f MetricSenderFunc) SendMetrics(m MetricMap) error {
-	return f(m)
-}
-
 // MetricAggregator is an object that aggregates statsd metrics.
 // The function NewMetricAggregator should be used to create the objects.
 //
 // Incoming metrics should be sent to the MetricChan channel.
 type MetricAggregator struct {
 	sync.Mutex
-	MetricChan    chan Metric   // Channel on which metrics are received
-	FlushInterval time.Duration // How often to flush metrics to the sender
-	Sender        MetricSender  // The sender to which metrics are flushed
+	MetricChan    chan types.Metric      // Channel on which metrics are received
+	FlushInterval time.Duration          // How often to flush metrics to the sender
+	Senders       []backend.MetricSender // The sender to which metrics are flushed
 	Stats         metricAggregatorStats
-	Counters      MetricMap
-	Gauges        MetricMap
-	Timers        MetricListMap
+	Counters      types.MetricMap
+	Gauges        types.MetricMap
+	Timers        types.MetricListMap
 }
 
 // NewMetricAggregator creates a new MetricAggregator object
-func NewMetricAggregator(sender MetricSender, flushInterval time.Duration) MetricAggregator {
+func NewMetricAggregator(senders []backend.MetricSender, flushInterval time.Duration) MetricAggregator {
 	a := MetricAggregator{}
 	a.FlushInterval = flushInterval
-	a.Sender = sender
-	a.MetricChan = make(chan Metric)
-	a.Counters = make(MetricMap)
-	a.Gauges = make(MetricMap)
-	a.Timers = make(MetricListMap)
+	a.Senders = senders
+	a.MetricChan = make(chan types.Metric)
+	a.Counters = make(types.MetricMap)
+	a.Gauges = make(types.MetricMap)
+	a.Timers = make(types.MetricListMap)
 	return a
 }
 
 // flush prepares the contents of a MetricAggregator for sending via the Sender
-func (a *MetricAggregator) flush() (metrics MetricMap) {
+func (a *MetricAggregator) flush() (metrics types.MetricMap) {
 	defer a.Unlock()
 	a.Lock()
 
-	metrics = make(MetricMap)
+	metrics = make(types.MetricMap)
 	numStats := 0
 
 	for k, v := range a.Counters {
@@ -94,6 +84,7 @@ func (a *MetricAggregator) flush() (metrics MetricMap) {
 
 // Reset clears the contents of a MetricAggregator
 func (a *MetricAggregator) Reset() {
+	log.Debug("Reset metrics")
 	defer a.Unlock()
 	a.Lock()
 
@@ -109,21 +100,21 @@ func (a *MetricAggregator) Reset() {
 }
 
 // receiveMetric is called for each incoming metric on MetricChan
-func (a *MetricAggregator) receiveMetric(m Metric) {
+func (a *MetricAggregator) receiveMetric(m types.Metric) {
 	defer a.Unlock()
 	a.Lock()
 
 	switch m.Type {
-	case COUNTER:
+	case types.COUNTER:
 		v, ok := a.Counters[m.Bucket]
 		if ok {
 			a.Counters[m.Bucket] = v + m.Value
 		} else {
 			a.Counters[m.Bucket] = m.Value
 		}
-	case GAUGE:
+	case types.GAUGE:
 		a.Gauges[m.Bucket] = m.Value
-	case TIMER:
+	case types.TIMER:
 		v, ok := a.Timers[m.Bucket]
 		if ok {
 			v = append(v, m.Value)
@@ -131,7 +122,7 @@ func (a *MetricAggregator) receiveMetric(m Metric) {
 		} else {
 			a.Timers[m.Bucket] = []float64{m.Value}
 		}
-	case ERROR:
+	case types.ERROR:
 		a.Stats.BadLines += 1
 	}
 	a.Stats.LastMessage = time.Now()
@@ -149,16 +140,20 @@ func (a *MetricAggregator) Aggregate() {
 			a.receiveMetric(metric)
 		case <-flushTimer.C: // Time to flush to graphite
 			flushed := a.flush()
-			go func() {
-				flushChan <- a.Sender.SendMetrics(flushed)
-			}()
+			for _, sender := range a.Senders {
+				s := sender
+				go func() {
+					log.Debugf("Send metrics to backend %s", s.Name())
+					flushChan <- s.SendMetrics(flushed)
+				}()
+			}
 			a.Reset()
 			flushTimer = time.NewTimer(a.FlushInterval)
 		case flushResult := <-flushChan:
 			a.Lock()
 
 			if flushResult != nil {
-				log.Printf("Sending metrics to Graphite failed: %s", flushResult)
+				log.Printf("Sending metrics to backends failed: %s", flushResult)
 				a.Stats.LastFlushError = time.Now()
 			} else {
 				a.Stats.LastFlush = time.Now()

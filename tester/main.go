@@ -4,12 +4,13 @@ import (
 	"bufio"
 	"flag"
 	"fmt"
-	"github.com/kisielk/gostatsd/statsd"
 	"io"
 	"math/rand"
 	"net"
 	"os"
 	"time"
+
+	"github.com/jtblin/gostatsd/types"
 )
 
 var (
@@ -22,7 +23,7 @@ const (
 
 type MetricDef struct {
 	Bucket   string
-	Type     statsd.MetricType
+	Type     types.MetricType
 	MinVal   float64
 	MaxVal   float64
 	MinDelay time.Duration

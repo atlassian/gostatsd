@@ -1,12 +1,32 @@
-package statsd
+package stdout
 
 import (
 	"bytes"
 	"fmt"
-	"net"
 	"regexp"
 	"time"
+
+	"github.com/jtblin/gostatsd/backend"
+	"github.com/jtblin/gostatsd/types"
+
+	log "github.com/Sirupsen/logrus"
 )
+
+const backendName = "stdout"
+
+func init() {
+	backend.RegisterBackend(backendName, func() (backend.MetricSender, error) {
+		return NewStdoutClient()
+	})
+}
+
+// StdoutClient is an object that is used to send messages to stdout
+type StdoutClient struct{}
+
+// NewStdoutClient constructs a StdoutClient object
+func NewStdoutClient() (backend.MetricSender, error) {
+	return &StdoutClient{}, nil
+}
 
 // Regular expressions used for bucket name normalization
 var (
@@ -22,29 +42,21 @@ func normalizeBucketName(name string) string {
 	return regInvalid.ReplaceAllString(noslashes, "")
 }
 
-// GraphiteClient is an object that is used to send messages to a Graphite server's UDP interface
-type GraphiteClient struct {
-	conn *net.Conn
-}
-
 // SendMetrics sends the metrics in a MetricsMap to the Graphite server
-func (client *GraphiteClient) SendMetrics(metrics MetricMap) (err error) {
+func (client *StdoutClient) SendMetrics(metrics types.MetricMap) error {
 	buf := new(bytes.Buffer)
 	now := time.Now().Unix()
 	for k, v := range metrics {
 		nk := normalizeBucketName(k)
 		fmt.Fprintf(buf, "%s %f %d\n", nk, v, now)
 	}
-	_, err = buf.WriteTo(*client.conn)
+	_, err := buf.WriteTo(log.StandardLogger().Writer())
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-// NewGraphiteClient constructs a GraphiteClient object by connecting to an address
-func NewGraphiteClient(addr string) (client GraphiteClient, err error) {
-	conn, err := net.Dial("tcp", addr)
-	client = GraphiteClient{&conn}
-	return
+func (client *StdoutClient) Name() string {
+	return backendName
 }

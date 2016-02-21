@@ -1,4 +1,4 @@
-package statsd
+package types
 
 import (
 	"bytes"
@@ -33,6 +33,21 @@ type Metric struct {
 	Type   MetricType // The type of metric
 	Bucket string     // The name of the bucket where the metric belongs
 	Value  float64    // The numeric value of the metric
+	Tags   []Tag      // The tags for the metric
+}
+
+// Tag represents a single tag e.g. foo or foo=1
+type Tag struct {
+	Key   string
+	Value string
+}
+
+func (m Tag) String() string {
+	if m.Value != "" {
+		return fmt.Sprintf("%s:%s", m.Key, m.Value)
+	} else {
+		return m.Key
+	}
 }
 
 func (m Metric) String() string {
@@ -51,7 +66,7 @@ func (m MetricMap) String() string {
 	return buf.String()
 }
 
-// MetricListMap is simlar to MetricMap but instead of storing a single aggregated 
+// MetricListMap is similar to MetricMap but instead of storing a single aggregated
 // Metric value it stores a list of all collected values.
 type MetricListMap map[string][]float64
 

@@ -1,0 +1,2 @@
+[graphite]
+	address = "192.168.99.100:2003" # running sitespeedio/graphite on OSX with docker-machine

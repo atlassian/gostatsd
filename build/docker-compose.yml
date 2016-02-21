@@ -1,0 +1,18 @@
+gostatsd:
+  build: .
+  command: gostatsd --backends=stdout,graphite --verbose  --config-path=/etc/gostatsd/docker-compose.toml
+  environment:
+    PWD:
+  links:
+    - graphite
+  ports:
+    - 8125/udp
+    - 8126
+    - 8181
+  volumes:
+    - ${PWD}/example:/etc/gostatsd:ro
+graphite:
+  image: sitespeedio/graphite
+  ports:
+    - 8080:80
+    - 2003

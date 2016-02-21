@@ -1,0 +1,48 @@
+hash: fd03b57676a0e9f39ec091940c6d197901fa56ab61604d3c1a84b7354451816b
+updated: 2016-02-21T11:51:57.546244313+11:00
+imports:
+- name: github.com/armon/consul-api
+  version: dcfedd50ed5334f96adee43fc88518a4f095e15c
+- name: github.com/BurntSushi/toml
+  version: f772cd89eb0b33743387f826d1918df67f99cc7a
+- name: github.com/coreos/go-etcd
+  version: 003851be7bb0694fe3cc457a49529a19388ee7cf
+- name: github.com/hashicorp/hcl
+  version: 1c284ec98f4b398443cbabb0d9197f7f4cc0077c
+- name: github.com/kisielk/cmd
+  version: d175a37b36239828941c8e176ffa0f4d9221f641
+- name: github.com/kr/pretty
+  version: e6ac2fc51e89a3249e82157fa0bb7a18ef9dd5bb
+- name: github.com/kr/pty
+  version: f7ee69f31298ecbe5d2b349c711e2547a617d398
+- name: github.com/kr/text
+  version: bb797dc4fb8320488f47bf11de07a733d7233e1f
+- name: github.com/magiconair/properties
+  version: c81f9d71af8f8cba1466501d30326b99a4e56c19
+- name: github.com/mitchellh/mapstructure
+  version: d2dd0262208475919e1a362f675cfc0e7c10e905
+- name: github.com/Sirupsen/logrus
+  version: 57cce1ed6103dce7791881d3e69e55f90d986aa5
+- name: github.com/spf13/cast
+  version: ee7b3e0353166ab1f3a605294ac8cd2b77953778
+- name: github.com/spf13/jwalterweatherman
+  version: d00654080cddbd2b082acaa74007cb94a2b40866
+- name: github.com/spf13/pflag
+  version: 7f60f83a2c81bc3c3c0d5297f61ddfa68da9d3b7
+- name: github.com/spf13/viper
+  version: c975dc1b4eacf4ec7fdbf0873638de5d090ba323
+- name: github.com/ugorji/go
+  version: 03b46f3d7a8e0457836a5ecd906b4961a5815a63
+- name: github.com/xordataexchange/crypt
+  version: 749e360c8f236773f28fc6d3ddfce4a470795227
+- name: golang.org/x/crypto
+  version: 1f22c0103821b9390939b6776727195525381532
+- name: gopkg.in/airbrake/gobrake.v2
+  version: c9d51adc624b5cc4c1bf8de730a09af4878ffe2d
+- name: gopkg.in/fsnotify.v1
+  version: 8611c35ab31c1c28aa903d33cf8b6e44a399b09e
+- name: gopkg.in/gemnasium/logrus-airbrake-hook.v2
+  version: 31e6fd4bd5a98d8ee7673d24bc54ec73c31810dd
+- name: gopkg.in/yaml.v2
+  version: f7716cbe52baa25d2e9b0d0da546fcf909fc16b4
+devImports: []
