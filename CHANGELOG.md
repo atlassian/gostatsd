@@ -1,11 +1,15 @@
+0.7.1
+-----
+- Improve `graphite` backend reliability by re-opening connection on each metrics send
+
 0.7.0
 -----
 - Add statsd backend
-- Datadog: remove api url from config
 
 0.6.0
 -----
 - Add support for global metrics namespace
+- Datadog: remove api url from config
 
 0.5.0
 -----

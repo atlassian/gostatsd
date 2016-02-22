@@ -5,7 +5,7 @@ Pri 1
 -----
 
 * [x] Support `Set` metric
-* [ ] Improve `graphite` backend reliability by re-opening connection on each flush or implementing retry on error
+* [x] Improve `graphite` backend reliability by re-opening connection on each flush or implementing retry on error
 * [x] Add `statsd` backend to allow load balancing the statsd server / running statsd server HA
 * [x] Add `datadog` backend
 * [ ] Add `influxdb` backend

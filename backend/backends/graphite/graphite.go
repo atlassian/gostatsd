@@ -43,7 +43,7 @@ func normalizeBucketName(bucket string, tagsKey string) string {
 
 // GraphiteClient is an object that is used to send messages to a Graphite server's TCP interface
 type GraphiteClient struct {
-	conn *net.Conn
+	address string
 }
 
 // SendMetrics sends the metrics in a MetricsMap to the Graphite server
@@ -76,7 +76,13 @@ func (client *GraphiteClient) SendMetrics(metrics types.MetricMap) error {
 
 	fmt.Fprintf(buf, "statsd.numStats %d %d\n", metrics.NumStats, now)
 
-	_, err := buf.WriteTo(*client.conn)
+	conn, err := net.Dial("tcp", client.address)
+	if err != nil {
+		return fmt.Errorf("error connecting to graphite backend: %s", err)
+	}
+	defer conn.Close()
+
+	_, err = buf.WriteTo(conn)
 	if err != nil {
 		return fmt.Errorf("error sending to graphite: %s", err)
 	}
@@ -90,11 +96,7 @@ func (g *GraphiteClient) SampleConfig() string {
 
 // NewGraphiteClient constructs a GraphiteClient object by connecting to an address
 func NewGraphiteClient() (backend.MetricSender, error) {
-	conn, err := net.Dial("tcp", viper.GetString("graphite.address"))
-	if err != nil {
-		return nil, err
-	}
-	return &GraphiteClient{&conn}, nil
+	return &GraphiteClient{viper.GetString("graphite.address")}, nil
 }
 
 func (client *GraphiteClient) Name() string {
