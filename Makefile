@@ -57,7 +57,7 @@ release: test docker
 	docker push $(IMAGE_NAME):$(REPO_VERSION)
 
 run: build
-	./build/bin/$(ARCH)/$(BINARY_NAME) --backends=stdout --verbose
+	./build/bin/$(ARCH)/$(BINARY_NAME) --backends=stdout --verbose --flush-interval=10s
 
 run-docker: cross
 	cd build/ && docker-compose rm -f

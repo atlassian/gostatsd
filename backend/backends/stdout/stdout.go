@@ -59,7 +59,7 @@ func (client *StdoutClient) SendMetrics(metrics types.MetricMap) error {
 		nk := normalizeBucketName(key, tagsKey)
 		fmt.Fprintf(buf, "stats.timers.%s.lower %f %d\n", nk, timer.Min, now)
 		fmt.Fprintf(buf, "stats.timers.%s.upper %f %d\n", nk, timer.Max, now)
-		fmt.Fprintf(buf, "stats.timers.%s.count %f %d\n", nk, timer.Count, now)
+		fmt.Fprintf(buf, "stats.timers.%s.count %d %d\n", nk, timer.Count, now)
 	})
 	types.EachGauge(metrics.Gauges, func(key, tagsKey string, gauge types.Gauge) {
 		nk := normalizeBucketName(key, tagsKey)

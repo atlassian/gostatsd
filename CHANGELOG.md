@@ -1,6 +1,8 @@
 0.7.1
 -----
 - Improve `graphite` backend reliability by re-opening connection on each metrics send
+- Fix value of metrics displayed in web UI
+- Improve web console UI look'n'feel
 
 0.7.0
 -----

@@ -8,7 +8,6 @@ Pri 1
 * [x] Improve `graphite` backend reliability by re-opening connection on each flush or implementing retry on error
 * [x] Add `statsd` backend to allow load balancing the statsd server / running statsd server HA
 * [x] Add `datadog` backend
-* [ ] Add `influxdb` backend
 * [ ] Add more aggregations e.g. mean, standard deviation, etc.
 * [ ] Add tests
 * [ ] Add load testing
@@ -18,15 +17,17 @@ Pri 1
 Pri 2
 -----
 
+* [ ] Add `influxdb` backend
 * [ ] Fix gomatelinter issues
 * [ ] Implement stats by backend e.g. last flush, last flush error, etc.
 * [ ] Support `Histogram` metric
 * [ ] Support `Event` metric
-* [ ] Fix value of metrics displayed in web console UI
+* [ ] Fix value of metrics displayed in console
+* [x] Fix value of metrics displayed in web UI
 * [ ] Rate limiting per source ip address
 
 Pri 3
 -----
 
-* [ ] Improve web console UI
+* [x] Improve web console UI look'n'feel
 
