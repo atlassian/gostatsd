@@ -78,8 +78,8 @@ func (d *Datadog) SendMetrics(metrics types.MetricMap) error {
 	ts := TimeSeries{Timestamp: time.Now().Unix(), Hostname: d.Hostname}
 
 	types.EachCounter(metrics.Counters, func(key, tagsKey string, counter types.Counter) {
-		ts.AddMetric(fmt.Sprintf("%s", key), tagsKey, GAUGE, counter.PerSecond)
-		ts.AddMetric(fmt.Sprintf("%s.count", key), tagsKey, GAUGE, float64(counter.Value))
+		ts.AddMetric(fmt.Sprintf("%s.counter", key), tagsKey, GAUGE, counter.PerSecond)
+		ts.AddMetric(fmt.Sprintf("%s.counter.count", key), tagsKey, GAUGE, float64(counter.Value))
 	})
 
 	types.EachTimer(metrics.Timers, func(key, tagsKey string, timer types.Timer) {
@@ -90,6 +90,10 @@ func (d *Datadog) SendMetrics(metrics types.MetricMap) error {
 
 	types.EachGauge(metrics.Gauges, func(key, tagsKey string, gauge types.Gauge) {
 		ts.AddMetric(fmt.Sprintf("%s.gauge", key), tagsKey, GAUGE, gauge.Value)
+	})
+
+	types.EachSet(metrics.Sets, func(key, tagsKey string, set types.Set) {
+		ts.AddMetric(fmt.Sprintf("%s.set", key), tagsKey, GAUGE, float64(len(set.Values)))
 	})
 
 	ts.AddMetric("statsd.numStats", "", GAUGE, float64(metrics.NumStats))

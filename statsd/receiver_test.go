@@ -15,6 +15,7 @@ func TestParseLine(t *testing.T) {
 		"smp.rte:5|c|@0.1":              {Name: "smp.rte", Value: 50, Type: types.COUNTER, Tags: types.Tags{Items: []string{}}},
 		"smp.rte:5|c|@0.1|#foo:bar,baz": {Name: "smp.rte", Value: 50, Type: types.COUNTER, Tags: types.Tags{Items: []string{"baz", "foo:bar"}}},
 		"smp.rte:5|c|#foo:bar,baz":      {Name: "smp.rte", Value: 5, Type: types.COUNTER, Tags: types.Tags{Items: []string{"baz", "foo:bar"}}},
+		"uniq.usr:joe|s":                {Name: "uniq.usr", StringValue: "joe", Type: types.SET, Tags: types.Tags{Items: []string{}}},
 	}
 
 	for input, expected := range tests {

@@ -1,3 +1,7 @@
+0.5.0
+-----
+- Add support for "Set" metric type
+
 0.4.2
 -----
 - datadog: send number of metrics received

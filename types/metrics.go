@@ -16,6 +16,7 @@ const (
 	COUNTER
 	TIMER
 	GAUGE
+	SET
 )
 
 func (m MetricType) String() string {
@@ -26,16 +27,19 @@ func (m MetricType) String() string {
 		return "timer"
 	case m >= COUNTER:
 		return "counter"
+	case m >= SET:
+		return "set"
 	}
 	return "unknown"
 }
 
 // Metric represents a single data collected datapoint
 type Metric struct {
-	Type  MetricType // The type of metric
-	Name  string     // The name of the metric
-	Value float64    // The numeric value of the metric
-	Tags  Tags       // The tags for the metric
+	Type        MetricType // The type of metric
+	Name        string     // The name of the metric
+	Value       float64    // The numeric value of the metric
+	Tags        Tags       // The tags for the metric
+	StringValue string     // The string value for some metrics e.g. Set
 }
 
 // Tags represents a list of tags
@@ -75,6 +79,7 @@ type MetricMap struct {
 	Counters map[string]map[string]Counter
 	Timers   map[string]map[string]Timer
 	Gauges   map[string]map[string]Gauge
+	Sets     map[string]map[string]Set
 }
 
 func (m MetricMap) String() string {
@@ -131,8 +136,8 @@ type Timer struct {
 }
 
 // EachTimer iterates over each timer
-func EachTimer(c map[string]map[string]Timer, f func(string, string, Timer)) {
-	for key, value := range c {
+func EachTimer(t map[string]map[string]Timer, f func(string, string, Timer)) {
+	for key, value := range t {
 		for tags, timer := range value {
 			f(key, tags, timer)
 		}
@@ -151,14 +156,14 @@ func CopyTimers(source map[string]map[string]Timer) map[string]map[string]Timer 
 	return destination
 }
 
-// Timer is used for storing aggregated values for gauges.
+// Gauge is used for storing aggregated values for gauges.
 type Gauge struct {
 	Value float64 // The numeric value of the metric
 }
 
 // EachGauge iterates over each gauge
-func EachGauge(c map[string]map[string]Gauge, f func(string, string, Gauge)) {
-	for key, value := range c {
+func EachGauge(g map[string]map[string]Gauge, f func(string, string, Gauge)) {
+	for key, value := range g {
 		for tags, gauge := range value {
 			f(key, tags, gauge)
 		}
@@ -173,6 +178,33 @@ func CopyGauges(source map[string]map[string]Gauge) map[string]map[string]Gauge 
 			destination[key] = make(map[string]Gauge)
 		}
 		destination[key][tags] = gauge
+	})
+	return destination
+}
+
+// Set is used for storing aggregated values for sets.
+type Set struct {
+	//Count int64 // The number of occurrences of a specific metric
+	Values map[string]int64 // The number of occurrences for a specific value
+}
+
+// EachSet iterates over each set
+func EachSet(s map[string]map[string]Set, f func(string, string, Set)) {
+	for key, value := range s {
+		for tags, set := range value {
+			f(key, tags, set)
+		}
+	}
+}
+
+// CopySets performs a deep copy of a map of gauges into a new map
+func CopySets(source map[string]map[string]Set) map[string]map[string]Set {
+	destination := make(map[string]map[string]Set)
+	EachSet(source, func(key, tags string, set Set) {
+		if _, ok := destination[key]; !ok {
+			destination[key] = make(map[string]Set)
+		}
+		destination[key][tags] = set
 	})
 	return destination
 }

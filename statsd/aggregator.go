@@ -70,11 +70,16 @@ func (a *MetricAggregator) flush() (metrics types.MetricMap) {
 		}
 	})
 
+	types.EachSet(a.Sets, func(key, tagsKey string, set types.Set) {
+		numStats += len(set.Values)
+	})
+
 	return types.MetricMap{
 		NumStats: numStats,
 		Counters: types.CopyCounters(a.Counters),
 		Timers:   types.CopyTimers(a.Timers),
 		Gauges:   types.CopyGauges(a.Gauges),
+		Sets:     types.CopySets(a.Sets),
 	}
 }
 
@@ -84,12 +89,14 @@ func (a *MetricAggregator) Reset() {
 	a.Lock()
 	a.NumStats = 0
 
+	// TODO: expire old counters after some time
 	types.EachCounter(a.Counters, func(key, tagsKey string, counter types.Counter) {
 		counter.Value = 0
 		counter.PerSecond = 0
 		a.Counters[key][tagsKey] = counter
 	})
 
+	// TODO: expire old timers after some time
 	types.EachTimer(a.Timers, func(key, tagsKey string, timer types.Timer) {
 		timer.Values = []float64{}
 		timer.Min = 0
@@ -97,6 +104,9 @@ func (a *MetricAggregator) Reset() {
 		a.Timers[key][tagsKey] = timer
 	})
 
+	a.Sets = make(map[string]map[string]types.Set)
+
+	// TODO: expire old gauges after some time
 	// No reset for gauges, they keep the last value
 }
 
@@ -155,6 +165,32 @@ func (a *MetricAggregator) receiveMetric(m types.Metric) {
 			a.Timers = make(map[string]map[string]types.Timer)
 			a.Timers[m.Name] = make(map[string]types.Timer)
 			a.Timers[m.Name][tagsKey] = types.Timer{Values: []float64{m.Value}}
+		}
+	case types.SET:
+		v, ok := a.Sets[m.Name]
+		if ok {
+			s, ok := v[tagsKey]
+			if ok {
+				u, ok := s.Values[m.StringValue]
+				if ok {
+					u++
+					s.Values[m.StringValue] = u
+				} else {
+					s.Values[m.StringValue] = 1
+				}
+				a.Sets[m.Name][tagsKey] = s
+			} else {
+				a.Sets[m.Name] = make(map[string]types.Set)
+				unique := make(map[string]int64)
+				unique[m.StringValue] = 1
+				a.Sets[m.Name][tagsKey] = types.Set{Values: unique}
+			}
+		} else {
+			a.Sets = make(map[string]map[string]types.Set)
+			a.Sets[m.Name] = make(map[string]types.Set)
+			unique := make(map[string]int64)
+			unique[m.StringValue] = 1
+			a.Sets[m.Name][tagsKey] = types.Set{Values: unique}
 		}
 	case types.ERROR:
 		a.Stats.BadLines += 1

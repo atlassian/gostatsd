@@ -134,10 +134,7 @@ func parseLine(line []byte) (types.Metric, error) {
 	if err != nil {
 		return metric, fmt.Errorf("error parsing metric value: %s", err)
 	}
-	metric.Value, err = strconv.ParseFloat(string(value[:len(value)-1]), 64)
-	if err != nil {
-		return metric, fmt.Errorf("error converting metric value: %s", err)
-	}
+	metricValue := string(value[:len(value)-1])
 
 	endLine := string(buf.Bytes())
 	if err != nil && err != io.EOF {
@@ -157,9 +154,20 @@ func parseLine(line []byte) (types.Metric, error) {
 		metric.Type = types.GAUGE
 	case "c":
 		metric.Type = types.COUNTER
+	case "s":
+		metric.Type = types.SET
 	default:
 		err = fmt.Errorf("invalid metric type: %q", metricType)
 		return metric, err
+	}
+
+	if metric.Type == types.SET {
+		metric.StringValue = metricValue
+	} else {
+		metric.Value, err = strconv.ParseFloat(metricValue, 64)
+		if err != nil {
+			return metric, fmt.Errorf("error converting metric value: %s", err)
+		}
 	}
 
 	sampleRate := 1.0
