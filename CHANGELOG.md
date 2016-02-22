@@ -1,3 +1,7 @@
+0.6.0
+-----
+- Add support for global metrics namespace
+
 0.5.0
 -----
 - Add support for "Set" metric type

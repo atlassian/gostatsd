@@ -21,6 +21,7 @@ type StatsdServer struct {
 	MetricsAddr    string
 	WebConsoleAddr string
 	ConsoleAddr    string
+	Namespace      string
 	Verbose        bool
 	Version        bool
 }
@@ -42,6 +43,7 @@ func (s *StatsdServer) AddFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&s.ConfigPath, "config-path", s.ConfigPath, "Path to the configuration file")
 	fs.DurationVar(&s.FlushInterval, "flush-interval", s.FlushInterval, "How often to flush metrics to the backends")
 	fs.StringVar(&s.MetricsAddr, "metrics-addr", s.MetricsAddr, "Address on which to listen for metrics")
+	fs.StringVar(&s.Namespace, "namespace", s.Namespace, "Namespace all metrics")
 	fs.StringVar(&s.WebConsoleAddr, "web-addr", s.WebConsoleAddr, "If set, use as the address of the web-based console")
 	fs.StringVar(&s.ConsoleAddr, "console-addr", s.ConsoleAddr, "If set, use as the address of the telnet-based console")
 	fs.BoolVar(&s.Verbose, "verbose", false, "Verbose")
@@ -79,7 +81,7 @@ func (s *StatsdServer) Run() error {
 	f := func(metric types.Metric) {
 		aggregator.MetricChan <- metric
 	}
-	receiver := MetricReceiver{s.MetricsAddr, HandlerFunc(f)}
+	receiver := MetricReceiver{s.MetricsAddr, s.Namespace, HandlerFunc(f)}
 	go receiver.ListenAndReceive()
 
 	// Start the console(s)

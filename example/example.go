@@ -11,6 +11,6 @@ func main() {
 	f := func(m types.Metric) {
 		log.Printf("%s", m)
 	}
-	r := statsd.MetricReceiver{":8125", statsd.HandlerFunc(f)}
+	r := statsd.MetricReceiver{":8125", "stats", statsd.HandlerFunc(f)}
 	r.ListenAndReceive()
 }

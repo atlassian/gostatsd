@@ -71,7 +71,7 @@ func (client *GraphiteClient) SendMetrics(metrics types.MetricMap) error {
 
 	types.EachSet(metrics.Sets, func(key, tagsKey string, set types.Set) {
 		nk := normalizeBucketName(key, tagsKey)
-		fmt.Fprintf(buf, "stats.set.%s %d %d\n", nk, len(set.Values), now)
+		fmt.Fprintf(buf, "stats.sets.%s %d %d\n", nk, len(set.Values), now)
 	})
 
 	fmt.Fprintf(buf, "statsd.numStats %d %d\n", metrics.NumStats, now)

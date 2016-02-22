@@ -21,14 +21,14 @@ const (
 
 func (m MetricType) String() string {
 	switch {
+	case m >= SET:
+		return "set"
 	case m >= GAUGE:
 		return "gauge"
 	case m >= TIMER:
 		return "timer"
 	case m >= COUNTER:
 		return "counter"
-	case m >= SET:
-		return "set"
 	}
 	return "unknown"
 }
@@ -69,7 +69,7 @@ func (tags Tags) Map() map[string]string {
 }
 
 func (m Metric) String() string {
-	return fmt.Sprintf("{%s, %s, %f, %v}", m.Type, m.Name, m.Value, m.Tags)
+	return fmt.Sprintf("{%s, %s, %f, %s, %v}", m.Type, m.Name, m.Value, m.StringValue, m.Tags)
 }
 
 // MetricMap is used for storing aggregated Metric values.
@@ -94,6 +94,9 @@ func (m MetricMap) String() string {
 	})
 	EachGauge(m.Gauges, func(k, tags string, gauge Gauge) {
 		fmt.Fprintf(buf, "stats.gauge.%s: %f tags=%s\n", k, gauge.Value, tags)
+	})
+	EachSet(m.Sets, func(k, tags string, set Set) {
+		fmt.Fprintf(buf, "stats.set.%s: %f tags=%s\n", k, len(set.Values), tags)
 	})
 	return buf.String()
 }

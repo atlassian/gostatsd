@@ -40,23 +40,28 @@ func (f HandlerFunc) HandleMetric(m types.Metric) {
 }
 
 // normalizeMetricName cleans up a metric name by replacing or translating invalid characters
-func normalizeMetricName(name string) string {
+func (mr *MetricReceiver) normalizeMetricName(name string) string {
 	nospaces := regSpaces.ReplaceAllString(name, "_")
 	noslashes := regSlashes.ReplaceAllString(nospaces, "-")
-	return regInvalid.ReplaceAllString(noslashes, "")
+	metricName := regInvalid.ReplaceAllString(noslashes, "")
+	if mr.Namespace != "" {
+		metricName = fmt.Sprintf("%s.%s", mr.Namespace, metricName)
+	}
+	return metricName
 }
 
 // MetricReceiver receives data on its listening port and converts lines in to Metrics.
 // For each types.Metric it calls r.Handler.HandleMetric()
 type MetricReceiver struct {
-	Addr    string  // UDP address on which to listen for metrics
-	Handler Handler // handler to invoke
+	Addr      string  // UDP address on which to listen for metrics
+	Namespace string  // Namespace to prefix all metrics
+	Handler   Handler // handler to invoke
 }
 
 // ListenAndReceive listens on the UDP network address of srv.Addr and then calls
 // Receive to handle the incoming datagrams. If Addr is blank then DefaultMetricsAddr is used.
-func (r *MetricReceiver) ListenAndReceive() error {
-	addr := r.Addr
+func (mr *MetricReceiver) ListenAndReceive() error {
+	addr := mr.Addr
 	if addr == "" {
 		addr = DefaultMetricsAddr
 	}
@@ -64,12 +69,12 @@ func (r *MetricReceiver) ListenAndReceive() error {
 	if err != nil {
 		return err
 	}
-	return r.Receive(c)
+	return mr.Receive(c)
 }
 
 // Receive accepts incoming datagrams on c and calls r.Handler.HandleMetric() for each line in the
 // datagram that successfully parses in to a types.Metric
-func (r *MetricReceiver) Receive(c net.PacketConn) error {
+func (mr *MetricReceiver) Receive(c net.PacketConn) error {
 	defer c.Close()
 
 	msg := make([]byte, UDPPacketSize)
@@ -81,13 +86,13 @@ func (r *MetricReceiver) Receive(c net.PacketConn) error {
 		}
 		buf := make([]byte, nbytes)
 		copy(buf, msg[:nbytes])
-		go r.handleMessage(addr, buf)
+		go mr.handleMessage(addr, buf)
 	}
 	panic("not reached")
 }
 
 // handleMessage handles the contents of a datagram and attempts to parse a types.Metric from each line
-func (srv *MetricReceiver) handleMessage(addr net.Addr, msg []byte) {
+func (mr *MetricReceiver) handleMessage(addr net.Addr, msg []byte) {
 	buf := bytes.NewBuffer(msg)
 	for {
 		line, readerr := buf.ReadBytes('\n')
@@ -105,12 +110,12 @@ func (srv *MetricReceiver) handleMessage(addr net.Addr, msg []byte) {
 
 		// Only process lines with more than one character
 		if len(line) > 1 {
-			metric, err := parseLine(line)
+			metric, err := mr.parseLine(line)
 			if err != nil {
 				log.Errorf("error parsing line %q from %s: %s", line, addr, err)
 				continue
 			}
-			go srv.Handler.HandleMetric(metric)
+			go mr.Handler.HandleMetric(metric)
 		}
 
 		if readerr == io.EOF {
@@ -120,7 +125,7 @@ func (srv *MetricReceiver) handleMessage(addr net.Addr, msg []byte) {
 	}
 }
 
-func parseLine(line []byte) (types.Metric, error) {
+func (mr *MetricReceiver) parseLine(line []byte) (types.Metric, error) {
 	var metric types.Metric
 
 	buf := bytes.NewBuffer(line)
@@ -128,7 +133,7 @@ func parseLine(line []byte) (types.Metric, error) {
 	if err != nil {
 		return metric, fmt.Errorf("error parsing metric name: %s", err)
 	}
-	metric.Name = normalizeMetricName(string(name[:len(name)-1]))
+	metric.Name = mr.normalizeMetricName(string(name[:len(name)-1]))
 
 	value, err := buf.ReadBytes('|')
 	if err != nil {
@@ -178,13 +183,13 @@ func parseLine(line []byte) (types.Metric, error) {
 				return metric, fmt.Errorf("error converting sample rate: %s", err)
 			}
 		} else {
-			metric.Tags, err = parseTags(bits[1])
+			metric.Tags, err = mr.parseTags(bits[1])
 			if err != nil {
 				return metric, fmt.Errorf("error parsing tags: %s", err)
 			}
 		}
 		if len(bits) > 2 {
-			metric.Tags, err = parseTags(bits[2])
+			metric.Tags, err = mr.parseTags(bits[2])
 			if err != nil {
 				return metric, fmt.Errorf("error parsing tags: %s", err)
 			}
@@ -199,7 +204,7 @@ func parseLine(line []byte) (types.Metric, error) {
 	return metric, nil
 }
 
-func parseTags(fragment string) (tags types.Tags, err error) {
+func (mr *MetricReceiver) parseTags(fragment string) (tags types.Tags, err error) {
 	if strings.HasPrefix(fragment, "#") {
 		fragment = fragment[1:]
 		tags.Items = strings.Split(fragment, ",")

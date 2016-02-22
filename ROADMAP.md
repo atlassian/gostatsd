@@ -13,7 +13,7 @@ Pri 1
 * [ ] Add tests
 * [ ] Add load testing
 * [ ] Review reset of counters, gauges, timers, etc. using last flush time and an expiration window
-* [ ] Add support for global stats prefix
+* [x] Add support for global metrics namespace
 
 Pri 2
 -----
