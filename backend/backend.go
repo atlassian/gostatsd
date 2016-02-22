@@ -78,7 +78,7 @@ func InitBackend(name string) (MetricSender, error) {
 	if backend == nil {
 		return nil, fmt.Errorf("unknown backend %q", name)
 	}
-	log.Infof("Backend %q initialised.", name)
+	log.Infof("Initialised backend %q", name)
 
 	return backend, nil
 }

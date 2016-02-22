@@ -41,7 +41,7 @@ func normalizeBucketName(bucket string, tagsKey string) string {
 	return bucket
 }
 
-// GraphiteClient is an object that is used to send messages to a Graphite server's UDP interface
+// GraphiteClient is an object that is used to send messages to a Graphite server's TCP interface
 type GraphiteClient struct {
 	conn *net.Conn
 }

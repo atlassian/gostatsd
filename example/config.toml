@@ -5,3 +5,7 @@
 
 	api_key = "my-secret-key" # Datadog API key required.
 
+[statsdaemon]
+
+	address = "statsd.platform.dev.atl-inf.io:8125"
+

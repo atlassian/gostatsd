@@ -6,19 +6,25 @@ An implementation of [Etsy's][etsy] [statsd][statsd] in Go.
 The project provides both a server called "gostatsd" which works much like
 Etsy's version, but also provides a library for developing customized servers.
 
-Backends are pluggable and only need to support the [backend interface](backend/backend.go).  
+Backends are pluggable and only need to support the [backend interface](backend/backend.go).
+
+Being written in Go, it is able to use all cores which makes it easy to scale up the
+server based on load. The server can also be run HA and be scaled out, see
+[Load balancing and scaling out](./#load-balancing-and-scaling-out).
 
 
 Building the server
 -------------------
-From the `gostatsd/` directory run `go build`. The binary will be built in place
-and called `gostatsd`
+From the `gostatsd/` directory run `make build`. The binary will be built in `build/bin/<arch>/gostatsd`.
 
 
 Running the server
 ------------------
 `gostatsd --help` gives a complete description of available options and their
-defaults.
+defaults. You can use `make run` to run the server with just the `stdout` backend 
+to display info on screen.
+You can also run through `docker` by running `make run-docker` which will use `docker-compose`
+to run `gostatsd` with a graphite backend.
 
 Configuring the backends
 ------------------------
@@ -35,6 +41,8 @@ flag (comma separated list of backend names).
 Currently supported backends are:
 
 * graphite
+* datadog
+* statsd
 * stdout
 
 The format of each metric is:
@@ -71,6 +79,10 @@ Contributing
 ------------
 Contribute more backends by sending pull requests.
 
+Load balancing and scaling out
+------------------------------
+It is possible to run multiple versions of `gostatsd` behind a load balancer by having them
+send their metrics to another `gostatsd` backend which will then send to the final backends.
 
 Using the library
 -----------------

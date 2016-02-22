@@ -6,7 +6,7 @@ Pri 1
 
 * [x] Support `Set` metric
 * [ ] Improve `graphite` backend reliability by re-opening connection on each flush or implementing retry on error
-* [ ] Add `statsd` backend to allow load balancing the statsd server / running statsd server HA
+* [x] Add `statsd` backend to allow load balancing the statsd server / running statsd server HA
 * [x] Add `datadog` backend
 * [ ] Add `influxdb` backend
 * [ ] Add more aggregations e.g. mean, standard deviation, etc.
@@ -23,6 +23,7 @@ Pri 2
 * [ ] Support `Histogram` metric
 * [ ] Support `Event` metric
 * [ ] Fix value of metrics displayed in web console UI
+* [ ] Rate limiting per source ip address
 
 Pri 3
 -----

@@ -1,3 +1,8 @@
+0.7.0
+-----
+- Add statsd backend
+- Datadog: remove api url from config
+
 0.6.0
 -----
 - Add support for global metrics namespace
@@ -8,7 +13,7 @@
 
 0.4.2
 -----
-- datadog: send number of metrics received
+- Datadog: send number of metrics received
 - Use appropriate log level for errors
 
 0.4.1
