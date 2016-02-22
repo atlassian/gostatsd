@@ -92,6 +92,8 @@ func (d *Datadog) SendMetrics(metrics types.MetricMap) error {
 		ts.AddMetric(fmt.Sprintf("%s.gauge", key), tagsKey, GAUGE, gauge.Value)
 	})
 
+	ts.AddMetric("statsd.numStats", "", GAUGE, float64(metrics.NumStats))
+
 	tsBytes, err := json.Marshal(ts)
 	log.Debugf("json: %s", string(tsBytes))
 	if err != nil {

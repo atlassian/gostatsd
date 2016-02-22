@@ -1,3 +1,8 @@
+0.4.2
+-----
+- datadog: send number of metrics received
+- Use appropriate log level for errors
+
 0.4.1
 -----
 - Remove logging the url on each flush in datadog backend
