@@ -1,3 +1,8 @@
+0.4.1
+-----
+- Remove logging the url on each flush in datadog backend
+- Use alpine base image for docker instead of scratch to avoid ca certs root error
+
 0.4.0
 -----
 - Add datadog backend

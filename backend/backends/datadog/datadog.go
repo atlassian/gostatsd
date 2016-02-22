@@ -130,7 +130,6 @@ func (d *Datadog) authenticatedUrl() string {
 	q := url.Values{
 		"api_key": []string{d.ApiKey},
 	}
-	log.Println(fmt.Sprintf("%s?%s", d.ApiURL, q.Encode()))
 	return fmt.Sprintf("%s?%s", d.ApiURL, q.Encode())
 }
 
