@@ -36,9 +36,6 @@ const sampleConfig = `
 	## Datadog API key
 	api_key = "my-secret-key" # required.
 
-	## Datadog API URL
-	# api_url = "https://app.datadoghq.com/api/v1/series"
-
 	## Connection timeout.
 	# timeout = "5s"
 `
@@ -150,7 +147,7 @@ func NewDatadog() (*Datadog, error) {
 	}
 	return &Datadog{
 		ApiKey:   viper.GetString("datadog.api_key"),
-		ApiURL:   apiURL, // TODO: fix viper.GetString("datadog.api_url"),
+		ApiURL:   apiURL,
 		Hostname: hostname,
 		Client: &http.Client{
 			Timeout: viper.GetDuration("datadog.timeout"),
@@ -160,7 +157,6 @@ func NewDatadog() (*Datadog, error) {
 
 func init() {
 	viper.SetDefault("datadog.timeout", time.Duration(5)*time.Second)
-	viper.SetDefault("datadog.api_url", apiURL)
 	backend.RegisterBackend(backendName, func() (backend.MetricSender, error) {
 		return NewDatadog()
 	})
