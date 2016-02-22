@@ -76,7 +76,7 @@ func (r *MetricReceiver) Receive(c net.PacketConn) error {
 	for {
 		nbytes, addr, err := c.ReadFrom(msg)
 		if err != nil {
-			log.Printf("%s", err)
+			log.Errorf("%s", err)
 			continue
 		}
 		buf := make([]byte, nbytes)
@@ -94,7 +94,7 @@ func (srv *MetricReceiver) handleMessage(addr net.Addr, msg []byte) {
 
 		// protocol does not require line to end in \n, if EOF use received line if valid
 		if readerr != nil && readerr != io.EOF {
-			log.Printf("error reading message from %s: %s", addr, readerr)
+			log.Errorf("error reading message from %s: %s", addr, readerr)
 			return
 		} else if readerr != io.EOF {
 			// remove newline, only if not EOF
@@ -107,7 +107,7 @@ func (srv *MetricReceiver) handleMessage(addr net.Addr, msg []byte) {
 		if len(line) > 1 {
 			metric, err := parseLine(line)
 			if err != nil {
-				log.Printf("error parsing line %q from %s: %s", line, addr, err)
+				log.Errorf("error parsing line %q from %s: %s", line, addr, err)
 				continue
 			}
 			go srv.Handler.HandleMetric(metric)

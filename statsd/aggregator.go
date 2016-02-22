@@ -187,7 +187,7 @@ func (a *MetricAggregator) Aggregate() {
 			a.Lock()
 
 			if flushResult != nil {
-				log.Printf("Sending metrics to backend failed: %s", flushResult)
+				log.Errorf("Sending metrics to backend failed: %s", flushResult)
 				a.Stats.LastFlushError = time.Now()
 			} else {
 				a.Stats.LastFlush = time.Now()
