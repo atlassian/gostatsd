@@ -1,6 +1,7 @@
 package statsd
 
 import (
+	"strconv"
 	"time"
 
 	"github.com/jtblin/gostatsd/backend"
@@ -15,37 +16,40 @@ import (
 // StatsdServer encapsulates all of the parameters necessary for starting up
 // the web hooks server. These can either be set via command line or directly.
 type StatsdServer struct {
-	Backends       []string
-	ConfigPath     string
-	FlushInterval  time.Duration
-	MetricsAddr    string
-	WebConsoleAddr string
-	ConsoleAddr    string
-	Namespace      string
-	Verbose        bool
-	Version        bool
+	Backends         []string
+	ConfigPath       string
+	FlushInterval    time.Duration
+	MetricsAddr      string
+	WebConsoleAddr   string
+	ConsoleAddr      string
+	Namespace        string
+	PercentThreshold []string
+	Verbose          bool
+	Version          bool
 }
 
 // NewStatsdServer will create a new StatsdServer with default values.
 func NewStatsdServer() *StatsdServer {
 	return &StatsdServer{
-		Backends:       []string{"graphite"},
-		MetricsAddr:    ":8125",
-		ConsoleAddr:    ":8126",
-		WebConsoleAddr: ":8181",
-		FlushInterval:  1 * time.Second,
+		Backends:         []string{"graphite"},
+		MetricsAddr:      ":8125",
+		ConsoleAddr:      ":8126",
+		WebConsoleAddr:   ":8181",
+		FlushInterval:    1 * time.Second,
+		PercentThreshold: []string{"90"},
 	}
 }
 
 // AddFlags adds flags for a specific DockerAuthServer to the specified FlagSet
 func (s *StatsdServer) AddFlags(fs *pflag.FlagSet) {
-	fs.StringSliceVar(&s.Backends, "backends", s.Backends, "Comma separated list of backends")
+	fs.StringSliceVar(&s.Backends, "backends", s.Backends, "Comma-separated list of backends")
 	fs.StringVar(&s.ConfigPath, "config-path", s.ConfigPath, "Path to the configuration file")
 	fs.DurationVar(&s.FlushInterval, "flush-interval", s.FlushInterval, "How often to flush metrics to the backends")
 	fs.StringVar(&s.MetricsAddr, "metrics-addr", s.MetricsAddr, "Address on which to listen for metrics")
 	fs.StringVar(&s.Namespace, "namespace", s.Namespace, "Namespace all metrics")
 	fs.StringVar(&s.WebConsoleAddr, "web-addr", s.WebConsoleAddr, "If set, use as the address of the web-based console")
 	fs.StringVar(&s.ConsoleAddr, "console-addr", s.ConsoleAddr, "If set, use as the address of the telnet-based console")
+	fs.StringSliceVar(&s.PercentThreshold, "percent-threshold", s.PercentThreshold, "Comma-separated list of percentiles")
 	fs.BoolVar(&s.Verbose, "verbose", false, "Verbose")
 	fs.BoolVar(&s.Version, "version", false, "Print the version and exit")
 }
@@ -74,7 +78,16 @@ func (s *StatsdServer) Run() error {
 		backends = append(backends, b)
 	}
 
-	aggregator := NewMetricAggregator(backends, s.FlushInterval)
+	var percentThresholds []float64
+	for _, sPercentThreshold := range s.PercentThreshold {
+		pt, err := strconv.ParseFloat(sPercentThreshold, 64)
+		if err != nil {
+			return err
+		}
+		percentThresholds = append(percentThresholds, pt)
+	}
+
+	aggregator := NewMetricAggregator(backends, percentThresholds, s.FlushInterval)
 	go aggregator.Aggregate()
 
 	// Start the metric receiver

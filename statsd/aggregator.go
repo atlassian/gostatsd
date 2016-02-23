@@ -1,6 +1,8 @@
 package statsd
 
 import (
+	"fmt"
+	"math"
 	"sort"
 	"sync"
 	"time"
@@ -17,6 +19,8 @@ type metricAggregatorStats struct {
 	LastMessage    time.Time
 	LastFlush      time.Time
 	LastFlushError time.Time
+	NumStats       int
+	ProcessingTime time.Duration
 }
 
 // MetricAggregator is an object that aggregates statsd metrics.
@@ -25,19 +29,21 @@ type metricAggregatorStats struct {
 // Incoming metrics should be sent to the MetricChan channel.
 type MetricAggregator struct {
 	sync.Mutex
-	MetricChan    chan types.Metric      // Channel on which metrics are received
-	FlushInterval time.Duration          // How often to flush metrics to the sender
-	Senders       []backend.MetricSender // The sender to which metrics are flushed
-	Stats         metricAggregatorStats
+	MetricChan        chan types.Metric      // Channel on which metrics are received
+	FlushInterval     time.Duration          // How often to flush metrics to the sender
+	Senders           []backend.MetricSender // The sender to which metrics are flushed
+	Stats             metricAggregatorStats
+	PercentThresholds []float64
 	types.MetricMap
 }
 
 // NewMetricAggregator creates a new MetricAggregator object
-func NewMetricAggregator(senders []backend.MetricSender, flushInterval time.Duration) MetricAggregator {
+func NewMetricAggregator(senders []backend.MetricSender, percentThresholds []float64, flushInterval time.Duration) MetricAggregator {
 	a := MetricAggregator{}
 	a.FlushInterval = flushInterval
 	a.Senders = senders
 	a.MetricChan = make(chan types.Metric)
+	a.PercentThresholds = percentThresholds
 	return a
 }
 
@@ -47,6 +53,7 @@ func (a *MetricAggregator) flush() (metrics types.MetricMap) {
 	a.Lock()
 
 	numStats := 0
+	startTime := time.Now()
 
 	types.EachCounter(a.Counters, func(key, tagsKey string, counter types.Counter) {
 		perSecond := float64(counter.Value) / a.FlushInterval.Seconds()
@@ -65,8 +72,81 @@ func (a *MetricAggregator) flush() (metrics types.MetricMap) {
 			timer.Min = timer.Values[0]
 			timer.Max = timer.Values[count-1]
 			timer.Count = len(timer.Values)
+			count := float64(timer.Count)
+
+			cumulativeValues := []float64{timer.Min}
+			cumulSumSquaresValues := []float64{timer.Min * timer.Min}
+			for i := 1; i < timer.Count; i++ {
+				cumulativeValues = append(cumulativeValues, timer.Values[i]+timer.Values[i-1])
+				cumulSumSquaresValues = append(cumulSumSquaresValues,
+					timer.Values[i]*timer.Values[i]+cumulSumSquaresValues[i-1])
+			}
+
+			var sumSquares = timer.Min * timer.Min
+			var mean = timer.Min
+			var sum = timer.Min
+			var thresholdBoundary = timer.Max
+
+			for _, pct := range a.PercentThresholds {
+				numInThreshold := timer.Count
+				if timer.Count > 1 {
+					// poor man's math.Round(x) = math.Floor(x + 0.5)
+					numInThreshold = int(math.Floor((math.Abs(pct) / 100 * count) + .5))
+					if numInThreshold == 0 {
+						continue
+					}
+					if pct > 0 {
+						thresholdBoundary = timer.Values[numInThreshold-1]
+						sum = cumulativeValues[numInThreshold-1]
+						sumSquares = cumulSumSquaresValues[numInThreshold-1]
+					} else {
+						thresholdBoundary = timer.Values[timer.Count-numInThreshold]
+						sum = cumulativeValues[timer.Count-1] - cumulativeValues[timer.Count-numInThreshold-1]
+						sumSquares = cumulSumSquaresValues[timer.Count-1] - cumulSumSquaresValues[timer.Count-numInThreshold-1]
+					}
+					mean = sum / float64(numInThreshold)
+				}
+
+				sPct := fmt.Sprintf("%d", int(pct))
+				timer.Percentiles.Set(fmt.Sprintf("count_%s", sPct), float64(numInThreshold))
+				timer.Percentiles.Set(fmt.Sprintf("mean_%s", sPct), mean)
+				timer.Percentiles.Set(fmt.Sprintf("sum_%s", sPct), sum)
+				timer.Percentiles.Set(fmt.Sprintf("sum_squares_%s", sPct), sumSquares)
+				if pct > 0 {
+					timer.Percentiles.Set(fmt.Sprintf("upper_%s", sPct), thresholdBoundary)
+				} else {
+					timer.Percentiles.Set(fmt.Sprintf("lower_%s", sPct), thresholdBoundary)
+				}
+			}
+
+			sum = cumulativeValues[timer.Count-1]
+			sumSquares = cumulSumSquaresValues[timer.Count-1]
+			mean = sum / count
+
+			var sumOfDiffs = float64(0)
+			for i := 0; i < timer.Count; i++ {
+				sumOfDiffs += (timer.Values[i] - mean) * (timer.Values[i] - mean)
+			}
+
+			mid := int(math.Floor(count / 2))
+			if math.Mod(count, float64(2)) == 0 {
+				timer.Median = (timer.Values[mid-1] + timer.Values[mid]) / 2
+			} else {
+				timer.Median = timer.Values[mid]
+			}
+
+			timer.Mean = mean
+			timer.StdDev = math.Sqrt(sumOfDiffs / count)
+			timer.Sum = sum
+			timer.SumSquares = sumSquares
+			timer.PerSecond = count / a.FlushInterval.Seconds()
+
 			a.Timers[key][tagsKey] = timer
 			numStats += 1
+			log.Debugf("timer: %+v", timer)
+		} else {
+			timer.Count = 0
+			timer.PerSecond = float64(0)
 		}
 	})
 
@@ -74,12 +154,16 @@ func (a *MetricAggregator) flush() (metrics types.MetricMap) {
 		numStats += len(set.Values)
 	})
 
+	a.Stats.NumStats = numStats
+	a.Stats.ProcessingTime = time.Now().Sub(startTime)
+
 	return types.MetricMap{
-		NumStats: numStats,
-		Counters: types.CopyCounters(a.Counters),
-		Timers:   types.CopyTimers(a.Timers),
-		Gauges:   types.CopyGauges(a.Gauges),
-		Sets:     types.CopySets(a.Sets),
+		NumStats:       numStats,
+		ProcessingTime: a.Stats.ProcessingTime,
+		Counters:       types.CopyCounters(a.Counters),
+		Timers:         types.CopyTimers(a.Timers),
+		Gauges:         types.CopyGauges(a.Gauges),
+		Sets:           types.CopySets(a.Sets),
 	}
 }
 

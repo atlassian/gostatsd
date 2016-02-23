@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"time"
 )
 
 // MetricType is an enumeration of all the possible types of Metric
@@ -75,11 +76,12 @@ func (m Metric) String() string {
 // MetricMap is used for storing aggregated Metric values.
 // The keys of each map are metric names.
 type MetricMap struct {
-	NumStats int
-	Counters map[string]map[string]Counter
-	Timers   map[string]map[string]Timer
-	Gauges   map[string]map[string]Gauge
-	Sets     map[string]map[string]Set
+	NumStats       int
+	ProcessingTime time.Duration
+	Counters       map[string]map[string]Counter
+	Timers         map[string]map[string]Timer
+	Gauges         map[string]map[string]Gauge
+	Sets           map[string]map[string]Set
 }
 
 func (m MetricMap) String() string {
@@ -130,12 +132,48 @@ func CopyCounters(source map[string]map[string]Counter) map[string]map[string]Co
 	return destination
 }
 
+// Percentiles represents an array of percentiles
+type Percentiles []*Percentile
+
+// Percentile is used to store the aggregation for a percentile
+type Percentile struct {
+	float float64
+	str   string
+}
+
+// Set append a percentile aggregation to the percentiles
+func (p *Percentiles) Set(s string, f float64) {
+	*p = append(*p, &Percentile{f, strings.Replace(s, ".", "_", -1)})
+}
+
+// String returns the string value of a percentile
+func (p *Percentile) String() string {
+	return p.str
+}
+
+// Float returns the float value of a percentile
+func (p *Percentile) Float() float64 {
+	return p.float
+}
+
+// String returns the string value of an array of percentiles
+func (p *Percentiles) String() string {
+	return fmt.Sprintf("%v", *p)
+}
+
 // Timer is used for storing aggregated values for timers.
 type Timer struct {
-	Count  int       // The number of timers in the series
-	Min    float64   // The minimum time of the series
-	Max    float64   // The maximum time of the series
-	Values []float64 // The numeric value of the metric
+	Count       int         // The number of timers in the series
+	PerSecond   float64     // The calculated per second rate
+	Mean        float64     // The mean time of the series
+	Median      float64     // The median time of the series
+	Min         float64     // The minimum time of the series
+	Max         float64     // The maximum time of the series
+	StdDev      float64     // The standard deviation for the series
+	Sum         float64     // The sum for the series
+	SumSquares  float64     // The sum squares for the series
+	Values      []float64   // The numeric value of the metric
+	Percentiles Percentiles // The percentile aggregations of the metric
 }
 
 // EachTimer iterates over each timer

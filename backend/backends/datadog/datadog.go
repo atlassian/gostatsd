@@ -80,9 +80,18 @@ func (d *Datadog) SendMetrics(metrics types.MetricMap) error {
 	})
 
 	types.EachTimer(metrics.Timers, func(key, tagsKey string, timer types.Timer) {
-		ts.AddMetric(fmt.Sprintf("%s.timer.min", key), tagsKey, GAUGE, timer.Min)
-		ts.AddMetric(fmt.Sprintf("%s.timer.max", key), tagsKey, GAUGE, timer.Max)
+		ts.AddMetric(fmt.Sprintf("%s.timer.lower", key), tagsKey, GAUGE, timer.Min)
+		ts.AddMetric(fmt.Sprintf("%s.timer.upper", key), tagsKey, GAUGE, timer.Max)
 		ts.AddMetric(fmt.Sprintf("%s.timer.count", key), tagsKey, GAUGE, float64(timer.Count))
+		ts.AddMetric(fmt.Sprintf("%s.timer.count_ps", key), tagsKey, GAUGE, float64(timer.PerSecond))
+		ts.AddMetric(fmt.Sprintf("%s.timer.mean", key), tagsKey, GAUGE, float64(timer.Mean))
+		ts.AddMetric(fmt.Sprintf("%s.timer.median", key), tagsKey, GAUGE, float64(timer.Median))
+		ts.AddMetric(fmt.Sprintf("%s.timer.std", key), tagsKey, GAUGE, float64(timer.StdDev))
+		ts.AddMetric(fmt.Sprintf("%s.timer.sum", key), tagsKey, GAUGE, float64(timer.Sum))
+		ts.AddMetric(fmt.Sprintf("%s.timer.sum_squares", key), tagsKey, GAUGE, float64(timer.SumSquares))
+		for _, pct := range timer.Percentiles {
+			ts.AddMetric(fmt.Sprintf("%s.timer.%s", key, pct.String()), tagsKey, GAUGE, pct.Float())
+		}
 	})
 
 	types.EachGauge(metrics.Gauges, func(key, tagsKey string, gauge types.Gauge) {
@@ -94,6 +103,7 @@ func (d *Datadog) SendMetrics(metrics types.MetricMap) error {
 	})
 
 	ts.AddMetric("statsd.numStats", "", GAUGE, float64(metrics.NumStats))
+	ts.AddMetric("statsd.processingTime", "", GAUGE, float64(metrics.ProcessingTime)/float64(time.Millisecond))
 
 	tsBytes, err := json.Marshal(ts)
 	log.Debugf("json: %s", string(tsBytes))

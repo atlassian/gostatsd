@@ -1,3 +1,7 @@
+0.8.0
+-----
+- Add more timers aggregations e.g. mean, standard deviation, etc.
+
 0.7.1
 -----
 - Improve `graphite` backend reliability by re-opening connection on each metrics send

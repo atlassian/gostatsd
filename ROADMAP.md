@@ -8,7 +8,7 @@ Pri 1
 * [x] Improve `graphite` backend reliability by re-opening connection on each flush or implementing retry on error
 * [x] Add `statsd` backend to allow load balancing the statsd server / running statsd server HA
 * [x] Add `datadog` backend
-* [ ] Add more aggregations e.g. mean, standard deviation, etc.
+* [x] Add more timers aggregations e.g. mean, standard deviation, etc.
 * [ ] Add tests
 * [ ] Add load testing
 * [ ] Review reset of counters, gauges, timers, etc. using last flush time and an expiration window
