@@ -75,31 +75,31 @@ func (d *Datadog) SendMetrics(metrics types.MetricMap) error {
 	ts := TimeSeries{Timestamp: time.Now().Unix(), Hostname: d.Hostname}
 
 	types.EachCounter(metrics.Counters, func(key, tagsKey string, counter types.Counter) {
-		ts.AddMetric(fmt.Sprintf("%s.counter", key), tagsKey, GAUGE, counter.PerSecond)
-		ts.AddMetric(fmt.Sprintf("%s.counter.count", key), tagsKey, GAUGE, float64(counter.Value))
+		ts.AddMetric(fmt.Sprintf("%s", key), tagsKey, GAUGE, counter.PerSecond)
+		ts.AddMetric(fmt.Sprintf("%s.count", key), tagsKey, GAUGE, float64(counter.Value))
 	})
 
 	types.EachTimer(metrics.Timers, func(key, tagsKey string, timer types.Timer) {
-		ts.AddMetric(fmt.Sprintf("%s.timer.lower", key), tagsKey, GAUGE, timer.Min)
-		ts.AddMetric(fmt.Sprintf("%s.timer.upper", key), tagsKey, GAUGE, timer.Max)
-		ts.AddMetric(fmt.Sprintf("%s.timer.count", key), tagsKey, GAUGE, float64(timer.Count))
-		ts.AddMetric(fmt.Sprintf("%s.timer.count_ps", key), tagsKey, GAUGE, float64(timer.PerSecond))
-		ts.AddMetric(fmt.Sprintf("%s.timer.mean", key), tagsKey, GAUGE, float64(timer.Mean))
-		ts.AddMetric(fmt.Sprintf("%s.timer.median", key), tagsKey, GAUGE, float64(timer.Median))
-		ts.AddMetric(fmt.Sprintf("%s.timer.std", key), tagsKey, GAUGE, float64(timer.StdDev))
-		ts.AddMetric(fmt.Sprintf("%s.timer.sum", key), tagsKey, GAUGE, float64(timer.Sum))
-		ts.AddMetric(fmt.Sprintf("%s.timer.sum_squares", key), tagsKey, GAUGE, float64(timer.SumSquares))
+		ts.AddMetric(fmt.Sprintf("%s.lower", key), tagsKey, GAUGE, timer.Min)
+		ts.AddMetric(fmt.Sprintf("%s.upper", key), tagsKey, GAUGE, timer.Max)
+		ts.AddMetric(fmt.Sprintf("%s.count", key), tagsKey, GAUGE, float64(timer.Count))
+		ts.AddMetric(fmt.Sprintf("%s.count_ps", key), tagsKey, GAUGE, float64(timer.PerSecond))
+		ts.AddMetric(fmt.Sprintf("%s.mean", key), tagsKey, GAUGE, float64(timer.Mean))
+		ts.AddMetric(fmt.Sprintf("%s.median", key), tagsKey, GAUGE, float64(timer.Median))
+		ts.AddMetric(fmt.Sprintf("%s.std", key), tagsKey, GAUGE, float64(timer.StdDev))
+		ts.AddMetric(fmt.Sprintf("%s.sum", key), tagsKey, GAUGE, float64(timer.Sum))
+		ts.AddMetric(fmt.Sprintf("%s.sum_squares", key), tagsKey, GAUGE, float64(timer.SumSquares))
 		for _, pct := range timer.Percentiles {
-			ts.AddMetric(fmt.Sprintf("%s.timer.%s", key, pct.String()), tagsKey, GAUGE, pct.Float())
+			ts.AddMetric(fmt.Sprintf("%s.%s", key, pct.String()), tagsKey, GAUGE, pct.Float())
 		}
 	})
 
 	types.EachGauge(metrics.Gauges, func(key, tagsKey string, gauge types.Gauge) {
-		ts.AddMetric(fmt.Sprintf("%s.gauge", key), tagsKey, GAUGE, gauge.Value)
+		ts.AddMetric(fmt.Sprintf("%s", key), tagsKey, GAUGE, gauge.Value)
 	})
 
 	types.EachSet(metrics.Sets, func(key, tagsKey string, set types.Set) {
-		ts.AddMetric(fmt.Sprintf("%s.set", key), tagsKey, GAUGE, float64(len(set.Values)))
+		ts.AddMetric(fmt.Sprintf("%s", key), tagsKey, GAUGE, float64(len(set.Values)))
 	})
 
 	ts.AddMetric("statsd.numStats", "", GAUGE, float64(metrics.NumStats))

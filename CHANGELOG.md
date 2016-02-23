@@ -1,3 +1,7 @@
+0.8.1
+-----
+- Datadog: rollback change to metric names for preserving backward compatibility
+
 0.8.0
 -----
 - Add more timers aggregations e.g. mean, standard deviation, etc.
