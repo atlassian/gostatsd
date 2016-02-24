@@ -44,6 +44,10 @@ func NewMetricAggregator(senders []backend.MetricSender, percentThresholds []flo
 	a.Senders = senders
 	a.MetricChan = make(chan types.Metric)
 	a.PercentThresholds = percentThresholds
+	a.Counters = make(map[string]map[string]types.Counter)
+	a.Timers = make(map[string]map[string]types.Timer)
+	a.Gauges = make(map[string]map[string]types.Gauge)
+	a.Sets = make(map[string]map[string]types.Set)
 	return a
 }
 
@@ -143,7 +147,6 @@ func (a *MetricAggregator) flush() (metrics types.MetricMap) {
 
 			a.Timers[key][tagsKey] = timer
 			numStats += 1
-			log.Debugf("timer: %+v", timer)
 		} else {
 			timer.Count = 0
 			timer.PerSecond = float64(0)
@@ -213,7 +216,6 @@ func (a *MetricAggregator) receiveMetric(m types.Metric) {
 				a.Counters[m.Name][tagsKey] = types.Counter{Value: int64(m.Value)}
 			}
 		} else {
-			a.Counters = make(map[string]map[string]types.Counter)
 			a.Counters[m.Name] = make(map[string]types.Counter)
 			a.Counters[m.Name][tagsKey] = types.Counter{Value: int64(m.Value)}
 		}
@@ -230,7 +232,6 @@ func (a *MetricAggregator) receiveMetric(m types.Metric) {
 				a.Gauges[m.Name][tagsKey] = types.Gauge{Value: m.Value}
 			}
 		} else {
-			a.Gauges = make(map[string]map[string]types.Gauge)
 			a.Gauges[m.Name] = make(map[string]types.Gauge)
 			a.Gauges[m.Name][tagsKey] = types.Gauge{Value: m.Value}
 		}
@@ -246,7 +247,6 @@ func (a *MetricAggregator) receiveMetric(m types.Metric) {
 				a.Timers[m.Name][tagsKey] = types.Timer{Values: []float64{m.Value}}
 			}
 		} else {
-			a.Timers = make(map[string]map[string]types.Timer)
 			a.Timers[m.Name] = make(map[string]types.Timer)
 			a.Timers[m.Name][tagsKey] = types.Timer{Values: []float64{m.Value}}
 		}
@@ -270,7 +270,6 @@ func (a *MetricAggregator) receiveMetric(m types.Metric) {
 				a.Sets[m.Name][tagsKey] = types.Set{Values: unique}
 			}
 		} else {
-			a.Sets = make(map[string]map[string]types.Set)
 			a.Sets[m.Name] = make(map[string]types.Set)
 			unique := make(map[string]int64)
 			unique[m.StringValue] = 1

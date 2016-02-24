@@ -1,3 +1,7 @@
+0.8.2
+-----
+- Fix undesired overwriting of metrics
+
 0.8.1
 -----
 - Datadog: rollback change to metric names for preserving backward compatibility
