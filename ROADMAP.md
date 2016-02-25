@@ -19,7 +19,7 @@ Pri 2
 
 * [ ] Add retries on datadog backend
 * [ ] Use source ip address as hostname for datadog backend
-* [ ] Use datadog and user agent headers for datadog backend
+* [x] Use datadog and user agent headers for datadog backend
 * [ ] Add `influxdb` backend
 * [ ] Fix gomatelinter issues
 * [ ] Implement stats by backend e.g. last flush, last flush error, etc.

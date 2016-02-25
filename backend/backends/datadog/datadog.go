@@ -18,9 +18,12 @@ import (
 )
 
 const (
-	apiURL      = "https://app.datadoghq.com/api/v1/series"
-	backendName = "datadog"
-	GAUGE       = "gauge"
+	apiURL             = "https://app.datadoghq.com/api/v1/series"
+	backendName        = "datadog"
+	dogstatsdVersion   = "5.6.3"
+	dogstatsdUserAgent = "python-requests/2.6.0 CPython/2.7.10"
+	GAUGE              = "gauge"
+	RATE               = "rate"
 )
 
 // Datadog represents a Datadog client
@@ -59,7 +62,7 @@ type Point [2]float64
 // AddMetric adds a metric to the series
 func (ts *TimeSeries) AddMetric(name, tags, metricType string, value float64) {
 	metric := &Metric{
-		Host:   ts.Hostname, // TODO: retrieve from tags or remove?
+		Host:   ts.Hostname, // TODO: use source address
 		Metric: name,
 		Points: [1]Point{{float64(ts.Timestamp), value}},
 		Tags:   strings.Split(tags, ","),
@@ -75,7 +78,7 @@ func (d *Datadog) SendMetrics(metrics types.MetricMap) error {
 	ts := TimeSeries{Timestamp: time.Now().Unix(), Hostname: d.Hostname}
 
 	types.EachCounter(metrics.Counters, func(key, tagsKey string, counter types.Counter) {
-		ts.AddMetric(fmt.Sprintf("%s", key), tagsKey, GAUGE, counter.PerSecond)
+		ts.AddMetric(fmt.Sprintf("%s", key), tagsKey, RATE, counter.PerSecond)
 		ts.AddMetric(fmt.Sprintf("%s.count", key), tagsKey, GAUGE, float64(counter.Value))
 	})
 
@@ -83,7 +86,7 @@ func (d *Datadog) SendMetrics(metrics types.MetricMap) error {
 		ts.AddMetric(fmt.Sprintf("%s.lower", key), tagsKey, GAUGE, timer.Min)
 		ts.AddMetric(fmt.Sprintf("%s.upper", key), tagsKey, GAUGE, timer.Max)
 		ts.AddMetric(fmt.Sprintf("%s.count", key), tagsKey, GAUGE, float64(timer.Count))
-		ts.AddMetric(fmt.Sprintf("%s.count_ps", key), tagsKey, GAUGE, float64(timer.PerSecond))
+		ts.AddMetric(fmt.Sprintf("%s.count_ps", key), tagsKey, RATE, float64(timer.PerSecond))
 		ts.AddMetric(fmt.Sprintf("%s.mean", key), tagsKey, GAUGE, float64(timer.Mean))
 		ts.AddMetric(fmt.Sprintf("%s.median", key), tagsKey, GAUGE, float64(timer.Median))
 		ts.AddMetric(fmt.Sprintf("%s.std", key), tagsKey, GAUGE, float64(timer.StdDev))
@@ -115,6 +118,9 @@ func (d *Datadog) SendMetrics(metrics types.MetricMap) error {
 		return fmt.Errorf("unable to create http.Request, %s\n", err.Error())
 	}
 	req.Header.Add("Content-Type", "application/json")
+	// Mimic dogstatsd code
+	req.Header.Add("DD-Dogstatsd-Version", dogstatsdVersion)
+	req.Header.Add("User-Agent", dogstatsdUserAgent)
 
 	resp, err := d.Client.Do(req)
 	if err != nil {

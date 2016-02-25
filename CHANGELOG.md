@@ -1,3 +1,8 @@
+0.8.4
+-----
+- Datadog: set dogstatsd version and user-agent headers
+- Datadog: use `rate` type for per second metric
+
 0.8.3
 -----
 - Fix issue with tags overwriting metrics without tags
