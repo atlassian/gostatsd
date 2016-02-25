@@ -212,7 +212,6 @@ func (a *MetricAggregator) receiveMetric(m types.Metric) {
 				c.Value = c.Value + int64(m.Value)
 				a.Counters[m.Name][tagsKey] = c
 			} else {
-				a.Counters[m.Name] = make(map[string]types.Counter)
 				a.Counters[m.Name][tagsKey] = types.Counter{Value: int64(m.Value)}
 			}
 		} else {
@@ -228,7 +227,6 @@ func (a *MetricAggregator) receiveMetric(m types.Metric) {
 				g.Value = m.Value
 				a.Gauges[m.Name][tagsKey] = g
 			} else {
-				a.Gauges[m.Name] = make(map[string]types.Gauge)
 				a.Gauges[m.Name][tagsKey] = types.Gauge{Value: m.Value}
 			}
 		} else {
@@ -243,7 +241,6 @@ func (a *MetricAggregator) receiveMetric(m types.Metric) {
 				t.Values = append(t.Values, m.Value)
 				a.Timers[m.Name][tagsKey] = t
 			} else {
-				a.Timers[m.Name] = make(map[string]types.Timer)
 				a.Timers[m.Name][tagsKey] = types.Timer{Values: []float64{m.Value}}
 			}
 		} else {
@@ -264,7 +261,6 @@ func (a *MetricAggregator) receiveMetric(m types.Metric) {
 				}
 				a.Sets[m.Name][tagsKey] = s
 			} else {
-				a.Sets[m.Name] = make(map[string]types.Set)
 				unique := make(map[string]int64)
 				unique[m.StringValue] = 1
 				a.Sets[m.Name][tagsKey] = types.Set{Values: unique}
@@ -314,5 +310,4 @@ func (a *MetricAggregator) Aggregate() {
 			a.Unlock()
 		}
 	}
-
 }

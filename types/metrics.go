@@ -225,7 +225,6 @@ func CopyGauges(source map[string]map[string]Gauge) map[string]map[string]Gauge 
 
 // Set is used for storing aggregated values for sets.
 type Set struct {
-	//Count int64 // The number of occurrences of a specific metric
 	Values map[string]int64 // The number of occurrences for a specific value
 }
 

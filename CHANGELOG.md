@@ -1,3 +1,7 @@
+0.8.3
+-----
+- Fix issue with tags overwriting metrics without tags
+
 0.8.2
 -----
 - Fix undesired overwriting of metrics
