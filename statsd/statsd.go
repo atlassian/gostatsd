@@ -14,7 +14,7 @@ import (
 )
 
 // StatsdServer encapsulates all of the parameters necessary for starting up
-// the web hooks server. These can either be set via command line or directly.
+// the statsd server. These can either be set via command line or directly.
 type StatsdServer struct {
 	Backends         []string
 	ConfigPath       string

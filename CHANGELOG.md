@@ -1,3 +1,7 @@
+0.8.5
+-----
+- Remove extraneous dot in metric names for stdout and graphite backends when no tag 
+
 0.8.4
 -----
 - Datadog: set dogstatsd version and user-agent headers

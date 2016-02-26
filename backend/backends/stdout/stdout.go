@@ -36,7 +36,9 @@ var regSemiColon = regexp.MustCompile(":")
 func normalizeBucketName(bucket string, tagsKey string) string {
 	tags := strings.Split(tagsKey, ",")
 	for _, tag := range tags {
-		bucket += "." + regSemiColon.ReplaceAllString(tag, "_")
+		if tag != "" {
+			bucket += "." + regSemiColon.ReplaceAllString(tag, "_")
+		}
 	}
 	return bucket
 }
