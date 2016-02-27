@@ -72,6 +72,14 @@ func (mr *MetricReceiver) ListenAndReceive() error {
 	return mr.Receive(c)
 }
 
+func (mr *MetricReceiver) countInternalStats(name string, value int) {
+	mr.Handler.HandleMetric(types.Metric{
+		Type:  types.COUNTER,
+		Name:  fmt.Sprintf("statsd.%s", name),
+		Value: float64(value),
+	})
+}
+
 // Receive accepts incoming datagrams on c and calls r.Handler.HandleMetric() for each line in the
 // datagram that successfully parses in to a types.Metric
 func (mr *MetricReceiver) Receive(c net.PacketConn) error {
@@ -87,12 +95,14 @@ func (mr *MetricReceiver) Receive(c net.PacketConn) error {
 		buf := make([]byte, nbytes)
 		copy(buf, msg[:nbytes])
 		go mr.handleMessage(addr, buf)
+		go mr.countInternalStats("packets_received", 1)
 	}
 	panic("not reached")
 }
 
 // handleMessage handles the contents of a datagram and attempts to parse a types.Metric from each line
 func (mr *MetricReceiver) handleMessage(addr net.Addr, msg []byte) {
+	numMetrics := 0
 	buf := bytes.NewBuffer(msg)
 	for {
 		line, readerr := buf.ReadBytes('\n')
@@ -113,6 +123,7 @@ func (mr *MetricReceiver) handleMessage(addr net.Addr, msg []byte) {
 			metric, err := mr.parseLine(line)
 			if err != nil {
 				log.Errorf("error parsing line %q from %s: %s", line, addr, err)
+				go mr.countInternalStats("bad_lines_seen", 1)
 				continue
 			}
 			source := strings.Split(addr.String(), ":")
@@ -120,10 +131,12 @@ func (mr *MetricReceiver) handleMessage(addr net.Addr, msg []byte) {
 				metric.Source = source[0]
 			}
 			go mr.Handler.HandleMetric(metric)
+			numMetrics++
 		}
 
 		if readerr == io.EOF {
 			// if was EOF, finished handling
+			go mr.countInternalStats("metrics_received", numMetrics)
 			return
 		}
 	}

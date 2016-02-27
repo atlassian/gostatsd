@@ -1,6 +1,7 @@
 0.8.5
 -----
-- Remove extraneous dot in metric names for stdout and graphite backends when no tag 
+- Remove extraneous dot in metric names for stdout and graphite backends when no tag
+- Add more and improve internal statsd stats
 
 0.8.4
 -----

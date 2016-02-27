@@ -12,9 +12,8 @@ import (
 type MetricType float64
 
 const (
-	_                = iota
-	ERROR MetricType = 1 << (10 * iota)
-	COUNTER
+	_                  = iota
+	COUNTER MetricType = 1 << (10 * iota)
 	TIMER
 	GAUGE
 	SET

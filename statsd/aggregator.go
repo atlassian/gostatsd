@@ -15,7 +15,7 @@ import (
 
 // metricAggregatorStats is a bookkeeping structure for statistics about a MetricAggregator
 type metricAggregatorStats struct {
-	BadLines       int
+	BadLines       int64
 	LastMessage    time.Time
 	LastFlush      time.Time
 	LastFlushError time.Time
@@ -63,7 +63,7 @@ func (a *MetricAggregator) flush() (metrics types.MetricMap) {
 		perSecond := float64(counter.Value) / a.FlushInterval.Seconds()
 		counter.PerSecond = perSecond
 		a.Counters[key][tagsKey] = counter
-		numStats += 1
+		numStats += 2
 	})
 
 	for _, gauges := range a.Gauges {
@@ -146,19 +146,22 @@ func (a *MetricAggregator) flush() (metrics types.MetricMap) {
 			timer.PerSecond = count / a.FlushInterval.Seconds()
 
 			a.Timers[key][tagsKey] = timer
-			numStats += 1
+			numStats += 9 + len(a.Timers[key][tagsKey].Percentiles)
 		} else {
 			timer.Count = 0
 			timer.PerSecond = float64(0)
 		}
 	})
 
-	types.EachSet(a.Sets, func(key, tagsKey string, set types.Set) {
-		numStats += len(set.Values)
-	})
+	for _, sets := range a.Sets {
+		numStats += len(sets)
+	}
 
 	a.Stats.NumStats = numStats
 	a.Stats.ProcessingTime = time.Now().Sub(startTime)
+	if badLines, ok := a.Counters["statsd.bad_lines_seen"][""]; ok {
+		a.Stats.BadLines += badLines.Value
+	}
 
 	return types.MetricMap{
 		NumStats:       numStats,
@@ -271,9 +274,10 @@ func (a *MetricAggregator) receiveMetric(m types.Metric) {
 			unique[m.StringValue] = 1
 			a.Sets[m.Name][tagsKey] = types.Set{Values: unique}
 		}
-	case types.ERROR:
-		a.Stats.BadLines += 1
+	default:
+		log.Errorf("Unknow metric type %s for %s", m.Type, m.Name)
 	}
+
 	a.Stats.LastMessage = time.Now()
 }
 
