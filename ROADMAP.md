@@ -23,7 +23,7 @@ Pri 2
 
 * [x] Add interval for datadog backend
 * [ ] Add retries on datadog backend
-* [ ] Use source ip address as hostname for datadog backend
+* [x] Use source ip address as hostname for datadog backend
 * [x] Use datadog and user agent headers for datadog backend
 * [ ] Add `influxdb` backend
 * [ ] Fix gomatelinter issues

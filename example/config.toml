@@ -7,5 +7,5 @@
 
 [statsdaemon]
 
-	address = "statsd.platform.dev.atl-inf.io:8125"
+	address = "statsd:8125"
 

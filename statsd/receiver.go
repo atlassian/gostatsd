@@ -128,7 +128,7 @@ func (mr *MetricReceiver) handleMessage(addr net.Addr, msg []byte) {
 			}
 			source := strings.Split(addr.String(), ":")
 			if net.ParseIP(source[0]) != nil {
-				metric.Tags = append(metric.Tags, fmt.Sprintf("statsd_source_ip:%s", source[0]))
+				metric.Tags = append(metric.Tags, fmt.Sprintf("%s:%s", types.StatsdSourceIp, source[0]))
 			}
 			go mr.Handler.HandleMetric(metric)
 			numMetrics++

@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/jtblin/gostatsd/backend"
@@ -61,18 +60,23 @@ type Metric struct {
 type Point [2]float64
 
 // AddMetric adds a metric to the series
-func (ts *TimeSeries) AddMetric(name, tags, metricType string, value float64, interval time.Duration) {
+func (ts *TimeSeries) AddMetric(name, stags, metricType string, value float64, interval time.Duration) {
+	hostname, tags := types.ExtractSourceFromTags(stags)
+	if hostname == "" {
+		hostname = ts.Hostname
+	}
 	metric := &Metric{
-		Host:     ts.Hostname, // TODO: use source address
+		Host:     hostname,
 		Interval: interval.Seconds(),
 		Metric:   name,
 		Points:   [1]Point{{float64(ts.Timestamp), value}},
-		Tags:     strings.Split(tags, ","),
+		Tags:     tags,
 		Type:     metricType,
 	}
 	ts.Series = append(ts.Series, metric)
 }
 
+// SendMetrics sends metrics to Datadog
 func (d *Datadog) SendMetrics(metrics types.MetricMap) error {
 	if metrics.NumStats == 0 {
 		return nil

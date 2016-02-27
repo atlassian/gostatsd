@@ -2,6 +2,7 @@
 -----
 - Reset counters, gauges, timers, etc. after an expiration delay
 - Datadog: add interval to metric payload
+- Datadog: use source ip address as hostname
 
 0.8.5
 -----

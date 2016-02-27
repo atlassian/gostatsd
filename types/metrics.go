@@ -11,6 +11,8 @@ import (
 // MetricType is an enumeration of all the possible types of Metric
 type MetricType float64
 
+const StatsdSourceIp = "statsd_source_ip"
+
 const (
 	_                  = iota
 	COUNTER MetricType = 1 << (10 * iota)
@@ -64,6 +66,30 @@ func (tags Tags) Map() map[string]string {
 	}
 	return tagMap
 
+}
+
+// SourceFromTags returns the source from the tags
+// and the updated tags
+func ExtractSourceFromTags(s string) (string, Tags) {
+	tags := Tags(strings.Split(s, ","))
+	idx, element := tags.IndexOfKey(StatsdSourceIp)
+	if idx != -1 {
+		bits := strings.Split(element, ":")
+		if len(bits) > 1 {
+			return bits[1], append(tags[:idx], tags[idx+1:]...)
+		}
+	}
+	return "", tags
+}
+
+// IndexOfKey returns the index and the element starting with the string key
+func (tags Tags) IndexOfKey(key string) (int, string) {
+	for i, v := range tags {
+		if strings.HasPrefix(v, key+":") {
+			return i, v
+		}
+	}
+	return -1, ""
 }
 
 func (m Metric) String() string {
