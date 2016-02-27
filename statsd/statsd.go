@@ -18,14 +18,15 @@ import (
 type StatsdServer struct {
 	Backends         []string
 	ConfigPath       string
+	ConsoleAddr      string
+	ExpiryInterval   time.Duration
 	FlushInterval    time.Duration
 	MetricsAddr      string
-	WebConsoleAddr   string
-	ConsoleAddr      string
 	Namespace        string
 	PercentThreshold []string
 	Verbose          bool
 	Version          bool
+	WebConsoleAddr   string
 }
 
 // NewStatsdServer will create a new StatsdServer with default values.
@@ -35,6 +36,7 @@ func NewStatsdServer() *StatsdServer {
 		MetricsAddr:      ":8125",
 		ConsoleAddr:      ":8126",
 		WebConsoleAddr:   ":8181",
+		ExpiryInterval:   5 * time.Minute,
 		FlushInterval:    1 * time.Second,
 		PercentThreshold: []string{"90"},
 	}
@@ -44,6 +46,7 @@ func NewStatsdServer() *StatsdServer {
 func (s *StatsdServer) AddFlags(fs *pflag.FlagSet) {
 	fs.StringSliceVar(&s.Backends, "backends", s.Backends, "Comma-separated list of backends")
 	fs.StringVar(&s.ConfigPath, "config-path", s.ConfigPath, "Path to the configuration file")
+	fs.DurationVar(&s.ExpiryInterval, "expiry-interval", s.ExpiryInterval, "After how long do we expire metrics (0 to disable)")
 	fs.DurationVar(&s.FlushInterval, "flush-interval", s.FlushInterval, "How often to flush metrics to the backends")
 	fs.StringVar(&s.MetricsAddr, "metrics-addr", s.MetricsAddr, "Address on which to listen for metrics")
 	fs.StringVar(&s.Namespace, "namespace", s.Namespace, "Namespace all metrics")
@@ -87,7 +90,7 @@ func (s *StatsdServer) Run() error {
 		percentThresholds = append(percentThresholds, pt)
 	}
 
-	aggregator := NewMetricAggregator(backends, percentThresholds, s.FlushInterval)
+	aggregator := NewMetricAggregator(backends, percentThresholds, s.FlushInterval, s.ExpiryInterval)
 	go aggregator.Aggregate()
 
 	// Start the metric receiver

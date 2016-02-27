@@ -103,10 +103,17 @@ func (m MetricMap) String() string {
 	return buf.String()
 }
 
+// Interval stores the flush interval and timestamp for expiration interval
+type Interval struct {
+	Timestamp time.Time
+	Flush     time.Duration
+}
+
 // Counter is used for storing aggregated values for counters.
 type Counter struct {
 	PerSecond float64 // The calculated per second rate
 	Value     int64   // The numeric value of the metric
+	Interval
 }
 
 // TODO: review using gob instead?
@@ -174,6 +181,7 @@ type Timer struct {
 	SumSquares  float64     // The sum squares for the series
 	Values      []float64   // The numeric value of the metric
 	Percentiles Percentiles // The percentile aggregations of the metric
+	Interval
 }
 
 // EachTimer iterates over each timer
@@ -200,6 +208,7 @@ func CopyTimers(source map[string]map[string]Timer) map[string]map[string]Timer 
 // Gauge is used for storing aggregated values for gauges.
 type Gauge struct {
 	Value float64 // The numeric value of the metric
+	Interval
 }
 
 // EachGauge iterates over each gauge
@@ -226,6 +235,7 @@ func CopyGauges(source map[string]map[string]Gauge) map[string]map[string]Gauge 
 // Set is used for storing aggregated values for sets.
 type Set struct {
 	Values map[string]int64 // The number of occurrences for a specific value
+	Interval
 }
 
 // EachSet iterates over each set

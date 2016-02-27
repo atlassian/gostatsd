@@ -73,7 +73,7 @@ A simple way to test your installation or send metrics from a script is to use
 Monitoring
 ----------
 Currently you can get some basic idea of the status of the server by visiting the
-address given by the `-c` option with your web browser.
+address given by the `--console-addr` option with your web browser.
 
 Contributing
 ------------

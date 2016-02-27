@@ -12,7 +12,7 @@ Pri 1
 * [ ] Add tests
 * [ ] Add load testing
 * [ ] Add benchmarks
-* [ ] Review reset of counters, gauges, timers, etc. using last flush time and an expiration window
+* [x] Review reset of counters, gauges, timers, etc. using last flush time and an expiration window
 * [x] Add support for global metrics namespace
 * [ ] Add support for statsd metrics namespace
 * [ ] Add support for gauge deltas and timestamp lag

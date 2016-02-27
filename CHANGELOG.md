@@ -1,3 +1,7 @@
+0.8.6
+-----
+- Reset counters, gauges, timers, etc. after an expiration delay
+
 0.8.5
 -----
 - Remove extraneous dot in metric names for stdout and graphite backends when no tag

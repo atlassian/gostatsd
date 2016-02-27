@@ -30,6 +30,7 @@ type metricAggregatorStats struct {
 type MetricAggregator struct {
 	sync.Mutex
 	MetricChan        chan types.Metric      // Channel on which metrics are received
+	ExpiryInterval    time.Duration          // How often to expire metrics
 	FlushInterval     time.Duration          // How often to flush metrics to the sender
 	Senders           []backend.MetricSender // The sender to which metrics are flushed
 	Stats             metricAggregatorStats
@@ -38,9 +39,10 @@ type MetricAggregator struct {
 }
 
 // NewMetricAggregator creates a new MetricAggregator object
-func NewMetricAggregator(senders []backend.MetricSender, percentThresholds []float64, flushInterval time.Duration) MetricAggregator {
+func NewMetricAggregator(senders []backend.MetricSender, percentThresholds []float64, flushInterval time.Duration, expiryInterval time.Duration) MetricAggregator {
 	a := MetricAggregator{}
 	a.FlushInterval = flushInterval
+	a.ExpiryInterval = expiryInterval
 	a.Senders = senders
 	a.MetricChan = make(chan types.Metric)
 	a.PercentThresholds = percentThresholds
@@ -173,31 +175,62 @@ func (a *MetricAggregator) flush() (metrics types.MetricMap) {
 	}
 }
 
+func (a *MetricAggregator) isExpired(ts time.Time) bool {
+	now := time.Now()
+	return a.ExpiryInterval != time.Duration(0) && now.Sub(ts) > a.ExpiryInterval
+}
+
 // Reset clears the contents of a MetricAggregator
 func (a *MetricAggregator) Reset() {
 	defer a.Unlock()
 	a.Lock()
 	a.NumStats = 0
 
-	// TODO: expire old counters after some time
 	types.EachCounter(a.Counters, func(key, tagsKey string, counter types.Counter) {
-		counter.Value = 0
-		counter.PerSecond = 0
-		a.Counters[key][tagsKey] = counter
+		if a.isExpired(counter.Timestamp) {
+			delete(a.Counters[key], tagsKey)
+			if len(a.Counters[key]) == 0 {
+				delete(a.Counters, key)
+			}
+		} else {
+			interval := counter.Interval
+			a.Counters[key][tagsKey] = types.Counter{Interval: interval}
+		}
 	})
 
-	// TODO: expire old timers after some time
 	types.EachTimer(a.Timers, func(key, tagsKey string, timer types.Timer) {
-		timer.Values = []float64{}
-		timer.Min = 0
-		timer.Max = 0
-		a.Timers[key][tagsKey] = timer
+		if a.isExpired(timer.Timestamp) {
+			delete(a.Timers[key], tagsKey)
+			if len(a.Timers[key]) == 0 {
+				delete(a.Timers, key)
+			}
+		} else {
+			interval := timer.Interval
+			a.Timers[key][tagsKey] = types.Timer{Interval: interval}
+		}
 	})
 
-	a.Sets = make(map[string]map[string]types.Set)
+	types.EachSet(a.Sets, func(key, tagsKey string, set types.Set) {
+		if a.isExpired(set.Timestamp) {
+			delete(a.Sets[key], tagsKey)
+			if len(a.Sets[key]) == 0 {
+				delete(a.Sets, key)
+			}
+		} else {
+			interval := set.Interval
+			a.Sets[key][tagsKey] = types.Set{Interval: interval}
+		}
+	})
 
-	// TODO: expire old gauges after some time
-	// No reset for gauges, they keep the last value
+	types.EachGauge(a.Gauges, func(key, tagsKey string, timer types.Gauge) {
+		if a.isExpired(timer.Timestamp) {
+			delete(a.Timers[key], tagsKey)
+			if len(a.Timers[key]) == 0 {
+				delete(a.Timers, key)
+			}
+		}
+		// No reset for gauges, they keep the last value until expiration
+	})
 }
 
 // receiveMetric is called for each incoming metric on MetricChan
@@ -206,6 +239,8 @@ func (a *MetricAggregator) receiveMetric(m types.Metric) {
 	a.Lock()
 
 	tagsKey := m.Tags.String()
+	now := time.Now()
+
 	switch m.Type {
 	case types.COUNTER:
 		v, ok := a.Counters[m.Name]
@@ -219,7 +254,10 @@ func (a *MetricAggregator) receiveMetric(m types.Metric) {
 			}
 		} else {
 			a.Counters[m.Name] = make(map[string]types.Counter)
-			a.Counters[m.Name][tagsKey] = types.Counter{Value: int64(m.Value)}
+			c := types.Counter{Value: int64(m.Value)}
+			c.Timestamp = now
+			c.Flush = a.FlushInterval
+			a.Counters[m.Name][tagsKey] = c
 		}
 	case types.GAUGE:
 		// TODO: handle +/-
@@ -234,7 +272,10 @@ func (a *MetricAggregator) receiveMetric(m types.Metric) {
 			}
 		} else {
 			a.Gauges[m.Name] = make(map[string]types.Gauge)
-			a.Gauges[m.Name][tagsKey] = types.Gauge{Value: m.Value}
+			g := types.Gauge{Value: m.Value}
+			g.Timestamp = now
+			g.Flush = a.FlushInterval
+			a.Gauges[m.Name][tagsKey] = g
 		}
 	case types.TIMER:
 		v, ok := a.Timers[m.Name]
@@ -248,7 +289,10 @@ func (a *MetricAggregator) receiveMetric(m types.Metric) {
 			}
 		} else {
 			a.Timers[m.Name] = make(map[string]types.Timer)
-			a.Timers[m.Name][tagsKey] = types.Timer{Values: []float64{m.Value}}
+			t := types.Timer{Values: []float64{m.Value}}
+			t.Timestamp = now
+			t.Flush = a.FlushInterval
+			a.Timers[m.Name][tagsKey] = t
 		}
 	case types.SET:
 		v, ok := a.Sets[m.Name]
@@ -272,7 +316,10 @@ func (a *MetricAggregator) receiveMetric(m types.Metric) {
 			a.Sets[m.Name] = make(map[string]types.Set)
 			unique := make(map[string]int64)
 			unique[m.StringValue] = 1
-			a.Sets[m.Name][tagsKey] = types.Set{Values: unique}
+			s := types.Set{Values: unique}
+			s.Timestamp = now
+			s.Flush = a.FlushInterval
+			a.Sets[m.Name][tagsKey] = s
 		}
 	default:
 		log.Errorf("Unknow metric type %s for %s", m.Type, m.Name)
