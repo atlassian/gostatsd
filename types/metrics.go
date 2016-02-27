@@ -41,6 +41,7 @@ type Metric struct {
 	Value       float64    // The numeric value of the metric
 	Tags        Tags       // The tags for the metric
 	StringValue string     // The string value for some metrics e.g. Set
+	Source      string     // Source IP
 }
 
 // Tags represents a list of tags

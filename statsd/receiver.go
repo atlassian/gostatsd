@@ -115,6 +115,10 @@ func (mr *MetricReceiver) handleMessage(addr net.Addr, msg []byte) {
 				log.Errorf("error parsing line %q from %s: %s", line, addr, err)
 				continue
 			}
+			source := strings.Split(addr.String(), ":")
+			if net.ParseIP(source[0]) != nil {
+				metric.Source = source[0]
+			}
 			go mr.Handler.HandleMetric(metric)
 		}
 
@@ -152,10 +156,8 @@ func (mr *MetricReceiver) parseLine(line []byte) (types.Metric, error) {
 
 	switch metricType[:] {
 	case "ms":
-		// Timer
 		metric.Type = types.TIMER
 	case "g":
-		// Gauge
 		metric.Type = types.GAUGE
 	case "c":
 		metric.Type = types.COUNTER
