@@ -21,7 +21,7 @@ Pri 1
 Pri 2
 -----
 
-* [ ] Add interval for datadog backend
+* [x] Add interval for datadog backend
 * [ ] Add retries on datadog backend
 * [ ] Use source ip address as hostname for datadog backend
 * [x] Use datadog and user agent headers for datadog backend

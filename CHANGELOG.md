@@ -1,6 +1,7 @@
-0.8.6
+0.9.0
 -----
 - Reset counters, gauges, timers, etc. after an expiration delay
+- Datadog: add interval to metric payload
 
 0.8.5
 -----

@@ -168,6 +168,7 @@ func (a *MetricAggregator) flush() (metrics types.MetricMap) {
 	return types.MetricMap{
 		NumStats:       numStats,
 		ProcessingTime: a.Stats.ProcessingTime,
+		FlushInterval:  a.FlushInterval,
 		Counters:       types.CopyCounters(a.Counters),
 		Timers:         types.CopyTimers(a.Timers),
 		Gauges:         types.CopyGauges(a.Gauges),

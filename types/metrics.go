@@ -78,6 +78,7 @@ func (m Metric) String() string {
 type MetricMap struct {
 	NumStats       int
 	ProcessingTime time.Duration
+	FlushInterval  time.Duration
 	Counters       map[string]map[string]Counter
 	Timers         map[string]map[string]Timer
 	Gauges         map[string]map[string]Gauge
