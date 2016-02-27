@@ -29,9 +29,7 @@ race:
 	GO15VENDOREXPERIMENT=1 go build -race $(shell GO15VENDOREXPERIMENT=1 go list ./... | grep -v /vendor/)
 
 cover:
-	GO15VENDOREXPERIMENT=1 go test -covermode=count -coverprofile=coverage.out $(shell GO15VENDOREXPERIMENT=1 go list ./... | grep -v /vendor/)
-	go tool cover -func=coverage.out
-	go tool cover -html=coverage.out
+	./cover.sh
 
 junit-test: build
 	go get github.com/jstemmer/go-junit-report
