@@ -46,10 +46,10 @@ func NewMetricAggregator(senders []backend.MetricSender, percentThresholds []flo
 	a.Senders = senders
 	a.MetricChan = make(chan types.Metric)
 	a.PercentThresholds = percentThresholds
-	a.Counters = make(map[string]map[string]types.Counter)
-	a.Timers = make(map[string]map[string]types.Timer)
-	a.Gauges = make(map[string]map[string]types.Gauge)
-	a.Sets = make(map[string]map[string]types.Set)
+	a.Counters = types.Counters{}
+	a.Timers = types.Timers{}
+	a.Gauges = types.Gauges{}
+	a.Sets = types.Sets{}
 	return a
 }
 
@@ -176,19 +176,18 @@ func (a *MetricAggregator) flush() (metrics types.MetricMap) {
 	}
 }
 
-func (a *MetricAggregator) isExpired(ts time.Time) bool {
-	now := time.Now()
+func (a *MetricAggregator) isExpired(now, ts time.Time) bool {
 	return a.ExpiryInterval != time.Duration(0) && now.Sub(ts) > a.ExpiryInterval
 }
 
 // Reset clears the contents of a MetricAggregator
-func (a *MetricAggregator) Reset() {
+func (a *MetricAggregator) Reset(now time.Time) {
 	defer a.Unlock()
 	a.Lock()
 	a.NumStats = 0
 
 	types.EachCounter(a.Counters, func(key, tagsKey string, counter types.Counter) {
-		if a.isExpired(counter.Timestamp) {
+		if a.isExpired(now, counter.Timestamp) {
 			delete(a.Counters[key], tagsKey)
 			if len(a.Counters[key]) == 0 {
 				delete(a.Counters, key)
@@ -200,7 +199,7 @@ func (a *MetricAggregator) Reset() {
 	})
 
 	types.EachTimer(a.Timers, func(key, tagsKey string, timer types.Timer) {
-		if a.isExpired(timer.Timestamp) {
+		if a.isExpired(now, timer.Timestamp) {
 			delete(a.Timers[key], tagsKey)
 			if len(a.Timers[key]) == 0 {
 				delete(a.Timers, key)
@@ -212,19 +211,19 @@ func (a *MetricAggregator) Reset() {
 	})
 
 	types.EachSet(a.Sets, func(key, tagsKey string, set types.Set) {
-		if a.isExpired(set.Timestamp) {
+		if a.isExpired(now, set.Timestamp) {
 			delete(a.Sets[key], tagsKey)
 			if len(a.Sets[key]) == 0 {
 				delete(a.Sets, key)
 			}
 		} else {
 			interval := set.Interval
-			a.Sets[key][tagsKey] = types.Set{Interval: interval}
+			a.Sets[key][tagsKey] = types.Set{Interval: interval, Values: make(map[string]int64)}
 		}
 	})
 
 	types.EachGauge(a.Gauges, func(key, tagsKey string, gauge types.Gauge) {
-		if a.isExpired(gauge.Timestamp) {
+		if a.isExpired(now, gauge.Timestamp) {
 			delete(a.Gauges[key], tagsKey)
 			if len(a.Gauges[key]) == 0 {
 				delete(a.Gauges, key)
@@ -235,12 +234,11 @@ func (a *MetricAggregator) Reset() {
 }
 
 // receiveMetric is called for each incoming metric on MetricChan
-func (a *MetricAggregator) receiveMetric(m types.Metric) {
+func (a *MetricAggregator) receiveMetric(m types.Metric, now time.Time) {
 	defer a.Unlock()
 	a.Lock()
 
 	tagsKey := m.Tags.String()
-	now := time.Now()
 
 	switch m.Type {
 	case types.COUNTER:
@@ -291,10 +289,9 @@ func (a *MetricAggregator) receiveMetric(m types.Metric) {
 		if ok {
 			s, ok := v[tagsKey]
 			if ok {
-				u, ok := s.Values[m.StringValue]
+				_, ok := s.Values[m.StringValue]
 				if ok {
-					u++
-					s.Values[m.StringValue] = u
+					s.Values[m.StringValue] += 1
 				} else {
 					s.Values[m.StringValue] = 1
 				}
@@ -326,7 +323,7 @@ func (a *MetricAggregator) Aggregate() {
 	for {
 		select {
 		case metric := <-a.MetricChan: // Incoming metrics
-			a.receiveMetric(metric)
+			a.receiveMetric(metric, time.Now())
 		case <-flushTimer.C: // Time to flush to the backends
 			flushed := a.flush()
 			for _, sender := range a.Senders {
@@ -336,7 +333,7 @@ func (a *MetricAggregator) Aggregate() {
 					flushChan <- s.SendMetrics(flushed)
 				}()
 			}
-			a.Reset()
+			a.Reset(time.Now())
 			flushTimer = time.NewTimer(a.FlushInterval)
 		case flushResult := <-flushChan:
 			a.Lock()

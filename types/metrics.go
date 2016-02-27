@@ -40,25 +40,22 @@ type Metric struct {
 	Value       float64    // The numeric value of the metric
 	Tags        Tags       // The tags for the metric
 	StringValue string     // The string value for some metrics e.g. Set
-	Source      string     // Source IP
 }
 
 // Tags represents a list of tags
-type Tags struct {
-	Items []string
-}
+type Tags []string
 
 // String sorts the tags alphabetically and returns
 // a comma-separated string representation of the tags
 func (tags Tags) String() string {
-	sort.Strings(tags.Items)
-	return strings.Join(tags.Items, ",")
+	sort.Strings(tags)
+	return strings.Join(tags, ",")
 }
 
 // Map returns a map of the tags
 func (tags Tags) Map() map[string]string {
-	tagMap := make(map[string]string, len(tags.Items))
-	for _, tag := range tags.Items {
+	tagMap := make(map[string]string, len(tags))
+	for _, tag := range tags {
 		s := strings.Split(tag, ":")
 		tagMap[s[0]] = ""
 		if len(s) > 1 {
@@ -73,16 +70,28 @@ func (m Metric) String() string {
 	return fmt.Sprintf("{%s, %s, %f, %s, %v}", m.Type, m.Name, m.Value, m.StringValue, m.Tags)
 }
 
+// Counters stores a map of counters by tags
+type Counters map[string]map[string]Counter
+
+// Timers stores a map of timers by tags
+type Timers map[string]map[string]Timer
+
+// Gauges stores a map of gauges by tags
+type Gauges map[string]map[string]Gauge
+
+// Sets stores a map of sets by tags
+type Sets map[string]map[string]Set
+
 // MetricMap is used for storing aggregated Metric values.
 // The keys of each map are metric names.
 type MetricMap struct {
 	NumStats       int
 	ProcessingTime time.Duration
 	FlushInterval  time.Duration
-	Counters       map[string]map[string]Counter
-	Timers         map[string]map[string]Timer
-	Gauges         map[string]map[string]Gauge
-	Sets           map[string]map[string]Set
+	Counters       Counters
+	Timers         Timers
+	Gauges         Gauges
+	Sets           Sets
 }
 
 func (m MetricMap) String() string {
@@ -122,10 +131,8 @@ func NewCounter(timestamp time.Time, flushInterval time.Duration, value int64) C
 	return Counter{Value: value, Interval: Interval{Timestamp: timestamp, Flush: flushInterval}}
 }
 
-// TODO: review using gob instead?
-
 // EachCounter iterates over each counter
-func EachCounter(c map[string]map[string]Counter, f func(string, string, Counter)) {
+func EachCounter(c Counters, f func(string, string, Counter)) {
 	for key, value := range c {
 		for tags, counter := range value {
 			f(key, tags, counter)
@@ -133,9 +140,11 @@ func EachCounter(c map[string]map[string]Counter, f func(string, string, Counter
 	}
 }
 
+// TODO: review using gob instead?
+
 // CopyCounters performs a deep copy of a map of counters into a new map
-func CopyCounters(source map[string]map[string]Counter) map[string]map[string]Counter {
-	destination := make(map[string]map[string]Counter)
+func CopyCounters(source Counters) Counters {
+	destination := Counters{}
 	EachCounter(source, func(key, tags string, counter Counter) {
 		if _, ok := destination[key]; !ok {
 			destination[key] = make(map[string]Counter)
@@ -169,11 +178,6 @@ func (p *Percentile) Float() float64 {
 	return p.float
 }
 
-// String returns the string value of an array of percentiles
-func (p *Percentiles) String() string {
-	return fmt.Sprintf("%v", *p)
-}
-
 // Timer is used for storing aggregated values for timers.
 type Timer struct {
 	Count       int         // The number of timers in the series
@@ -196,7 +200,7 @@ func NewTimer(timestamp time.Time, flushInterval time.Duration, values []float64
 }
 
 // EachTimer iterates over each timer
-func EachTimer(t map[string]map[string]Timer, f func(string, string, Timer)) {
+func EachTimer(t Timers, f func(string, string, Timer)) {
 	for key, value := range t {
 		for tags, timer := range value {
 			f(key, tags, timer)
@@ -205,8 +209,8 @@ func EachTimer(t map[string]map[string]Timer, f func(string, string, Timer)) {
 }
 
 // CopyTimers performs a deep copy of a map of timers into a new map
-func CopyTimers(source map[string]map[string]Timer) map[string]map[string]Timer {
-	destination := make(map[string]map[string]Timer)
+func CopyTimers(source Timers) Timers {
+	destination := Timers{}
 	EachTimer(source, func(key, tags string, timer Timer) {
 		if _, ok := destination[key]; !ok {
 			destination[key] = make(map[string]Timer)
@@ -228,7 +232,7 @@ func NewGauge(timestamp time.Time, flushInterval time.Duration, value float64) G
 }
 
 // EachGauge iterates over each gauge
-func EachGauge(g map[string]map[string]Gauge, f func(string, string, Gauge)) {
+func EachGauge(g Gauges, f func(string, string, Gauge)) {
 	for key, value := range g {
 		for tags, gauge := range value {
 			f(key, tags, gauge)
@@ -237,8 +241,8 @@ func EachGauge(g map[string]map[string]Gauge, f func(string, string, Gauge)) {
 }
 
 // CopyGauges performs a deep copy of a map of gauges into a new map
-func CopyGauges(source map[string]map[string]Gauge) map[string]map[string]Gauge {
-	destination := make(map[string]map[string]Gauge)
+func CopyGauges(source Gauges) Gauges {
+	destination := Gauges{}
 	EachGauge(source, func(key, tags string, gauge Gauge) {
 		if _, ok := destination[key]; !ok {
 			destination[key] = make(map[string]Gauge)
@@ -260,7 +264,7 @@ func NewSet(timestamp time.Time, flushInterval time.Duration, values map[string]
 }
 
 // EachSet iterates over each set
-func EachSet(s map[string]map[string]Set, f func(string, string, Set)) {
+func EachSet(s Sets, f func(string, string, Set)) {
 	for key, value := range s {
 		for tags, set := range value {
 			f(key, tags, set)
@@ -269,8 +273,8 @@ func EachSet(s map[string]map[string]Set, f func(string, string, Set)) {
 }
 
 // CopySets performs a deep copy of a map of gauges into a new map
-func CopySets(source map[string]map[string]Set) map[string]map[string]Set {
-	destination := make(map[string]map[string]Set)
+func CopySets(source Sets) Sets {
+	destination := Sets{}
 	EachSet(source, func(key, tags string, set Set) {
 		if _, ok := destination[key]; !ok {
 			destination[key] = make(map[string]Set)

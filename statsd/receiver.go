@@ -128,7 +128,7 @@ func (mr *MetricReceiver) handleMessage(addr net.Addr, msg []byte) {
 			}
 			source := strings.Split(addr.String(), ":")
 			if net.ParseIP(source[0]) != nil {
-				metric.Source = source[0]
+				metric.Tags = append(metric.Tags, fmt.Sprintf("statsd_source_ip:%s", source[0]))
 			}
 			go mr.Handler.HandleMetric(metric)
 			numMetrics++
@@ -222,7 +222,7 @@ func (mr *MetricReceiver) parseLine(line []byte) (types.Metric, error) {
 func (mr *MetricReceiver) parseTags(fragment string) (tags types.Tags, err error) {
 	if strings.HasPrefix(fragment, "#") {
 		fragment = fragment[1:]
-		tags.Items = strings.Split(fragment, ",")
+		tags = strings.Split(fragment, ",")
 	} else {
 		err = fmt.Errorf("unknown delimiter: %s", fragment[0:1])
 	}
