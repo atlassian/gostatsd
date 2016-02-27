@@ -26,7 +26,7 @@ var (
 	regInvalid = regexp.MustCompile("[^a-zA-Z_\\-0-9\\.]")
 )
 
-// Objects implementing the Handler interface can be used to handle metrics for a MetricReceiver
+// Handler interface can be used to handle metrics for a MetricReceiver
 type Handler interface {
 	HandleMetric(m types.Metric)
 }
@@ -97,7 +97,6 @@ func (mr *MetricReceiver) Receive(c net.PacketConn) error {
 		go mr.handleMessage(addr, buf)
 		go mr.countInternalStats("packets_received", 1)
 	}
-	panic("not reached")
 }
 
 // handleMessage handles the contents of a datagram and attempts to parse a types.Metric from each line
@@ -128,7 +127,7 @@ func (mr *MetricReceiver) handleMessage(addr net.Addr, msg []byte) {
 			}
 			source := strings.Split(addr.String(), ":")
 			if net.ParseIP(source[0]) != nil {
-				metric.Tags = append(metric.Tags, fmt.Sprintf("%s:%s", types.StatsdSourceIp, source[0]))
+				metric.Tags = append(metric.Tags, fmt.Sprintf("%s:%s", types.StatsdSourceIP, source[0]))
 			}
 			go mr.Handler.HandleMetric(metric)
 			numMetrics++

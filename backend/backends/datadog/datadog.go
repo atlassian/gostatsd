@@ -21,16 +21,18 @@ const (
 	backendName        = "datadog"
 	dogstatsdVersion   = "5.6.3"
 	dogstatsdUserAgent = "python-requests/2.6.0 CPython/2.7.10"
-	GAUGE              = "gauge"
-	RATE               = "rate"
+	// GAUGE is datadog gauge type
+	GAUGE = "gauge"
+	// RATE is datadog rate type
+	RATE = "rate"
 )
 
-// Datadog represents a Datadog client
-type Datadog struct {
-	ApiKey   string
-	ApiURL   string
-	Hostname string
-	Client   *http.Client
+// Client represents a Datadog client
+type Client struct {
+	APIKey      string
+	APIEndpoint string
+	Hostname    string
+	Client      *http.Client
 }
 
 const sampleConfig = `
@@ -42,12 +44,14 @@ const sampleConfig = `
 	# timeout = "5s"
 `
 
+// TimeSeries represents a time series data structure
 type TimeSeries struct {
 	Series    []*Metric `json:"series"`
 	Timestamp int64     `json:"-"`
 	Hostname  string    `json:"-"`
 }
 
+// Metric represents a metric data structure for Datadog
 type Metric struct {
 	Host     string   `json:"host,omitempty"`
 	Interval float64  `json:"interval,omitempty"`
@@ -57,6 +61,7 @@ type Metric struct {
 	Type     string   `json:"type,omitempty"`
 }
 
+// Point is a Datadog data point
 type Point [2]float64
 
 // AddMetric adds a metric to the series
@@ -77,7 +82,7 @@ func (ts *TimeSeries) AddMetric(name, stags, metricType string, value float64, i
 }
 
 // SendMetrics sends metrics to Datadog
-func (d *Datadog) SendMetrics(metrics types.MetricMap) error {
+func (d *Client) SendMetrics(metrics types.MetricMap) error {
 	if metrics.NumStats == 0 {
 		return nil
 	}
@@ -119,7 +124,7 @@ func (d *Datadog) SendMetrics(metrics types.MetricMap) error {
 	if err != nil {
 		return fmt.Errorf("unable to marshal TimeSeries, %s\n", err.Error())
 	}
-	req, err := http.NewRequest("POST", d.authenticatedUrl(), bytes.NewBuffer(tsBytes))
+	req, err := http.NewRequest("POST", d.authenticatedURL(), bytes.NewBuffer(tsBytes))
 	if err != nil {
 		return fmt.Errorf("unable to create http.Request, %s\n", err.Error())
 	}
@@ -142,24 +147,24 @@ func (d *Datadog) SendMetrics(metrics types.MetricMap) error {
 }
 
 // SampleConfig returns the sample config for the datadog backend
-func (d *Datadog) SampleConfig() string {
+func (d *Client) SampleConfig() string {
 	return sampleConfig
 }
 
 // Name returns the name of the backend
-func (d *Datadog) Name() string {
+func (d *Client) Name() string {
 	return backendName
 }
 
-func (d *Datadog) authenticatedUrl() string {
+func (d *Client) authenticatedURL() string {
 	q := url.Values{
-		"api_key": []string{d.ApiKey},
+		"api_key": []string{d.APIKey},
 	}
-	return fmt.Sprintf("%s?%s", d.ApiURL, q.Encode())
+	return fmt.Sprintf("%s?%s", d.APIEndpoint, q.Encode())
 }
 
-// NewDatadog returns a new Datadog API client
-func NewDatadog() (*Datadog, error) {
+// NewClient returns a new Datadog API client
+func NewClient() (*Client, error) {
 	if viper.GetString("datadog.api_key") == "" {
 		return nil, fmt.Errorf("api_key is a required field for datadog backend")
 	}
@@ -167,10 +172,10 @@ func NewDatadog() (*Datadog, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Datadog{
-		ApiKey:   viper.GetString("datadog.api_key"),
-		ApiURL:   apiURL,
-		Hostname: hostname,
+	return &Client{
+		APIKey:      viper.GetString("datadog.api_key"),
+		APIEndpoint: apiURL,
+		Hostname:    hostname,
 		Client: &http.Client{
 			Timeout: viper.GetDuration("datadog.timeout"),
 		},
@@ -180,6 +185,6 @@ func NewDatadog() (*Datadog, error) {
 func init() {
 	viper.SetDefault("datadog.timeout", time.Duration(5)*time.Second)
 	backend.RegisterBackend(backendName, func() (backend.MetricSender, error) {
-		return NewDatadog()
+		return NewClient()
 	})
 }

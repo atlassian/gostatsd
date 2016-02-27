@@ -1,3 +1,4 @@
+// Run with `cat tester/test_metrics | go run tester/main.go`
 package main
 
 import (
@@ -9,8 +10,6 @@ import (
 	"net"
 	"os"
 	"time"
-
-	"github.com/jtblin/gostatsd/types"
 )
 
 var (
@@ -20,15 +19,6 @@ var (
 const (
 	defaultStatsdAddr = ":8125"
 )
-
-type MetricDef struct {
-	Bucket   string
-	Type     types.MetricType
-	MinVal   float64
-	MaxVal   float64
-	MinDelay time.Duration
-	MaxDelay time.Duration
-}
 
 func init() {
 	flag.StringVar(&statsdAddr, "s", defaultStatsdAddr, "address of statsd server")
@@ -69,6 +59,8 @@ func main() {
 			for {
 				time.Sleep(time.Second * time.Duration(rand.Intn(10)))
 				c <- fmt.Sprintf("%s:1|c", bucket)
+				c <- fmt.Sprintf("%s:2|ms", bucket)
+				c <- fmt.Sprintf("%s:3|s", bucket)
 			}
 		}()
 	}

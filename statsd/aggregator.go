@@ -39,7 +39,7 @@ type MetricAggregator struct {
 }
 
 // NewMetricAggregator creates a new MetricAggregator object
-func NewMetricAggregator(senders []backend.MetricSender, percentThresholds []float64, flushInterval time.Duration, expiryInterval time.Duration) MetricAggregator {
+func NewMetricAggregator(senders []backend.MetricSender, percentThresholds []float64, flushInterval time.Duration, expiryInterval time.Duration) *MetricAggregator {
 	a := MetricAggregator{}
 	a.FlushInterval = flushInterval
 	a.ExpiryInterval = expiryInterval
@@ -50,7 +50,13 @@ func NewMetricAggregator(senders []backend.MetricSender, percentThresholds []flo
 	a.Timers = types.Timers{}
 	a.Gauges = types.Gauges{}
 	a.Sets = types.Sets{}
-	return a
+	return &a
+}
+
+// round rounds a number to its nearest integer value
+// poor man's math.Round(x) = math.Floor(x + 0.5)
+func round(v float64) float64 {
+	return math.Floor(v + 0.5)
 }
 
 // flush prepares the contents of a MetricAggregator for sending via the Sender
@@ -96,8 +102,7 @@ func (a *MetricAggregator) flush() (metrics types.MetricMap) {
 			for _, pct := range a.PercentThresholds {
 				numInThreshold := timer.Count
 				if timer.Count > 1 {
-					// poor man's math.Round(x) = math.Floor(x + 0.5)
-					numInThreshold = int(math.Floor((math.Abs(pct) / 100 * count) + .5))
+					numInThreshold = int(round(math.Abs(pct) / 100 * count))
 					if numInThreshold == 0 {
 						continue
 					}
@@ -291,7 +296,7 @@ func (a *MetricAggregator) receiveMetric(m types.Metric, now time.Time) {
 			if ok {
 				_, ok := s.Values[m.StringValue]
 				if ok {
-					s.Values[m.StringValue] += 1
+					s.Values[m.StringValue]++
 				} else {
 					s.Values[m.StringValue] = 1
 				}

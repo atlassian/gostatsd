@@ -25,8 +25,11 @@ fmt:
 test:
 	GO15VENDOREXPERIMENT=1 go test $(shell GO15VENDOREXPERIMENT=1 go list ./... | grep -v /vendor/)
 
+race:
+	GO15VENDOREXPERIMENT=1 go build -race $(shell GO15VENDOREXPERIMENT=1 go list ./... | grep -v /vendor/)
+
 cover:
-	GO15VENDOREXPERIMENT=1 go test -covermode=count -coverprofile=coverage.out ./...
+	GO15VENDOREXPERIMENT=1 go test -covermode=count -coverprofile=coverage.out $(shell GO15VENDOREXPERIMENT=1 go list ./... | grep -v /vendor/)
 	go tool cover -func=coverage.out
 	go tool cover -html=coverage.out
 
@@ -35,7 +38,7 @@ junit-test: build
 	go test -v ./... | go-junit-report > test-report.xml
 
 check:
-	gometalinter --deadline=10s ./... --vendor
+	gometalinter --deadline=60s ./... --vendor --linter="errcheck::-ignore=net:Close" --cyclo-over=20 --linter="vet::--composites=false"
 
 watch:
 	CompileDaemon -color=true -build "make test check"

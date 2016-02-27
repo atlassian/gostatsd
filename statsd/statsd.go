@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/jtblin/gostatsd/backend"
-	_ "github.com/jtblin/gostatsd/backend/backends"
+	_ "github.com/jtblin/gostatsd/backend/backends" // import backends for initialisation
 	"github.com/jtblin/gostatsd/types"
 
 	log "github.com/Sirupsen/logrus"
@@ -13,9 +13,9 @@ import (
 	"github.com/spf13/viper"
 )
 
-// StatsdServer encapsulates all of the parameters necessary for starting up
+// Server encapsulates all of the parameters necessary for starting up
 // the statsd server. These can either be set via command line or directly.
-type StatsdServer struct {
+type Server struct {
 	Backends         []string
 	ConfigPath       string
 	ConsoleAddr      string
@@ -29,9 +29,9 @@ type StatsdServer struct {
 	WebConsoleAddr   string
 }
 
-// NewStatsdServer will create a new StatsdServer with default values.
-func NewStatsdServer() *StatsdServer {
-	return &StatsdServer{
+// NewServer will create a new StatsdServer with default values.
+func NewServer() *Server {
+	return &Server{
 		Backends:         []string{"graphite"},
 		MetricsAddr:      ":8125",
 		ConsoleAddr:      ":8126",
@@ -43,7 +43,7 @@ func NewStatsdServer() *StatsdServer {
 }
 
 // AddFlags adds flags for a specific DockerAuthServer to the specified FlagSet
-func (s *StatsdServer) AddFlags(fs *pflag.FlagSet) {
+func (s *Server) AddFlags(fs *pflag.FlagSet) {
 	fs.StringSliceVar(&s.Backends, "backends", s.Backends, "Comma-separated list of backends")
 	fs.StringVar(&s.ConfigPath, "config-path", s.ConfigPath, "Path to the configuration file")
 	fs.DurationVar(&s.ExpiryInterval, "expiry-interval", s.ExpiryInterval, "After how long do we expire metrics (0 to disable)")
@@ -58,7 +58,7 @@ func (s *StatsdServer) AddFlags(fs *pflag.FlagSet) {
 }
 
 // Run runs the specified StatsdServer.
-func (s *StatsdServer) Run() error {
+func (s *Server) Run() error {
 	if s.Verbose {
 		log.SetLevel(log.DebugLevel)
 	}
@@ -102,16 +102,14 @@ func (s *StatsdServer) Run() error {
 
 	// Start the console(s)
 	if s.ConsoleAddr != "" {
-		console := ConsoleServer{s.ConsoleAddr, &aggregator}
+		console := ConsoleServer{s.ConsoleAddr, aggregator}
 		go console.ListenAndServe()
 	}
 	if s.WebConsoleAddr != "" {
-		console := WebConsoleServer{s.WebConsoleAddr, &aggregator}
+		console := WebConsoleServer{s.WebConsoleAddr, aggregator}
 		go console.ListenAndServe()
 	}
 
 	// Listen forever
 	select {}
-
-	return nil
 }

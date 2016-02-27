@@ -17,16 +17,16 @@ const backendName = "stdout"
 
 func init() {
 	backend.RegisterBackend(backendName, func() (backend.MetricSender, error) {
-		return NewStdoutClient()
+		return NewClient()
 	})
 }
 
-// StdoutClient is an object that is used to send messages to stdout
-type StdoutClient struct{}
+// Client is an object that is used to send messages to stdout
+type Client struct{}
 
-// NewStdoutClient constructs a StdoutClient object
-func NewStdoutClient() (backend.MetricSender, error) {
-	return &StdoutClient{}, nil
+// NewClient constructs a StdoutClient object
+func NewClient() (backend.MetricSender, error) {
+	return &Client{}, nil
 }
 
 // Regular expressions used for bucket name normalization
@@ -44,12 +44,12 @@ func normalizeBucketName(bucket string, tagsKey string) string {
 }
 
 // SampleConfig returns the sample config for the stdout backend
-func (s *StdoutClient) SampleConfig() string {
+func (client *Client) SampleConfig() string {
 	return ""
 }
 
 // SendMetrics sends the metrics in a MetricsMap to the Graphite server
-func (client *StdoutClient) SendMetrics(metrics types.MetricMap) error {
+func (client *Client) SendMetrics(metrics types.MetricMap) error {
 	buf := new(bytes.Buffer)
 	now := time.Now().Unix()
 	types.EachCounter(metrics.Counters, func(key, tagsKey string, counter types.Counter) {
@@ -92,6 +92,7 @@ func (client *StdoutClient) SendMetrics(metrics types.MetricMap) error {
 	return nil
 }
 
-func (client *StdoutClient) Name() string {
+// Name returns the name of the backend
+func (client *Client) Name() string {
 	return backendName
 }

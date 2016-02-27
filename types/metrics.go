@@ -11,13 +11,18 @@ import (
 // MetricType is an enumeration of all the possible types of Metric
 type MetricType float64
 
-const StatsdSourceIp = "statsd_source_ip"
+// StatsdSourceIP stores the key used to tag metrics with the origin IP address
+const StatsdSourceIP = "statsd_source_ip"
 
 const (
-	_                  = iota
+	_ = iota
+	// COUNTER is statsd counter type
 	COUNTER MetricType = 1 << (10 * iota)
+	// TIMER is statsd timer type
 	TIMER
+	// GAUGE is statsd gauge type
 	GAUGE
+	// SET is statsd set type
 	SET
 )
 
@@ -68,11 +73,11 @@ func (tags Tags) Map() map[string]string {
 
 }
 
-// SourceFromTags returns the source from the tags
+// ExtractSourceFromTags returns the source from the tags
 // and the updated tags
 func ExtractSourceFromTags(s string) (string, Tags) {
 	tags := Tags(strings.Split(s, ","))
-	idx, element := tags.IndexOfKey(StatsdSourceIp)
+	idx, element := tags.IndexOfKey(StatsdSourceIP)
 	if idx != -1 {
 		bits := strings.Split(element, ":")
 		if len(bits) > 1 {
@@ -134,7 +139,7 @@ func (m MetricMap) String() string {
 		fmt.Fprintf(buf, "stats.gauge.%s: %f tags=%s\n", k, gauge.Value, tags)
 	})
 	EachSet(m.Sets, func(k, tags string, set Set) {
-		fmt.Fprintf(buf, "stats.set.%s: %f tags=%s\n", k, len(set.Values), tags)
+		fmt.Fprintf(buf, "stats.set.%s: %d tags=%s\n", k, len(set.Values), tags)
 	})
 	return buf.String()
 }

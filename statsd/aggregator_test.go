@@ -17,7 +17,7 @@ func (fb *FakeBackend) SendMetrics(metrics types.MetricMap) error { return nil }
 func (fb *FakeBackend) SampleConfig() string                      { return "" }
 func (fb *FakeBackend) Name() string                              { return "fake" }
 
-func newFakeMetricAggregator() (backend.MetricSender, MetricAggregator) {
+func newFakeMetricAggregator() (backend.MetricSender, *MetricAggregator) {
 	b := &FakeBackend{}
 	var backends []backend.MetricSender
 	backends = append(backends, b)

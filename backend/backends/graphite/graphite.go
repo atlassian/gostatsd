@@ -19,7 +19,7 @@ const backendName = "graphite"
 func init() {
 	viper.SetDefault("graphite.address", "localhost:2003")
 	backend.RegisterBackend(backendName, func() (backend.MetricSender, error) {
-		return NewGraphiteClient()
+		return NewClient()
 	})
 }
 
@@ -43,13 +43,13 @@ func normalizeBucketName(bucket string, tagsKey string) string {
 	return bucket
 }
 
-// GraphiteClient is an object that is used to send messages to a Graphite server's TCP interface
-type GraphiteClient struct {
+// Client is an object that is used to send messages to a Graphite server's TCP interface
+type Client struct {
 	address string
 }
 
 // SendMetrics sends the metrics in a MetricsMap to the Graphite server
-func (client *GraphiteClient) SendMetrics(metrics types.MetricMap) error {
+func (client *Client) SendMetrics(metrics types.MetricMap) error {
 	if metrics.NumStats == 0 {
 		return nil
 	}
@@ -102,15 +102,16 @@ func (client *GraphiteClient) SendMetrics(metrics types.MetricMap) error {
 }
 
 // SampleConfig returns the sample config for the graphite backend
-func (g *GraphiteClient) SampleConfig() string {
+func (client *Client) SampleConfig() string {
 	return sampleConfig
 }
 
-// NewGraphiteClient constructs a GraphiteClient object by connecting to an address
-func NewGraphiteClient() (backend.MetricSender, error) {
-	return &GraphiteClient{viper.GetString("graphite.address")}, nil
+// NewClient constructs a GraphiteClient object by connecting to an address
+func NewClient() (backend.MetricSender, error) {
+	return &Client{viper.GetString("graphite.address")}, nil
 }
 
-func (client *GraphiteClient) Name() string {
+// Name returns the name of the backend
+func (client *Client) Name() string {
 	return backendName
 }

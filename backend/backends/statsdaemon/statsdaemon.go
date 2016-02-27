@@ -80,6 +80,7 @@ func NewStatsdClient() (backend.MetricSender, error) {
 	return &StatsdClient{viper.GetString("statsdaemon.address")}, nil
 }
 
+// Name returns the name of the backend
 func (client *StatsdClient) Name() string {
 	return backendName
 }

@@ -42,7 +42,6 @@ func (s *ConsoleServer) Serve(l net.Listener) error {
 		console := consoleConn{c, s}
 		go console.serve()
 	}
-	panic("not reached")
 }
 
 // consoleConn represents a single ConsoleServer connection
