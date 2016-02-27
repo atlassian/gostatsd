@@ -114,7 +114,12 @@ type Interval struct {
 type Counter struct {
 	PerSecond float64 // The calculated per second rate
 	Value     int64   // The numeric value of the metric
-	Interval
+	Interval          // The flush and expiration interval information
+}
+
+// NewCounter initialises a new counter
+func NewCounter(timestamp time.Time, flushInterval time.Duration, value int64) Counter {
+	return Counter{Value: value, Interval: Interval{Timestamp: timestamp, Flush: flushInterval}}
 }
 
 // TODO: review using gob instead?
@@ -182,7 +187,12 @@ type Timer struct {
 	SumSquares  float64     // The sum squares for the series
 	Values      []float64   // The numeric value of the metric
 	Percentiles Percentiles // The percentile aggregations of the metric
-	Interval
+	Interval                // The flush and expiration interval information
+}
+
+// NewTimer initialises a new timer
+func NewTimer(timestamp time.Time, flushInterval time.Duration, values []float64) Timer {
+	return Timer{Values: values, Interval: Interval{Timestamp: timestamp, Flush: flushInterval}}
 }
 
 // EachTimer iterates over each timer
@@ -208,8 +218,13 @@ func CopyTimers(source map[string]map[string]Timer) map[string]map[string]Timer 
 
 // Gauge is used for storing aggregated values for gauges.
 type Gauge struct {
-	Value float64 // The numeric value of the metric
-	Interval
+	Value    float64 // The numeric value of the metric
+	Interval         // The flush and expiration interval information
+}
+
+// NewGauge initialises a new gauge
+func NewGauge(timestamp time.Time, flushInterval time.Duration, value float64) Gauge {
+	return Gauge{Value: value, Interval: Interval{Timestamp: timestamp, Flush: flushInterval}}
 }
 
 // EachGauge iterates over each gauge
@@ -235,8 +250,13 @@ func CopyGauges(source map[string]map[string]Gauge) map[string]map[string]Gauge 
 
 // Set is used for storing aggregated values for sets.
 type Set struct {
-	Values map[string]int64 // The number of occurrences for a specific value
-	Interval
+	Values   map[string]int64 // The number of occurrences for a specific value
+	Interval                  // The flush and expiration interval information
+}
+
+// NewSet initialises a new set
+func NewSet(timestamp time.Time, flushInterval time.Duration, values map[string]int64) Set {
+	return Set{Values: values, Interval: Interval{Timestamp: timestamp, Flush: flushInterval}}
 }
 
 // EachSet iterates over each set
