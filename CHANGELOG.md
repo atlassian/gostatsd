@@ -1,6 +1,7 @@
 0.9.1
 -----
 - statsd backend: ensure not going over the udp datagram max size on metrics send
+- Datadog: normalise tags to always be of form "key:value"
 
 0.9.0
 -----

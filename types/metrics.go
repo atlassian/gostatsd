@@ -97,6 +97,18 @@ func (tags Tags) IndexOfKey(key string) (int, string) {
 	return -1, ""
 }
 
+// Normalise normalises tags as key:value
+func (tags Tags) Normalise() Tags {
+	nTags := Tags{}
+	for _, tag := range tags {
+		if !strings.Contains(tag, ":") {
+			tag = "tag:" + tag
+		}
+		nTags = append(nTags, tag)
+	}
+	return nTags
+}
+
 func (m Metric) String() string {
 	return fmt.Sprintf("{%s, %s, %f, %s, %v}", m.Type, m.Name, m.Value, m.StringValue, m.Tags)
 }

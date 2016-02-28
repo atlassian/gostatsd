@@ -37,3 +37,14 @@ func TestExtractSourceFromTags(t *testing.T) {
 	assert.Equal("", source)
 	assert.Equal(Tags{"foo", "source_ip:1.2.3.4", "baz"}, tags)
 }
+
+func TestNormalise(t *testing.T) {
+	assert := assert.New(t)
+
+	tags := Tags{"foo", "bar:baz", "baz"}
+	expected := Tags{"tag:foo", "bar:baz", "tag:baz"}
+
+	actual := tags.Normalise()
+
+	assert.Equal(expected, actual)
+}
