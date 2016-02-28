@@ -60,8 +60,61 @@ func TestNewMetricAggregator(t *testing.T) {
 }
 
 func TestFlush(t *testing.T) {
-	//assert := assert.New(t)
+	assert := assert.New(t)
 
+	_, ma := newFakeMetricAggregator()
+	_, expected := newFakeMetricAggregator()
+
+	ma.Counters["some"] = make(map[string]types.Counter)
+	ma.Counters["some"][""] = types.Counter{Value: 50}
+	ma.Counters["some"]["thing"] = types.Counter{Value: 100}
+	ma.Counters["some"]["other:thing"] = types.Counter{Value: 150}
+
+	expected.Counters["some"] = make(map[string]types.Counter)
+	expected.Counters["some"][""] = types.Counter{Value: 50, PerSecond: 5}
+	expected.Counters["some"]["thing"] = types.Counter{Value: 100, PerSecond: 10}
+	expected.Counters["some"]["other:thing"] = types.Counter{Value: 150, PerSecond: 15}
+
+	ma.Timers["some"] = make(map[string]types.Timer)
+	ma.Timers["some"]["thing"] = types.Timer{Values: []float64{2, 4, 12}}
+	ma.Timers["some"]["empty"] = types.Timer{Values: []float64{}}
+
+	expPct := types.Percentiles{}
+	expPct.Set("count_90", float64(3))
+	expPct.Set("mean_90", float64(6))
+	expPct.Set("sum_90", float64(18))
+	expPct.Set("sum_squares_90", float64(164))
+	expPct.Set("upper_90", float64(12))
+	expected.Timers["some"] = make(map[string]types.Timer)
+	expected.Timers["some"]["thing"] = types.Timer{
+		Values: []float64{2, 4, 12}, Count: 3, Min: 2, Max: 12, Mean: 6, Median: 4, Sum: 18,
+		PerSecond: 0.3, SumSquares: 164, StdDev: 4.320493798938574, Percentiles: expPct,
+	}
+	expected.Timers["some"]["empty"] = types.Timer{Values: []float64{}}
+
+	ma.Gauges["some"] = make(map[string]types.Gauge)
+	ma.Gauges["some"][""] = types.Gauge{Value: 50}
+	ma.Gauges["some"]["thing"] = types.Gauge{Value: 100}
+	ma.Gauges["some"]["other:thing"] = types.Gauge{Value: 150}
+
+	expected.Gauges["some"] = make(map[string]types.Gauge)
+	expected.Gauges["some"][""] = types.Gauge{Value: 50}
+	expected.Gauges["some"]["thing"] = types.Gauge{Value: 100}
+	expected.Gauges["some"]["other:thing"] = types.Gauge{Value: 150}
+
+	ma.Sets["some"] = make(map[string]types.Set)
+	unique := make(map[string]int64)
+	unique["user"] = 1
+	ma.Sets["some"]["thing"] = types.Set{Values: unique}
+
+	expected.Sets["some"] = make(map[string]types.Set)
+	expected.Sets["some"]["thing"] = types.Set{Values: unique}
+
+	actual := ma.flush()
+	assert.Equal(expected.Counters, actual.Counters)
+	assert.Equal(expected.Timers, actual.Timers)
+	assert.Equal(expected.Gauges, actual.Gauges)
+	assert.Equal(expected.Sets, actual.Sets)
 }
 
 func TestReset(t *testing.T) {

@@ -61,3 +61,20 @@ func TestParseLine(t *testing.T) {
 		}
 	}
 }
+
+func TestParseTags(t *testing.T) {
+	mr := &MetricReceiver{}
+	_, err := mr.parseTags("%foo:bar")
+	if err == nil {
+		t.Error("test %foo:bar: expected error but got nil")
+	}
+
+	result, err := mr.parseTags("#foo:bar,bar,baz:foo")
+	if err != nil {
+		t.Errorf("test #foo:bar,bar,baz:foo: unexpected error %s", err)
+	}
+	expected := types.Tags{"foo:bar", "bar", "baz:foo"}
+	if !reflect.DeepEqual(result, expected) {
+		t.Errorf("test #foo:bar,bar,baz:foo: expected %s, got %s", expected, result)
+	}
+}

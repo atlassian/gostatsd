@@ -89,7 +89,7 @@ func (a *MetricAggregator) flush() (metrics types.MetricMap) {
 			cumulativeValues := []float64{timer.Min}
 			cumulSumSquaresValues := []float64{timer.Min * timer.Min}
 			for i := 1; i < timer.Count; i++ {
-				cumulativeValues = append(cumulativeValues, timer.Values[i]+timer.Values[i-1])
+				cumulativeValues = append(cumulativeValues, timer.Values[i]+cumulativeValues[i-1])
 				cumulSumSquaresValues = append(cumulSumSquaresValues,
 					timer.Values[i]*timer.Values[i]+cumulSumSquaresValues[i-1])
 			}
