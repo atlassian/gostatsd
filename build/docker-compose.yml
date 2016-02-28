@@ -6,9 +6,9 @@ gostatsd:
   links:
     - graphite
   ports:
-    - 8125/udp
-    - 8126
-    - 8181
+    - "8125:8125/udp"
+    - "8126:8126"
+    - "8181:8181"
   volumes:
     - ${PWD}/example:/etc/gostatsd:ro
 graphite:

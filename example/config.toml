@@ -7,5 +7,5 @@
 
 [statsdaemon]
 
-	address = "statsd:8125"
+	address = "docker.local:8125"
 

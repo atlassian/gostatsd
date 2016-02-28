@@ -33,6 +33,7 @@ Pri 2
 * [ ] Fix value of metrics displayed in console
 * [x] Fix value of metrics displayed in web UI
 * [ ] Rate limiting per source ip address
+* [x] Ensure not going over the udp datagram max size when sending to statsd backend
 
 Pri 3
 -----

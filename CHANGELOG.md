@@ -1,3 +1,7 @@
+0.9.1
+-----
+- statsd backend: ensure not going over the udp datagram max size on metrics send
+
 0.9.0
 -----
 - Reset counters, gauges, timers, etc. after an expiration delay
