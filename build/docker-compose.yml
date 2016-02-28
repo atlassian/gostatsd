@@ -1,6 +1,6 @@
 gostatsd:
   build: .
-  command: gostatsd --backends=stdout,graphite --verbose  --config-path=/etc/gostatsd/docker-compose.toml
+  command: gostatsd --backends=graphite --config-path=/etc/gostatsd/docker-compose.toml
   environment:
     PWD:
   links:
@@ -12,7 +12,10 @@ gostatsd:
   volumes:
     - ${PWD}/example:/etc/gostatsd:ro
 graphite:
-  image: sitespeedio/graphite
+  image: samsaffron/graphite
   ports:
-    - 8080:80
-    - 2003
+    - "8080:80"
+    - "3000:3000"
+    - "2003:2003"
+    - "2004:2004"
+    - "7002:7002"

@@ -61,9 +61,12 @@ run: build
 	./build/bin/$(ARCH)/$(BINARY_NAME) --backends=stdout --verbose --flush-interval=1s
 
 run-docker: cross
-	cd build/ && docker-compose rm -f
+	cd build/ && docker-compose rm -f gostatsd
 	docker-compose -f build/docker-compose.yml build
-	docker-compose -f build/docker-compose.yml up --force-recreate
+	docker-compose -f build/docker-compose.yml up -d
+
+stop-docker:
+	cd build/ && docker-compose stop
 
 version:
 	@echo $(REPO_VERSION)
