@@ -14,7 +14,7 @@ Pri 1
 * [ ] Add benchmarks
 * [x] Review reset of counters, gauges, timers, etc. using last flush time and an expiration window
 * [x] Add support for global metrics namespace
-* [ ] Add support for statsd metrics namespace
+* [x] Add support for default tags
 * [ ] Add support for gauge deltas and timestamp lag
 * [x] Improve internal statsd stats
 

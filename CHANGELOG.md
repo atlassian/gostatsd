@@ -1,3 +1,7 @@
+0.10.0
+------
+- Add support for default tags
+
 0.9.1
 -----
 - statsd backend: ensure not going over the udp datagram max size on metrics send

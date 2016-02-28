@@ -19,6 +19,7 @@ type Server struct {
 	Backends         []string
 	ConfigPath       string
 	ConsoleAddr      string
+	DefaultTags      []string
 	ExpiryInterval   time.Duration
 	FlushInterval    time.Duration
 	MetricsAddr      string
@@ -46,6 +47,7 @@ func NewServer() *Server {
 func (s *Server) AddFlags(fs *pflag.FlagSet) {
 	fs.StringSliceVar(&s.Backends, "backends", s.Backends, "Comma-separated list of backends")
 	fs.StringVar(&s.ConfigPath, "config-path", s.ConfigPath, "Path to the configuration file")
+	fs.StringSliceVar(&s.DefaultTags, "default-tags", s.DefaultTags, "Default tags to add to the metrics")
 	fs.DurationVar(&s.ExpiryInterval, "expiry-interval", s.ExpiryInterval, "After how long do we expire metrics (0 to disable)")
 	fs.DurationVar(&s.FlushInterval, "flush-interval", s.FlushInterval, "How often to flush metrics to the backends")
 	fs.StringVar(&s.MetricsAddr, "metrics-addr", s.MetricsAddr, "Address on which to listen for metrics")
@@ -97,7 +99,7 @@ func (s *Server) Run() error {
 	f := func(metric types.Metric) {
 		aggregator.MetricChan <- metric
 	}
-	receiver := MetricReceiver{s.MetricsAddr, s.Namespace, HandlerFunc(f)}
+	receiver := MetricReceiver{Addr: s.MetricsAddr, Namespace: s.Namespace, Handler: HandlerFunc(f), Tags: s.DefaultTags}
 	go receiver.ListenAndReceive()
 
 	// Start the console(s)

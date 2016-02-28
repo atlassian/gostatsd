@@ -60,6 +60,27 @@ func TestParseLine(t *testing.T) {
 			continue
 		}
 	}
+
+	tests = map[string]types.Metric{
+		"foo.bar.baz:2|c": {Name: "foo.bar.baz", Value: 2, Type: types.COUNTER, Tags: types.Tags{"env:foo"}},
+		"abc.def.g:3|g":   {Name: "abc.def.g", Value: 3, Type: types.GAUGE, Tags: types.Tags{"env:foo"}},
+		"def.g:10|ms":     {Name: "def.g", Value: 10, Type: types.TIMER, Tags: types.Tags{"env:foo"}},
+		"uniq.usr:joe|s":  {Name: "uniq.usr", StringValue: "joe", Type: types.SET, Tags: types.Tags{"env:foo"}},
+	}
+
+	mr = &MetricReceiver{Tags: []string{"env:foo"}}
+
+	for input, expected := range tests {
+		result, err := mr.parseLine([]byte(input))
+		if err != nil {
+			t.Errorf("test %s error: %s", input, err)
+			continue
+		}
+		if !reflect.DeepEqual(result, expected) {
+			t.Errorf("test %s: expected %s, got %s", input, expected, result)
+			continue
+		}
+	}
 }
 
 func TestParseTags(t *testing.T) {

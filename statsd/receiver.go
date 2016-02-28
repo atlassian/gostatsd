@@ -53,9 +53,10 @@ func (mr *MetricReceiver) normalizeMetricName(name string) string {
 // MetricReceiver receives data on its listening port and converts lines in to Metrics.
 // For each types.Metric it calls r.Handler.HandleMetric()
 type MetricReceiver struct {
-	Addr      string  // UDP address on which to listen for metrics
-	Namespace string  // Namespace to prefix all metrics
-	Handler   Handler // handler to invoke
+	Addr      string   // UDP address on which to listen for metrics
+	Handler   Handler  // handler to invoke
+	Namespace string   // Namespace to prefix all metrics
+	Tags      []string // Tags to add to all metrics
 }
 
 // ListenAndReceive listens on the UDP network address of srv.Addr and then calls
@@ -76,6 +77,7 @@ func (mr *MetricReceiver) countInternalStats(name string, value int) {
 	mr.Handler.HandleMetric(types.Metric{
 		Type:  types.COUNTER,
 		Name:  fmt.Sprintf("statsd.%s", name),
+		Tags:  mr.Tags,
 		Value: float64(value),
 	})
 }
@@ -143,6 +145,7 @@ func (mr *MetricReceiver) handleMessage(addr net.Addr, msg []byte) {
 
 func (mr *MetricReceiver) parseLine(line []byte) (types.Metric, error) {
 	var metric types.Metric
+	metric.Tags = mr.Tags
 
 	buf := bytes.NewBuffer(line)
 	name, err := buf.ReadBytes(':')
@@ -197,16 +200,18 @@ func (mr *MetricReceiver) parseLine(line []byte) (types.Metric, error) {
 				return metric, fmt.Errorf("error converting sample rate: %s", err)
 			}
 		} else {
-			metric.Tags, err = mr.parseTags(bits[1])
+			tags, err := mr.parseTags(bits[1])
 			if err != nil {
 				return metric, fmt.Errorf("error parsing tags: %s", err)
 			}
+			metric.Tags = append(metric.Tags, tags...)
 		}
 		if len(bits) > 2 {
-			metric.Tags, err = mr.parseTags(bits[2])
+			tags, err := mr.parseTags(bits[2])
 			if err != nil {
 				return metric, fmt.Errorf("error parsing tags: %s", err)
 			}
+			metric.Tags = append(metric.Tags, tags...)
 		}
 	}
 
