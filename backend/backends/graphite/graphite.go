@@ -30,14 +30,19 @@ const sampleConfig = `
 `
 
 // Regular expressions used for bucket name normalization
-var regSemiColon = regexp.MustCompile(":")
+var (
+	regSemiColon = regexp.MustCompile(":")
+	regDot       = regexp.MustCompile("\\.")
+)
 
 // normalizeBucketName cleans up a bucket name by replacing or translating invalid characters
 func normalizeBucketName(bucket string, tagsKey string) string {
 	tags := strings.Split(tagsKey, ",")
 	for _, tag := range tags {
 		if tag != "" {
-			bucket += "." + regSemiColon.ReplaceAllString(tag, "_")
+			tag = regSemiColon.ReplaceAllString(tag, "_")
+			tag = regDot.ReplaceAllString(tag, "_")
+			bucket += "." + tag
 		}
 	}
 	return bucket
@@ -57,7 +62,7 @@ func (client *Client) SendMetrics(metrics types.MetricMap) error {
 	now := time.Now().Unix()
 	types.EachCounter(metrics.Counters, func(key, tagsKey string, counter types.Counter) {
 		nk := normalizeBucketName(key, tagsKey)
-		fmt.Fprintf(buf, "stats_count.%s %d %d\n", nk, counter.Value, now)
+		fmt.Fprintf(buf, "stats_count.%s %f %d\n", nk, float64(counter.Value), now)
 		fmt.Fprintf(buf, "stats.%s %f %d\n", nk, counter.PerSecond, now)
 	})
 	types.EachTimer(metrics.Timers, func(key, tagsKey string, timer types.Timer) {

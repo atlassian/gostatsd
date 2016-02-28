@@ -1,3 +1,7 @@
+0.10.1
+------
+- Graphite: replace dots by underscores in metric name (tags)
+
 0.10.0
 ------
 - Add support for default tags
