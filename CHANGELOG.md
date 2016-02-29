@@ -1,6 +1,7 @@
 0.10.1
 ------
 - Graphite: replace dots by underscores in metric name (tags)
+- Limit concurrency by using buffered channels for incoming messages
 
 0.10.0
 ------
