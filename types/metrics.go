@@ -101,10 +101,12 @@ func (tags Tags) IndexOfKey(key string) (int, string) {
 func (tags Tags) Normalise() Tags {
 	nTags := Tags{}
 	for _, tag := range tags {
-		if !strings.Contains(tag, ":") {
-			tag = "tag:" + tag
+		if tag != "" {
+			if !strings.Contains(tag, ":") {
+				tag = "tag:" + tag
+			}
+			nTags = append(nTags, tag)
 		}
-		nTags = append(nTags, tag)
 	}
 	return nTags
 }
