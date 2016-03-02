@@ -3,6 +3,7 @@
 - Graphite: replace dots by underscores in metric name (tags)
 - Limit concurrency by using buffered channels for incoming messages
 - Discard empty tags
+- Datadog: add retries on post errors
 
 0.10.0
 ------

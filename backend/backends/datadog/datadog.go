@@ -7,12 +7,14 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/jtblin/gostatsd/backend"
 	"github.com/jtblin/gostatsd/types"
 
 	log "github.com/Sirupsen/logrus"
+	"github.com/cenkalti/backoff"
 	"github.com/spf13/viper"
 )
 
@@ -120,27 +122,39 @@ func (d *Client) SendMetrics(metrics types.MetricMap) error {
 	ts.AddMetric("statsd.processingTime", "", GAUGE, float64(metrics.ProcessingTime)/float64(time.Millisecond), metrics.FlushInterval)
 
 	tsBytes, err := json.Marshal(ts)
-	log.Debugf("json: %s", string(tsBytes))
 	if err != nil {
-		return fmt.Errorf("unable to marshal TimeSeries, %s\n", err.Error())
+		return fmt.Errorf("[%s] unable to marshal TimeSeries, %s", backendName, err.Error())
 	}
+	log.Debugf("[%s] json: %s", backendName, tsBytes)
 	req, err := http.NewRequest("POST", d.authenticatedURL(), bytes.NewBuffer(tsBytes))
 	if err != nil {
-		return fmt.Errorf("unable to create http.Request, %s\n", err.Error())
+		return fmt.Errorf("[%s] unable to create http.Request, %s", backendName, err.Error())
 	}
 	req.Header.Add("Content-Type", "application/json")
 	// Mimic dogstatsd code
 	req.Header.Add("DD-Dogstatsd-Version", dogstatsdVersion)
 	req.Header.Add("User-Agent", dogstatsdUserAgent)
 
-	resp, err := d.Client.Do(req)
-	if err != nil {
-		return fmt.Errorf("error POSTing metrics, %s\n", err.Error())
-	}
-	defer resp.Body.Close()
+	post := func(req *http.Request) func() error {
+		return func() error {
+			resp, err := d.Client.Do(req)
+			if err != nil {
+				return fmt.Errorf("error POSTing metrics, %s", strings.Replace(err.Error(), viper.GetString("datadog.api_key"), "*****", -1))
+			}
+			defer resp.Body.Close()
 
-	if resp.StatusCode < 200 || resp.StatusCode > 209 {
-		return fmt.Errorf("received bad status code, %d\n", resp.StatusCode)
+			if resp.StatusCode < 200 || resp.StatusCode > 209 {
+				return fmt.Errorf("received bad status code, %d", resp.StatusCode)
+			}
+			return nil
+		}
+	}
+
+	b := backoff.NewExponentialBackOff()
+	b.MaxElapsedTime = 10 * time.Second
+	err = backoff.Retry(post(req), b)
+	if err != nil {
+		return fmt.Errorf("[%s] %s", backendName, err.Error())
 	}
 
 	return nil
@@ -166,7 +180,7 @@ func (d *Client) authenticatedURL() string {
 // NewClient returns a new Datadog API client
 func NewClient() (*Client, error) {
 	if viper.GetString("datadog.api_key") == "" {
-		return nil, fmt.Errorf("api_key is a required field for datadog backend")
+		return nil, fmt.Errorf("[%s] api_key is a required field", backendName)
 	}
 	hostname, err := os.Hostname()
 	if err != nil {
