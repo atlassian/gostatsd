@@ -1,3 +1,7 @@
+0.10.2
+------
+- Use goroutines to read net.PacketConn instead of buffered channel
+
 0.10.1
 ------
 - Graphite: replace dots by underscores in metric name (tags)

@@ -53,12 +53,11 @@ func (mr *MetricReceiver) normalizeMetricName(name string) string {
 // MetricReceiver receives data on its listening port and converts lines in to Metrics.
 // For each types.Metric it calls r.Handler.HandleMetric()
 type MetricReceiver struct {
-	Addr         string   // UDP address on which to listen for metrics
-	Handler      Handler  // handler to invoke
-	MaxQueueSize int      // Maximum number of messages in the queue
-	MaxWorkers   int      // Maximum number of workers
-	Namespace    string   // Namespace to prefix all metrics
-	Tags         []string // Tags to add to all metrics
+	Addr       string   // UDP address on which to listen for metrics
+	Handler    Handler  // handler to invoke
+	MaxWorkers int      // Maximum number of workers
+	Namespace  string   // Namespace to prefix all metrics
+	Tags       []string // Tags to add to all metrics
 }
 
 type message struct {
@@ -67,7 +66,7 @@ type message struct {
 }
 
 // NewMetricReceiver initialises a new MetricReceiver
-func NewMetricReceiver(addr, ns string, maxQueueSize, maxWorkers int, tags []string, handler Handler) *MetricReceiver {
+func NewMetricReceiver(addr, ns string, maxWorkers int, tags []string, handler Handler) *MetricReceiver {
 	return &MetricReceiver{
 		Addr:       addr,
 		MaxWorkers: maxWorkers,
@@ -84,21 +83,15 @@ func (mr *MetricReceiver) ListenAndReceive() error {
 	if addr == "" {
 		addr = DefaultMetricsAddr
 	}
+
 	c, err := net.ListenPacket("udp", addr)
 	if err != nil {
 		return err
 	}
-	msgQueue := make(chan message, mr.MaxQueueSize)
 	for i := 0; i < mr.MaxWorkers; i++ {
-		go mr.processQueue(msgQueue)
+		go mr.Receive(c)
 	}
-	return mr.Receive(c, msgQueue)
-}
-
-func (mr *MetricReceiver) processQueue(msgQueue chan message) {
-	for m := range msgQueue {
-		mr.handleMessage(m.addr, m.msg)
-	}
+	return nil
 }
 
 func (mr *MetricReceiver) countInternalStats(name string, value int) {
@@ -110,9 +103,8 @@ func (mr *MetricReceiver) countInternalStats(name string, value int) {
 	})
 }
 
-// Receive accepts incoming datagrams on c and calls r.Handler.HandleMetric() for each line in the
-// datagram that successfully parses in to a types.Metric
-func (mr *MetricReceiver) Receive(c net.PacketConn, msgQueue chan message) error {
+// Receive accepts incoming datagrams on c and calls mr.handleMessage() for each line
+func (mr *MetricReceiver) Receive(c net.PacketConn) error {
 	defer c.Close()
 
 	msg := make([]byte, UDPPacketSize)
@@ -124,15 +116,13 @@ func (mr *MetricReceiver) Receive(c net.PacketConn, msgQueue chan message) error
 		}
 		buf := make([]byte, nbytes)
 		copy(buf, msg[:nbytes])
-		m := message{addr, buf}
-		go func() {
-			msgQueue <- m
-		}()
+		mr.handleMessage(addr, buf)
 		mr.countInternalStats("packets_received", 1)
 	}
 }
 
-// handleMessage handles the contents of a datagram and attempts to parse a types.Metric from each line
+// handleMessage handles the contents of a datagram and call r.Handler.HandleMetric()
+// for each line that successfully parses in to a types.Metric
 func (mr *MetricReceiver) handleMessage(addr net.Addr, msg []byte) {
 	numMetrics := 0
 	buf := bytes.NewBuffer(msg)
