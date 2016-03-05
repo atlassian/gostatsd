@@ -20,6 +20,7 @@ type Server struct {
 	Backends         []string
 	ConfigPath       string
 	ConsoleAddr      string
+	CPUProfile       string
 	DefaultTags      []string
 	ExpiryInterval   time.Duration
 	FlushInterval    time.Duration
@@ -50,6 +51,7 @@ func NewServer() *Server {
 func (s *Server) AddFlags(fs *pflag.FlagSet) {
 	fs.StringSliceVar(&s.Backends, "backends", s.Backends, "Comma-separated list of backends")
 	fs.StringVar(&s.ConfigPath, "config-path", s.ConfigPath, "Path to the configuration file")
+	fs.StringVar(&s.CPUProfile, "cpu-profile", s.CPUProfile, "Use profiler and write results to this file")
 	fs.StringSliceVar(&s.DefaultTags, "default-tags", s.DefaultTags, "Default tags to add to the metrics")
 	fs.DurationVar(&s.ExpiryInterval, "expiry-interval", s.ExpiryInterval, "After how long do we expire metrics (0 to disable)")
 	fs.DurationVar(&s.FlushInterval, "flush-interval", s.FlushInterval, "How often to flush metrics to the backends")

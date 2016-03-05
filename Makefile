@@ -38,6 +38,10 @@ junit-test: build
 check:
 	gometalinter --deadline=60s ./... --vendor --linter="errcheck::-ignore=net:Close" --cyclo-over=20 --linter="vet::--composites=false"
 
+profile:
+	./build/bin/$(ARCH)/$(BINARY_NAME) --backends=stdout --cpu-profile=./profile.out --flush-interval=1s
+	go tool pprof build/bin/$(ARCH)/$(BINARY_NAME) profile.out
+
 watch:
 	CompileDaemon -color=true -build "make test check"
 

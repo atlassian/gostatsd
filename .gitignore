@@ -2,3 +2,4 @@ example/example
 build/bin/
 vendor/
 coverage.out
+profile.out
