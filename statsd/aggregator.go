@@ -13,6 +13,8 @@ import (
 	log "github.com/Sirupsen/logrus"
 )
 
+const maxQueueSize int = 1000000
+
 // metricAggregatorStats is a bookkeeping structure for statistics about a MetricAggregator
 type metricAggregatorStats struct {
 	BadLines       int64
@@ -29,22 +31,24 @@ type metricAggregatorStats struct {
 // Incoming metrics should be sent to the MetricChan channel.
 type MetricAggregator struct {
 	sync.Mutex
-	MetricChan        chan types.Metric      // Channel on which metrics are received
-	ExpiryInterval    time.Duration          // How often to expire metrics
-	FlushInterval     time.Duration          // How often to flush metrics to the sender
+	ExpiryInterval    time.Duration     // How often to expire metrics
+	FlushInterval     time.Duration     // How often to flush metrics to the sender
+	MaxWorkers        int               // Number of workers to metrics queue
+	MetricQueue       chan types.Metric // Queue on which metrics are received
+	PercentThresholds []float64
 	Senders           []backend.MetricSender // The sender to which metrics are flushed
 	Stats             metricAggregatorStats
-	PercentThresholds []float64
 	types.MetricMap
 }
 
 // NewMetricAggregator creates a new MetricAggregator object
-func NewMetricAggregator(senders []backend.MetricSender, percentThresholds []float64, flushInterval time.Duration, expiryInterval time.Duration) *MetricAggregator {
+func NewMetricAggregator(senders []backend.MetricSender, percentThresholds []float64, flushInterval time.Duration, expiryInterval time.Duration, maxWorkers int) *MetricAggregator {
 	a := MetricAggregator{}
 	a.FlushInterval = flushInterval
 	a.ExpiryInterval = expiryInterval
 	a.Senders = senders
-	a.MetricChan = make(chan types.Metric)
+	a.MetricQueue = make(chan types.Metric, maxQueueSize)
+	a.MaxWorkers = maxWorkers
 	a.PercentThresholds = percentThresholds
 	a.Counters = types.Counters{}
 	a.Timers = types.Timers{}
@@ -319,18 +323,27 @@ func (a *MetricAggregator) receiveMetric(m types.Metric, now time.Time) {
 	a.Stats.LastMessage = time.Now()
 }
 
+func (a *MetricAggregator) processQueue() {
+	for metric := range a.MetricQueue {
+		a.receiveMetric(metric, time.Now())
+	}
+}
+
 // Aggregate starts the MetricAggregator so it begins consuming metrics from MetricChan
 // and flushing them periodically via its Sender
 func (a *MetricAggregator) Aggregate() {
 	flushChan := make(chan error)
 	flushTimer := time.NewTimer(a.FlushInterval)
 
+	for i := 0; i < a.MaxWorkers; i++ {
+		go a.processQueue()
+	}
+
 	for {
 		select {
-		case metric := <-a.MetricChan: // Incoming metrics
-			a.receiveMetric(metric, time.Now())
 		case <-flushTimer.C: // Time to flush to the backends
 			flushed := a.flush()
+			a.Reset(time.Now())
 			for _, sender := range a.Senders {
 				s := sender
 				go func() {
@@ -338,11 +351,9 @@ func (a *MetricAggregator) Aggregate() {
 					flushChan <- s.SendMetrics(flushed)
 				}()
 			}
-			a.Reset(time.Now())
 			flushTimer = time.NewTimer(a.FlushInterval)
 		case flushResult := <-flushChan:
 			a.Lock()
-
 			if flushResult != nil {
 				log.Errorf("Sending metrics to backend failed: %s", flushResult)
 				a.Stats.LastFlushError = time.Now()

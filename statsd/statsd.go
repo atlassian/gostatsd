@@ -98,12 +98,12 @@ func (s *Server) Run() error {
 		percentThresholds = append(percentThresholds, pt)
 	}
 
-	aggregator := NewMetricAggregator(backends, percentThresholds, s.FlushInterval, s.ExpiryInterval)
+	aggregator := NewMetricAggregator(backends, percentThresholds, s.FlushInterval, s.ExpiryInterval, s.MaxWorkers)
 	go aggregator.Aggregate()
 
 	// Start the metric receiver
 	f := func(metric types.Metric) {
-		aggregator.MetricChan <- metric
+		aggregator.MetricQueue <- metric
 	}
 	receiver := NewMetricReceiver(s.MetricsAddr, s.Namespace, s.MaxWorkers, s.DefaultTags, HandlerFunc(f))
 	go receiver.ListenAndReceive()
