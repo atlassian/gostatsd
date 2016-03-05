@@ -8,6 +8,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/jtblin/gostatsd/types"
@@ -17,6 +18,7 @@ import (
 const (
 	DefaultMetricsAddr = ":8125"
 	UDPPacketSize      = 1500
+	MaxQueueSize       = 1000000
 )
 
 // Regular expressions used for metric name normalization
@@ -53,25 +55,30 @@ func (mr *MetricReceiver) normalizeMetricName(name string) string {
 // MetricReceiver receives data on its listening port and converts lines in to Metrics.
 // For each types.Metric it calls r.Handler.HandleMetric()
 type MetricReceiver struct {
-	Addr       string   // UDP address on which to listen for metrics
-	Handler    Handler  // handler to invoke
-	MaxWorkers int      // Maximum number of workers
-	Namespace  string   // Namespace to prefix all metrics
-	Tags       []string // Tags to add to all metrics
+	Addr       string    // UDP address on which to listen for metrics
+	BufferPool sync.Pool // Buffer pool
+	Handler    Handler   // handler to invoke
+	MaxWorkers int       // Maximum number of workers
+	Namespace  string    // Namespace to prefix all metrics
+	Tags       []string  // Tags to add to all metrics
 }
 
 type message struct {
 	addr net.Addr
 	msg  []byte
+	len  int
 }
 
 // NewMetricReceiver initialises a new MetricReceiver
 func NewMetricReceiver(addr, ns string, maxWorkers int, tags []string, handler Handler) *MetricReceiver {
 	return &MetricReceiver{
-		Addr:       addr,
+		Addr: addr,
+		BufferPool: sync.Pool{
+			New: func() interface{} { return make([]byte, UDPPacketSize) },
+		},
+		Handler:    handler,
 		MaxWorkers: maxWorkers,
 		Namespace:  ns,
-		Handler:    handler,
 		Tags:       tags,
 	}
 }
@@ -83,13 +90,15 @@ func (mr *MetricReceiver) ListenAndReceive() error {
 	if addr == "" {
 		addr = DefaultMetricsAddr
 	}
-
 	c, err := net.ListenPacket("udp", addr)
 	if err != nil {
 		return err
 	}
+
+	mq := make(messageQueue, MaxQueueSize)
 	for i := 0; i < mr.MaxWorkers; i++ {
-		go mr.Receive(c)
+		go mq.dequeue(mr)
+		go mr.receive(c, mq)
 	}
 	return nil
 }
@@ -103,21 +112,32 @@ func (mr *MetricReceiver) countInternalStats(name string, value int) {
 	})
 }
 
-// Receive accepts incoming datagrams on c and calls mr.handleMessage() for each line
-func (mr *MetricReceiver) Receive(c net.PacketConn) error {
+type messageQueue chan message
+
+func (mq messageQueue) enqueue(m message) {
+	mq <- m
+}
+
+func (mq messageQueue) dequeue(mr *MetricReceiver) {
+	for m := range mq {
+		mr.handleMessage(m.addr, m.msg[0:m.len])
+		mr.BufferPool.Put(m.msg)
+		mr.countInternalStats("packets_received", 1)
+	}
+}
+
+// receive accepts incoming datagrams on c and calls mr.handleMessage() for each message
+func (mr *MetricReceiver) receive(c net.PacketConn, mq messageQueue) error {
 	defer c.Close()
 
-	msg := make([]byte, UDPPacketSize)
 	for {
-		nbytes, addr, err := c.ReadFrom(msg)
+		msg := mr.BufferPool.Get().([]byte)
+		nbytes, addr, err := c.ReadFrom(msg[0:])
 		if err != nil {
 			log.Errorf("%s", err)
 			continue
 		}
-		buf := make([]byte, nbytes)
-		copy(buf, msg[:nbytes])
-		mr.handleMessage(addr, buf)
-		mr.countInternalStats("packets_received", 1)
+		mq.enqueue(message{addr, msg, nbytes})
 	}
 }
 
@@ -152,7 +172,7 @@ func (mr *MetricReceiver) handleMessage(addr net.Addr, msg []byte) {
 			if net.ParseIP(source[0]) != nil {
 				metric.Tags = append(metric.Tags, fmt.Sprintf("%s:%s", types.StatsdSourceIP, source[0]))
 			}
-			go mr.Handler.HandleMetric(metric)
+			mr.Handler.HandleMetric(metric)
 			numMetrics++
 		}
 
@@ -191,12 +211,12 @@ func (mr *MetricReceiver) parseLine(line []byte) (types.Metric, error) {
 	metricType := bits[0]
 
 	switch metricType[:] {
-	case "ms":
-		metric.Type = types.TIMER
-	case "g":
-		metric.Type = types.GAUGE
 	case "c":
 		metric.Type = types.COUNTER
+	case "g":
+		metric.Type = types.GAUGE
+	case "ms":
+		metric.Type = types.TIMER
 	case "s":
 		metric.Type = types.SET
 	default:

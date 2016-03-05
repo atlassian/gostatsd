@@ -1,8 +1,8 @@
 hash: fd03b57676a0e9f39ec091940c6d197901fa56ab61604d3c1a84b7354451816b
-updated: 2016-03-03T06:57:31.86183958+11:00
+updated: 2016-03-05T17:32:44.174118707+11:00
 imports:
 - name: github.com/BurntSushi/toml
-  version: a4eecd407cf4129fc902ece859a0114e4cf1a7f4
+  version: 75869ce70f3cd0f6d1473c58f4adac5941f1055a
 - name: github.com/cenkalti/backoff
   version: 4dc77674aceaabba2c7e3da25d4c823edfb73f99
 - name: github.com/hashicorp/hcl
@@ -37,11 +37,11 @@ imports:
 - name: github.com/spf13/viper
   version: c975dc1b4eacf4ec7fdbf0873638de5d090ba323
 - name: golang.org/x/sys
-  version: 54535356f1d989a6072b0898d9ddc4dd7009dcd3
+  version: 7a56174f0086b32866ebd746a794417edbc678a1
   subpackages:
   - unix
 - name: gopkg.in/fsnotify.v1
-  version: 8611c35ab31c1c28aa903d33cf8b6e44a399b09e
+  version: 875cf421b32f8f1b31bd43776297876d01542279
 - name: gopkg.in/yaml.v2
   version: a83829b6f1293c91addabc89d0571c246397bbf4
 devImports: []

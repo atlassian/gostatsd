@@ -1,3 +1,7 @@
+0.10.3
+------
+- Performance improvements for receiver and aggregator
+
 0.10.2
 ------
 - Use goroutines to read net.PacketConn instead of buffered channel

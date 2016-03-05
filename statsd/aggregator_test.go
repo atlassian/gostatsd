@@ -26,6 +26,7 @@ func newFakeMetricAggregator() (backend.MetricSender, *MetricAggregator) {
 		[]float64{float64(90)},
 		time.Duration(10)*time.Second,
 		time.Duration(5)*time.Minute,
+		2,
 	)
 }
 
@@ -54,8 +55,8 @@ func TestNewMetricAggregator(t *testing.T) {
 		assert.Equal(types.Sets{}, actual.Sets)
 	}
 
-	if assert.NotNil(actual.MetricChan) {
-		assert.Equal("chan types.Metric", reflect.TypeOf(actual.MetricChan).String())
+	if assert.NotNil(actual.MetricQueue) {
+		assert.Equal("chan types.Metric", reflect.TypeOf(actual.MetricQueue).String())
 	}
 }
 
