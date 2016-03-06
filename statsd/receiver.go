@@ -16,9 +16,9 @@ import (
 
 // DefaultMetricsAddr is the default address on which a MetricReceiver will listen
 const (
-	DefaultMetricsAddr = ":8125"
-	UDPPacketSize      = 1500
-	MaxQueueSize       = 1000000
+	defaultMetricsAddr = ":8125"
+	packetSizeUDP      = 1500
+	maxQueueSize       = 1000
 )
 
 // Regular expressions used for metric name normalization
@@ -64,9 +64,9 @@ type MetricReceiver struct {
 }
 
 type message struct {
-	addr net.Addr
-	msg  []byte
-	len  int
+	addr   net.Addr
+	msg    []byte
+	length int
 }
 
 // NewMetricReceiver initialises a new MetricReceiver
@@ -74,7 +74,7 @@ func NewMetricReceiver(addr, ns string, maxWorkers int, tags []string, handler H
 	return &MetricReceiver{
 		Addr: addr,
 		BufferPool: sync.Pool{
-			New: func() interface{} { return make([]byte, UDPPacketSize) },
+			New: func() interface{} { return make([]byte, packetSizeUDP) },
 		},
 		Handler:    handler,
 		MaxWorkers: maxWorkers,
@@ -88,14 +88,14 @@ func NewMetricReceiver(addr, ns string, maxWorkers int, tags []string, handler H
 func (mr *MetricReceiver) ListenAndReceive() error {
 	addr := mr.Addr
 	if addr == "" {
-		addr = DefaultMetricsAddr
+		addr = defaultMetricsAddr
 	}
 	c, err := net.ListenPacket("udp", addr)
 	if err != nil {
 		return err
 	}
 
-	mq := make(messageQueue, MaxQueueSize)
+	mq := make(messageQueue, maxQueueSize)
 	for i := 0; i < mr.MaxWorkers; i++ {
 		go mq.dequeue(mr)
 		go mr.receive(c, mq)
@@ -120,7 +120,7 @@ func (mq messageQueue) enqueue(m message) {
 
 func (mq messageQueue) dequeue(mr *MetricReceiver) {
 	for m := range mq {
-		mr.handleMessage(m.addr, m.msg[0:m.len])
+		mr.handleMessage(m.addr, m.msg[0:m.length])
 		mr.BufferPool.Put(m.msg)
 		mr.countInternalStats("packets_received", 1)
 	}

@@ -13,8 +13,6 @@ import (
 	log "github.com/Sirupsen/logrus"
 )
 
-const maxQueueSize int = 1000000
-
 // metricAggregatorStats is a bookkeeping structure for statistics about a MetricAggregator
 type metricAggregatorStats struct {
 	BadLines       int64
