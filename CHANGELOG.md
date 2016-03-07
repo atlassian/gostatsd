@@ -1,3 +1,7 @@
+0.11.0
+------
+- Add support for cloud plugins to retrieve host information e.g. instance id, aws tags, etc.
+
 0.10.4
 ------
 - Add load testing tool

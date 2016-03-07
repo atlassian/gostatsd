@@ -39,5 +39,5 @@ Pri 3
 -----
 
 * [x] Improve web console UI look'n'feel
-* [ ] Add support for cloud plugins to retrieve host information e.g. instance id, aws tags, etc. 
+* [x] Add support for cloud plugins to retrieve host information e.g. instance id, aws tags, etc. 
 

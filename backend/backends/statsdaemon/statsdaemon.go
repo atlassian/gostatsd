@@ -135,7 +135,7 @@ func NewClient() (backend.MetricSender, error) {
 	return &Client{viper.GetString("statsdaemon.address")}, nil
 }
 
-// Name returns the name of the backend
-func (client *Client) Name() string {
+// BackendName returns the name of the backend
+func (client *Client) BackendName() string {
 	return backendName
 }

@@ -166,6 +166,8 @@ func (a *MetricAggregator) flush() (metrics types.MetricMap) {
 		numStats += len(sets)
 	}
 
+	// TODO: stats with default tag
+	// TODO: add bad lines to stats
 	a.Stats.NumStats = numStats
 	a.Stats.ProcessingTime = time.Now().Sub(startTime)
 	if badLines, ok := a.Counters["statsd.bad_lines_seen"][""]; ok {
@@ -345,7 +347,7 @@ func (a *MetricAggregator) Aggregate() {
 			for _, sender := range a.Senders {
 				s := sender
 				go func() {
-					log.Debugf("Send metrics to backend %s", s.Name())
+					log.Debugf("Send metrics to backend %s", s.BackendName())
 					flushChan <- s.SendMetrics(flushed)
 				}()
 			}

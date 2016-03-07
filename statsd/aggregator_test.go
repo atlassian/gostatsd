@@ -15,7 +15,7 @@ type FakeBackend struct{}
 
 func (fb *FakeBackend) SendMetrics(metrics types.MetricMap) error { return nil }
 func (fb *FakeBackend) SampleConfig() string                      { return "" }
-func (fb *FakeBackend) Name() string                              { return "fake" }
+func (fb *FakeBackend) BackendName() string                       { return "fake" }
 
 func newFakeMetricAggregator() (backend.MetricSender, *MetricAggregator) {
 	b := &FakeBackend{}

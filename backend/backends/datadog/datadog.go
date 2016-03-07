@@ -165,8 +165,8 @@ func (d *Client) SampleConfig() string {
 	return sampleConfig
 }
 
-// Name returns the name of the backend
-func (d *Client) Name() string {
+// BackendName returns the name of the backend
+func (d *Client) BackendName() string {
 	return backendName
 }
 

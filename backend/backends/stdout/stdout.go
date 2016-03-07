@@ -3,7 +3,6 @@ package stdout
 import (
 	"bytes"
 	"fmt"
-	"regexp"
 	"strings"
 	"time"
 
@@ -29,18 +28,15 @@ func NewClient() (backend.MetricSender, error) {
 	return &Client{}, nil
 }
 
-// Regular expressions used for bucket name normalization
-var regSemiColon = regexp.MustCompile(":")
-
-// normalizeBucketName cleans up a bucket name by replacing or translating invalid characters
-func normalizeBucketName(bucket string, tagsKey string) string {
+// composeMetricName adds the key and the tags to compose the metric name
+func composeMetricName(key string, tagsKey string) string {
 	tags := strings.Split(tagsKey, ",")
 	for _, tag := range tags {
 		if tag != "" {
-			bucket += "." + regSemiColon.ReplaceAllString(tag, "_")
+			key += "." + types.NormalizeTag(tag)
 		}
 	}
-	return bucket
+	return key
 }
 
 // SampleConfig returns the sample config for the stdout backend
@@ -53,12 +49,12 @@ func (client *Client) SendMetrics(metrics types.MetricMap) error {
 	buf := new(bytes.Buffer)
 	now := time.Now().Unix()
 	types.EachCounter(metrics.Counters, func(key, tagsKey string, counter types.Counter) {
-		nk := normalizeBucketName(key, tagsKey)
+		nk := composeMetricName(key, tagsKey)
 		fmt.Fprintf(buf, "stats.counter.%s.count %d %d\n", nk, counter.Value, now)
 		fmt.Fprintf(buf, "stats.counter.%s.per_second %f %d\n", nk, counter.PerSecond, now)
 	})
 	types.EachTimer(metrics.Timers, func(key, tagsKey string, timer types.Timer) {
-		nk := normalizeBucketName(key, tagsKey)
+		nk := composeMetricName(key, tagsKey)
 		fmt.Fprintf(buf, "stats.timers.%s.lower %f %d\n", nk, timer.Min, now)
 		fmt.Fprintf(buf, "stats.timers.%s.upper %f %d\n", nk, timer.Max, now)
 		fmt.Fprintf(buf, "stats.timers.%s.count %d %d\n", nk, timer.Count, now)
@@ -73,12 +69,12 @@ func (client *Client) SendMetrics(metrics types.MetricMap) error {
 		}
 	})
 	types.EachGauge(metrics.Gauges, func(key, tagsKey string, gauge types.Gauge) {
-		nk := normalizeBucketName(key, tagsKey)
+		nk := composeMetricName(key, tagsKey)
 		fmt.Fprintf(buf, "stats.gauge.%s %f %d\n", nk, gauge.Value, now)
 	})
 
 	types.EachSet(metrics.Sets, func(key, tagsKey string, set types.Set) {
-		nk := normalizeBucketName(key, tagsKey)
+		nk := composeMetricName(key, tagsKey)
 		fmt.Fprintf(buf, "stats.set.%s %d %d\n", nk, len(set.Values), now)
 	})
 
@@ -92,7 +88,7 @@ func (client *Client) SendMetrics(metrics types.MetricMap) error {
 	return nil
 }
 
-// Name returns the name of the backend
-func (client *Client) Name() string {
+// BackendName returns the name of the backend
+func (client *Client) BackendName() string {
 	return backendName
 }

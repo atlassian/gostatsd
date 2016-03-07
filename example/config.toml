@@ -9,3 +9,7 @@
 
 	address = "docker.local:8125"
 
+[aws]
+
+	availability_zone = "ap-southeast-2b"
+

@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"net"
-	"regexp"
 	"strings"
 	"time"
 
@@ -29,20 +28,12 @@ const sampleConfig = `
 	address = "ip:2003"
 `
 
-// Regular expressions used for bucket name normalization
-var (
-	regSemiColon = regexp.MustCompile(":")
-	regDot       = regexp.MustCompile("\\.")
-)
-
 // normalizeBucketName cleans up a bucket name by replacing or translating invalid characters
 func normalizeBucketName(bucket string, tagsKey string) string {
 	tags := strings.Split(tagsKey, ",")
 	for _, tag := range tags {
 		if tag != "" {
-			tag = regSemiColon.ReplaceAllString(tag, "_")
-			tag = regDot.ReplaceAllString(tag, "_")
-			bucket += "." + tag
+			bucket += "." + types.NormalizeTag(tag)
 		}
 	}
 	return bucket
@@ -116,7 +107,7 @@ func NewClient() (backend.MetricSender, error) {
 	return &Client{viper.GetString("graphite.address")}, nil
 }
 
-// Name returns the name of the backend
-func (client *Client) Name() string {
+// BackendName returns the name of the backend
+func (client *Client) BackendName() string {
 	return backendName
 }

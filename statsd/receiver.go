@@ -5,10 +5,11 @@ import (
 	"fmt"
 	"io"
 	"net"
-	"regexp"
 	"strconv"
 	"strings"
 	"sync"
+
+	"github.com/jtblin/gostatsd/cloudprovider"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/jtblin/gostatsd/types"
@@ -19,13 +20,6 @@ const (
 	defaultMetricsAddr = ":8125"
 	packetSizeUDP      = 1500
 	maxQueueSize       = 1000
-)
-
-// Regular expressions used for metric name normalization
-var (
-	regSpaces  = regexp.MustCompile("\\s+")
-	regSlashes = regexp.MustCompile("\\/")
-	regInvalid = regexp.MustCompile("[^a-zA-Z_\\-0-9\\.]")
 )
 
 // Handler interface can be used to handle metrics for a MetricReceiver
@@ -41,26 +35,16 @@ func (f HandlerFunc) HandleMetric(m types.Metric) {
 	f(m)
 }
 
-// normalizeMetricName cleans up a metric name by replacing or translating invalid characters
-func (mr *MetricReceiver) normalizeMetricName(name string) string {
-	nospaces := regSpaces.ReplaceAllString(name, "_")
-	noslashes := regSlashes.ReplaceAllString(nospaces, "-")
-	metricName := regInvalid.ReplaceAllString(noslashes, "")
-	if mr.Namespace != "" {
-		metricName = fmt.Sprintf("%s.%s", mr.Namespace, metricName)
-	}
-	return metricName
-}
-
 // MetricReceiver receives data on its listening port and converts lines in to Metrics.
 // For each types.Metric it calls r.Handler.HandleMetric()
 type MetricReceiver struct {
-	Addr       string    // UDP address on which to listen for metrics
-	BufferPool sync.Pool // Buffer pool
-	Handler    Handler   // handler to invoke
-	MaxWorkers int       // Maximum number of workers
-	Namespace  string    // Namespace to prefix all metrics
-	Tags       []string  // Tags to add to all metrics
+	Addr       string                  // UDP address on which to listen for metrics
+	BufferPool sync.Pool               // Buffer pool
+	Cloud      cloudprovider.Interface // Cloud provider interface
+	Handler    Handler                 // handler to invoke
+	MaxWorkers int                     // Maximum number of workers
+	Namespace  string                  // Namespace to prefix all metrics
+	Tags       []string                // Tags to add to all metrics
 }
 
 type message struct {
@@ -70,12 +54,13 @@ type message struct {
 }
 
 // NewMetricReceiver initialises a new MetricReceiver
-func NewMetricReceiver(addr, ns string, maxWorkers int, tags []string, handler Handler) *MetricReceiver {
+func NewMetricReceiver(addr, ns string, maxWorkers int, tags []string, cloud cloudprovider.Interface, handler Handler) *MetricReceiver {
 	return &MetricReceiver{
 		Addr: addr,
 		BufferPool: sync.Pool{
 			New: func() interface{} { return make([]byte, packetSizeUDP) },
 		},
+		Cloud:      cloud,
 		Handler:    handler,
 		MaxWorkers: maxWorkers,
 		Namespace:  ns,
@@ -151,7 +136,7 @@ func (mr *MetricReceiver) handleMessage(addr net.Addr, msg []byte) {
 
 		// protocol does not require line to end in \n, if EOF use received line if valid
 		if readerr != nil && readerr != io.EOF {
-			log.Errorf("error reading message from %s: %s", addr, readerr)
+			log.Errorf("Error reading message from %s: %v", addr, readerr)
 			return
 		} else if readerr != io.EOF {
 			// remove newline, only if not EOF
@@ -164,13 +149,25 @@ func (mr *MetricReceiver) handleMessage(addr net.Addr, msg []byte) {
 		if len(line) > 1 {
 			metric, err := mr.parseLine(line)
 			if err != nil {
-				log.Errorf("error parsing line %q from %s: %s", line, addr, err)
+				log.Errorf("Error parsing line %q from %s: %v", line, addr, err)
 				mr.countInternalStats("bad_lines_seen", 1)
 				continue
 			}
 			source := strings.Split(addr.String(), ":")
-			if net.ParseIP(source[0]) != nil {
-				metric.Tags = append(metric.Tags, fmt.Sprintf("%s:%s", types.StatsdSourceIP, source[0]))
+			hostname := source[0]
+			if net.ParseIP(hostname) != nil {
+				if mr.Cloud != nil {
+					instance, err := cloudprovider.GetInstance(mr.Cloud, hostname)
+					if err != nil {
+						log.Errorf("Error retrieving instance details from cloud provider %s: %v", mr.Cloud.ProviderName(), err)
+					} else {
+						hostname = instance.ID
+						metric.Tags = append(metric.Tags, instance.Tags...)
+						metric.Tags = append(metric.Tags, fmt.Sprintf("%s:%s", "region", instance.Region))
+					}
+				}
+				metric.Tags = append(metric.Tags, fmt.Sprintf("%s:%s", types.StatsdSourceID, hostname))
+				log.Debugf("Metric tags: %v", metric.Tags)
 			}
 			mr.Handler.HandleMetric(metric)
 			numMetrics++
@@ -193,7 +190,7 @@ func (mr *MetricReceiver) parseLine(line []byte) (types.Metric, error) {
 	if err != nil {
 		return metric, fmt.Errorf("error parsing metric name: %s", err)
 	}
-	metric.Name = mr.normalizeMetricName(string(name[:len(name)-1]))
+	metric.Name = types.NormalizeMetricName(string(name[:len(name)-1]), mr.Namespace)
 
 	value, err := buf.ReadBytes('|')
 	if err != nil {

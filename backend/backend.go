@@ -17,11 +17,11 @@ type Factory func() (MetricSender, error)
 
 // MetricSender represents a backend
 type MetricSender interface {
-	// Name returns the name of the backend
-	Name() string
+	// BackendName returns the name of the backend
+	BackendName() string
 	// SampleConfig returns the sample config for the backend
 	SampleConfig() string
-	// ProcessFlush flushes the metrics to the backend
+	// SendMetrics flushes the metrics to the backend
 	SendMetrics(metrics types.MetricMap) error
 }
 
@@ -34,7 +34,7 @@ func (f MetricSenderFunc) SendMetrics(m types.MetricMap) error {
 }
 
 // Name returns the name
-func (f MetricSenderFunc) Name() string {
+func (f MetricSenderFunc) BackendName() string {
 	return "MetricSenderFunc"
 }
 
@@ -50,10 +50,8 @@ func RegisterBackend(name string, backend Factory) {
 }
 
 // GetBackend creates an instance of the named backend, or nil if
-// the name is not known.  The error return is only used if the named provider
-// was known but failed to initialize. The config parameter specifies the
-// io.Reader handler of the configuration file for the authenticator backend, or nil
-// for no configuation.
+// the name is not known.  The error return is only used if the named backend
+// was known but failed to initialize.
 func GetBackend(name string) (MetricSender, error) {
 	backendsMutex.Lock()
 	defer backendsMutex.Unlock()

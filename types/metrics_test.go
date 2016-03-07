@@ -25,17 +25,17 @@ func TestIndexOfKey(t *testing.T) {
 func TestExtractSourceFromTags(t *testing.T) {
 	assert := assert.New(t)
 
-	stags := "foo,statsd_source_ip:1.2.3.4,baz"
+	stags := "foo,statsd_source_id:1.2.3.4,baz"
 	source, tags := ExtractSourceFromTags(stags)
 
 	assert.Equal("1.2.3.4", source)
 	assert.Equal(Tags{"foo", "baz"}, tags)
 
-	stags = "foo,source_ip:1.2.3.4,baz"
+	stags = "foo,source_id:1.2.3.4,baz"
 	source, tags = ExtractSourceFromTags(stags)
 
 	assert.Equal("", source)
-	assert.Equal(Tags{"foo", "source_ip:1.2.3.4", "baz"}, tags)
+	assert.Equal(Tags{"foo", "source_id:1.2.3.4", "baz"}, tags)
 }
 
 func TestNormalise(t *testing.T) {

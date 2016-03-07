@@ -3,6 +3,7 @@ package types
 import (
 	"bytes"
 	"fmt"
+	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -12,7 +13,7 @@ import (
 type MetricType float64
 
 // StatsdSourceIP stores the key used to tag metrics with the origin IP address
-const StatsdSourceIP = "statsd_source_ip"
+const StatsdSourceID = "statsd_source_id"
 
 const (
 	_ = iota
@@ -25,6 +26,46 @@ const (
 	// SET is statsd set type
 	SET
 )
+
+// Regular expressions used for metric name normalization
+var (
+	regDot       = regexp.MustCompile("\\.")
+	regInvalid   = regexp.MustCompile("[^a-zA-Z_\\-0-9\\.]")
+	regSemiColon = regexp.MustCompile(":")
+	regSpaces    = regexp.MustCompile("\\s+")
+	regSlashes   = regexp.MustCompile("\\/")
+)
+
+// Normalize replaces invalid characters
+func Normalize(name string) string {
+	nospaces := regSpaces.ReplaceAllString(name, "_")
+	noslashes := regSlashes.ReplaceAllString(nospaces, "-")
+	valid := regInvalid.ReplaceAllString(noslashes, "")
+	return strings.ToLower(valid)
+}
+
+// NormalizeMetricName cleans up a metric name and prefix with the namespace when given
+func NormalizeMetricName(name, namespace string) string {
+	metricName := Normalize(name)
+	if namespace != "" {
+		metricName = fmt.Sprintf("%s.%s", namespace, metricName)
+	}
+	return metricName
+}
+
+// NormalizeTag cleans up a the tags
+func NormalizeTag(name string) string {
+	tag := regSemiColon.ReplaceAllString(name, ".")
+	return Normalize(tag)
+	//return regDot.ReplaceAllString(tag, "_")
+}
+
+// NormalizeTagElement cleans up the key or the value of a tag
+func NormalizeTagElement(name string) string {
+	tag := regSemiColon.ReplaceAllString(name, "_")
+	tag = Normalize(tag)
+	return regDot.ReplaceAllString(tag, "_")
+}
 
 func (m MetricType) String() string {
 	switch {
@@ -77,7 +118,7 @@ func (tags Tags) Map() map[string]string {
 // and the updated tags
 func ExtractSourceFromTags(s string) (string, Tags) {
 	tags := Tags(strings.Split(s, ","))
-	idx, element := tags.IndexOfKey(StatsdSourceIP)
+	idx, element := tags.IndexOfKey(StatsdSourceID)
 	if idx != -1 {
 		bits := strings.Split(element, ":")
 		if len(bits) > 1 {
