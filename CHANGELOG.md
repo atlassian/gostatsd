@@ -1,3 +1,7 @@
+0.10.4
+------
+- Add load testing tool
+
 0.10.3
 ------
 - Performance improvements for receiver and aggregator

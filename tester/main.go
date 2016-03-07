@@ -1,72 +1,35 @@
-// Run with `cat tester/test_metrics | go run tester/main.go`
 package main
 
 import (
-	"bufio"
-	"flag"
 	"fmt"
-	"io"
-	"math/rand"
-	"net"
 	"os"
-	"time"
+	"runtime"
+
+	log "github.com/Sirupsen/logrus"
+	"github.com/spf13/pflag"
 )
 
 var (
-	statsdAddr string
+	// BuildDate is the date when the binary was built
+	BuildDate string
+	// GitCommit is the commit hash that built the binary
+	GitCommit string
+	// Version is the version
+	Version string
 )
-
-const (
-	defaultStatsdAddr = ":8125"
-)
-
-func init() {
-	flag.StringVar(&statsdAddr, "s", defaultStatsdAddr, "address of statsd server")
-}
 
 func main() {
-	flag.Parse()
+	runtime.GOMAXPROCS(runtime.NumCPU())
+	s := newServer()
+	s.AddFlags(pflag.CommandLine)
+	pflag.Parse()
 
-	c := make(chan string)
-	done := make(chan bool)
-	go func() {
-		conn, err := net.Dial("udp", statsdAddr)
-		if err != nil {
-			panic(err)
-		}
-		for l := range c {
-			_, err = fmt.Fprintln(conn, l)
-			if err != nil {
-				fmt.Println("error sending:", err)
-				break
-			}
-		}
-		done <- true
-	}()
-
-	var err error
-	stdin := bufio.NewReaderSize(os.Stdin, 256)
-	for {
-		var line []byte
-		line, _, err = stdin.ReadLine()
-		if err != nil {
-			break
-		}
-
-		var bucket string
-		fmt.Sscanf(string(line), "%s", &bucket)
-		go func() {
-			for {
-				time.Sleep(time.Second * time.Duration(rand.Intn(10)))
-				c <- fmt.Sprintf("%s:1|c", bucket)
-				c <- fmt.Sprintf("%s:2|ms", bucket)
-				c <- fmt.Sprintf("%s:3|s", bucket)
-			}
-		}()
-	}
-	if err != io.EOF {
-		panic(err)
+	if s.Version {
+		fmt.Printf("Version: %s - Commit: %s - Date: %s\n", Version, GitCommit, BuildDate)
+		os.Exit(0)
 	}
 
-	<-done
+	if err := s.Run(); err != nil {
+		log.Fatalf("%v\n", err)
+	}
 }

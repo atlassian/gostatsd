@@ -10,7 +10,7 @@ Pri 1
 * [x] Add `datadog` backend
 * [x] Add more timers aggregations e.g. mean, standard deviation, etc.
 * [ ] Add tests
-* [ ] Add load testing
+* [x] Add load testing
 * [ ] Add benchmarks
 * [x] Review reset of counters, gauges, timers, etc. using last flush time and an expiration window
 * [x] Add support for global metrics namespace
