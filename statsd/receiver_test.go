@@ -68,6 +68,7 @@ func TestParseLine(t *testing.T) {
 		"abc.def.g:3|g":   {Name: "abc.def.g", Value: 3, Type: types.GAUGE, Tags: types.Tags{"env:foo"}},
 		"def.g:10|ms":     {Name: "def.g", Value: 10, Type: types.TIMER, Tags: types.Tags{"env:foo"}},
 		"uniq.usr:joe|s":  {Name: "uniq.usr", StringValue: "joe", Type: types.SET, Tags: types.Tags{"env:foo"}},
+		"uniq.usr:joe|s|#foo:bar":  {Name: "uniq.usr", StringValue: "joe", Type: types.SET, Tags: types.Tags{"env:foo", "foo:bar"}},
 	}
 
 	mr = &MetricReceiver{Tags: []string{"env:foo"}}
@@ -85,6 +86,21 @@ func TestParseLine(t *testing.T) {
 	}
 }
 
+func benchmarkParseLine(mr *MetricReceiver, input string, b *testing.B) {
+	for n := 0; n < b.N; n++ {
+		mr.parseLine([]byte(input))
+	}
+}
+
+func BenchmarkParseLineCounter(b *testing.B) { benchmarkParseLine(&MetricReceiver{}, "foo.bar.baz:2|c", b) }
+func BenchmarkParseLineCounterWithTagsAndSampleRate(b *testing.B) { benchmarkParseLine(&MetricReceiver{}, "smp.rte:5|c|@0.1|#foo:bar,baz", b) }
+func BenchmarkParseLineGauge(b *testing.B) { benchmarkParseLine(&MetricReceiver{}, "abc.def.g:3|g", b) }
+func BenchmarkParseLineTimer(b *testing.B) { benchmarkParseLine(&MetricReceiver{}, "def.g:10|ms", b) }
+func BenchmarkParseLineSet(b *testing.B) { benchmarkParseLine(&MetricReceiver{}, "uniq.usr:joe|s", b) }
+func BenchmarkParseLineCounterWithDefaultTags(b *testing.B) { benchmarkParseLine(&MetricReceiver{Tags: []string{"env:foo"}}, "foo.bar.baz:2|c", b) }
+func BenchmarkParseLineCounterWithDefaultTagsAndTags(b *testing.B) { benchmarkParseLine(&MetricReceiver{Tags: []string{"env:foo"}}, "foo.bar.baz:2|c|#foo:bar,baz", b) }
+func BenchmarkParseLineCounterWithDefaultTagsAndTagsAndNameSpace(b *testing.B) { benchmarkParseLine(&MetricReceiver{Namespace: "stats", Tags: []string{"env:foo"}}, "foo.bar.baz:2|c|#foo:bar,baz", b) }
+
 func TestParseTags(t *testing.T) {
 	mr := &MetricReceiver{}
 	_, err := mr.parseTags("%foo:bar")
@@ -99,5 +115,13 @@ func TestParseTags(t *testing.T) {
 	expected := types.Tags{"foo:bar", "bar", "baz:foo"}
 	if !reflect.DeepEqual(result, expected) {
 		t.Errorf("test #foo:bar,bar,baz:foo: expected %s, got %s", expected, result)
+	}
+}
+
+func BenchmarkParseTags(b *testing.B) {
+	mr := &MetricReceiver{}
+	b.ResetTimer()
+	for n := 0; n < b.N; n++ {
+		mr.parseTags("#foo:bar,bar,baz:foo")
 	}
 }

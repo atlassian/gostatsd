@@ -22,6 +22,14 @@ func TestIndexOfKey(t *testing.T) {
 	assert.Equal("", value)
 }
 
+func BenchmarkIndexOfKey(b *testing.B) {
+	tags := Tags{"foo", "bar:baz", "baz"}
+	b.ResetTimer()
+	for n := 0; n < b.N; n++ {
+		tags.IndexOfKey("bar")
+	}
+}
+
 func TestExtractSourceFromTags(t *testing.T) {
 	assert := assert.New(t)
 
@@ -36,6 +44,14 @@ func TestExtractSourceFromTags(t *testing.T) {
 
 	assert.Equal("", source)
 	assert.Equal(Tags{"foo", "source_id:1.2.3.4", "baz"}, tags)
+}
+
+func BenchmarkExtractSourceFromTags(b *testing.B) {
+	stags := "foo,statsd_source_id:1.2.3.4,baz"
+	b.ResetTimer()
+	for n := 0; n < b.N; n++ {
+		ExtractSourceFromTags(stags)
+	}
 }
 
 func TestNormalise(t *testing.T) {

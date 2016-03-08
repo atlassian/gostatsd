@@ -28,6 +28,9 @@ test:
 race:
 	GO15VENDOREXPERIMENT=1 go build -race $(shell GO15VENDOREXPERIMENT=1 go list ./... | grep -v /vendor/)
 
+bench:
+	GO15VENDOREXPERIMENT=1 go test -bench=. $(shell GO15VENDOREXPERIMENT=1 go list ./... | grep -v /vendor/)
+
 cover:
 	./cover.sh
 
