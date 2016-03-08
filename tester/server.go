@@ -46,7 +46,7 @@ func newServer() *Server {
 		Concurrency:   10,
 		FlushInterval: 1 * time.Second,
 		MaxPacketSize: 1400,
-		MetricsAddr:   "statsd:8125",
+		MetricsAddr:   ":8125",
 		WebAddr:       ":8080",
 	}
 }

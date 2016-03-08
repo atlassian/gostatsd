@@ -3,6 +3,7 @@
 - Process internal stats as standard metrics
 - Add benchmarks
 - Improve performance for buffering data out of the socket
+- Drop messages and metrics instead of blocking when overloaded
 
 0.11.1
 ------

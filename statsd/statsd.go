@@ -117,7 +117,11 @@ func (s *Server) Run() error {
 
 	// Start the metric receiver
 	f := func(metric types.Metric) {
-		aggregator.MetricQueue <- metric
+		select {
+		case aggregator.MetricQueue <- metric:
+		default:
+			log.Errorf("Dropped metric because metric queue is full")
+		}
 	}
 	cloud, err := cloudprovider.InitCloudProvider(s.CloudProvider)
 	if err != nil {

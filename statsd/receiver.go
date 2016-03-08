@@ -17,7 +17,7 @@ import (
 // DefaultMetricsAddr is the default address on which a MetricReceiver will listen
 const (
 	defaultMetricsAddr = ":8125"
-	maxQueueSize       = 1000
+	maxQueueSize       = 100000      // arbitrary: testing shows it rarely goes above 2k
 	packetBufSize      = 1024 * 1024 // 1 MB
 	packetSizeUDP      = 1500
 )
@@ -90,8 +90,12 @@ func (mr *MetricReceiver) increment(name string, value int) {
 
 type messageQueue chan message
 
-func (mq messageQueue) enqueue(m message) {
-	mq <- m
+func (mq messageQueue) enqueue(m message, mr *MetricReceiver) {
+	select {
+	case mq <- m:
+	default:
+		mr.increment("dropped_message", 1)
+	}
 }
 
 func (mq messageQueue) dequeue(mr *MetricReceiver) {
@@ -117,7 +121,7 @@ func (mr *MetricReceiver) receive(c net.PacketConn, mq messageQueue) {
 			continue
 		}
 		msg := buf[:nbytes]
-		mq.enqueue(message{addr, msg})
+		mq.enqueue(message{addr, msg}, mr)
 		buf = buf[nbytes:]
 	}
 }
