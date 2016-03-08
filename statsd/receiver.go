@@ -44,7 +44,7 @@ type MetricReceiver struct {
 	Handler    Handler                 // handler to invoke
 	MaxWorkers int                     // Maximum number of workers
 	Namespace  string                  // Namespace to prefix all metrics
-	Tags       []string                // Tags to add to all metrics
+	Tags       types.Tags              // Tags to add to all metrics
 }
 
 type message struct {
@@ -88,13 +88,9 @@ func (mr *MetricReceiver) ListenAndReceive() error {
 	return nil
 }
 
-func (mr *MetricReceiver) countInternalStats(name string, value int) {
-	mr.Handler.HandleMetric(types.Metric{
-		Type:  types.COUNTER,
-		Name:  fmt.Sprintf("statsd.%s", name),
-		Tags:  mr.Tags,
-		Value: float64(value),
-	})
+// increment allows counting server stats using default tags
+func (mr *MetricReceiver) increment(name string, value int) {
+	mr.Handler.HandleMetric(types.NewMetric(internalStatName(name), float64(value), types.COUNTER, mr.Tags))
 }
 
 type messageQueue chan message
@@ -107,7 +103,7 @@ func (mq messageQueue) dequeue(mr *MetricReceiver) {
 	for m := range mq {
 		mr.handleMessage(m.addr, m.msg[0:m.length])
 		mr.BufferPool.Put(m.msg)
-		mr.countInternalStats("packets_received", 1)
+		mr.increment("packets_received", 1)
 	}
 }
 
@@ -150,7 +146,7 @@ func (mr *MetricReceiver) handleMessage(addr net.Addr, msg []byte) {
 			metric, err := mr.parseLine(line)
 			if err != nil {
 				log.Errorf("Error parsing line %q from %s: %v", line, addr, err)
-				mr.countInternalStats("bad_lines_seen", 1)
+				mr.increment("bad_lines_seen", 1)
 				continue
 			}
 			source := strings.Split(addr.String(), ":")
@@ -175,7 +171,7 @@ func (mr *MetricReceiver) handleMessage(addr net.Addr, msg []byte) {
 
 		if readerr == io.EOF {
 			// if was EOF, finished handling
-			mr.countInternalStats("metrics_received", numMetrics)
+			mr.increment("metrics_received", numMetrics)
 			return
 		}
 	}
@@ -183,7 +179,7 @@ func (mr *MetricReceiver) handleMessage(addr net.Addr, msg []byte) {
 
 func (mr *MetricReceiver) parseLine(line []byte) (types.Metric, error) {
 	var metric types.Metric
-	metric.Tags = mr.Tags
+	metric.Tags = append(metric.Tags, mr.Tags...)
 
 	buf := bytes.NewBuffer(line)
 	name, err := buf.ReadBytes(':')

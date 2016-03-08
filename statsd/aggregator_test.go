@@ -64,6 +64,8 @@ func TestNewMetricAggregator(t *testing.T) {
 func TestFlush(t *testing.T) {
 	assert := assert.New(t)
 
+	now := time.Now()
+	nowFn := func() time.Time { return now }
 	_, ma := newFakeMetricAggregator()
 	_, expected := newFakeMetricAggregator()
 
@@ -76,6 +78,11 @@ func TestFlush(t *testing.T) {
 	expected.Counters["some"][""] = types.Counter{Value: 50, PerSecond: 5}
 	expected.Counters["some"]["thing"] = types.Counter{Value: 100, PerSecond: 10}
 	expected.Counters["some"]["other:thing"] = types.Counter{Value: 150, PerSecond: 15}
+	expected.Counters["statsd.numStats"] = make(map[string]types.Counter)
+	expected.Counters["statsd.numStats"][""] = types.Counter{
+		Value: 0, PerSecond: 0,
+		Interval: types.Interval{Timestamp: now, Flush: time.Duration(10) * time.Second},
+	} // count happens in ReceiveMetric
 
 	ma.Timers["some"] = make(map[string]types.Timer)
 	ma.Timers["some"]["thing"] = types.Timer{Values: []float64{2, 4, 12}}
@@ -103,6 +110,11 @@ func TestFlush(t *testing.T) {
 	expected.Gauges["some"][""] = types.Gauge{Value: 50}
 	expected.Gauges["some"]["thing"] = types.Gauge{Value: 100}
 	expected.Gauges["some"]["other:thing"] = types.Gauge{Value: 150}
+	expected.Gauges["statsd.processingTime"] = make(map[string]types.Gauge)
+	expected.Gauges["statsd.processingTime"][""] = types.Gauge{
+		Value:    0,
+		Interval: types.Interval{Timestamp: now, Flush: time.Duration(10) * time.Second},
+	} // start and end are the same...
 
 	ma.Sets["some"] = make(map[string]types.Set)
 	unique := make(map[string]int64)
@@ -112,7 +124,7 @@ func TestFlush(t *testing.T) {
 	expected.Sets["some"] = make(map[string]types.Set)
 	expected.Sets["some"]["thing"] = types.Set{Values: unique}
 
-	actual := ma.flush()
+	actual := ma.flush(nowFn)
 	assert.Equal(expected.Counters, actual.Counters)
 	assert.Equal(expected.Timers, actual.Timers)
 	assert.Equal(expected.Gauges, actual.Gauges)
@@ -143,7 +155,7 @@ func BenchmarkFlush(b *testing.B) {
 	b.ResetTimer()
 
 	for n := 0; n < b.N; n++ {
-		ma.flush()
+		ma.flush(time.Now)
 	}
 }
 
@@ -338,10 +350,18 @@ func benchmarkReceiveMetric(metric types.Metric, b *testing.B) {
 	}
 }
 
-func BenchmarkReceiveMetricCounter(b *testing.B) { benchmarkReceiveMetric(types.Metric{Name: "foo.bar.baz", Value: 2, Type: types.COUNTER}, b) }
-func BenchmarkReceiveMetricGauge(b *testing.B) { benchmarkReceiveMetric(types.Metric{Name: "abc.def.g", Value: 3, Type: types.GAUGE}, b) }
-func BenchmarkReceiveMetricTimer(b *testing.B) { benchmarkReceiveMetric(types.Metric{Name: "def.g", Value: 10, Type: types.TIMER}, b) }
-func BenchmarkReceiveMetricSet(b *testing.B) { benchmarkReceiveMetric(types.Metric{Name: "uniq.usr", StringValue: "joe", Type: types.SET}, b) }
+func BenchmarkReceiveMetricCounter(b *testing.B) {
+	benchmarkReceiveMetric(types.Metric{Name: "foo.bar.baz", Value: 2, Type: types.COUNTER}, b)
+}
+func BenchmarkReceiveMetricGauge(b *testing.B) {
+	benchmarkReceiveMetric(types.Metric{Name: "abc.def.g", Value: 3, Type: types.GAUGE}, b)
+}
+func BenchmarkReceiveMetricTimer(b *testing.B) {
+	benchmarkReceiveMetric(types.Metric{Name: "def.g", Value: 10, Type: types.TIMER}, b)
+}
+func BenchmarkReceiveMetricSet(b *testing.B) {
+	benchmarkReceiveMetric(types.Metric{Name: "uniq.usr", StringValue: "joe", Type: types.SET}, b)
+}
 
 func BenchmarkReceiveMetrics(b *testing.B) {
 	_, ma := newFakeMetricAggregator()

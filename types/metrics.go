@@ -103,6 +103,16 @@ type Metric struct {
 	StringValue string     // The string value for some metrics e.g. Set
 }
 
+// NewMetric creates a metric with tags
+func NewMetric(name string, value float64, mtype MetricType, tags Tags) Metric {
+	return Metric{
+		Type:  mtype,
+		Name:  name,
+		Tags:  tags,
+		Value: value,
+	}
+}
+
 // Tags represents a list of tags
 type Tags []string
 

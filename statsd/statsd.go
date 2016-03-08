@@ -1,6 +1,7 @@
 package statsd
 
 import (
+	"fmt"
 	"runtime"
 	"strconv"
 	"time"
@@ -19,6 +20,7 @@ import (
 // Server encapsulates all of the parameters necessary for starting up
 // the statsd server. These can either be set via command line or directly.
 type Server struct {
+	aggregator       *MetricAggregator
 	Backends         []string
 	ConfigPath       string
 	ConsoleAddr      string
@@ -36,9 +38,15 @@ type Server struct {
 	WebConsoleAddr   string
 }
 
-// NewServer will create a new StatsdServer with default values.
+var server *Server
+
+// NewServer will create a new Server with default values if none exists
+// otherwise it will return the singleton.
 func NewServer() *Server {
-	return &Server{
+	if server != nil {
+		return server
+	}
+	server = &Server{
 		Backends:         []string{"graphite"},
 		ConsoleAddr:      ":8126",
 		ExpiryInterval:   5 * time.Minute,
@@ -48,6 +56,7 @@ func NewServer() *Server {
 		PercentThreshold: []string{"90"},
 		WebConsoleAddr:   ":8181",
 	}
+	return server
 }
 
 // AddFlags adds flags for a specific DockerAuthServer to the specified FlagSet
@@ -102,8 +111,9 @@ func (s *Server) Run() error {
 		percentThresholds = append(percentThresholds, pt)
 	}
 
-	aggregator := NewMetricAggregator(backends, percentThresholds, s.FlushInterval, s.ExpiryInterval, s.MaxWorkers)
+	aggregator := NewMetricAggregator(backends, percentThresholds, s.FlushInterval, s.ExpiryInterval, s.MaxWorkers, s.DefaultTags)
 	go aggregator.Aggregate()
+	s.aggregator = aggregator
 
 	// Start the metric receiver
 	f := func(metric types.Metric) {
@@ -128,4 +138,8 @@ func (s *Server) Run() error {
 
 	// Listen forever
 	select {}
+}
+
+func internalStatName(name string) string {
+	return fmt.Sprintf("statsd.%s", name)
 }

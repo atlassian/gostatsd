@@ -1,3 +1,8 @@
+0.11.2
+------
+- Process internal stats as standard metrics
+- Add benchmarks
+
 0.11.1
 ------
 - Normalize tags consistently but don't force lower case for metric names
