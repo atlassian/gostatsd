@@ -2,6 +2,7 @@
 ------
 - Process internal stats as standard metrics
 - Add benchmarks
+- Improve performance for buffering data out of the socket
 
 0.11.1
 ------

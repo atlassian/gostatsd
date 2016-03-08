@@ -7,7 +7,6 @@ import (
 	"net"
 	"strconv"
 	"strings"
-	"sync"
 
 	"github.com/jtblin/gostatsd/cloudprovider"
 
@@ -18,8 +17,9 @@ import (
 // DefaultMetricsAddr is the default address on which a MetricReceiver will listen
 const (
 	defaultMetricsAddr = ":8125"
-	packetSizeUDP      = 1500
 	maxQueueSize       = 1000
+	packetBufSize      = 1024 * 1024 // 1 MB
+	packetSizeUDP      = 1500
 )
 
 // Handler interface can be used to handle metrics for a MetricReceiver
@@ -39,7 +39,6 @@ func (f HandlerFunc) HandleMetric(m types.Metric) {
 // For each types.Metric it calls r.Handler.HandleMetric()
 type MetricReceiver struct {
 	Addr       string                  // UDP address on which to listen for metrics
-	BufferPool sync.Pool               // Buffer pool
 	Cloud      cloudprovider.Interface // Cloud provider interface
 	Handler    Handler                 // handler to invoke
 	MaxWorkers int                     // Maximum number of workers
@@ -48,18 +47,14 @@ type MetricReceiver struct {
 }
 
 type message struct {
-	addr   net.Addr
-	msg    []byte
-	length int
+	addr net.Addr
+	msg  []byte
 }
 
 // NewMetricReceiver initialises a new MetricReceiver
 func NewMetricReceiver(addr, ns string, maxWorkers int, tags []string, cloud cloudprovider.Interface, handler Handler) *MetricReceiver {
 	return &MetricReceiver{
-		Addr: addr,
-		BufferPool: sync.Pool{
-			New: func() interface{} { return make([]byte, packetSizeUDP) },
-		},
+		Addr:       addr,
 		Cloud:      cloud,
 		Handler:    handler,
 		MaxWorkers: maxWorkers,
@@ -101,24 +96,29 @@ func (mq messageQueue) enqueue(m message) {
 
 func (mq messageQueue) dequeue(mr *MetricReceiver) {
 	for m := range mq {
-		mr.handleMessage(m.addr, m.msg[0:m.length])
-		mr.BufferPool.Put(m.msg)
+		mr.handleMessage(m.addr, m.msg)
 		mr.increment("packets_received", 1)
 	}
 }
 
 // receive accepts incoming datagrams on c and calls mr.handleMessage() for each message
-func (mr *MetricReceiver) receive(c net.PacketConn, mq messageQueue) error {
+func (mr *MetricReceiver) receive(c net.PacketConn, mq messageQueue) {
 	defer c.Close()
 
+	var buf []byte
 	for {
-		msg := mr.BufferPool.Get().([]byte)
-		nbytes, addr, err := c.ReadFrom(msg[0:])
+		if len(buf) < packetSizeUDP {
+			buf = make([]byte, packetBufSize, packetBufSize)
+		}
+
+		nbytes, addr, err := c.ReadFrom(buf)
 		if err != nil {
-			log.Errorf("%s", err)
+			log.Printf("Error %s", err)
 			continue
 		}
-		mq.enqueue(message{addr, msg, nbytes})
+		msg := buf[:nbytes]
+		mq.enqueue(message{addr, msg})
+		buf = buf[nbytes:]
 	}
 }
 

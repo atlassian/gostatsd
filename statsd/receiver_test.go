@@ -1,8 +1,10 @@
 package statsd
 
 import (
+	"net"
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/jtblin/gostatsd/types"
 )
@@ -135,3 +137,39 @@ func BenchmarkParseTags(b *testing.B) {
 		mr.parseTags("#foo:bar,bar,baz:foo")
 	}
 }
+
+type FakeAddr struct{}
+
+func (fa FakeAddr) Network() string { return "udp" }
+func (fa FakeAddr) String() string  { return ":8181" }
+
+type FakePacketConn struct{}
+
+func (fpc FakePacketConn) ReadFrom(b []byte) (n int, addr net.Addr, err error) {
+	b = []byte("foo.bar.baz:2|c")
+	return len(b), FakeAddr{}, nil
+}
+func (fpc FakePacketConn) WriteTo(b []byte, addr net.Addr) (n int, err error) { return }
+func (fpc FakePacketConn) Close() error                                       { return nil }
+func (fpc FakePacketConn) LocalAddr() net.Addr                                { return FakeAddr{} }
+func (fpc FakePacketConn) SetDeadline(t time.Time) error                      { return nil }
+func (fpc FakePacketConn) SetReadDeadline(t time.Time) error                  { return nil }
+func (fpc FakePacketConn) SetWriteDeadline(t time.Time) error                 { return nil }
+
+func manageQueue(mq messageQueue) {
+	for range mq {
+	}
+}
+
+// Need to change MetricReceiver.receive to a finite loop to be able to run the dashboard
+//func BenchmarkReceive(b *testing.B) {
+//	mq := make(messageQueue, maxQueueSize)
+//	go manageQueue(mq)
+//	mr := &MetricReceiver{}
+//	c := FakePacketConn{}
+//	b.ResetTimer()
+//
+//	for n := 0; n < b.N; n++ {
+//		mr.receive(c, mq)
+//	}
+//}
