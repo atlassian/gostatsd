@@ -264,7 +264,7 @@ func (mr *MetricReceiver) parseLine(line []byte) (types.Metric, error) {
 func (mr *MetricReceiver) parseTags(fragment string) (tags types.Tags, err error) {
 	if strings.HasPrefix(fragment, "#") {
 		fragment = fragment[1:]
-		tags = strings.Split(fragment, ",")
+		tags = types.StringToTags(fragment)
 	} else {
 		err = fmt.Errorf("unknown delimiter: %s", fragment[0:1])
 	}

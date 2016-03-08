@@ -30,7 +30,7 @@ const (
 // Regular expressions used for metric name normalization
 var (
 	regDot       = regexp.MustCompile("\\.")
-	regInvalid   = regexp.MustCompile("[^a-zA-Z_\\-0-9\\.]")
+	regInvalid   = regexp.MustCompile("[^a-zA-Z_\\-0-9\\.:]")
 	regSemiColon = regexp.MustCompile(":")
 	regSpaces    = regexp.MustCompile("\\s+")
 	regSlashes   = regexp.MustCompile("\\/")
@@ -40,31 +40,44 @@ var (
 func Normalize(name string) string {
 	nospaces := regSpaces.ReplaceAllString(name, "_")
 	noslashes := regSlashes.ReplaceAllString(nospaces, "-")
-	valid := regInvalid.ReplaceAllString(noslashes, "")
-	return strings.ToLower(valid)
+	return regInvalid.ReplaceAllString(noslashes, "")
 }
 
 // NormalizeMetricName cleans up a metric name and prefix with the namespace when given
 func NormalizeMetricName(name, namespace string) string {
 	metricName := Normalize(name)
+	metricName = regSemiColon.ReplaceAllString(name, "_")
 	if namespace != "" {
 		metricName = fmt.Sprintf("%s.%s", namespace, metricName)
 	}
 	return metricName
 }
 
+// TagToMetricName transforms tags into metric names
+func TagToMetricName(tag string) string {
+	return regSemiColon.ReplaceAllString(tag, ".")
+}
+
 // NormalizeTag cleans up a the tags
 func NormalizeTag(name string) string {
-	tag := regSemiColon.ReplaceAllString(name, ".")
-	return Normalize(tag)
-	//return regDot.ReplaceAllString(tag, "_")
+	normalized := Normalize(name)
+	return strings.ToLower(normalized)
+}
+
+// StringToTags takes tags in a string and return normalized tags
+func StringToTags(s string) (tags Tags) {
+	for _, tag := range strings.Split(s, ",") {
+		tags = append(tags, NormalizeTag(tag))
+	}
+	return
 }
 
 // NormalizeTagElement cleans up the key or the value of a tag
 func NormalizeTagElement(name string) string {
-	tag := regSemiColon.ReplaceAllString(name, "_")
-	tag = Normalize(tag)
-	return regDot.ReplaceAllString(tag, "_")
+	element := regSemiColon.ReplaceAllString(name, "_")
+	element = Normalize(element)
+	element = regDot.ReplaceAllString(element, "_")
+	return strings.ToLower(element)
 }
 
 func (m MetricType) String() string {

@@ -1,3 +1,7 @@
+0.11.1
+------
+- Normalize tags consistently but don't force lower case for metric names
+
 0.11.0
 ------
 - Add support for cloud plugins to retrieve host information e.g. instance id, aws tags, etc.

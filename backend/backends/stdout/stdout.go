@@ -33,7 +33,7 @@ func composeMetricName(key string, tagsKey string) string {
 	tags := strings.Split(tagsKey, ",")
 	for _, tag := range tags {
 		if tag != "" {
-			key += "." + types.NormalizeTag(tag)
+			key += "." + types.TagToMetricName(tag)
 		}
 	}
 	return key

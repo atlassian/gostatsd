@@ -33,7 +33,7 @@ func normalizeBucketName(bucket string, tagsKey string) string {
 	tags := strings.Split(tagsKey, ",")
 	for _, tag := range tags {
 		if tag != "" {
-			bucket += "." + types.NormalizeTag(tag)
+			bucket += "." + types.TagToMetricName(tag)
 		}
 	}
 	return bucket
