@@ -34,7 +34,8 @@ junit-test: build
 	go get github.com/jstemmer/go-junit-report
 	go test -v ./... | go-junit-report > test-report.xml
 
-check:
+check: fmt
+	go install
 	gometalinter --deadline=10s ./... --vendor --linter="errcheck::-ignore 'net:Close'"
 
 watch:
