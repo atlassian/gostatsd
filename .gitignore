@@ -1,6 +1,6 @@
-example/example
-build/bin/
-vendor/
-coverage.out
-profile.out
-tester/statsd-tester*
+/build/bin/
+/vendor/
+/coverage.out
+/profile.out
+/tester/statsd-tester*
+/test-report.xml
