@@ -35,6 +35,12 @@ bench:
 
 cover:
 	./cover.sh
+	go tool cover -func=coverage.out
+	go tool cover -html=coverage.out
+
+coveralls:
+	./cover.sh
+	goveralls -coverprofile=coverage.out -service=travis-ci
 
 junit-test: build
 	go test -v $(shell GO15VENDOREXPERIMENT=1 go list ./... | grep -v /vendor/) | go-junit-report > test-report.xml

@@ -15,4 +15,4 @@ script:
   - make test
   - make race
   - make check || true
-  - goveralls -coverprofile=coverage.out -service=travis-ci
+  - make coveralls
