@@ -1,10 +1,36 @@
-hash: fd03b57676a0e9f39ec091940c6d197901fa56ab61604d3c1a84b7354451816b
-updated: 2016-03-05T17:32:44.174118707+11:00
+hash: 5031e9c7b308118d98b8a7fb56ae1bb2d778176ccefd9ae45f29d11e92c475db
+updated: 2016-03-10T14:12:41.579354383+11:00
 imports:
+- name: github.com/aws/aws-sdk-go
+  version: 996f601d8198d4fdc49bb5d93c73f27a6bdfe900
+  subpackages:
+  - aws/credentials
+  - aws/credentials/ec2rolecreds
+  - aws/ec2metadata
+  - aws/session
+  - service/ec2
+  - aws
+  - aws/awserr
+  - aws/client
+  - aws/client/metadata
+  - aws/request
+  - aws/corehandlers
+  - aws/defaults
+  - private/endpoints
+  - aws/awsutil
+  - private/protocol
+  - private/protocol/ec2query
+  - private/signer/v4
+  - private/waiter
+  - private/protocol/query/queryutil
+  - private/protocol/xml/xmlutil
+  - private/protocol/rest
 - name: github.com/BurntSushi/toml
   version: 75869ce70f3cd0f6d1473c58f4adac5941f1055a
 - name: github.com/cenkalti/backoff
   version: 4dc77674aceaabba2c7e3da25d4c823edfb73f99
+- name: github.com/go-ini/ini
+  version: 776aa739ce9373377cd16f526cdf06cb4c89b40f
 - name: github.com/hashicorp/hcl
   version: 71c7409f1abba841e528a80556ed2c67671744c3
   subpackages:
@@ -16,8 +42,12 @@ imports:
   - hcl/strconv
   - json/scanner
   - json/token
+- name: github.com/jmespath/go-jmespath
+  version: 0b12d6b521d83fc7f755e7cfc1b1fbdd35a01a74
 - name: github.com/kisielk/cmd
   version: d175a37b36239828941c8e176ffa0f4d9221f641
+- name: github.com/koding/cache
+  version: 704055ea875a873a183314b60735f7ba403429da
 - name: github.com/kr/pretty
   version: e6ac2fc51e89a3249e82157fa0bb7a18ef9dd5bb
 - name: github.com/kr/text
@@ -36,6 +66,10 @@ imports:
   version: 7f60f83a2c81bc3c3c0d5297f61ddfa68da9d3b7
 - name: github.com/spf13/viper
   version: c975dc1b4eacf4ec7fdbf0873638de5d090ba323
+- name: github.com/stretchr/testify
+  version: 6fe211e493929a8aac0469b93f28b1d0688a9a3a
+  subpackages:
+  - assert
 - name: golang.org/x/sys
   version: 7a56174f0086b32866ebd746a794417edbc678a1
   subpackages:

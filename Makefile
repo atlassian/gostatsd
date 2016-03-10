@@ -36,7 +36,7 @@ cover:
 
 junit-test: build
 	go get github.com/jstemmer/go-junit-report
-	go test -v ./... | go-junit-report > test-report.xml
+	go test -v $(shell GO15VENDOREXPERIMENT=1 go list ./... | grep -v /vendor/) | go-junit-report > test-report.xml
 
 check:
 	gometalinter --deadline=60s ./... --vendor --linter="errcheck::-ignore=net:Close" --cyclo-over=20 --linter="vet::--composites=false"
