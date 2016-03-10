@@ -3,9 +3,16 @@ language: go
 go:
   - 1.6
 
-install: make setup
+before_install:
+  - go get -v github.com/axw/gocov/gocov
+  - go get -v github.com/mattn/goveralls
+  - go get -v golang.org/x/tools/cmd/cover
+
+install:
+  - make setup
 
 script:
   - make test
   - make race
   - make check || true
+  - goveralls -service=travis-ci
