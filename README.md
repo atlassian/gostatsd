@@ -2,6 +2,7 @@ gostatsd
 ========
 
 [![Build Status](https://travis-ci.org/jtblin/gostatsd.svg?branch=master)](https://travis-ci.org/jtblin/gostatsd)
+[![Coverage Status](https://coveralls.io/repos/github/jtblin/gostatsd/badge.svg?branch=master)](https://coveralls.io/github/jtblin/gostatsd?branch=master)
 
 An implementation of [Etsy's][etsy] [statsd][statsd] in Go.
 
