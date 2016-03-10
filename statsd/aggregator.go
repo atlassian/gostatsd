@@ -27,7 +27,7 @@ type metricAggregatorStats struct {
 // MetricAggregator is an object that aggregates statsd metrics.
 // The function NewMetricAggregator should be used to create the objects.
 //
-// Incoming metrics should be sent to the MetricChan channel.
+// Incoming metrics should be sent to the MetricQueue channel.
 type MetricAggregator struct {
 	sync.Mutex
 	ExpiryInterval    time.Duration     // How often to expire metrics
@@ -47,7 +47,7 @@ func NewMetricAggregator(senders []backend.MetricSender, percentThresholds []flo
 	a.FlushInterval = flushInterval
 	a.ExpiryInterval = expiryInterval
 	a.Senders = senders
-	a.MetricQueue = make(chan types.Metric, maxQueueSize * 10) // we are going to receive more metrics than messages
+	a.MetricQueue = make(chan types.Metric, maxQueueSize*10) // we are going to receive more metrics than messages
 	a.MaxWorkers = maxWorkers
 	a.PercentThresholds = percentThresholds
 	a.Counters = types.Counters{}
