@@ -1,6 +1,8 @@
 gostatsd
 ========
 
+[![Build Status](https://travis-ci.org/jtblin/gostatsd.svg?branch=master)](https://travis-ci.org/jtblin/gostatsd)
+
 An implementation of [Etsy's][etsy] [statsd][statsd] in Go.
 
 The project provides both a server called "gostatsd" which works much like
@@ -21,7 +23,7 @@ From the `gostatsd/` directory run `make build`. The binary will be built in `bu
 Running the server
 ------------------
 `gostatsd --help` gives a complete description of available options and their
-defaults. You can use `make run` to run the server with just the `stdout` backend 
+defaults. You can use `make run` to run the server with just the `stdout` backend
 to display info on screen.
 You can also run through `docker` by running `make run-docker` which will use `docker-compose`
 to run `gostatsd` with a graphite backend.

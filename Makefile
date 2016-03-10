@@ -10,8 +10,10 @@ IMAGE_NAME := jtblin/$(BINARY_NAME)
 ARCH ?= darwin
 
 setup:
+	go get -v -u github.com/Masterminds/glide
 	go get -v -u github.com/githubnemo/CompileDaemon
 	go get -v -u github.com/alecthomas/gometalinter
+	go get -v -u github.com/jstemmer/go-junit-report
 	gometalinter --install --update
 	GO15VENDOREXPERIMENT=1 glide install
 
@@ -35,7 +37,6 @@ cover:
 	./cover.sh
 
 junit-test: build
-	go get github.com/jstemmer/go-junit-report
 	go test -v $(shell GO15VENDOREXPERIMENT=1 go list ./... | grep -v /vendor/) | go-junit-report > test-report.xml
 
 check:

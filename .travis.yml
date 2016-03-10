@@ -1,0 +1,11 @@
+language: go
+
+go:
+  - 1.6
+
+install: make setup
+
+script:
+  - make test
+  - make race
+  - make check || true
