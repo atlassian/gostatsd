@@ -100,7 +100,11 @@ func GetInstance(cloud Interface, IP string) (instance *types.Instance, err erro
 	runningMutex.Lock()
 	running[IP] = time.Now()
 	runningMutex.Unlock()
-	defer func() { delete(running, IP) }()
+	defer func() {
+		runningMutex.Lock()
+		defer runningMutex.Unlock()
+		delete(running, IP)
+	}()
 
 	if instance, err = cloud.Instance(IP); err != nil {
 		return nil, err
