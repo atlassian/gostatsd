@@ -66,8 +66,8 @@ func round(v float64) float64 {
 
 // flush prepares the contents of a MetricAggregator for sending via the Sender
 func (a *MetricAggregator) flush(now func() time.Time) (metrics types.MetricMap) {
-	defer a.Unlock()
 	a.Lock()
+	defer a.Unlock()
 
 	startTime := now()
 
@@ -192,8 +192,8 @@ func (a *MetricAggregator) isExpired(now, ts time.Time) bool {
 
 // Reset clears the contents of a MetricAggregator
 func (a *MetricAggregator) Reset(now time.Time) {
-	defer a.Unlock()
 	a.Lock()
+	defer a.Unlock()
 	a.NumStats = 0
 
 	types.EachCounter(a.Counters, func(key, tagsKey string, counter types.Counter) {
@@ -319,8 +319,8 @@ func (a *MetricAggregator) receiveSet(name, tags string, value string, now time.
 
 // receiveMetric is called for each incoming metric on MetricChan
 func (a *MetricAggregator) receiveMetric(m types.Metric, now time.Time) {
-	defer a.Unlock()
 	a.Lock()
+	defer a.Unlock()
 
 	if !strings.HasPrefix(m.Name, internalStatName("")) {
 		a.NumStats++
