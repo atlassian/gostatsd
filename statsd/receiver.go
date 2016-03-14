@@ -157,7 +157,7 @@ func (mr *MetricReceiver) handleMessage(addr net.Addr, msg []byte) {
 			}
 			if !triedToGetTags {
 				triedToGetTags = true
-				additionalTags = mr.tryGetTags(addr.String())
+				additionalTags = mr.getAdditionalTags(addr.String())
 			}
 			if len(additionalTags) > 0 {
 				metric.Tags = append(metric.Tags, additionalTags...)
@@ -175,14 +175,14 @@ func (mr *MetricReceiver) handleMessage(addr net.Addr, msg []byte) {
 	}
 }
 
-func (mr *MetricReceiver) tryGetTags(addr string) types.Tags {
+func (mr *MetricReceiver) getAdditionalTags(addr string) types.Tags {
 	n := strings.IndexByte(addr, ':')
 	if n <= 1 {
 		return nil
 	}
 	hostname := addr[0:n]
 	if net.ParseIP(hostname) != nil {
-		tags := make(types.Tags, 0, 8)
+		tags := make(types.Tags, 0, 16)
 		if mr.Cloud != nil {
 			instance, err := cloudprovider.GetInstance(mr.Cloud, hostname)
 			if err != nil {
