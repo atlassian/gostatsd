@@ -40,5 +40,5 @@ Pri 3
 -----
 
 * [x] Improve web console UI look'n'feel
-* [x] Add support for cloud plugins to retrieve host information e.g. instance id, aws tags, etc. 
-
+* [x] Add support for cloud plugins to retrieve host information e.g. instance id, aws tags, etc.
+* [ ] Review commit 5c18bf680261ba05f95f36f6e129fcb278bc967d after the rx queue bottleneck is solved
