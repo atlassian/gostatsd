@@ -130,13 +130,15 @@ func (mr *MetricReceiver) receive(c net.PacketConn, mq messageQueue) {
 // for each line that successfully parses in to a types.Metric
 func (mr *MetricReceiver) handleMessage(addr net.Addr, msg []byte) {
 	numMetrics := 0
+	var triedToGetTags bool
+	var additionalTags types.Tags
 	buf := bytes.NewBuffer(msg)
 	for {
 		line, readerr := buf.ReadBytes('\n')
 
 		// protocol does not require line to end in \n, if EOF use received line if valid
 		if readerr != nil && readerr != io.EOF {
-			log.Errorf("Error reading message from %s: %v", addr, readerr)
+			log.Warnf("Error reading message from %s: %v", addr, readerr)
 			return
 		} else if readerr != io.EOF {
 			// remove newline, only if not EOF
@@ -149,24 +151,16 @@ func (mr *MetricReceiver) handleMessage(addr net.Addr, msg []byte) {
 		if len(line) > 1 {
 			metric, err := mr.parseLine(line)
 			if err != nil {
-				log.Errorf("Error parsing line %q from %s: %v", line, addr, err)
+				log.Warnf("Error parsing line %q from %s: %v", line, addr, err)
 				mr.increment("bad_lines_seen", 1)
 				continue
 			}
-			source := strings.Split(addr.String(), ":")
-			hostname := source[0]
-			if net.ParseIP(hostname) != nil {
-				if mr.Cloud != nil {
-					instance, err := cloudprovider.GetInstance(mr.Cloud, hostname)
-					if err != nil {
-						log.Errorf("Error retrieving instance details from cloud provider %s: %v", mr.Cloud.ProviderName(), err)
-					} else {
-						hostname = instance.ID
-						metric.Tags = append(metric.Tags, instance.Tags...)
-						metric.Tags = append(metric.Tags, fmt.Sprintf("%s:%s", "region", instance.Region))
-					}
-				}
-				metric.Tags = append(metric.Tags, fmt.Sprintf("%s:%s", types.StatsdSourceID, hostname))
+			if !triedToGetTags {
+				triedToGetTags = true
+				additionalTags = mr.getAdditionalTags(addr.String())
+			}
+			if len(additionalTags) > 0 {
+				metric.Tags = append(metric.Tags, additionalTags...)
 				log.Debugf("Metric tags: %v", metric.Tags)
 			}
 			mr.Handler.HandleMetric(metric)
@@ -179,6 +173,30 @@ func (mr *MetricReceiver) handleMessage(addr net.Addr, msg []byte) {
 			return
 		}
 	}
+}
+
+func (mr *MetricReceiver) getAdditionalTags(addr string) types.Tags {
+	n := strings.IndexByte(addr, ':')
+	if n <= 1 {
+		return nil
+	}
+	hostname := addr[0:n]
+	if net.ParseIP(hostname) != nil {
+		tags := make(types.Tags, 0, 16)
+		if mr.Cloud != nil {
+			instance, err := cloudprovider.GetInstance(mr.Cloud, hostname)
+			if err != nil {
+				log.Warnf("Error retrieving instance details from cloud provider %s: %v", mr.Cloud.ProviderName(), err)
+			} else {
+				hostname = instance.ID
+				tags = append(tags, fmt.Sprintf("region:%s", instance.Region))
+				tags = append(tags, instance.Tags...)
+			}
+		}
+		tags = append(tags, fmt.Sprintf("%s:%s", types.StatsdSourceID, hostname))
+		return tags
+	}
+	return nil
 }
 
 func (mr *MetricReceiver) parseLine(line []byte) (types.Metric, error) {
