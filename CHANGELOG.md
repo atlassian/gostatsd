@@ -1,3 +1,9 @@
+0.12.0
+------
+- Revert dropping message and block instead
+- Use different values for number of worker to read from socket, process messages and metrics
+- Minor fixes and performance improvements
+
 0.11.2
 ------
 - Process internal stats as standard metrics

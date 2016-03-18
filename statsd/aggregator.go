@@ -3,6 +3,7 @@ package statsd
 import (
 	"fmt"
 	"math"
+	"runtime"
 	"sort"
 	"strings"
 	"sync"
@@ -355,8 +356,9 @@ func (a *MetricAggregator) Aggregate() {
 	flushChan := make(chan error)
 	flushTimer := time.NewTimer(a.FlushInterval)
 
-	for i := 0; i < a.MaxWorkers; i++ {
+	for i := 0; i < a.MaxWorkers*10; i++ {
 		go a.processQueue()
+		runtime.Gosched()
 	}
 
 	for {

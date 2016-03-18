@@ -29,7 +29,9 @@ type Server struct {
 	DefaultTags      []string
 	ExpiryInterval   time.Duration
 	FlushInterval    time.Duration
+	MaxReaders       int
 	MaxWorkers       int
+	MaxMessengers    int
 	MetricsAddr      string
 	Namespace        string
 	PercentThreshold []string
@@ -51,7 +53,9 @@ func NewServer() *Server {
 		ConsoleAddr:      ":8126",
 		ExpiryInterval:   5 * time.Minute,
 		FlushInterval:    1 * time.Second,
-		MaxWorkers:       runtime.NumCPU(),
+		MaxReaders:       runtime.NumCPU(),
+		MaxMessengers:    runtime.NumCPU() * 8,
+		MaxWorkers:       runtime.NumCPU() * 8 * 8,
 		MetricsAddr:      ":8125",
 		PercentThreshold: []string{"90"},
 		WebConsoleAddr:   ":8181",
@@ -69,7 +73,9 @@ func (s *Server) AddFlags(fs *pflag.FlagSet) {
 	fs.StringSliceVar(&s.DefaultTags, "default-tags", s.DefaultTags, "Default tags to add to the metrics")
 	fs.DurationVar(&s.ExpiryInterval, "expiry-interval", s.ExpiryInterval, "After how long do we expire metrics (0 to disable)")
 	fs.DurationVar(&s.FlushInterval, "flush-interval", s.FlushInterval, "How often to flush metrics to the backends")
-	fs.IntVar(&s.MaxWorkers, "max-workers", s.MaxWorkers, "Maximum number of workers to process messages")
+	fs.IntVar(&s.MaxReaders, "max-readers", s.MaxReaders, "Maximum number of socket readers")
+	fs.IntVar(&s.MaxMessengers, "max-messengers", s.MaxMessengers, "Maximum number of workers to process messages")
+	fs.IntVar(&s.MaxWorkers, "max-workers", s.MaxWorkers, "Maximum number of workers to process metrics")
 	fs.StringVar(&s.MetricsAddr, "metrics-addr", s.MetricsAddr, "Address on which to listen for metrics")
 	fs.StringVar(&s.Namespace, "namespace", s.Namespace, "Namespace all metrics")
 	fs.StringSliceVar(&s.PercentThreshold, "percent-threshold", s.PercentThreshold, "Comma-separated list of percentiles")
@@ -117,17 +123,13 @@ func (s *Server) Run() error {
 
 	// Start the metric receiver
 	f := func(metric types.Metric) {
-		select {
-		case aggregator.MetricQueue <- metric:
-		default:
-			log.Errorf("Dropped metric because metric queue is full")
-		}
+		aggregator.MetricQueue <- metric
 	}
 	cloud, err := cloudprovider.InitCloudProvider(s.CloudProvider)
 	if err != nil {
 		return err
 	}
-	receiver := NewMetricReceiver(s.MetricsAddr, s.Namespace, s.MaxWorkers, s.DefaultTags, cloud, HandlerFunc(f))
+	receiver := NewMetricReceiver(s.MetricsAddr, s.Namespace, s.MaxReaders, s.MaxMessengers, s.DefaultTags, cloud, HandlerFunc(f))
 	go receiver.ListenAndReceive()
 
 	// Start the console(s)

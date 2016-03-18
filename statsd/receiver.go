@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"runtime"
 	"strconv"
 	"strings"
 
@@ -38,12 +39,13 @@ func (f HandlerFunc) HandleMetric(m types.Metric) {
 // MetricReceiver receives data on its listening port and converts lines in to Metrics.
 // For each types.Metric it calls r.Handler.HandleMetric()
 type MetricReceiver struct {
-	Addr       string                  // UDP address on which to listen for metrics
-	Cloud      cloudprovider.Interface // Cloud provider interface
-	Handler    Handler                 // handler to invoke
-	MaxWorkers int                     // Maximum number of workers
-	Namespace  string                  // Namespace to prefix all metrics
-	Tags       types.Tags              // Tags to add to all metrics
+	Addr          string                  // UDP address on which to listen for metrics
+	Cloud         cloudprovider.Interface // Cloud provider interface
+	Handler       Handler                 // handler to invoke
+	MaxReaders    int                     // Maximum number of workers
+	MaxMessengers int                     // Maximum number of workers
+	Namespace     string                  // Namespace to prefix all metrics
+	Tags          types.Tags              // Tags to add to all metrics
 }
 
 type message struct {
@@ -52,14 +54,15 @@ type message struct {
 }
 
 // NewMetricReceiver initialises a new MetricReceiver
-func NewMetricReceiver(addr, ns string, maxWorkers int, tags []string, cloud cloudprovider.Interface, handler Handler) *MetricReceiver {
+func NewMetricReceiver(addr, ns string, maxReaders, maxMessengers int, tags []string, cloud cloudprovider.Interface, handler Handler) *MetricReceiver {
 	return &MetricReceiver{
-		Addr:       addr,
-		Cloud:      cloud,
-		Handler:    handler,
-		MaxWorkers: maxWorkers,
-		Namespace:  ns,
-		Tags:       tags,
+		Addr:          addr,
+		Cloud:         cloud,
+		Handler:       handler,
+		MaxReaders:    maxReaders,
+		MaxMessengers: maxMessengers,
+		Namespace:     ns,
+		Tags:          tags,
 	}
 }
 
@@ -76,8 +79,10 @@ func (mr *MetricReceiver) ListenAndReceive() error {
 	}
 
 	mq := make(messageQueue, maxQueueSize)
-	for i := 0; i < mr.MaxWorkers; i++ {
+	for i := 0; i < mr.MaxMessengers; i++ {
 		go mq.dequeue(mr)
+	}
+	for i := 0; i < mr.MaxReaders; i++ {
 		go mr.receive(c, mq)
 	}
 	return nil
@@ -91,17 +96,13 @@ func (mr *MetricReceiver) increment(name string, value int) {
 type messageQueue chan message
 
 func (mq messageQueue) enqueue(m message, mr *MetricReceiver) {
-	select {
-	case mq <- m:
-	default:
-		mr.increment("dropped_message", 1)
-	}
+	mq <- m
 }
 
 func (mq messageQueue) dequeue(mr *MetricReceiver) {
 	for m := range mq {
 		mr.handleMessage(m.addr, m.msg)
-		mr.increment("packets_received", 1)
+		runtime.Gosched()
 	}
 }
 
@@ -121,8 +122,10 @@ func (mr *MetricReceiver) receive(c net.PacketConn, mq messageQueue) {
 			continue
 		}
 		msg := buf[:nbytes]
+		mr.increment("packets_received", 1)
 		mq.enqueue(message{addr, msg}, mr)
 		buf = buf[nbytes:]
+		runtime.Gosched()
 	}
 }
 
