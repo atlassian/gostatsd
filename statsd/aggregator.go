@@ -33,6 +33,7 @@ type MetricAggregator struct {
 	sync.Mutex
 	ExpiryInterval    time.Duration     // How often to expire metrics
 	FlushInterval     time.Duration     // How often to flush metrics to the sender
+	LastFlush     time.Time     // Last time the metrics where aggregated
 	MaxWorkers        int               // Number of workers to metrics queue
 	MetricQueue       chan types.Metric // Queue on which metrics are received
 	PercentThresholds []float64
@@ -46,6 +47,7 @@ type MetricAggregator struct {
 func NewMetricAggregator(senders []backend.MetricSender, percentThresholds []float64, flushInterval time.Duration, expiryInterval time.Duration, maxWorkers int, tags []string) *MetricAggregator {
 	a := MetricAggregator{}
 	a.FlushInterval = flushInterval
+	a.LastFlush = time.Now()
 	a.ExpiryInterval = expiryInterval
 	a.Senders = senders
 	a.MetricQueue = make(chan types.Metric, maxQueueSize*10) // we are going to receive more metrics than messages
@@ -71,9 +73,10 @@ func (a *MetricAggregator) flush(now func() time.Time) (metrics types.MetricMap)
 	defer a.Unlock()
 
 	startTime := now()
+	flushInterval := startTime.Sub(a.LastFlush)
 
 	types.EachCounter(a.Counters, func(key, tagsKey string, counter types.Counter) {
-		perSecond := float64(counter.Value) / a.FlushInterval.Seconds()
+		perSecond := float64(counter.Value) / flushInterval.Seconds()
 		counter.PerSecond = perSecond
 		a.Counters[key][tagsKey] = counter
 	})
@@ -150,7 +153,7 @@ func (a *MetricAggregator) flush(now func() time.Time) (metrics types.MetricMap)
 			timer.StdDev = math.Sqrt(sumOfDiffs / count)
 			timer.Sum = sum
 			timer.SumSquares = sumSquares
-			timer.PerSecond = count / a.FlushInterval.Seconds()
+			timer.PerSecond = count / flushInterval.Seconds()
 
 			a.Timers[key][tagsKey] = timer
 		} else {
@@ -166,7 +169,7 @@ func (a *MetricAggregator) flush(now func() time.Time) (metrics types.MetricMap)
 	statName := internalStatName("numStats")
 	a.receiveCounter(statName, tags, int64(a.NumStats), now())
 	m := a.Counters[statName][tags]
-	m.PerSecond = float64(a.NumStats) / a.FlushInterval.Seconds()
+	m.PerSecond = float64(a.NumStats) / flushInterval.Seconds()
 	a.Counters[statName][tags] = m
 
 	statName = internalStatName("processingTime")
@@ -176,10 +179,12 @@ func (a *MetricAggregator) flush(now func() time.Time) (metrics types.MetricMap)
 		a.Stats.BadLines += badLines.Value
 	}
 
+	a.LastFlush = now()
+
 	return types.MetricMap{
 		NumStats:       a.Stats.NumStats,
 		ProcessingTime: a.Stats.ProcessingTime,
-		FlushInterval:  a.FlushInterval,
+		FlushInterval:  flushInterval,
 		Counters:       types.CopyCounters(a.Counters),
 		Timers:         types.CopyTimers(a.Timers),
 		Gauges:         types.CopyGauges(a.Gauges),
@@ -347,6 +352,7 @@ func (a *MetricAggregator) receiveMetric(m types.Metric, now time.Time) {
 func (a *MetricAggregator) processQueue() {
 	for metric := range a.MetricQueue {
 		a.receiveMetric(metric, time.Now())
+		runtime.Gosched()
 	}
 }
 
@@ -358,7 +364,6 @@ func (a *MetricAggregator) Aggregate() {
 
 	for i := 0; i < a.MaxWorkers*10; i++ {
 		go a.processQueue()
-		runtime.Gosched()
 	}
 
 	for {

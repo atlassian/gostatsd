@@ -3,6 +3,7 @@
 - Revert dropping message and block instead
 - Use different values for number of worker to read from socket, process messages and metrics
 - Minor fixes and performance improvements
+- Calculate per second counters since last flush time instead of interval
 
 0.11.2
 ------

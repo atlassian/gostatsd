@@ -41,3 +41,4 @@ Pri 3
 
 * [x] Improve web console UI look'n'feel
 * [x] Add support for cloud plugins to retrieve host information e.g. instance id, aws tags, etc.
+* [x] Calculate per second counters since last flush time instead of interval

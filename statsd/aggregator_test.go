@@ -68,6 +68,8 @@ func TestFlush(t *testing.T) {
 	nowFn := func() time.Time { return now }
 	_, ma := newFakeMetricAggregator()
 	_, expected := newFakeMetricAggregator()
+	ma.LastFlush = now.Add(-10 * time.Second)
+	expected.LastFlush = now.Add(-10 * time.Second)
 
 	ma.Counters["some"] = make(map[string]types.Counter)
 	ma.Counters["some"][""] = types.Counter{Value: 50}
