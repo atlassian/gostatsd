@@ -4,3 +4,4 @@
 /profile.out
 /tester/statsd-tester*
 /test-report.xml
+build/dev/data/
