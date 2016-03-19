@@ -8,9 +8,14 @@ import (
 )
 
 func main() {
-	f := func(m types.Metric) {
+	f := func(m *types.Metric) {
 		log.Printf("%s", m)
 	}
-	r := statsd.MetricReceiver{Addr: ":8125", Namespace: "stats", Handler: statsd.HandlerFunc(f)}
+	r := statsd.MetricReceiver{
+		Addr: ":8125", Namespace: "stats", MaxReaders: 1,
+		MaxMessengers: 1, Handler: statsd.HandlerFunc(f),
+	}
 	r.ListenAndReceive()
+
+	select {}
 }

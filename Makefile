@@ -46,6 +46,7 @@ junit-test: build
 	go test -v $(shell GO15VENDOREXPERIMENT=1 go list ./... | grep -v /vendor/) | go-junit-report > test-report.xml
 
 check:
+	go install
 	gometalinter --deadline=60s ./... --vendor --linter='errcheck:errcheck:-ignore=net:Close' --cyclo-over=20 --linter='vet:go tool vet -composites=false {paths}:PATH:LINE:MESSAGE'
 
 profile:

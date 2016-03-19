@@ -57,7 +57,7 @@ func TestNewMetricAggregator(t *testing.T) {
 	}
 
 	if assert.NotNil(actual.MetricQueue) {
-		assert.Equal("chan types.Metric", reflect.TypeOf(actual.MetricQueue).String())
+		assert.Equal("chan *types.Metric", reflect.TypeOf(actual.MetricQueue).String())
 	}
 }
 
@@ -306,7 +306,7 @@ func TestReceiveMetric(t *testing.T) {
 	}
 
 	for _, metric := range tests {
-		ma.receiveMetric(metric, now)
+		ma.receiveMetric(&metric, now)
 	}
 
 	expectedCounters := types.Counters{}
@@ -348,7 +348,7 @@ func benchmarkReceiveMetric(metric types.Metric, b *testing.B) {
 	b.ResetTimer()
 
 	for n := 0; n < b.N; n++ {
-		ma.receiveMetric(metric, now)
+		ma.receiveMetric(&metric, now)
 	}
 }
 
@@ -388,7 +388,7 @@ func BenchmarkReceiveMetrics(b *testing.B) {
 	b.ResetTimer()
 	for n := 0; n < b.N; n++ {
 		for _, metric := range tests {
-			ma.receiveMetric(metric, now)
+			ma.receiveMetric(&metric, now)
 		}
 	}
 }

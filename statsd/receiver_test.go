@@ -30,7 +30,7 @@ func TestParseLine(t *testing.T) {
 			t.Errorf("test %s error: %s", input, err)
 			continue
 		}
-		if !reflect.DeepEqual(result, expected) {
+		if !reflect.DeepEqual(result, &expected) {
 			t.Errorf("test %s: expected %s, got %s", input, expected, result)
 			continue
 		}
@@ -59,7 +59,7 @@ func TestParseLine(t *testing.T) {
 			t.Errorf("test %s error: %s", input, err)
 			continue
 		}
-		if !reflect.DeepEqual(result, expected) {
+		if !reflect.DeepEqual(result, &expected) {
 			t.Errorf("test %s: expected %s, got %s", input, expected, result)
 			continue
 		}
@@ -81,7 +81,7 @@ func TestParseLine(t *testing.T) {
 			t.Errorf("test %s error: %s", input, err)
 			continue
 		}
-		if !reflect.DeepEqual(result, expected) {
+		if !reflect.DeepEqual(result, &expected) {
 			t.Errorf("test %s: expected %s, got %s", input, expected, result)
 			continue
 		}

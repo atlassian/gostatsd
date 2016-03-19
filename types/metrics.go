@@ -104,8 +104,8 @@ type Metric struct {
 }
 
 // NewMetric creates a metric with tags
-func NewMetric(name string, value float64, mtype MetricType, tags Tags) Metric {
-	return Metric{
+func NewMetric(name string, value float64, mtype MetricType, tags Tags) *Metric {
+	return &Metric{
 		Type:  mtype,
 		Name:  name,
 		Tags:  tags,

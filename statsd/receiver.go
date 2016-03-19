@@ -25,14 +25,14 @@ const (
 
 // Handler interface can be used to handle metrics for a MetricReceiver
 type Handler interface {
-	HandleMetric(m types.Metric)
+	HandleMetric(m *types.Metric)
 }
 
 // The HandlerFunc type is an adapter to allow the use of ordinary functions as metric handlers
-type HandlerFunc func(types.Metric)
+type HandlerFunc func(*types.Metric)
 
 // HandleMetric calls f(m)
-func (f HandlerFunc) HandleMetric(m types.Metric) {
+func (f HandlerFunc) HandleMetric(m *types.Metric) {
 	f(m)
 }
 
@@ -202,8 +202,8 @@ func (mr *MetricReceiver) getAdditionalTags(addr string) types.Tags {
 	return nil
 }
 
-func (mr *MetricReceiver) parseLine(line []byte) (types.Metric, error) {
-	var metric types.Metric
+func (mr *MetricReceiver) parseLine(line []byte) (*types.Metric, error) {
+	metric := &types.Metric{}
 	metric.Tags = append(metric.Tags, mr.Tags...)
 
 	buf := bytes.NewBuffer(line)

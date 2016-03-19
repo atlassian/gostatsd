@@ -1,3 +1,7 @@
+0.12.1
+------
+- Use pointer to metric instead of passing by value
+
 0.12.0
 ------
 - Revert dropping message and block instead

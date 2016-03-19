@@ -15,21 +15,19 @@ Pri 1
 * [x] Review reset of counters, gauges, timers, etc. using last flush time and an expiration window
 * [x] Add support for global metrics namespace
 * [x] Add support for default tags
-* [ ] Add support for gauge deltas and timestamp lag
 * [x] Improve internal statsd stats
 
 Pri 2
 -----
 
+* [ ] Add support for gauge deltas and timestamp lag
 * [x] Add interval for datadog backend
 * [x] Add retries on datadog backend
 * [x] Use source ip address as hostname for datadog backend
 * [x] Use datadog and user agent headers for datadog backend
-* [ ] Add `influxdb` backend
 * [ ] Add `kinesis` backend
 * [ ] Fix gomatelinter issues
 * [ ] Implement stats by backend e.g. last flush, last flush error, etc.
-* [ ] Support `Histogram` metric
 * [ ] Support `Event` metric
 * [ ] Fix value of metrics displayed in console
 * [x] Fix value of metrics displayed in web UI
@@ -39,6 +37,8 @@ Pri 2
 Pri 3
 -----
 
+* [ ] Add `influxdb` backend
+* [ ] Support `Histogram` metric
 * [x] Improve web console UI look'n'feel
 * [x] Add support for cloud plugins to retrieve host information e.g. instance id, aws tags, etc.
 * [x] Calculate per second counters since last flush time instead of interval

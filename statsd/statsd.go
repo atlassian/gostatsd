@@ -122,7 +122,7 @@ func (s *Server) Run() error {
 	s.aggregator = aggregator
 
 	// Start the metric receiver
-	f := func(metric types.Metric) {
+	f := func(metric *types.Metric) {
 		aggregator.MetricQueue <- metric
 	}
 	cloud, err := cloudprovider.InitCloudProvider(s.CloudProvider)
