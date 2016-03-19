@@ -71,6 +71,7 @@ func InitCloudProvider(name string) (Interface, error) {
 	return provider, nil
 }
 
+// TODO: review mutex e.g. RWMutex
 var runningMutex sync.Mutex
 var running = make(map[string]time.Time)
 var instances = cache.NewMemoryWithTTL(1 * time.Hour)

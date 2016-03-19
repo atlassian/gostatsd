@@ -86,6 +86,11 @@ func (c *consoleConn) serve() {
 			defer c.server.Aggregator.Unlock()
 			return fmt.Sprintln(c.server.Aggregator.Gauges), nil
 		},
+		"sets": func(args []string) (string, error) {
+			c.server.Aggregator.Lock()
+			defer c.server.Aggregator.Unlock()
+			return fmt.Sprintln(c.server.Aggregator.Sets), nil
+		},
 		"delcounters": func(args []string) (string, error) {
 			c.server.Aggregator.Lock()
 			defer c.server.Aggregator.Unlock()
@@ -115,6 +120,16 @@ func (c *consoleConn) serve() {
 				i++
 			}
 			return fmt.Sprintf("deleted %d gauges\n", i), nil
+		},
+		"delsets": func(args []string) (string, error) {
+			c.server.Aggregator.Lock()
+			defer c.server.Aggregator.Unlock()
+			i := 0
+			for _, k := range args {
+				delete(c.server.Aggregator.Sets, k)
+				i++
+			}
+			return fmt.Sprintf("deleted %d sets\n", i), nil
 		},
 		"quit": func(args []string) (string, error) {
 			return "goodbye\n", fmt.Errorf("client quit")

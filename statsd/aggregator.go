@@ -33,7 +33,7 @@ type MetricAggregator struct {
 	sync.Mutex
 	ExpiryInterval    time.Duration     // How often to expire metrics
 	FlushInterval     time.Duration     // How often to flush metrics to the sender
-	LastFlush     time.Time     // Last time the metrics where aggregated
+	LastFlush         time.Time         // Last time the metrics where aggregated
 	MaxWorkers        int               // Number of workers to metrics queue
 	MetricQueue       chan types.Metric // Queue on which metrics are received
 	PercentThresholds []float64
