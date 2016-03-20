@@ -13,7 +13,7 @@ Backends are pluggable and only need to support the [backend interface](backend/
 
 Being written in Go, it is able to use all cores which makes it easy to scale up the
 server based on load. The server can also be run HA and be scaled out, see
-[Load balancing and scaling out](./#load-balancing-and-scaling-out).
+[Load balancing and scaling out](https://github.com/jtblin/gostatsd#load-balancing-and-scaling-out).
 
 
 Building the server
