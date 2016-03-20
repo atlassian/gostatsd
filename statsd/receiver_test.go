@@ -29,18 +29,7 @@ func TestParseLine(t *testing.T) {
 	}
 
 	mr := &MetricReceiver{}
-
-	for input, expected := range tests {
-		result, err := mr.parseLine([]byte(input))
-		if err != nil {
-			t.Errorf("test %s error: %s", input, err)
-			continue
-		}
-		if !reflect.DeepEqual(result, &expected) {
-			t.Errorf("test %s: expected %s, got %s", input, expected, result)
-			continue
-		}
-	}
+	compare(tests, mr, t)
 
 	failing := []string{"fOO|bar:bazkk", "foo.bar.baz:1|q"}
 	for _, tc := range failing {
@@ -58,18 +47,7 @@ func TestParseLine(t *testing.T) {
 	}
 
 	mr = &MetricReceiver{Namespace: "stats"}
-
-	for input, expected := range tests {
-		result, err := mr.parseLine([]byte(input))
-		if err != nil {
-			t.Errorf("test %s error: %s", input, err)
-			continue
-		}
-		if !reflect.DeepEqual(result, &expected) {
-			t.Errorf("test %s: expected %s, got %s", input, expected, result)
-			continue
-		}
-	}
+	compare(tests, mr, t)
 
 	tests = map[string]types.Metric{
 		"foo.bar.baz:2|c":         {Name: "foo.bar.baz", Value: 2, Type: types.COUNTER, Tags: types.Tags{"env:foo"}},
@@ -80,7 +58,10 @@ func TestParseLine(t *testing.T) {
 	}
 
 	mr = &MetricReceiver{Tags: []string{"env:foo"}}
+	compare(tests, mr, t)
+}
 
+func compare(tests map[string]types.Metric, mr *MetricReceiver, t *testing.T) {
 	for input, expected := range tests {
 		result, err := mr.parseLine([]byte(input))
 		if err != nil {

@@ -281,15 +281,8 @@ func TestIsExpired(t *testing.T) {
 	assert.Equal(false, ma.isExpired(now, ts))
 }
 
-func TestReceiveMetric(t *testing.T) {
-	assert := assert.New(t)
-
-	_, ma := newFakeMetricAggregator()
-	now := time.Now()
-	d := time.Duration(10) * time.Second
-	interval := types.Interval{Timestamp: now, Flush: d}
-
-	tests := []types.Metric{
+func metricsFixtures() []types.Metric {
+	return []types.Metric{
 		{Name: "foo.bar.baz", Value: 2, Type: types.COUNTER},
 		{Name: "abc.def.g", Value: 3, Type: types.GAUGE},
 		{Name: "abc.def.g", Value: 8, Type: types.GAUGE, Tags: types.Tags{"foo:bar", "baz"}},
@@ -304,7 +297,17 @@ func TestReceiveMetric(t *testing.T) {
 		{Name: "uniq.usr", StringValue: "john", Type: types.SET},
 		{Name: "uniq.usr", StringValue: "john", Type: types.SET, Tags: types.Tags{"foo:bar", "baz"}},
 	}
+}
 
+func TestReceiveMetric(t *testing.T) {
+	assert := assert.New(t)
+
+	_, ma := newFakeMetricAggregator()
+	now := time.Now()
+	d := time.Duration(10) * time.Second
+	interval := types.Interval{Timestamp: now, Flush: d}
+
+	tests := metricsFixtures()
 	for _, metric := range tests {
 		ma.receiveMetric(&metric, now)
 	}
@@ -368,23 +371,7 @@ func BenchmarkReceiveMetricSet(b *testing.B) {
 func BenchmarkReceiveMetrics(b *testing.B) {
 	_, ma := newFakeMetricAggregator()
 	now := time.Now()
-
-	tests := []types.Metric{
-		{Name: "foo.bar.baz", Value: 2, Type: types.COUNTER},
-		{Name: "abc.def.g", Value: 3, Type: types.GAUGE},
-		{Name: "abc.def.g", Value: 8, Type: types.GAUGE, Tags: types.Tags{"foo:bar", "baz"}},
-		{Name: "def.g", Value: 10, Type: types.TIMER},
-		{Name: "def.g", Value: 1, Type: types.TIMER, Tags: types.Tags{"foo:bar", "baz"}},
-		{Name: "smp.rte", Value: 50, Type: types.COUNTER},
-		{Name: "smp.rte", Value: 50, Type: types.COUNTER, Tags: types.Tags{"foo:bar", "baz"}},
-		{Name: "smp.rte", Value: 5, Type: types.COUNTER, Tags: types.Tags{"foo:bar", "baz"}},
-		{Name: "uniq.usr", StringValue: "joe", Type: types.SET},
-		{Name: "uniq.usr", StringValue: "joe", Type: types.SET},
-		{Name: "uniq.usr", StringValue: "bob", Type: types.SET},
-		{Name: "uniq.usr", StringValue: "john", Type: types.SET},
-		{Name: "uniq.usr", StringValue: "john", Type: types.SET, Tags: types.Tags{"foo:bar", "baz"}},
-	}
-
+	tests := metricsFixtures()
 	b.ResetTimer()
 	for n := 0; n < b.N; n++ {
 		for _, metric := range tests {
