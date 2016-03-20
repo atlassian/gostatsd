@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net"
 
+	"github.com/jtblin/gostatsd/types"
 	"github.com/kisielk/cmd"
 )
 
@@ -92,43 +93,19 @@ func (c *consoleConn) serve() {
 			return fmt.Sprintln(c.server.Aggregator.Sets), nil
 		},
 		"delcounters": func(args []string) (string, error) {
-			c.server.Aggregator.Lock()
-			defer c.server.Aggregator.Unlock()
-			i := 0
-			for _, k := range args {
-				delete(c.server.Aggregator.Counters, k)
-				i++
-			}
+			i := c.delete(args, c.server.Aggregator.Counters)
 			return fmt.Sprintf("deleted %d counters\n", i), nil
 		},
 		"deltimers": func(args []string) (string, error) {
-			c.server.Aggregator.Lock()
-			defer c.server.Aggregator.Unlock()
-			i := 0
-			for _, k := range args {
-				delete(c.server.Aggregator.Timers, k)
-				i++
-			}
+			i := c.delete(args, c.server.Aggregator.Timers)
 			return fmt.Sprintf("deleted %d timers\n", i), nil
 		},
 		"delgauges": func(args []string) (string, error) {
-			c.server.Aggregator.Lock()
-			defer c.server.Aggregator.Unlock()
-			i := 0
-			for _, k := range args {
-				delete(c.server.Aggregator.Gauges, k)
-				i++
-			}
+			i := c.delete(args, c.server.Aggregator.Gauges)
 			return fmt.Sprintf("deleted %d gauges\n", i), nil
 		},
 		"delsets": func(args []string) (string, error) {
-			c.server.Aggregator.Lock()
-			defer c.server.Aggregator.Unlock()
-			i := 0
-			for _, k := range args {
-				delete(c.server.Aggregator.Sets, k)
-				i++
-			}
+			i := c.delete(args, c.server.Aggregator.Sets)
 			return fmt.Sprintf("deleted %d sets\n", i), nil
 		},
 		"quit": func(args []string) (string, error) {
@@ -139,4 +116,15 @@ func (c *consoleConn) serve() {
 	console := cmd.New(commands, c.conn, c.conn)
 	console.Prompt = "console> "
 	console.Loop()
+}
+
+func (c *consoleConn) delete(keys []string, metrics types.AggregatedMetrics) int {
+	c.server.Aggregator.Lock()
+	defer c.server.Aggregator.Unlock()
+	i := 0
+	for _, k := range keys {
+		metrics.Delete(k)
+		i++
+	}
+	return i
 }

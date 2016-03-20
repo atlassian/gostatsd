@@ -144,17 +144,63 @@ func (m Metric) String() string {
 	return fmt.Sprintf("{%s, %s, %f, %s, %v}", m.Type, m.Name, m.Value, m.StringValue, m.Tags)
 }
 
+// AggregatedMetrics is an interface for aggregated metrics
+type AggregatedMetrics interface {
+	MetricsName() string
+	Delete(string)
+}
+
 // Counters stores a map of counters by tags
 type Counters map[string]map[string]Counter
+
+// MetricsName returns the name of the aggregated metrics collection
+func (c Counters) MetricsName() string {
+	return "Counters"
+}
+
+// Delete deletes the metrics from the collection
+func (c Counters) Delete(k string) {
+	delete(c, k)
+}
 
 // Timers stores a map of timers by tags
 type Timers map[string]map[string]Timer
 
+// MetricsName returns the name of the aggregated metrics collection
+func (t Timers) MetricsName() string {
+	return "Timers"
+}
+
+// Delete deletes the metrics from the collection
+func (t Timers) Delete(k string) {
+	delete(t, k)
+}
+
 // Gauges stores a map of gauges by tags
 type Gauges map[string]map[string]Gauge
 
+// MetricsName returns the name of the aggregated metrics collection
+func (g Gauges) MetricsName() string {
+	return "Gauges"
+}
+
+// Delete deletes the metrics from the collection
+func (g Gauges) Delete(k string) {
+	delete(g, k)
+}
+
 // Sets stores a map of sets by tags
 type Sets map[string]map[string]Set
+
+// MetricsName returns the name of the aggregated metrics collection
+func (s Sets) MetricsName() string {
+	return "Sets"
+}
+
+// Delete deletes the metrics from the collection
+func (s Sets) Delete(k string) {
+	delete(s, k)
+}
 
 // MetricMap is used for storing aggregated Metric values.
 // The keys of each map are metric names.
