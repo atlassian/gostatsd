@@ -1,2 +1,2 @@
 #!/usr/bin/env bash
-make fmt test
+make check test

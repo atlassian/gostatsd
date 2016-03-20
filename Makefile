@@ -1,9 +1,9 @@
 VERSION_VAR := main.Version
 GIT_VAR := main.GitCommit
 BUILD_DATE_VAR := main.BuildDate
-REPO_VERSION := $(shell git describe --abbrev=0 --tags)
-BUILD_DATE := $(shell date +%Y-%m-%d-%H:%M)
-GIT_HASH := $(shell git rev-parse --short HEAD)
+REPO_VERSION := $$(git describe --abbrev=0 --tags)
+BUILD_DATE := $$(date +%Y-%m-%d-%H:%M)
+GIT_HASH := $$(git rev-parse --short HEAD)
 GOBUILD_VERSION_ARGS := -ldflags "-s -X $(VERSION_VAR)=$(REPO_VERSION) -X $(GIT_VAR)=$(GIT_HASH) -X $(BUILD_DATE_VAR)=$(BUILD_DATE)"
 BINARY_NAME := gostatsd
 IMAGE_NAME := jtblin/$(BINARY_NAME)
@@ -21,17 +21,17 @@ build: *.go fmt
 	go build -o build/bin/$(ARCH)/$(BINARY_NAME) $(GOBUILD_VERSION_ARGS) github.com/jtblin/$(BINARY_NAME)
 
 fmt:
-	gofmt -w=true -s $(shell find . -type f -name '*.go' -not -path "./vendor/*")
-	goimports -w=true -d $(shell find . -type f -name '*.go' -not -path "./vendor/*")
+	gofmt -w=true -s $$(find . -type f -name '*.go' -not -path "./vendor/*")
+	goimports -w=true -d $$(find . -type f -name '*.go' -not -path "./vendor/*")
 
 test:
-	GO15VENDOREXPERIMENT=1 go test $(shell GO15VENDOREXPERIMENT=1 go list ./... | grep -v /vendor/)
+	GO15VENDOREXPERIMENT=1 go test $$(glide nv)
 
 race:
-	GO15VENDOREXPERIMENT=1 go build -race $(shell GO15VENDOREXPERIMENT=1 go list ./... | grep -v /vendor/)
+	GO15VENDOREXPERIMENT=1 go build -race $$(glide nv)
 
 bench:
-	GO15VENDOREXPERIMENT=1 go test -bench=. $(shell GO15VENDOREXPERIMENT=1 go list ./... | grep -v /vendor/)
+	GO15VENDOREXPERIMENT=1 go test -bench=. $$(glide nv)
 
 cover:
 	./cover.sh
@@ -43,7 +43,7 @@ coveralls:
 	goveralls -coverprofile=coverage.out -service=travis-ci
 
 junit-test: build
-	go test -v $(shell GO15VENDOREXPERIMENT=1 go list ./... | grep -v /vendor/) | go-junit-report > test-report.xml
+	go test -v $$(glide nv) | go-junit-report > test-report.xml
 
 check:
 	go install
@@ -55,10 +55,10 @@ profile:
 	go tool pprof build/bin/$(ARCH)/$(BINARY_NAME) profile.out
 
 watch:
-	CompileDaemon -color=true -build "make test check"
+	CompileDaemon -color=true -build "make test"
 
-commit-hook:
-	cp dev/commit-hook.sh .git/hooks/pre-commit
+git-hook:
+	cp dev/push-hook.sh .git/hooks/pre-push
 
 cross:
 	CGO_ENABLED=0 GOOS=linux go build -o build/bin/linux/$(BINARY_NAME) $(GOBUILD_VERSION_ARGS) -a -installsuffix cgo  github.com/jtblin/$(BINARY_NAME)
