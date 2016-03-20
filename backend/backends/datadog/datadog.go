@@ -137,8 +137,8 @@ func (d *Client) SendMetrics(metrics types.MetricMap) error {
 
 	post := func(req *http.Request) func() error {
 		return func() error {
-			resp, err := d.Client.Do(req)
-			if err != nil {
+			resp, e := d.Client.Do(req)
+			if e != nil {
 				return fmt.Errorf("error POSTing metrics, %s", strings.Replace(err.Error(), viper.GetString("datadog.api_key"), "*****", -1))
 			}
 			defer resp.Body.Close()

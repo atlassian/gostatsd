@@ -33,7 +33,7 @@ func (f MetricSenderFunc) SendMetrics(m types.MetricMap) error {
 	return f(m)
 }
 
-// Name returns the name
+// BackendName returns the name of the backend
 func (f MetricSenderFunc) BackendName() string {
 	return "MetricSenderFunc"
 }

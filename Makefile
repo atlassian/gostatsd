@@ -47,7 +47,8 @@ junit-test: build
 
 check:
 	go install
-	gometalinter --deadline=60s ./... --vendor --linter='errcheck:errcheck:-ignore=net:Close' --cyclo-over=20 --linter='vet:go tool vet -composites=false {paths}:PATH:LINE:MESSAGE'
+	gometalinter --deadline=60s ./... --vendor --linter='errcheck:errcheck:-ignore=net:Close' --cyclo-over=20 \
+		--linter='vet:go tool vet -composites=false {paths}:PATH:LINE:MESSAGE' --disable=interfacer
 
 profile:
 	./build/bin/$(ARCH)/$(BINARY_NAME) --backends=stdout --cpu-profile=./profile.out --flush-interval=1s

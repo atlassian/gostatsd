@@ -15,21 +15,27 @@ import (
 // the server. These can either be set via command line or directly.
 type Server struct {
 	Concurrency   int
-	FlushInterval time.Duration
-	Load          bool
 	MaxPacketSize int
+
+	FlushInterval time.Duration
+
 	MetricsAddr   string
 	Namespace     string
+	WebAddr       string
+
 	start         chan bool
-	stats         chan Stats
-	Started       bool
-	Stats         Stats
 	stop          chan bool
+	stats         chan Stats
+
+	Load          bool
+	Started       bool
 	Verbose       bool
 	Version       bool
-	WebAddr       string
+
+	Stats         Stats
 }
 
+// Stats reprensents the stats for the session
 type Stats struct {
 	Duration         string    `json:"duration,omitempty"`
 	MetricsPerSecond float64   `json:"metricsPerSecond,omitempty"`

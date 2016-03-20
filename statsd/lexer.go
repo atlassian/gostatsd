@@ -204,7 +204,7 @@ func lexSampleRate(l *lexer) stateFn {
 		l.err = err
 		return nil
 	}
-	l.sampling = float64(v)
+	l.sampling = v
 	if l.pos >= l.len {
 		return nil
 	}

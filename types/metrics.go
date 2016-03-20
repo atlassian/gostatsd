@@ -12,7 +12,7 @@ import (
 // MetricType is an enumeration of all the possible types of Metric
 type MetricType float64
 
-// StatsdSourceIP stores the key used to tag metrics with the origin IP address
+// StatsdSourceID stores the key used to tag metrics with the origin IP address
 const StatsdSourceID = "statsd_source_id"
 
 const (
@@ -30,10 +30,7 @@ const (
 // Regular expressions used for metric name normalization
 var (
 	regDot       = regexp.MustCompile("\\.")
-	regInvalid   = regexp.MustCompile("[^a-zA-Z_\\-0-9\\.:]")
 	regSemiColon = regexp.MustCompile(":")
-	regSpaces    = regexp.MustCompile("\\s+")
-	regSlashes   = regexp.MustCompile("\\/")
 )
 
 // TagToMetricName transforms tags into metric names

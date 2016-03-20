@@ -2,7 +2,6 @@ package aws
 
 import (
 	"fmt"
-	"sync"
 
 	"github.com/jtblin/gostatsd/cloudprovider"
 	"github.com/jtblin/gostatsd/types"
@@ -38,8 +37,8 @@ type Provider struct {
 	region           string
 }
 
-// AWSServices is an abstraction over AWS, to allow mocking/other implementations
-type AWSServices interface {
+// Services is an abstraction over AWS, to allow mocking/other implementations
+type Services interface {
 	Compute(region string) (EC2, error)
 	Metadata() (EC2Metadata, error)
 }
@@ -69,8 +68,6 @@ func (p *awsSDKProvider) Metadata() (EC2Metadata, error) {
 
 type awsSDKProvider struct {
 	creds *credentials.Credentials
-
-	mutex sync.Mutex
 }
 
 func isNilOrEmpty(s *string) bool {
@@ -78,13 +75,13 @@ func isNilOrEmpty(s *string) bool {
 }
 
 // DescribeInstances is an implementation of EC2.Instances
-func (self *awsSdkEC2) DescribeInstances(request *ec2.DescribeInstancesInput) ([]*ec2.Instance, error) {
+func (s *awsSdkEC2) DescribeInstances(request *ec2.DescribeInstancesInput) ([]*ec2.Instance, error) {
 	// Instances are paged
 	results := []*ec2.Instance{}
 	var nextToken *string
 
 	for {
-		response, err := self.ec2.DescribeInstances(request)
+		response, err := s.ec2.DescribeInstances(request)
 		if err != nil {
 			return nil, fmt.Errorf("error listing AWS instances: %v", err)
 		}
@@ -176,7 +173,7 @@ func azToRegion(az string) (string, error) {
 }
 
 // NewProvider returns a new aws provider
-func NewProvider(awsServices AWSServices) (p *Provider, err error) {
+func NewProvider(awsServices Services) (p *Provider, err error) {
 	metadata, err := awsServices.Metadata()
 	if err != nil {
 		return nil, fmt.Errorf("error creating AWS metadata client: %v", err)
