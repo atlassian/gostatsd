@@ -48,12 +48,12 @@ func (client *Client) SampleConfig() string {
 func (client *Client) SendMetrics(metrics types.MetricMap) error {
 	buf := new(bytes.Buffer)
 	now := time.Now().Unix()
-	types.EachCounter(metrics.Counters, func(key, tagsKey string, counter types.Counter) {
+	metrics.Counters.Each(func(key, tagsKey string, counter types.Counter) {
 		nk := composeMetricName(key, tagsKey)
 		fmt.Fprintf(buf, "stats.counter.%s.count %d %d\n", nk, counter.Value, now)
 		fmt.Fprintf(buf, "stats.counter.%s.per_second %f %d\n", nk, counter.PerSecond, now)
 	})
-	types.EachTimer(metrics.Timers, func(key, tagsKey string, timer types.Timer) {
+	metrics.Timers.Each(func(key, tagsKey string, timer types.Timer) {
 		nk := composeMetricName(key, tagsKey)
 		fmt.Fprintf(buf, "stats.timers.%s.lower %f %d\n", nk, timer.Min, now)
 		fmt.Fprintf(buf, "stats.timers.%s.upper %f %d\n", nk, timer.Max, now)
@@ -68,12 +68,12 @@ func (client *Client) SendMetrics(metrics types.MetricMap) error {
 			fmt.Fprintf(buf, "stats.timers.%s.%s %f %d\n", nk, pct.String(), pct.Float(), now)
 		}
 	})
-	types.EachGauge(metrics.Gauges, func(key, tagsKey string, gauge types.Gauge) {
+	metrics.Gauges.Each(func(key, tagsKey string, gauge types.Gauge) {
 		nk := composeMetricName(key, tagsKey)
 		fmt.Fprintf(buf, "stats.gauge.%s %f %d\n", nk, gauge.Value, now)
 	})
 
-	types.EachSet(metrics.Sets, func(key, tagsKey string, set types.Set) {
+	metrics.Sets.Each(func(key, tagsKey string, set types.Set) {
 		nk := composeMetricName(key, tagsKey)
 		fmt.Fprintf(buf, "stats.set.%s %d %d\n", nk, len(set.Values), now)
 	})

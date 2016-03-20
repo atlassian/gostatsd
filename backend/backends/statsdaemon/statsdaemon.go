@@ -85,7 +85,7 @@ func (client *Client) SendMetrics(metrics types.MetricMap) error {
 
 	var lastError error
 	buf := new(bytes.Buffer)
-	types.EachCounter(metrics.Counters, func(key, tagsKey string, counter types.Counter) {
+	metrics.Counters.Each(func(key, tagsKey string, counter types.Counter) {
 		// do not send statsd stats as they will be recalculated on the master instead
 		if !strings.HasPrefix(key, "statsd.") {
 			if err = client.writeLine(&conn, buf, "%s:%d|c", key, tagsKey, counter.Value); err != nil {
@@ -93,20 +93,20 @@ func (client *Client) SendMetrics(metrics types.MetricMap) error {
 			}
 		}
 	})
-	types.EachTimer(metrics.Timers, func(key, tagsKey string, timer types.Timer) {
+	metrics.Timers.Each(func(key, tagsKey string, timer types.Timer) {
 		for _, tr := range timer.Values {
 			if err = client.writeLine(&conn, buf, "%s:%f|ms", key, tagsKey, tr); err != nil {
 				lastError = logError(err)
 			}
 		}
 	})
-	types.EachGauge(metrics.Gauges, func(key, tagsKey string, gauge types.Gauge) {
+	metrics.Gauges.Each(func(key, tagsKey string, gauge types.Gauge) {
 		if err = client.writeLine(&conn, buf, "%s:%f|g", key, tagsKey, gauge.Value); err != nil {
 			lastError = logError(err)
 		}
 	})
 
-	types.EachSet(metrics.Sets, func(key, tagsKey string, set types.Set) {
+	metrics.Sets.Each(func(key, tagsKey string, set types.Set) {
 		for k := range set.Values {
 			if err = client.writeLine(&conn, buf, "%s:%s|s", key, tagsKey, k); err != nil {
 				lastError = logError(err)

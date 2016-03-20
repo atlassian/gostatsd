@@ -19,20 +19,20 @@ type Server struct {
 
 	FlushInterval time.Duration
 
-	MetricsAddr   string
-	Namespace     string
-	WebAddr       string
+	MetricsAddr string
+	Namespace   string
+	WebAddr     string
 
-	start         chan bool
-	stop          chan bool
-	stats         chan Stats
+	start chan bool
+	stop  chan bool
+	stats chan Stats
 
-	Load          bool
-	Started       bool
-	Verbose       bool
-	Version       bool
+	Load    bool
+	Started bool
+	Verbose bool
+	Version bool
 
-	Stats         Stats
+	Stats Stats
 }
 
 // Stats reprensents the stats for the session

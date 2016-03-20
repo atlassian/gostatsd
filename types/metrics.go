@@ -170,18 +170,18 @@ type MetricMap struct {
 
 func (m MetricMap) String() string {
 	buf := new(bytes.Buffer)
-	EachCounter(m.Counters, func(k, tags string, counter Counter) {
+	m.Counters.Each(func(k, tags string, counter Counter) {
 		fmt.Fprintf(buf, "stats.counter.%s: %d tags=%s\n", k, counter.Value, tags)
 	})
-	EachTimer(m.Timers, func(k, tags string, timer Timer) {
+	m.Timers.Each(func(k, tags string, timer Timer) {
 		for _, value := range timer.Values {
 			fmt.Fprintf(buf, "stats.timer.%s: %f tags=%s\n", k, value, tags)
 		}
 	})
-	EachGauge(m.Gauges, func(k, tags string, gauge Gauge) {
+	m.Gauges.Each(func(k, tags string, gauge Gauge) {
 		fmt.Fprintf(buf, "stats.gauge.%s: %f tags=%s\n", k, gauge.Value, tags)
 	})
-	EachSet(m.Sets, func(k, tags string, set Set) {
+	m.Sets.Each(func(k, tags string, set Set) {
 		fmt.Fprintf(buf, "stats.set.%s: %d tags=%s\n", k, len(set.Values), tags)
 	})
 	return buf.String()
@@ -205,8 +205,8 @@ func NewCounter(timestamp time.Time, flushInterval time.Duration, value int64) C
 	return Counter{Value: value, Interval: Interval{Timestamp: timestamp, Flush: flushInterval}}
 }
 
-// EachCounter iterates over each counter
-func EachCounter(c Counters, f func(string, string, Counter)) {
+// Each iterates over each counter
+func (c Counters) Each(f func(string, string, Counter)) {
 	for key, value := range c {
 		for tags, counter := range value {
 			f(key, tags, counter)
@@ -214,12 +214,10 @@ func EachCounter(c Counters, f func(string, string, Counter)) {
 	}
 }
 
-// TODO: review using gob instead?
-
-// CopyCounters performs a deep copy of a map of counters into a new map
-func CopyCounters(source Counters) Counters {
+// Clone performs a deep copy of a map of counters into a new map
+func (c Counters) Clone() Counters {
 	destination := Counters{}
-	EachCounter(source, func(key, tags string, counter Counter) {
+	c.Each(func(key, tags string, counter Counter) {
 		if _, ok := destination[key]; !ok {
 			destination[key] = make(map[string]Counter)
 		}
@@ -282,8 +280,8 @@ func NewTimer(timestamp time.Time, flushInterval time.Duration, values []float64
 	return Timer{Values: values, Interval: Interval{Timestamp: timestamp, Flush: flushInterval}}
 }
 
-// EachTimer iterates over each timer
-func EachTimer(t Timers, f func(string, string, Timer)) {
+// Each iterates over each timer
+func (t Timers) Each(f func(string, string, Timer)) {
 	for key, value := range t {
 		for tags, timer := range value {
 			f(key, tags, timer)
@@ -291,10 +289,10 @@ func EachTimer(t Timers, f func(string, string, Timer)) {
 	}
 }
 
-// CopyTimers performs a deep copy of a map of timers into a new map
-func CopyTimers(source Timers) Timers {
+// Clone performs a deep copy of a map of timers into a new map
+func (t Timers) Clone() Timers {
 	destination := Timers{}
-	EachTimer(source, func(key, tags string, timer Timer) {
+	t.Each(func(key, tags string, timer Timer) {
 		if _, ok := destination[key]; !ok {
 			destination[key] = make(map[string]Timer)
 		}
@@ -314,8 +312,8 @@ func NewGauge(timestamp time.Time, flushInterval time.Duration, value float64) G
 	return Gauge{Value: value, Interval: Interval{Timestamp: timestamp, Flush: flushInterval}}
 }
 
-// EachGauge iterates over each gauge
-func EachGauge(g Gauges, f func(string, string, Gauge)) {
+// Each iterates over each gauge
+func (g Gauges) Each(f func(string, string, Gauge)) {
 	for key, value := range g {
 		for tags, gauge := range value {
 			f(key, tags, gauge)
@@ -323,10 +321,10 @@ func EachGauge(g Gauges, f func(string, string, Gauge)) {
 	}
 }
 
-// CopyGauges performs a deep copy of a map of gauges into a new map
-func CopyGauges(source Gauges) Gauges {
+// Clone performs a deep copy of a map of gauges into a new map
+func (g Gauges) Clone() Gauges {
 	destination := Gauges{}
-	EachGauge(source, func(key, tags string, gauge Gauge) {
+	g.Each(func(key, tags string, gauge Gauge) {
 		if _, ok := destination[key]; !ok {
 			destination[key] = make(map[string]Gauge)
 		}
@@ -346,8 +344,8 @@ func NewSet(timestamp time.Time, flushInterval time.Duration, values map[string]
 	return Set{Values: values, Interval: Interval{Timestamp: timestamp, Flush: flushInterval}}
 }
 
-// EachSet iterates over each set
-func EachSet(s Sets, f func(string, string, Set)) {
+// Each iterates over each set
+func (s Sets) Each(f func(string, string, Set)) {
 	for key, value := range s {
 		for tags, set := range value {
 			f(key, tags, set)
@@ -355,10 +353,10 @@ func EachSet(s Sets, f func(string, string, Set)) {
 	}
 }
 
-// CopySets performs a deep copy of a map of gauges into a new map
-func CopySets(source Sets) Sets {
+// Clone performs a deep copy of a map of sets into a new map
+func (s Sets) Clone() Sets {
 	destination := Sets{}
-	EachSet(source, func(key, tags string, set Set) {
+	s.Each(func(key, tags string, set Set) {
 		if _, ok := destination[key]; !ok {
 			destination[key] = make(map[string]Set)
 		}

@@ -90,12 +90,12 @@ func (d *Client) SendMetrics(metrics types.MetricMap) error {
 	}
 	ts := TimeSeries{Timestamp: time.Now().Unix(), Hostname: d.Hostname}
 
-	types.EachCounter(metrics.Counters, func(key, tagsKey string, counter types.Counter) {
+	metrics.Counters.Each(func(key, tagsKey string, counter types.Counter) {
 		ts.AddMetric(fmt.Sprintf("%s", key), tagsKey, RATE, counter.PerSecond, counter.Flush)
 		ts.AddMetric(fmt.Sprintf("%s.count", key), tagsKey, GAUGE, float64(counter.Value), counter.Flush)
 	})
 
-	types.EachTimer(metrics.Timers, func(key, tagsKey string, timer types.Timer) {
+	metrics.Timers.Each(func(key, tagsKey string, timer types.Timer) {
 		ts.AddMetric(fmt.Sprintf("%s.lower", key), tagsKey, GAUGE, timer.Min, timer.Flush)
 		ts.AddMetric(fmt.Sprintf("%s.upper", key), tagsKey, GAUGE, timer.Max, timer.Flush)
 		ts.AddMetric(fmt.Sprintf("%s.count", key), tagsKey, GAUGE, float64(timer.Count), timer.Flush)
@@ -110,11 +110,11 @@ func (d *Client) SendMetrics(metrics types.MetricMap) error {
 		}
 	})
 
-	types.EachGauge(metrics.Gauges, func(key, tagsKey string, gauge types.Gauge) {
+	metrics.Gauges.Each(func(key, tagsKey string, gauge types.Gauge) {
 		ts.AddMetric(fmt.Sprintf("%s", key), tagsKey, GAUGE, gauge.Value, gauge.Flush)
 	})
 
-	types.EachSet(metrics.Sets, func(key, tagsKey string, set types.Set) {
+	metrics.Sets.Each(func(key, tagsKey string, set types.Set) {
 		ts.AddMetric(fmt.Sprintf("%s", key), tagsKey, GAUGE, float64(len(set.Values)), set.Flush)
 	})
 

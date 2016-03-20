@@ -75,13 +75,13 @@ func (a *MetricAggregator) flush(now func() time.Time) (metrics types.MetricMap)
 	startTime := now()
 	flushInterval := startTime.Sub(a.LastFlush)
 
-	types.EachCounter(a.Counters, func(key, tagsKey string, counter types.Counter) {
+	a.Counters.Each(func(key, tagsKey string, counter types.Counter) {
 		perSecond := float64(counter.Value) / flushInterval.Seconds()
 		counter.PerSecond = perSecond
 		a.Counters[key][tagsKey] = counter
 	})
 
-	types.EachTimer(a.Timers, func(key, tagsKey string, timer types.Timer) {
+	a.Timers.Each(func(key, tagsKey string, timer types.Timer) {
 		if count := len(timer.Values); count > 0 {
 			sort.Float64s(timer.Values)
 			timer.Min = timer.Values[0]
@@ -185,10 +185,10 @@ func (a *MetricAggregator) flush(now func() time.Time) (metrics types.MetricMap)
 		NumStats:       a.Stats.NumStats,
 		ProcessingTime: a.Stats.ProcessingTime,
 		FlushInterval:  flushInterval,
-		Counters:       types.CopyCounters(a.Counters),
-		Timers:         types.CopyTimers(a.Timers),
-		Gauges:         types.CopyGauges(a.Gauges),
-		Sets:           types.CopySets(a.Sets),
+		Counters:       a.Counters.Clone(),
+		Timers:         a.Timers.Clone(),
+		Gauges:         a.Gauges.Clone(),
+		Sets:           a.Sets.Clone(),
 	}
 }
 
@@ -202,7 +202,7 @@ func (a *MetricAggregator) Reset(now time.Time) {
 	defer a.Unlock()
 	a.NumStats = 0
 
-	types.EachCounter(a.Counters, func(key, tagsKey string, counter types.Counter) {
+	a.Counters.Each(func(key, tagsKey string, counter types.Counter) {
 		if a.isExpired(now, counter.Timestamp) {
 			delete(a.Counters[key], tagsKey)
 			if len(a.Counters[key]) == 0 {
@@ -214,7 +214,7 @@ func (a *MetricAggregator) Reset(now time.Time) {
 		}
 	})
 
-	types.EachTimer(a.Timers, func(key, tagsKey string, timer types.Timer) {
+	a.Timers.Each(func(key, tagsKey string, timer types.Timer) {
 		if a.isExpired(now, timer.Timestamp) {
 			delete(a.Timers[key], tagsKey)
 			if len(a.Timers[key]) == 0 {
@@ -226,7 +226,17 @@ func (a *MetricAggregator) Reset(now time.Time) {
 		}
 	})
 
-	types.EachSet(a.Sets, func(key, tagsKey string, set types.Set) {
+	a.Gauges.Each(func(key, tagsKey string, gauge types.Gauge) {
+		if a.isExpired(now, gauge.Timestamp) {
+			delete(a.Gauges[key], tagsKey)
+			if len(a.Gauges[key]) == 0 {
+				delete(a.Gauges, key)
+			}
+		}
+		// No reset for gauges, they keep the last value until expiration
+	})
+
+	a.Sets.Each(func(key, tagsKey string, set types.Set) {
 		if a.isExpired(now, set.Timestamp) {
 			delete(a.Sets[key], tagsKey)
 			if len(a.Sets[key]) == 0 {
@@ -236,16 +246,6 @@ func (a *MetricAggregator) Reset(now time.Time) {
 			interval := set.Interval
 			a.Sets[key][tagsKey] = types.Set{Interval: interval, Values: make(map[string]int64)}
 		}
-	})
-
-	types.EachGauge(a.Gauges, func(key, tagsKey string, gauge types.Gauge) {
-		if a.isExpired(now, gauge.Timestamp) {
-			delete(a.Gauges[key], tagsKey)
-			if len(a.Gauges[key]) == 0 {
-				delete(a.Gauges, key)
-			}
-		}
-		// No reset for gauges, they keep the last value until expiration
 	})
 }
 
