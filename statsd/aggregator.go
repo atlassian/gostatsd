@@ -196,6 +196,13 @@ func (a *MetricAggregator) isExpired(now, ts time.Time) bool {
 	return a.ExpiryInterval != time.Duration(0) && now.Sub(ts) > a.ExpiryInterval
 }
 
+func (a *MetricAggregator) deleteMetric(key, tagsKey string, metrics types.AggregatedMetrics) {
+	metrics.DeleteChild(key, tagsKey)
+	if !metrics.HasChildren(key) {
+		metrics.Delete(key)
+	}
+}
+
 // Reset clears the contents of a MetricAggregator
 func (a *MetricAggregator) Reset(now time.Time) {
 	a.Lock()
@@ -204,10 +211,7 @@ func (a *MetricAggregator) Reset(now time.Time) {
 
 	a.Counters.Each(func(key, tagsKey string, counter types.Counter) {
 		if a.isExpired(now, counter.Timestamp) {
-			delete(a.Counters[key], tagsKey)
-			if len(a.Counters[key]) == 0 {
-				delete(a.Counters, key)
-			}
+			a.deleteMetric(key, tagsKey, a.Counters)
 		} else {
 			interval := counter.Interval
 			a.Counters[key][tagsKey] = types.Counter{Interval: interval}
@@ -216,10 +220,7 @@ func (a *MetricAggregator) Reset(now time.Time) {
 
 	a.Timers.Each(func(key, tagsKey string, timer types.Timer) {
 		if a.isExpired(now, timer.Timestamp) {
-			delete(a.Timers[key], tagsKey)
-			if len(a.Timers[key]) == 0 {
-				delete(a.Timers, key)
-			}
+			a.deleteMetric(key, tagsKey, a.Timers)
 		} else {
 			interval := timer.Interval
 			a.Timers[key][tagsKey] = types.Timer{Interval: interval}
@@ -228,20 +229,14 @@ func (a *MetricAggregator) Reset(now time.Time) {
 
 	a.Gauges.Each(func(key, tagsKey string, gauge types.Gauge) {
 		if a.isExpired(now, gauge.Timestamp) {
-			delete(a.Gauges[key], tagsKey)
-			if len(a.Gauges[key]) == 0 {
-				delete(a.Gauges, key)
-			}
+			a.deleteMetric(key, tagsKey, a.Gauges)
 		}
 		// No reset for gauges, they keep the last value until expiration
 	})
 
 	a.Sets.Each(func(key, tagsKey string, set types.Set) {
 		if a.isExpired(now, set.Timestamp) {
-			delete(a.Sets[key], tagsKey)
-			if len(a.Sets[key]) == 0 {
-				delete(a.Sets, key)
-			}
+			a.deleteMetric(key, tagsKey, a.Sets)
 		} else {
 			interval := set.Interval
 			a.Sets[key][tagsKey] = types.Set{Interval: interval, Values: make(map[string]int64)}

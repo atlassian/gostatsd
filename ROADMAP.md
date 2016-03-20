@@ -26,7 +26,7 @@ Pri 2
 * [x] Use source ip address as hostname for datadog backend
 * [x] Use datadog and user agent headers for datadog backend
 * [ ] Add `kinesis` backend
-* [ ] Fix gomatelinter issues
+* [x] Fix gomatelinter issues
 * [ ] Implement stats by backend e.g. last flush, last flush error, etc.
 * [ ] Support `Event` metric
 * [ ] Fix value of metrics displayed in console

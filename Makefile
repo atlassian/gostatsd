@@ -48,7 +48,7 @@ junit-test: build
 check:
 	go install
 	gometalinter --deadline=60s ./... --vendor --linter='errcheck:errcheck:-ignore=net:Close' --cyclo-over=20 \
-		--linter='vet:go tool vet -composites=false {paths}:PATH:LINE:MESSAGE' --disable=interfacer
+		--linter='vet:go tool vet -composites=false {paths}:PATH:LINE:MESSAGE' --disable=interfacer --dupl-threshold=65
 
 profile:
 	./build/bin/$(ARCH)/$(BINARY_NAME) --backends=stdout --cpu-profile=./profile.out --flush-interval=1s
@@ -66,7 +66,7 @@ cross:
 docker: cross
 	cd build && docker build -t $(IMAGE_NAME):$(GIT_HASH) .
 
-release: test docker
+release: check test docker
 	docker push $(IMAGE_NAME):$(GIT_HASH)
 	docker tag -f $(IMAGE_NAME):$(GIT_HASH) $(IMAGE_NAME):latest
 	docker push $(IMAGE_NAME):latest

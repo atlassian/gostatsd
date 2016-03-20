@@ -148,6 +148,8 @@ func (m Metric) String() string {
 type AggregatedMetrics interface {
 	MetricsName() string
 	Delete(string)
+	DeleteChild(string, string)
+	HasChildren(string) bool
 }
 
 // Counters stores a map of counters by tags
@@ -163,6 +165,16 @@ func (c Counters) Delete(k string) {
 	delete(c, k)
 }
 
+// DeleteChild deletes the metrics from the collection for the given tags
+func (c Counters) DeleteChild(k, t string) {
+	delete(c[k], t)
+}
+
+// HasChildren returns whether there are more children nested under the key
+func (c Counters) HasChildren(k string) bool {
+	return len(c[k]) != 0
+}
+
 // Timers stores a map of timers by tags
 type Timers map[string]map[string]Timer
 
@@ -174,6 +186,16 @@ func (t Timers) MetricsName() string {
 // Delete deletes the metrics from the collection
 func (t Timers) Delete(k string) {
 	delete(t, k)
+}
+
+// DeleteChild deletes the metrics from the collection for the given tags
+func (t Timers) DeleteChild(k, tags string) {
+	delete(t[k], tags)
+}
+
+// HasChildren returns whether there are more children nested under the key
+func (t Timers) HasChildren(k string) bool {
+	return len(t[k]) != 0
 }
 
 // Gauges stores a map of gauges by tags
@@ -189,6 +211,16 @@ func (g Gauges) Delete(k string) {
 	delete(g, k)
 }
 
+// DeleteChild deletes the metrics from the collection for the given tags
+func (g Gauges) DeleteChild(k, t string) {
+	delete(g[k], t)
+}
+
+// HasChildren returns whether there are more children nested under the key
+func (g Gauges) HasChildren(k string) bool {
+	return len(g[k]) != 0
+}
+
 // Sets stores a map of sets by tags
 type Sets map[string]map[string]Set
 
@@ -200,6 +232,16 @@ func (s Sets) MetricsName() string {
 // Delete deletes the metrics from the collection
 func (s Sets) Delete(k string) {
 	delete(s, k)
+}
+
+// DeleteChild deletes the metrics from the collection for the given tags
+func (s Sets) DeleteChild(k, t string) {
+	delete(s[k], t)
+}
+
+// HasChildren returns whether there are more children nested under the key
+func (s Sets) HasChildren(k string) bool {
+	return len(s[k]) != 0
 }
 
 // MetricMap is used for storing aggregated Metric values.
