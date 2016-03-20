@@ -36,46 +36,14 @@ var (
 	regSlashes   = regexp.MustCompile("\\/")
 )
 
-// Normalize replaces invalid characters
-func Normalize(name string) string {
-	nospaces := regSpaces.ReplaceAllString(name, "_")
-	noslashes := regSlashes.ReplaceAllString(nospaces, "-")
-	return regInvalid.ReplaceAllString(noslashes, "")
-}
-
-// NormalizeMetricName cleans up a metric name and prefix with the namespace when given
-func NormalizeMetricName(name, namespace string) string {
-	metricName := Normalize(name)
-	metricName = regSemiColon.ReplaceAllString(name, "_")
-	if namespace != "" {
-		metricName = fmt.Sprintf("%s.%s", namespace, metricName)
-	}
-	return metricName
-}
-
 // TagToMetricName transforms tags into metric names
 func TagToMetricName(tag string) string {
 	return regSemiColon.ReplaceAllString(tag, ".")
 }
 
-// NormalizeTag cleans up a the tags
-func NormalizeTag(name string) string {
-	normalized := Normalize(name)
-	return strings.ToLower(normalized)
-}
-
-// StringToTags takes tags in a string and return normalized tags
-func StringToTags(s string) (tags Tags) {
-	for _, tag := range strings.Split(s, ",") {
-		tags = append(tags, NormalizeTag(tag))
-	}
-	return
-}
-
 // NormalizeTagElement cleans up the key or the value of a tag
 func NormalizeTagElement(name string) string {
 	element := regSemiColon.ReplaceAllString(name, "_")
-	element = Normalize(element)
 	element = regDot.ReplaceAllString(element, "_")
 	return strings.ToLower(element)
 }

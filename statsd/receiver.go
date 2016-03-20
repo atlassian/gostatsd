@@ -6,13 +6,12 @@ import (
 	"io"
 	"net"
 	"runtime"
-	"strconv"
 	"strings"
 
 	"github.com/jtblin/gostatsd/cloudprovider"
+	"github.com/jtblin/gostatsd/types"
 
 	log "github.com/Sirupsen/logrus"
-	"github.com/jtblin/gostatsd/types"
 )
 
 // DefaultMetricsAddr is the default address on which a MetricReceiver will listen
@@ -150,7 +149,6 @@ func (mr *MetricReceiver) handleMessage(addr net.Addr, msg []byte) {
 			}
 		}
 
-		// Only process lines with more than one character
 		if len(line) > 1 {
 			metric, err := mr.parseLine(line)
 			if err != nil {
@@ -202,92 +200,14 @@ func (mr *MetricReceiver) getAdditionalTags(addr string) types.Tags {
 	return nil
 }
 
+// ParseLine with lexer impl
 func (mr *MetricReceiver) parseLine(line []byte) (*types.Metric, error) {
+	llen := len(line)
+	if llen == 0 {
+		return nil, nil
+	}
 	metric := &types.Metric{}
 	metric.Tags = append(metric.Tags, mr.Tags...)
-
-	buf := bytes.NewBuffer(line)
-	name, err := buf.ReadBytes(':')
-	if err != nil {
-		return metric, fmt.Errorf("error parsing metric name: %s", err)
-	}
-	metric.Name = types.NormalizeMetricName(string(name[:len(name)-1]), mr.Namespace)
-
-	value, err := buf.ReadBytes('|')
-	if err != nil {
-		return metric, fmt.Errorf("error parsing metric value: %s", err)
-	}
-	metricValue := string(value[:len(value)-1])
-
-	endLine := string(buf.Bytes())
-	if err != nil && err != io.EOF {
-		return metric, fmt.Errorf("error parsing metric type: %s", err)
-	}
-
-	bits := strings.Split(endLine, "|")
-
-	metricType := bits[0]
-
-	switch metricType[:] {
-	case "c":
-		metric.Type = types.COUNTER
-	case "g":
-		metric.Type = types.GAUGE
-	case "ms":
-		metric.Type = types.TIMER
-	case "s":
-		metric.Type = types.SET
-	default:
-		err = fmt.Errorf("invalid metric type: %q", metricType)
-		return metric, err
-	}
-
-	if metric.Type == types.SET {
-		metric.StringValue = metricValue
-	} else {
-		metric.Value, err = strconv.ParseFloat(metricValue, 64)
-		if err != nil {
-			return metric, fmt.Errorf("error converting metric value: %s", err)
-		}
-	}
-
-	sampleRate := 1.0
-	if len(bits) > 1 {
-		if strings.HasPrefix(bits[1], "@") {
-			sampleRate, err = strconv.ParseFloat(bits[1][1:], 64)
-			if err != nil {
-				return metric, fmt.Errorf("error converting sample rate: %s", err)
-			}
-		} else {
-			tags, err := mr.parseTags(bits[1])
-			if err != nil {
-				return metric, fmt.Errorf("error parsing tags: %s", err)
-			}
-			metric.Tags = append(metric.Tags, tags...)
-		}
-		if len(bits) > 2 {
-			tags, err := mr.parseTags(bits[2])
-			if err != nil {
-				return metric, fmt.Errorf("error parsing tags: %s", err)
-			}
-			metric.Tags = append(metric.Tags, tags...)
-		}
-	}
-
-	if metric.Type == types.COUNTER {
-		metric.Value = metric.Value / sampleRate
-	}
-
-	log.Debugf("metric: %+v", metric)
-	return metric, nil
-}
-
-func (mr *MetricReceiver) parseTags(fragment string) (tags types.Tags, err error) {
-	if strings.HasPrefix(fragment, "#") {
-		fragment = fragment[1:]
-		tags = types.StringToTags(fragment)
-	} else {
-		err = fmt.Errorf("unknown delimiter: %s", fragment[0:1])
-	}
-	return
+	l := &lexer{input: line, len: llen, m: metric, namespace: mr.Namespace}
+	return l.run()
 }

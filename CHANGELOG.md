@@ -1,6 +1,7 @@
 0.12.1
 ------
 - Use pointer to metric instead of passing by value
+- Optimise (5-10x) performance of line parser
 
 0.12.0
 ------

@@ -54,7 +54,7 @@ func BenchmarkExtractSourceFromTags(b *testing.B) {
 	}
 }
 
-func TestNormalise(t *testing.T) {
+func TestNormaliseTags(t *testing.T) {
 	assert := assert.New(t)
 
 	tags := Tags{"foo", "bar:baz", "baz"}

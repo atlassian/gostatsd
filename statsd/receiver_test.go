@@ -20,6 +20,12 @@ func TestParseLine(t *testing.T) {
 		"uniq.usr:joe|s":                {Name: "uniq.usr", StringValue: "joe", Type: types.SET},
 		"fooBarBaz:2|c":                 {Name: "fooBarBaz", Value: 2, Type: types.COUNTER},
 		"smp.rte:5|c|#Foo:Bar,baz":      {Name: "smp.rte", Value: 5, Type: types.COUNTER, Tags: types.Tags{"foo:bar", "baz"}},
+		"smp.gge:1|g|#Foo:Bar":          {Name: "smp.gge", Value: 1, Type: types.GAUGE, Tags: types.Tags{"foo:bar"}},
+		"smp gge:1|g":                   {Name: "smp_gge", Value: 1, Type: types.GAUGE},
+		"smp/gge:1|g":                   {Name: "smp-gge", Value: 1, Type: types.GAUGE},
+		"smp,gge$:1|g":                  {Name: "smpgge", Value: 1, Type: types.GAUGE},
+		"un1qu3:john|s":                 {Name: "un1qu3", StringValue: "john", Type: types.SET},
+		"un1qu3:john|s|#some:42":        {Name: "un1qu3", StringValue: "john", Type: types.SET, Tags: types.Tags{"some:42"}},
 	}
 
 	mr := &MetricReceiver{}
@@ -97,45 +103,32 @@ func benchmarkParseLine(mr *MetricReceiver, input string, b *testing.B) {
 func BenchmarkParseLineCounter(b *testing.B) {
 	benchmarkParseLine(&MetricReceiver{}, "foo.bar.baz:2|c", b)
 }
+func BenchmarkParseLineCounterWithSampleRate(b *testing.B) {
+	benchmarkParseLine(&MetricReceiver{}, "smp.rte:5|c|@0.1", b)
+}
+func BenchmarkParseLineCounterWithTags(b *testing.B) {
+	benchmarkParseLine(&MetricReceiver{}, "smp.rte:5|c|#foo:bar,baz", b)
+}
 func BenchmarkParseLineCounterWithTagsAndSampleRate(b *testing.B) {
 	benchmarkParseLine(&MetricReceiver{}, "smp.rte:5|c|@0.1|#foo:bar,baz", b)
 }
-func BenchmarkParseLineGauge(b *testing.B) { benchmarkParseLine(&MetricReceiver{}, "abc.def.g:3|g", b) }
-func BenchmarkParseLineTimer(b *testing.B) { benchmarkParseLine(&MetricReceiver{}, "def.g:10|ms", b) }
-func BenchmarkParseLineSet(b *testing.B)   { benchmarkParseLine(&MetricReceiver{}, "uniq.usr:joe|s", b) }
+func BenchmarkParseLineGauge(b *testing.B) {
+	benchmarkParseLine(&MetricReceiver{}, "abc.def.g:3|g", b)
+}
+func BenchmarkParseLineTimer(b *testing.B) {
+	benchmarkParseLine(&MetricReceiver{}, "def.g:10|ms", b)
+}
+func BenchmarkParseLineSet(b *testing.B) {
+	benchmarkParseLine(&MetricReceiver{}, "uniq.usr:joe|s", b)
+}
 func BenchmarkParseLineCounterWithDefaultTags(b *testing.B) {
-	benchmarkParseLine(&MetricReceiver{Tags: []string{"env:foo"}}, "foo.bar.baz:2|c", b)
+	benchmarkParseLine(&MetricReceiver{Tags: []string{"env:foo", "foo:bar"}}, "foo.bar.baz:2|c", b)
 }
 func BenchmarkParseLineCounterWithDefaultTagsAndTags(b *testing.B) {
-	benchmarkParseLine(&MetricReceiver{Tags: []string{"env:foo"}}, "foo.bar.baz:2|c|#foo:bar,baz", b)
+	benchmarkParseLine(&MetricReceiver{Tags: []string{"env:foo", "foo:bar"}}, "foo.bar.baz:2|c|#foo:bar,baz", b)
 }
 func BenchmarkParseLineCounterWithDefaultTagsAndTagsAndNameSpace(b *testing.B) {
-	benchmarkParseLine(&MetricReceiver{Namespace: "stats", Tags: []string{"env:foo"}}, "foo.bar.baz:2|c|#foo:bar,baz", b)
-}
-
-func TestParseTags(t *testing.T) {
-	mr := &MetricReceiver{}
-	_, err := mr.parseTags("%foo:bar")
-	if err == nil {
-		t.Error("test %foo:bar: expected error but got nil")
-	}
-
-	result, err := mr.parseTags("#foo:bar,bar,baz:foo")
-	if err != nil {
-		t.Errorf("test #foo:bar,bar,baz:foo: unexpected error %s", err)
-	}
-	expected := types.Tags{"foo:bar", "bar", "baz:foo"}
-	if !reflect.DeepEqual(result, expected) {
-		t.Errorf("test #foo:bar,bar,baz:foo: expected %s, got %s", expected, result)
-	}
-}
-
-func BenchmarkParseTags(b *testing.B) {
-	mr := &MetricReceiver{}
-	b.ResetTimer()
-	for n := 0; n < b.N; n++ {
-		mr.parseTags("#foo:bar,bar,baz:foo")
-	}
+	benchmarkParseLine(&MetricReceiver{Namespace: "stats", Tags: []string{"env:foo", "foo:bar"}}, "foo.bar.baz:2|c|#foo:bar,baz", b)
 }
 
 type FakeAddr struct{}
@@ -161,7 +154,7 @@ func manageQueue(mq messageQueue) {
 	}
 }
 
-// Need to change MetricReceiver.receive to a finite loop to be able to run the dashboard
+// Need to change MetricReceiver.receive to a finite loop to be able to run the benchmark
 //func BenchmarkReceive(b *testing.B) {
 //	mq := make(messageQueue, maxQueueSize)
 //	go manageQueue(mq)
