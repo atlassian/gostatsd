@@ -152,7 +152,9 @@ func (mr *MetricReceiver) handleMessage(addr net.Addr, msg []byte) {
 		if len(line) > 1 {
 			metric, err := mr.parseLine(line)
 			if err != nil {
-				log.Warnf("Error parsing line %q from %s: %v", line, addr, err)
+				// logging as debug to avoid spamming logs when a bad actor sends
+				// badly formatted messages
+				log.Debugf("Error parsing line %q from %s: %v", line, addr, err)
 				mr.increment("bad_lines_seen", 1)
 				continue
 			}

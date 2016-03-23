@@ -2,6 +2,7 @@ package statsd
 
 import (
 	"errors"
+	"math"
 	"strconv"
 
 	"github.com/jtblin/gostatsd/types"
@@ -20,6 +21,16 @@ type lexer struct {
 
 // assumes we don't have \x00 bytes in input
 const eof = 0
+
+var (
+	errMissingKeySep         = errors.New("missing key separator")
+	errEmptyKey              = errors.New("key zero len")
+	errMissingValueSep       = errors.New("missing value separator")
+	errInvalidType           = errors.New("invalid type")
+	errInvalidSamplingOrTags = errors.New("invalid sampling or tags")
+	errInvalidTags           = errors.New("invalid tags")
+	errNaN                   = errors.New("invalid value NaN")
+)
 
 func (l *lexer) next() byte {
 	if l.pos >= l.len {
@@ -44,6 +55,9 @@ func (l *lexer) run() (*types.Metric, error) {
 		if err != nil {
 			return nil, err
 		}
+		if math.IsNaN(v) {
+			return nil, errNaN
+		}
 		l.m.Value = v
 		l.m.StringValue = ""
 	}
@@ -53,15 +67,6 @@ func (l *lexer) run() (*types.Metric, error) {
 
 	return l.m, nil
 }
-
-var (
-	errMissingKeySep         = errors.New("missing key separator")
-	errEmptyKey              = errors.New("key zero len")
-	errMissingValueSep       = errors.New("missing value separator")
-	errInvalidType           = errors.New("invalid type")
-	errInvalidSamplingOrTags = errors.New("invalid sampling or tags")
-	errInvalidTags           = errors.New("invalid tags")
-)
 
 type stateFn func(*lexer) stateFn
 

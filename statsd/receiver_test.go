@@ -31,7 +31,7 @@ func TestParseLine(t *testing.T) {
 	mr := &MetricReceiver{}
 	compare(tests, mr, t)
 
-	failing := []string{"fOO|bar:bazkk", "foo.bar.baz:1|q"}
+	failing := []string{"fOO|bar:bazkk", "foo.bar.baz:1|q", "NaN.should.be:NaN|g"}
 	for _, tc := range failing {
 		result, err := mr.parseLine([]byte(tc))
 		if err == nil {

@@ -1,3 +1,8 @@
+0.12.2
+------
+- Fix handling of NaN specific case
+- Minor refactorings for linter
+
 0.12.1
 ------
 - Use pointer to metric instead of passing by value
