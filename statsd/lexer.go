@@ -83,7 +83,7 @@ func lexKeySep(l *lexer) stateFn {
 		case eof:
 			l.err = errMissingKeySep
 			return nil
-		case '.':
+		case '.', '-', '_':
 			continue
 		default:
 			r := rune(b)
@@ -103,7 +103,6 @@ func lexKey(l *lexer) stateFn {
 		l.err = errEmptyKey
 		return nil
 	}
-	//l.m.Name = types.NormalizeMetricName(string(l.input[l.start:l.pos-1]), l.namespace)
 	l.m.Name = string(l.input[l.start : l.pos-1])
 	if l.namespace != "" {
 		l.m.Name = l.namespace + "." + l.m.Name
@@ -233,7 +232,7 @@ func lexTags(l *lexer) stateFn {
 			l.pos++
 			l.m.Tags = append(l.m.Tags, string(l.input[l.start:l.pos-1]))
 			return nil
-		case '.', ':':
+		case '.', ':', '-', '_':
 			continue
 		case '/':
 			l.input[l.pos-1] = '-'

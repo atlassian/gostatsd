@@ -1,3 +1,7 @@
+0.12.3
+------
+- Do not replace dash and underscore in metric names and tags
+
 0.12.2
 ------
 - Fix handling of NaN specific case

@@ -21,11 +21,14 @@ func TestParseLine(t *testing.T) {
 		"fooBarBaz:2|c":                 {Name: "fooBarBaz", Value: 2, Type: types.COUNTER},
 		"smp.rte:5|c|#Foo:Bar,baz":      {Name: "smp.rte", Value: 5, Type: types.COUNTER, Tags: types.Tags{"foo:bar", "baz"}},
 		"smp.gge:1|g|#Foo:Bar":          {Name: "smp.gge", Value: 1, Type: types.GAUGE, Tags: types.Tags{"foo:bar"}},
+		"smp.gge:1|g|#fo_o:ba-r":        {Name: "smp.gge", Value: 1, Type: types.GAUGE, Tags: types.Tags{"fo_o:ba-r"}},
 		"smp gge:1|g":                   {Name: "smp_gge", Value: 1, Type: types.GAUGE},
 		"smp/gge:1|g":                   {Name: "smp-gge", Value: 1, Type: types.GAUGE},
 		"smp,gge$:1|g":                  {Name: "smpgge", Value: 1, Type: types.GAUGE},
 		"un1qu3:john|s":                 {Name: "un1qu3", StringValue: "john", Type: types.SET},
 		"un1qu3:john|s|#some:42":        {Name: "un1qu3", StringValue: "john", Type: types.SET, Tags: types.Tags{"some:42"}},
+		"da-sh:1|s":                     {Name: "da-sh", StringValue: "1", Type: types.SET},
+		"under_score:1|s":               {Name: "under_score", StringValue: "1", Type: types.SET},
 	}
 
 	mr := &MetricReceiver{}
