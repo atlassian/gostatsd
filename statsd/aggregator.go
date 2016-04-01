@@ -357,7 +357,7 @@ func (a *MetricAggregator) Aggregate() {
 	flushChan := make(chan error)
 	flushTimer := time.NewTimer(a.FlushInterval)
 
-	for i := 0; i < a.MaxWorkers*10; i++ {
+	for i := 0; i < a.MaxWorkers; i++ {
 		go a.processQueue()
 	}
 

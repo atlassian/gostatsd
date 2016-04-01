@@ -1,3 +1,7 @@
+0.12.4
+------
+- Do not multiply number of metric workers
+
 0.12.3
 ------
 - Do not replace dash and underscore in metric names and tags
