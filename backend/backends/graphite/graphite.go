@@ -28,7 +28,7 @@ const sampleConfig = `
 	address = "ip:2003"
 `
 
-// normalizeBucketName cleans up a bucket name by replacing or translating invalid characters
+// normalizeBucketName cleans up a bucket name by replacing or translating invalid characters.
 func normalizeBucketName(bucket string, tagsKey string) string {
 	tags := strings.Split(tagsKey, ",")
 	for _, tag := range tags {
@@ -39,12 +39,12 @@ func normalizeBucketName(bucket string, tagsKey string) string {
 	return bucket
 }
 
-// Client is an object that is used to send messages to a Graphite server's TCP interface
+// Client is an object that is used to send messages to a Graphite server's TCP interface.
 type Client struct {
 	address string
 }
 
-// SendMetrics sends the metrics in a MetricsMap to the Graphite server
+// SendMetrics sends the metrics in a MetricsMap to the Graphite server.
 func (client *Client) SendMetrics(metrics types.MetricMap) error {
 	if metrics.NumStats == 0 {
 		return nil
@@ -97,17 +97,17 @@ func (client *Client) SendMetrics(metrics types.MetricMap) error {
 	return nil
 }
 
-// SampleConfig returns the sample config for the graphite backend
+// SampleConfig returns the sample config for the graphite backend.
 func (client *Client) SampleConfig() string {
 	return sampleConfig
 }
 
-// NewClient constructs a GraphiteClient object by connecting to an address
+// NewClient constructs a GraphiteClient object by connecting to an address.
 func NewClient(address string) (backend.MetricSender, error) {
 	return &Client{address}, nil
 }
 
-// BackendName returns the name of the backend
+// BackendName returns the name of the backend.
 func (client *Client) BackendName() string {
 	return backendName
 }

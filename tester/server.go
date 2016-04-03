@@ -35,7 +35,7 @@ type Server struct {
 	Stats Stats
 }
 
-// Stats reprensents the stats for the session
+// Stats reprensents the stats for the session.
 type Stats struct {
 	Duration         string    `json:"duration,omitempty"`
 	MetricsPerSecond float64   `json:"metricsPerSecond,omitempty"`
@@ -57,7 +57,7 @@ func newServer() *Server {
 	}
 }
 
-// AddFlags adds flags for a specific Server to the specified FlagSet
+// AddFlags adds flags for a specific Server to the specified FlagSet.
 func (s *Server) AddFlags(fs *pflag.FlagSet) {
 	fs.IntVar(&s.Concurrency, "concurrency", s.Concurrency, "How much concurrency for load testing")
 	fs.IntVar(&s.MaxPacketSize, "max-packet-size", s.MaxPacketSize, "Max size of the packet sent to statsd")

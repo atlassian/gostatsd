@@ -23,13 +23,13 @@ const (
 	backendName        = "datadog"
 	dogstatsdVersion   = "5.6.3"
 	dogstatsdUserAgent = "python-requests/2.6.0 CPython/2.7.10"
-	// GAUGE is datadog gauge type
+	// GAUGE is datadog gauge type.
 	GAUGE = "gauge"
-	// RATE is datadog rate type
+	// RATE is datadog rate type.
 	RATE = "rate"
 )
 
-// Client represents a Datadog client
+// Client represents a Datadog client.
 type Client struct {
 	APIKey      string
 	APIEndpoint string
@@ -46,14 +46,14 @@ const sampleConfig = `
 	# timeout = "5s"
 `
 
-// TimeSeries represents a time series data structure
+// TimeSeries represents a time series data structure.
 type TimeSeries struct {
 	Series    []*Metric `json:"series"`
 	Timestamp int64     `json:"-"`
 	Hostname  string    `json:"-"`
 }
 
-// Metric represents a metric data structure for Datadog
+// Metric represents a metric data structure for Datadog.
 type Metric struct {
 	Host     string   `json:"host,omitempty"`
 	Interval float64  `json:"interval,omitempty"`
@@ -63,10 +63,10 @@ type Metric struct {
 	Type     string   `json:"type,omitempty"`
 }
 
-// Point is a Datadog data point
+// Point is a Datadog data point.
 type Point [2]float64
 
-// AddMetric adds a metric to the series
+// AddMetric adds a metric to the series.
 func (ts *TimeSeries) AddMetric(name, stags, metricType string, value float64, interval time.Duration) {
 	hostname, tags := types.ExtractSourceFromTags(stags)
 	if hostname == "" {
@@ -83,7 +83,7 @@ func (ts *TimeSeries) AddMetric(name, stags, metricType string, value float64, i
 	ts.Series = append(ts.Series, metric)
 }
 
-// SendMetrics sends metrics to Datadog
+// SendMetrics sends metrics to Datadog.
 func (d *Client) SendMetrics(metrics types.MetricMap) error {
 	if metrics.NumStats == 0 {
 		return nil
@@ -160,12 +160,12 @@ func (d *Client) SendMetrics(metrics types.MetricMap) error {
 	return nil
 }
 
-// SampleConfig returns the sample config for the datadog backend
+// SampleConfig returns the sample config for the datadog backend.
 func (d *Client) SampleConfig() string {
 	return sampleConfig
 }
 
-// BackendName returns the name of the backend
+// BackendName returns the name of the backend.
 func (d *Client) BackendName() string {
 	return backendName
 }
@@ -177,7 +177,7 @@ func (d *Client) authenticatedURL() string {
 	return fmt.Sprintf("%s?%s", d.APIEndpoint, q.Encode())
 }
 
-// NewClient returns a new Datadog API client
+// NewClient returns a new Datadog API client.
 func NewClient(apiKey string, clientTimeout time.Duration) (*Client, error) {
 	if apiKey == "" {
 		return nil, fmt.Errorf("[%s] api_key is a required field", backendName)

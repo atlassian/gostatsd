@@ -15,7 +15,7 @@ import (
 	log "github.com/Sirupsen/logrus"
 )
 
-// metricAggregatorStats is a bookkeeping structure for statistics about a MetricAggregator
+// metricAggregatorStats is a bookkeeping structure for statistics about a MetricAggregator.
 type metricAggregatorStats struct {
 	BadLines       int64
 	LastMessage    time.Time
@@ -43,7 +43,7 @@ type MetricAggregator struct {
 	types.MetricMap
 }
 
-// NewMetricAggregator creates a new MetricAggregator object
+// NewMetricAggregator creates a new MetricAggregator object.
 func NewMetricAggregator(senders []backend.MetricSender, percentThresholds []float64, flushInterval time.Duration, expiryInterval time.Duration, maxWorkers int, tags []string) *MetricAggregator {
 	a := MetricAggregator{}
 	a.FlushInterval = flushInterval
@@ -61,13 +61,13 @@ func NewMetricAggregator(senders []backend.MetricSender, percentThresholds []flo
 	return &a
 }
 
-// round rounds a number to its nearest integer value
-// poor man's math.Round(x) = math.Floor(x + 0.5)
+// round rounds a number to its nearest integer value.
+// poor man's math.Round(x) = math.Floor(x + 0.5).
 func round(v float64) float64 {
 	return math.Floor(v + 0.5)
 }
 
-// flush prepares the contents of a MetricAggregator for sending via the Sender
+// flush prepares the contents of a MetricAggregator for sending via the Sender.
 func (a *MetricAggregator) flush(now func() time.Time) (metrics types.MetricMap) {
 	a.Lock()
 	defer a.Unlock()
@@ -318,7 +318,7 @@ func (a *MetricAggregator) receiveSet(name, tags string, value string, now time.
 	}
 }
 
-// receiveMetric is called for each incoming metric on MetricChan
+// receiveMetric is called for each incoming metric on MetricChan.
 func (a *MetricAggregator) receiveMetric(m *types.Metric, now time.Time) {
 	a.Lock()
 	defer a.Unlock()
@@ -352,7 +352,7 @@ func (a *MetricAggregator) processQueue() {
 }
 
 // Aggregate starts the MetricAggregator so it begins consuming metrics from MetricChan
-// and flushing them periodically via its Sender
+// and flushing them periodically via its Sender.
 func (a *MetricAggregator) Aggregate() {
 	flushChan := make(chan error)
 	flushTimer := time.NewTimer(a.FlushInterval)

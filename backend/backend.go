@@ -17,30 +17,30 @@ var backends = make(map[string]Factory)
 // Factory is a function that returns a MetricSender.
 type Factory func(v *viper.Viper) (MetricSender, error)
 
-// MetricSender represents a backend
+// MetricSender represents a backend.
 type MetricSender interface {
-	// BackendName returns the name of the backend
+	// BackendName returns the name of the backend.
 	BackendName() string
-	// SampleConfig returns the sample config for the backend
+	// SampleConfig returns the sample config for the backend.
 	SampleConfig() string
-	// SendMetrics flushes the metrics to the backend
+	// SendMetrics flushes the metrics to the backend.
 	SendMetrics(metrics types.MetricMap) error
 }
 
-// The MetricSenderFunc type is an adapter to allow the use of ordinary functions as metric senders
+// The MetricSenderFunc type is an adapter to allow the use of ordinary functions as metric senders.
 type MetricSenderFunc func(types.MetricMap) error
 
-// SendMetrics calls f(m)
+// SendMetrics calls f(m).
 func (f MetricSenderFunc) SendMetrics(m types.MetricMap) error {
 	return f(m)
 }
 
-// BackendName returns the name of the backend
+// BackendName returns the name of the backend.
 func (f MetricSenderFunc) BackendName() string {
 	return "MetricSenderFunc"
 }
 
-// RegisterBackend registers an authentication backend
+// RegisterBackend registers an authentication backend.
 func RegisterBackend(name string, backend Factory) {
 	backendsMutex.Lock()
 	defer backendsMutex.Unlock()

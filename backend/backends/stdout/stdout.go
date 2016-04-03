@@ -21,15 +21,15 @@ func init() {
 	})
 }
 
-// Client is an object that is used to send messages to stdout
+// Client is an object that is used to send messages to stdout.
 type Client struct{}
 
-// NewClient constructs a StdoutClient object
+// NewClient constructs a StdoutClient object.
 func NewClient() (backend.MetricSender, error) {
 	return &Client{}, nil
 }
 
-// composeMetricName adds the key and the tags to compose the metric name
+// composeMetricName adds the key and the tags to compose the metric name.
 func composeMetricName(key string, tagsKey string) string {
 	tags := strings.Split(tagsKey, ",")
 	for _, tag := range tags {
@@ -40,12 +40,12 @@ func composeMetricName(key string, tagsKey string) string {
 	return key
 }
 
-// SampleConfig returns the sample config for the stdout backend
+// SampleConfig returns the sample config for the stdout backend.
 func (client *Client) SampleConfig() string {
 	return ""
 }
 
-// SendMetrics sends the metrics in a MetricsMap to the Graphite server
+// SendMetrics sends the metrics in a MetricsMap to the Graphite server.
 func (client *Client) SendMetrics(metrics types.MetricMap) error {
 	buf := new(bytes.Buffer)
 	now := time.Now().Unix()
@@ -89,7 +89,7 @@ func (client *Client) SendMetrics(metrics types.MetricMap) error {
 	return nil
 }
 
-// BackendName returns the name of the backend
+// BackendName returns the name of the backend.
 func (client *Client) BackendName() string {
 	return backendName
 }

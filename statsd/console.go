@@ -8,17 +8,17 @@ import (
 	"github.com/kisielk/cmd"
 )
 
-// DefaultConsoleAddr is the default address on which a ConsoleServer will listen
+// DefaultConsoleAddr is the default address on which a ConsoleServer will listen.
 const DefaultConsoleAddr = ":8126"
 
 // ConsoleServer is an object that listens for telnet connection on a TCP address Addr
-// and provides a console interface to a manage a MetricAggregator
+// and provides a console interface to a manage a MetricAggregator.
 type ConsoleServer struct {
 	Addr       string
 	Aggregator *MetricAggregator
 }
 
-// ListenAndServe listens on the ConsoleServer's TCP network address and then calls Serve
+// ListenAndServe listens on the ConsoleServer's TCP network address and then calls Serve.
 func (s *ConsoleServer) ListenAndServe() error {
 	addr := s.Addr
 	if addr == "" {
@@ -32,7 +32,7 @@ func (s *ConsoleServer) ListenAndServe() error {
 }
 
 // Serve accepts incoming connections on the listener and serves them a console interface to
-// the MetricAggregator
+// the MetricAggregator.
 func (s *ConsoleServer) Serve(l net.Listener) error {
 	defer l.Close()
 	for {
@@ -45,13 +45,13 @@ func (s *ConsoleServer) Serve(l net.Listener) error {
 	}
 }
 
-// consoleConn represents a single ConsoleServer connection
+// consoleConn represents a single ConsoleServer connection.
 type consoleConn struct {
 	conn   net.Conn
 	server *ConsoleServer
 }
 
-// serve reads from the consoleConn and responds to incoming requests
+// serve reads from the consoleConn and responds to incoming requests.
 func (c *consoleConn) serve() {
 	defer c.conn.Close()
 

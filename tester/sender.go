@@ -13,7 +13,7 @@ import (
 	log "github.com/Sirupsen/logrus"
 )
 
-// Metrics store the metrics to send
+// Metrics store the metrics to send.
 type Metrics []*types.Metric
 
 var metrics = &Metrics{

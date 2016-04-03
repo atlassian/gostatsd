@@ -29,7 +29,7 @@ const sampleConfig = `
 	availability_zone = "us-west-2" # optional, will be retrieved from ec2 metadata if empty
 `
 
-// Provider represents an aws provider
+// Provider represents an aws provider.
 type Provider struct {
 	availabilityZone string
 	ec2              EC2
@@ -37,26 +37,26 @@ type Provider struct {
 	region           string
 }
 
-// Services is an abstraction over AWS, to allow mocking/other implementations
+// Services is an abstraction over AWS, to allow mocking/other implementations.
 type Services interface {
 	Compute(region string) (EC2, error)
 	Metadata() (EC2Metadata, error)
 }
 
 // EC2 is an abstraction over EC2, to allow mocking/other implementations
-// Note that the DescribeX functions return a list, so callers don't need to deal with paging
+// Note that the DescribeX functions return a list, so callers don't need to deal with paging.
 type EC2 interface {
-	// Query EC2 for instances matching the filter
+	// Query EC2 for instances matching the filter.
 	DescribeInstances(request *ec2.DescribeInstancesInput) ([]*ec2.Instance, error)
 }
 
-// EC2Metadata is an abstraction over the AWS metadata service
+// EC2Metadata is an abstraction over the AWS metadata service.
 type EC2Metadata interface {
-	// Query the EC2 metadata service (used to discover instance-id etc)
+	// Query the EC2 metadata service (used to discover instance-id etc).
 	GetMetadata(path string) (string, error)
 }
 
-// awsSdkEC2 is an implementation of the EC2 interface, backed by aws-sdk-go
+// awsSdkEC2 is an implementation of the EC2 interface, backed by aws-sdk-go.
 type awsSdkEC2 struct {
 	ec2 *ec2.EC2
 }
@@ -75,7 +75,7 @@ func isNilOrEmpty(s *string) bool {
 	return s == nil || *s == ""
 }
 
-// DescribeInstances is an implementation of EC2.Instances
+// DescribeInstances is an implementation of EC2.Instances.
 func (s *awsSdkEC2) DescribeInstances(request *ec2.DescribeInstancesInput) ([]*ec2.Instance, error) {
 	// Instances are paged
 	results := []*ec2.Instance{}
@@ -111,7 +111,7 @@ func newEc2Filter(name string, value string) *ec2.Filter {
 	return filter
 }
 
-// Instance returns the instance details from aws
+// Instance returns the instance details from aws.
 func (p *Provider) Instance(IP string) (*types.Instance, error) {
 	filters := []*ec2.Filter{newEc2Filter("private-ip-address", IP)}
 	request := &ec2.DescribeInstancesInput{
@@ -139,17 +139,17 @@ func (p *Provider) Instance(IP string) (*types.Instance, error) {
 	return instance, nil
 }
 
-// ProviderName returns the name of the provider
+// ProviderName returns the name of the provider.
 func (p *Provider) ProviderName() string {
 	return providerName
 }
 
-// SampleConfig returns the sample config for the datadog backend
+// SampleConfig returns the sample config for the datadog backend.
 func (p *Provider) SampleConfig() string {
 	return sampleConfig
 }
 
-// Compute is an implementation of ec2 Compute
+// Compute is an implementation of ec2 Compute.
 func (p *awsSDKProvider) Compute(regionName string) (EC2, error) {
 	service := ec2.New(session.New(&aws.Config{
 		Region:      &regionName,
@@ -164,7 +164,7 @@ func (p *awsSDKProvider) Compute(regionName string) (EC2, error) {
 }
 
 // Derives the region from a valid az name.
-// Returns an error if the az is known invalid (empty)
+// Returns an error if the az is known invalid (empty).
 func azToRegion(az string) (string, error) {
 	if len(az) < 1 {
 		return "", fmt.Errorf("invalid (empty) AZ")
@@ -173,7 +173,7 @@ func azToRegion(az string) (string, error) {
 	return region, nil
 }
 
-// NewProvider returns a new aws provider
+// NewProvider returns a new aws provider.
 func NewProvider(awsServices Services, az string) (p *Provider, err error) {
 	metadata, err := awsServices.Metadata()
 	if err != nil {

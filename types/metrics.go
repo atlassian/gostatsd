@@ -9,10 +9,10 @@ import (
 	"time"
 )
 
-// MetricType is an enumeration of all the possible types of Metric
+// MetricType is an enumeration of all the possible types of Metric.
 type MetricType float64
 
-// StatsdSourceID stores the key used to tag metrics with the origin IP address
+// StatsdSourceID stores the key used to tag metrics with the origin IP address.
 const StatsdSourceID = "statsd_source_id"
 
 const (
@@ -27,18 +27,18 @@ const (
 	SET
 )
 
-// Regular expressions used for metric name normalization
+// Regular expressions used for metric name normalization.
 var (
 	regDot       = regexp.MustCompile("\\.")
 	regSemiColon = regexp.MustCompile(":")
 )
 
-// TagToMetricName transforms tags into metric names
+// TagToMetricName transforms tags into metric names.
 func TagToMetricName(tag string) string {
 	return regSemiColon.ReplaceAllString(tag, ".")
 }
 
-// NormalizeTagElement cleans up the key or the value of a tag
+// NormalizeTagElement cleans up the key or the value of a tag.
 func NormalizeTagElement(name string) string {
 	element := regSemiColon.ReplaceAllString(name, "_")
 	element = regDot.ReplaceAllString(element, "_")
@@ -59,7 +59,7 @@ func (m MetricType) String() string {
 	return "unknown"
 }
 
-// Metric represents a single data collected datapoint
+// Metric represents a single data collected datapoint.
 type Metric struct {
 	Type        MetricType // The type of metric
 	Name        string     // The name of the metric
@@ -68,7 +68,7 @@ type Metric struct {
 	StringValue string     // The string value for some metrics e.g. Set
 }
 
-// NewMetric creates a metric with tags
+// NewMetric creates a metric with tags.
 func NewMetric(name string, value float64, mtype MetricType, tags Tags) *Metric {
 	return &Metric{
 		Type:  mtype,
@@ -78,17 +78,17 @@ func NewMetric(name string, value float64, mtype MetricType, tags Tags) *Metric 
 	}
 }
 
-// Tags represents a list of tags
+// Tags represents a list of tags.
 type Tags []string
 
 // String sorts the tags alphabetically and returns
-// a comma-separated string representation of the tags
+// a comma-separated string representation of the tags.
 func (tags Tags) String() string {
 	sort.Strings(tags)
 	return strings.Join(tags, ",")
 }
 
-// Map returns a map of the tags
+// Map returns a map of the tags.
 func (tags Tags) Map() map[string]string {
 	tagMap := make(map[string]string, len(tags))
 	for _, tag := range tags {
@@ -103,7 +103,7 @@ func (tags Tags) Map() map[string]string {
 }
 
 // ExtractSourceFromTags returns the source from the tags
-// and the updated tags
+// and the updated tags.
 func ExtractSourceFromTags(s string) (string, Tags) {
 	tags := Tags(strings.Split(s, ","))
 	idx, element := tags.IndexOfKey(StatsdSourceID)
@@ -116,7 +116,7 @@ func ExtractSourceFromTags(s string) (string, Tags) {
 	return "", tags
 }
 
-// IndexOfKey returns the index and the element starting with the string key
+// IndexOfKey returns the index and the element starting with the string key.
 func (tags Tags) IndexOfKey(key string) (int, string) {
 	for i, v := range tags {
 		if strings.HasPrefix(v, key+":") {
@@ -126,7 +126,7 @@ func (tags Tags) IndexOfKey(key string) (int, string) {
 	return -1, ""
 }
 
-// Normalise normalises tags as key:value
+// Normalise normalises tags as key:value.
 func (tags Tags) Normalise() Tags {
 	nTags := Tags{}
 	for _, tag := range tags {
@@ -144,7 +144,7 @@ func (m Metric) String() string {
 	return fmt.Sprintf("{%s, %s, %f, %s, %v}", m.Type, m.Name, m.Value, m.StringValue, m.Tags)
 }
 
-// AggregatedMetrics is an interface for aggregated metrics
+// AggregatedMetrics is an interface for aggregated metrics.
 type AggregatedMetrics interface {
 	MetricsName() string
 	Delete(string)
@@ -152,94 +152,94 @@ type AggregatedMetrics interface {
 	HasChildren(string) bool
 }
 
-// Counters stores a map of counters by tags
+// Counters stores a map of counters by tags.
 type Counters map[string]map[string]Counter
 
-// MetricsName returns the name of the aggregated metrics collection
+// MetricsName returns the name of the aggregated metrics collection.
 func (c Counters) MetricsName() string {
 	return "Counters"
 }
 
-// Delete deletes the metrics from the collection
+// Delete deletes the metrics from the collection.
 func (c Counters) Delete(k string) {
 	delete(c, k)
 }
 
-// DeleteChild deletes the metrics from the collection for the given tags
+// DeleteChild deletes the metrics from the collection for the given tags.
 func (c Counters) DeleteChild(k, t string) {
 	delete(c[k], t)
 }
 
-// HasChildren returns whether there are more children nested under the key
+// HasChildren returns whether there are more children nested under the key.
 func (c Counters) HasChildren(k string) bool {
 	return len(c[k]) != 0
 }
 
-// Timers stores a map of timers by tags
+// Timers stores a map of timers by tags.
 type Timers map[string]map[string]Timer
 
-// MetricsName returns the name of the aggregated metrics collection
+// MetricsName returns the name of the aggregated metrics collection.
 func (t Timers) MetricsName() string {
 	return "Timers"
 }
 
-// Delete deletes the metrics from the collection
+// Delete deletes the metrics from the collection.
 func (t Timers) Delete(k string) {
 	delete(t, k)
 }
 
-// DeleteChild deletes the metrics from the collection for the given tags
+// DeleteChild deletes the metrics from the collection for the given tags.
 func (t Timers) DeleteChild(k, tags string) {
 	delete(t[k], tags)
 }
 
-// HasChildren returns whether there are more children nested under the key
+// HasChildren returns whether there are more children nested under the key.
 func (t Timers) HasChildren(k string) bool {
 	return len(t[k]) != 0
 }
 
-// Gauges stores a map of gauges by tags
+// Gauges stores a map of gauges by tags.
 type Gauges map[string]map[string]Gauge
 
-// MetricsName returns the name of the aggregated metrics collection
+// MetricsName returns the name of the aggregated metrics collection.
 func (g Gauges) MetricsName() string {
 	return "Gauges"
 }
 
-// Delete deletes the metrics from the collection
+// Delete deletes the metrics from the collection.
 func (g Gauges) Delete(k string) {
 	delete(g, k)
 }
 
-// DeleteChild deletes the metrics from the collection for the given tags
+// DeleteChild deletes the metrics from the collection for the given tags.
 func (g Gauges) DeleteChild(k, t string) {
 	delete(g[k], t)
 }
 
-// HasChildren returns whether there are more children nested under the key
+// HasChildren returns whether there are more children nested under the key.
 func (g Gauges) HasChildren(k string) bool {
 	return len(g[k]) != 0
 }
 
-// Sets stores a map of sets by tags
+// Sets stores a map of sets by tags.
 type Sets map[string]map[string]Set
 
-// MetricsName returns the name of the aggregated metrics collection
+// MetricsName returns the name of the aggregated metrics collection.
 func (s Sets) MetricsName() string {
 	return "Sets"
 }
 
-// Delete deletes the metrics from the collection
+// Delete deletes the metrics from the collection.
 func (s Sets) Delete(k string) {
 	delete(s, k)
 }
 
-// DeleteChild deletes the metrics from the collection for the given tags
+// DeleteChild deletes the metrics from the collection for the given tags.
 func (s Sets) DeleteChild(k, t string) {
 	delete(s[k], t)
 }
 
-// HasChildren returns whether there are more children nested under the key
+// HasChildren returns whether there are more children nested under the key.
 func (s Sets) HasChildren(k string) bool {
 	return len(s[k]) != 0
 }
@@ -275,7 +275,7 @@ func (m MetricMap) String() string {
 	return buf.String()
 }
 
-// Interval stores the flush interval and timestamp for expiration interval
+// Interval stores the flush interval and timestamp for expiration interval.
 type Interval struct {
 	Timestamp time.Time
 	Flush     time.Duration
@@ -288,12 +288,12 @@ type Counter struct {
 	Interval          // The flush and expiration interval information
 }
 
-// NewCounter initialises a new counter
+// NewCounter initialises a new counter.
 func NewCounter(timestamp time.Time, flushInterval time.Duration, value int64) Counter {
 	return Counter{Value: value, Interval: Interval{Timestamp: timestamp, Flush: flushInterval}}
 }
 
-// Each iterates over each counter
+// Each iterates over each counter.
 func (c Counters) Each(f func(string, string, Counter)) {
 	for key, value := range c {
 		for tags, counter := range value {
@@ -302,7 +302,7 @@ func (c Counters) Each(f func(string, string, Counter)) {
 	}
 }
 
-// Clone performs a deep copy of a map of counters into a new map
+// Clone performs a deep copy of a map of counters into a new map.
 func (c Counters) Clone() Counters {
 	destination := Counters{}
 	c.Each(func(key, tags string, counter Counter) {
@@ -314,21 +314,21 @@ func (c Counters) Clone() Counters {
 	return destination
 }
 
-// Percentiles represents an array of percentiles
+// Percentiles represents an array of percentiles.
 type Percentiles []*Percentile
 
-// Percentile is used to store the aggregation for a percentile
+// Percentile is used to store the aggregation for a percentile.
 type Percentile struct {
 	float float64
 	str   string
 }
 
-// Set append a percentile aggregation to the percentiles
+// Set append a percentile aggregation to the percentiles.
 func (p *Percentiles) Set(s string, f float64) {
 	*p = append(*p, &Percentile{f, strings.Replace(s, ".", "_", -1)})
 }
 
-// String returns the string value of percentiles
+// String returns the string value of percentiles.
 func (p *Percentiles) String() string {
 	buf := new(bytes.Buffer)
 	for _, pct := range *p {
@@ -337,12 +337,12 @@ func (p *Percentiles) String() string {
 	return buf.String()
 }
 
-// String returns the string value of a percentile
+// String returns the string value of a percentile.
 func (p *Percentile) String() string {
 	return p.str
 }
 
-// Float returns the float value of a percentile
+// Float returns the float value of a percentile.
 func (p *Percentile) Float() float64 {
 	return p.float
 }
@@ -363,12 +363,12 @@ type Timer struct {
 	Interval                // The flush and expiration interval information
 }
 
-// NewTimer initialises a new timer
+// NewTimer initialises a new timer.
 func NewTimer(timestamp time.Time, flushInterval time.Duration, values []float64) Timer {
 	return Timer{Values: values, Interval: Interval{Timestamp: timestamp, Flush: flushInterval}}
 }
 
-// Each iterates over each timer
+// Each iterates over each timer.
 func (t Timers) Each(f func(string, string, Timer)) {
 	for key, value := range t {
 		for tags, timer := range value {
@@ -377,7 +377,7 @@ func (t Timers) Each(f func(string, string, Timer)) {
 	}
 }
 
-// Clone performs a deep copy of a map of timers into a new map
+// Clone performs a deep copy of a map of timers into a new map.
 func (t Timers) Clone() Timers {
 	destination := Timers{}
 	t.Each(func(key, tags string, timer Timer) {
@@ -395,12 +395,12 @@ type Gauge struct {
 	Interval         // The flush and expiration interval information
 }
 
-// NewGauge initialises a new gauge
+// NewGauge initialises a new gauge.
 func NewGauge(timestamp time.Time, flushInterval time.Duration, value float64) Gauge {
 	return Gauge{Value: value, Interval: Interval{Timestamp: timestamp, Flush: flushInterval}}
 }
 
-// Each iterates over each gauge
+// Each iterates over each gauge.
 func (g Gauges) Each(f func(string, string, Gauge)) {
 	for key, value := range g {
 		for tags, gauge := range value {
@@ -409,7 +409,7 @@ func (g Gauges) Each(f func(string, string, Gauge)) {
 	}
 }
 
-// Clone performs a deep copy of a map of gauges into a new map
+// Clone performs a deep copy of a map of gauges into a new map.
 func (g Gauges) Clone() Gauges {
 	destination := Gauges{}
 	g.Each(func(key, tags string, gauge Gauge) {
@@ -427,12 +427,12 @@ type Set struct {
 	Interval                  // The flush and expiration interval information
 }
 
-// NewSet initialises a new set
+// NewSet initialises a new set.
 func NewSet(timestamp time.Time, flushInterval time.Duration, values map[string]int64) Set {
 	return Set{Values: values, Interval: Interval{Timestamp: timestamp, Flush: flushInterval}}
 }
 
-// Each iterates over each set
+// Each iterates over each set.
 func (s Sets) Each(f func(string, string, Set)) {
 	for key, value := range s {
 		for tags, set := range value {
@@ -441,7 +441,7 @@ func (s Sets) Each(f func(string, string, Set)) {
 	}
 }
 
-// Clone performs a deep copy of a map of sets into a new map
+// Clone performs a deep copy of a map of sets into a new map.
 func (s Sets) Clone() Sets {
 	destination := Sets{}
 	s.Each(func(key, tags string, set Set) {

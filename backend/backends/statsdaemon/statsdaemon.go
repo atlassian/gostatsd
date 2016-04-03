@@ -30,7 +30,7 @@ const sampleConfig = `
 	address = "statsdaemon-master:6126"
 `
 
-// Client is an object that is used to send messages to a statsd server's UDP interface
+// Client is an object that is used to send messages to a statsd server's UDP interface.
 type Client struct {
 	addr string
 }
@@ -71,7 +71,7 @@ func logError(err error) error {
 	return err
 }
 
-// SendMetrics sends the metrics in a MetricsMap to the statsd master server
+// SendMetrics sends the metrics in a MetricsMap to the statsd master server.
 func (client *Client) SendMetrics(metrics types.MetricMap) error {
 	if metrics.NumStats == 0 {
 		return nil
@@ -124,18 +124,18 @@ func (client *Client) SendMetrics(metrics types.MetricMap) error {
 	return nil
 }
 
-// SampleConfig returns the sample config for the statsd backend
+// SampleConfig returns the sample config for the statsd backend.
 func (client *Client) SampleConfig() string {
 	return sampleConfig
 }
 
-// NewClient constructs a GraphiteClient object by connecting to an address
+// NewClient constructs a GraphiteClient object by connecting to an address.
 func NewClient(address string) (backend.MetricSender, error) {
 	log.Infof("Backend statsdaemon address: %s", address)
 	return &Client{address}, nil
 }
 
-// BackendName returns the name of the backend
+// BackendName returns the name of the backend.
 func (client *Client) BackendName() string {
 	return backendName
 }

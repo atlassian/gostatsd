@@ -19,17 +19,17 @@ var providers = make(map[string]Factory)
 // Factory is a function that returns a cloud provider Interface.
 type Factory func(v *viper.Viper) (Interface, error)
 
-// Interface represents a cloud provider
+// Interface represents a cloud provider.
 type Interface interface {
-	// ProviderName returns the name of the cloud provider
+	// ProviderName returns the name of the cloud provider.
 	ProviderName() string
-	// SampleConfig returns the sample config for the cloud provider
+	// SampleConfig returns the sample config for the cloud provider.
 	SampleConfig() string
-	// Instance returns the instance details from the cloud provider
+	// Instance returns the instance details from the cloud provider.
 	Instance(IP string) (*types.Instance, error)
 }
 
-// RegisterCloudProvider registers a cloud provider
+// RegisterCloudProvider registers a cloud provider.
 func RegisterCloudProvider(name string, provider Factory) {
 	providersMutex.Lock()
 	defer providersMutex.Unlock()
@@ -77,7 +77,7 @@ var runningMutex sync.Mutex
 var running = make(map[string]time.Time)
 var instances = cache.NewMemoryWithTTL(1 * time.Hour)
 
-// GetInstance returns an instance from the cache or from the cloud provider
+// GetInstance returns an instance from the cache or from the cloud provider.
 func GetInstance(cloud Interface, IP string) (instance *types.Instance, err error) {
 	iface, err := instances.Get(IP)
 	if err == nil {

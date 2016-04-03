@@ -19,7 +19,7 @@ type lexer struct {
 	sampling  float64
 }
 
-// assumes we don't have \x00 bytes in input
+// assumes we don't have \x00 bytes in input.
 const eof = 0
 
 var (
@@ -70,7 +70,7 @@ func (l *lexer) run() (*types.Metric, error) {
 
 type stateFn func(*lexer) stateFn
 
-// lex until we find the colon separator between key and value
+// lex until we find the colon separator between key and value.
 func lexKeySep(l *lexer) stateFn {
 	for {
 		switch b := l.next(); b {
@@ -97,7 +97,7 @@ func lexKeySep(l *lexer) stateFn {
 	}
 }
 
-// lex the key
+// lex the key.
 func lexKey(l *lexer) stateFn {
 	if l.start == l.pos-1 {
 		l.err = errEmptyKey
@@ -111,7 +111,7 @@ func lexKey(l *lexer) stateFn {
 	return lexValueSep
 }
 
-// lex until we find the pipe separator between value and modifier
+// lex until we find the pipe separator between value and modifier.
 func lexValueSep(l *lexer) stateFn {
 	for {
 		// cheap check here. ParseFloat will do it.
@@ -125,14 +125,14 @@ func lexValueSep(l *lexer) stateFn {
 	}
 }
 
-// lex the value
+// lex the value.
 func lexValue(l *lexer) stateFn {
 	l.m.StringValue = string(l.input[l.start : l.pos-1])
 	l.start = l.pos
 	return lexType
 }
 
-// lex the type
+// lex the type.
 func lexType(l *lexer) stateFn {
 	b := l.next()
 	switch b {
@@ -163,7 +163,7 @@ func lexType(l *lexer) stateFn {
 	}
 }
 
-// lex the possible separator between type and sampling rate
+// lex the possible separator between type and sampling rate.
 func lexTypeSep(l *lexer) stateFn {
 	b := l.next()
 	switch b {
@@ -177,7 +177,7 @@ func lexTypeSep(l *lexer) stateFn {
 	return nil
 }
 
-// lex the sample rate or the tags
+// lex the sample rate or the tags.
 func lexSampleRateOrTags(l *lexer) stateFn {
 	b := l.next()
 	switch b {
@@ -201,7 +201,7 @@ func lexSampleRateOrTags(l *lexer) stateFn {
 	}
 }
 
-// lex the sample rate
+// lex the sample rate.
 func lexSampleRate(l *lexer) stateFn {
 	v, err := strconv.ParseFloat(string(l.input[l.start:l.pos-1]), 64)
 	if err != nil {
@@ -215,7 +215,7 @@ func lexSampleRate(l *lexer) stateFn {
 	return lexTags
 }
 
-// lex the tags
+// lex the tags.
 func lexTags(l *lexer) stateFn {
 	l.start = l.pos
 	if l.next() != '#' {

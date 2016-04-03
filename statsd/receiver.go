@@ -14,7 +14,7 @@ import (
 	log "github.com/Sirupsen/logrus"
 )
 
-// DefaultMetricsAddr is the default address on which a MetricReceiver will listen
+// DefaultMetricsAddr is the default address on which a MetricReceiver will listen.
 const (
 	defaultMetricsAddr = ":8125"
 	maxQueueSize       = 100000      // arbitrary: testing shows it rarely goes above 2k
@@ -22,15 +22,15 @@ const (
 	packetSizeUDP      = 1500
 )
 
-// Handler interface can be used to handle metrics for a MetricReceiver
+// Handler interface can be used to handle metrics for a MetricReceiver.
 type Handler interface {
 	HandleMetric(m *types.Metric)
 }
 
-// The HandlerFunc type is an adapter to allow the use of ordinary functions as metric handlers
+// The HandlerFunc type is an adapter to allow the use of ordinary functions as metric handlers.
 type HandlerFunc func(*types.Metric)
 
-// HandleMetric calls f(m)
+// HandleMetric calls f(m).
 func (f HandlerFunc) HandleMetric(m *types.Metric) {
 	f(m)
 }
@@ -52,7 +52,7 @@ type message struct {
 	msg  []byte
 }
 
-// NewMetricReceiver initialises a new MetricReceiver
+// NewMetricReceiver initialises a new MetricReceiver.
 func NewMetricReceiver(addr, ns string, maxReaders, maxMessengers int, tags []string, cloud cloudprovider.Interface, handler Handler) *MetricReceiver {
 	return &MetricReceiver{
 		Addr:          addr,
@@ -87,7 +87,7 @@ func (mr *MetricReceiver) ListenAndReceive() error {
 	return nil
 }
 
-// increment allows counting server stats using default tags
+// increment allows counting server stats using default tags.
 func (mr *MetricReceiver) increment(name string, value int) {
 	mr.Handler.HandleMetric(types.NewMetric(internalStatName(name), float64(value), types.COUNTER, mr.Tags))
 }
@@ -105,7 +105,7 @@ func (mq messageQueue) dequeue(mr *MetricReceiver) {
 	}
 }
 
-// receive accepts incoming datagrams on c and calls mr.handleMessage() for each message
+// receive accepts incoming datagrams on c and calls mr.handleMessage() for each message.
 func (mr *MetricReceiver) receive(c net.PacketConn, mq messageQueue) {
 	defer c.Close()
 
@@ -129,7 +129,7 @@ func (mr *MetricReceiver) receive(c net.PacketConn, mq messageQueue) {
 }
 
 // handleMessage handles the contents of a datagram and call r.Handler.HandleMetric()
-// for each line that successfully parses in to a types.Metric
+// for each line that successfully parses in to a types.Metric.
 func (mr *MetricReceiver) handleMessage(addr net.Addr, msg []byte) {
 	numMetrics := 0
 	var triedToGetTags bool
@@ -202,7 +202,7 @@ func (mr *MetricReceiver) getAdditionalTags(addr string) types.Tags {
 	return nil
 }
 
-// ParseLine with lexer impl
+// ParseLine with lexer impl.
 func (mr *MetricReceiver) parseLine(line []byte) (*types.Metric, error) {
 	llen := len(line)
 	if llen == 0 {

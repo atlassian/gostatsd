@@ -19,33 +19,60 @@ import (
 	"golang.org/x/net/context"
 )
 
+// DefaultBackends is the list of default backends.
 var DefaultBackends = []string{"graphite"}
+
+// DefaultMaxReaders is the default number of socket reading goroutines.
 var DefaultMaxReaders = runtime.NumCPU()
+
+// DefaultMaxMessengers is the default number of message processing goroutines.
 var DefaultMaxMessengers = runtime.NumCPU() * 8
+
+// DefaultMaxWorkers is the default number of goroutines that aggregate metrics.
 var DefaultMaxWorkers = runtime.NumCPU() * 8 * 8
+
+// DefaultPercentThreshold is the default list of applied percentiles.
 var DefaultPercentThreshold = []string{"90"}
+
+// DefaultTags is the default list of additional tags.
 var DefaultTags = []string{""}
 
 const (
+	// DefaultExpiryInterval is the default expiry interval for metrics.
 	DefaultExpiryInterval = 5 * time.Minute
-	DefaultFlushInterval  = 1 * time.Second
-	DefaultMetricsAddr    = ":8125"
+	// DefaultFlushInterval is the default metrics flush interval.
+	DefaultFlushInterval = 1 * time.Second
+	// DefaultMetricsAddr is the default address on which to listen for metrics.
+	DefaultMetricsAddr = ":8125"
 )
 
 const (
-	ParamBackends         = "backends"
-	ParamConsoleAddr      = "console-addr"
-	ParamCloudProvider    = "cloud-provider"
-	ParamDefaultTags      = "default-tags"
-	ParamExpiryInterval   = "expiry-interval"
-	ParamFlushInterval    = "flush-interval"
-	ParamMaxReaders       = "max-readers"
-	ParamMaxMessengers    = "max-messengers"
-	ParamMaxWorkers       = "max-workers"
-	ParamMetricsAddr      = "metrics-addr"
-	ParamNamespace        = "namespace"
+	// ParamBackends is the name of parameter with backends.
+	ParamBackends = "backends"
+	// ParamConsoleAddr is the name of parameter with console address.
+	ParamConsoleAddr = "console-addr"
+	// ParamCloudProvider is the name of parameter with the name of cloud provider.
+	ParamCloudProvider = "cloud-provider"
+	// ParamDefaultTags is the name of parameter with the list of additional tags.
+	ParamDefaultTags = "default-tags"
+	// ParamExpiryInterval is the name of parameter with expiry interval for metrics.
+	ParamExpiryInterval = "expiry-interval"
+	// ParamFlushInterval is the name of parameter with metrics flush interval.
+	ParamFlushInterval = "flush-interval"
+	// ParamMaxReaders is the name of parameter with number of socket readers.
+	ParamMaxReaders = "max-readers"
+	// ParamMaxMessengers is the name of parameter with number of message processing goroutines.
+	ParamMaxMessengers = "max-messengers"
+	// ParamMaxWorkers is the name of parameter with number of goroutines that aggregate metrics.
+	ParamMaxWorkers = "max-workers"
+	// ParamMetricsAddr is the name of parameter with address on which to listen for metrics.
+	ParamMetricsAddr = "metrics-addr"
+	// ParamNamespace is the name of parameter with namespace for all metrics.
+	ParamNamespace = "namespace"
+	// ParamPercentThreshold is the name of parameter with list of applied percentiles.
 	ParamPercentThreshold = "percent-threshold"
-	ParamWebAddr          = "web-addr"
+	// ParamWebAddr is the name of parameter with the address of the web-based console.
+	ParamWebAddr = "web-addr"
 )
 
 // Server encapsulates all of the parameters necessary for starting up
@@ -86,7 +113,7 @@ func NewServer() *Server {
 	}
 }
 
-// AddFlags adds flags to the specified FlagSet
+// AddFlags adds flags to the specified FlagSet.
 func AddFlags(fs *pflag.FlagSet) {
 	fs.String(ParamConsoleAddr, DefaultConsoleAddr, "If set, use as the address of the telnet-based console")
 	fs.String(ParamCloudProvider, "", "If set, use the cloud provider to retrieve metadata about the sender")

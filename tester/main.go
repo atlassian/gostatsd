@@ -10,11 +10,11 @@ import (
 )
 
 var (
-	// BuildDate is the date when the binary was built
+	// BuildDate is the date when the binary was built.
 	BuildDate string
-	// GitCommit is the commit hash that built the binary
+	// GitCommit is the commit hash that built the binary.
 	GitCommit string
-	// Version is the version
+	// Version is the version.
 	Version string
 )
 
