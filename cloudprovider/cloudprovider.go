@@ -9,6 +9,7 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/koding/cache"
+	"github.com/spf13/viper"
 )
 
 // All registered cloud providers.
@@ -16,7 +17,7 @@ var providersMutex sync.Mutex
 var providers = make(map[string]Factory)
 
 // Factory is a function that returns a cloud provider Interface.
-type Factory func() (Interface, error)
+type Factory func(v *viper.Viper) (Interface, error)
 
 // Interface represents a cloud provider
 type Interface interface {
@@ -42,24 +43,24 @@ func RegisterCloudProvider(name string, provider Factory) {
 // GetCloudProvider creates an instance of the named provider, or nil if
 // the name is not known.  The error return is only used if the named provider
 // was known but failed to initialize.
-func GetCloudProvider(name string) (Interface, error) {
+func GetCloudProvider(name string, v *viper.Viper) (Interface, error) {
 	providersMutex.Lock()
 	defer providersMutex.Unlock()
 	f, found := providers[name]
 	if !found {
 		return nil, nil
 	}
-	return f()
+	return f(v)
 }
 
 // InitCloudProvider creates an instance of the named cloud provider.
-func InitCloudProvider(name string) (Interface, error) {
+func InitCloudProvider(name string, v *viper.Viper) (Interface, error) {
 	if name == "" {
 		log.Info("No cloud provider specified.")
 		return nil, nil
 	}
 
-	provider, err := GetCloudProvider(name)
+	provider, err := GetCloudProvider(name, v)
 	if err != nil {
 		return nil, fmt.Errorf("could not init cloud provider %q: %v", name, err)
 	}

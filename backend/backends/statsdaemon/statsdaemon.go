@@ -19,8 +19,8 @@ const (
 )
 
 func init() {
-	backend.RegisterBackend(backendName, func() (backend.MetricSender, error) {
-		return NewClient()
+	backend.RegisterBackend(backendName, func(v *viper.Viper) (backend.MetricSender, error) {
+		return NewClient(v.GetString("statsdaemon.address"))
 	})
 }
 
@@ -130,9 +130,9 @@ func (client *Client) SampleConfig() string {
 }
 
 // NewClient constructs a GraphiteClient object by connecting to an address
-func NewClient() (backend.MetricSender, error) {
-	log.Infof("Backend statsdaemon address: %s", viper.GetString("statsdaemon.address"))
-	return &Client{viper.GetString("statsdaemon.address")}, nil
+func NewClient(address string) (backend.MetricSender, error) {
+	log.Infof("Backend statsdaemon address: %s", address)
+	return &Client{address}, nil
 }
 
 // BackendName returns the name of the backend

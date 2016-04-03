@@ -1,5 +1,5 @@
-hash: 5031e9c7b308118d98b8a7fb56ae1bb2d778176ccefd9ae45f29d11e92c475db
-updated: 2016-03-10T14:12:41.579354383+11:00
+hash: af2a23f7471bce95ca8ab39984fe8e0c8a53f21937190d586d81f24360d8a19e
+updated: 2016-03-19T21:45:31.048863038+11:00
 imports:
 - name: github.com/aws/aws-sdk-go
   version: 996f601d8198d4fdc49bb5d93c73f27a6bdfe900
@@ -70,6 +70,10 @@ imports:
   version: 6fe211e493929a8aac0469b93f28b1d0688a9a3a
   subpackages:
   - assert
+- name: golang.org/x/net
+  version: 35b06af0720201bc2f326773a80767387544f8c4
+  subpackages:
+  - context
 - name: golang.org/x/sys
   version: 7a56174f0086b32866ebd746a794417edbc678a1
   subpackages:

@@ -67,7 +67,8 @@ func (p *awsSDKProvider) Metadata() (EC2Metadata, error) {
 }
 
 type awsSDKProvider struct {
-	creds *credentials.Credentials
+	creds      *credentials.Credentials
+	maxRetries int
 }
 
 func isNilOrEmpty(s *string) bool {
@@ -153,7 +154,7 @@ func (p *awsSDKProvider) Compute(regionName string) (EC2, error) {
 	service := ec2.New(session.New(&aws.Config{
 		Region:      &regionName,
 		Credentials: p.creds,
-		MaxRetries:  aws.Int(viper.GetInt("aws.max_retries")),
+		MaxRetries:  aws.Int(p.maxRetries),
 	}))
 
 	ec2 := &awsSdkEC2{
@@ -173,13 +174,12 @@ func azToRegion(az string) (string, error) {
 }
 
 // NewProvider returns a new aws provider
-func NewProvider(awsServices Services) (p *Provider, err error) {
+func NewProvider(awsServices Services, az string) (p *Provider, err error) {
 	metadata, err := awsServices.Metadata()
 	if err != nil {
 		return nil, fmt.Errorf("error creating AWS metadata client: %v", err)
 	}
 
-	az := viper.GetString("aws.availability_zone")
 	if az == "" {
 		if az, err = metadata.GetMetadata("placement/availability-zone"); err != nil {
 			return nil, fmt.Errorf("error getting availability zone: %v", err)
@@ -198,13 +198,13 @@ func NewProvider(awsServices Services) (p *Provider, err error) {
 	return &Provider{availabilityZone: az, region: region, ec2: ec2, metadata: metadata}, nil
 }
 
-func newAWSSDKProvider(creds *credentials.Credentials) *awsSDKProvider {
-	return &awsSDKProvider{creds: creds}
+func newAWSSDKProvider(creds *credentials.Credentials, maxRetries int) *awsSDKProvider {
+	return &awsSDKProvider{creds: creds, maxRetries: maxRetries}
 }
 
 func init() {
-	viper.SetDefault("aws.max_retries", 3)
-	cloudprovider.RegisterCloudProvider(providerName, func() (cloudprovider.Interface, error) {
+	cloudprovider.RegisterCloudProvider(providerName, func(v *viper.Viper) (cloudprovider.Interface, error) {
+		v.SetDefault("aws.max_retries", 3)
 		creds := credentials.NewChainCredentials(
 			[]credentials.Provider{
 				&credentials.EnvProvider{},
@@ -213,7 +213,7 @@ func init() {
 				},
 				&credentials.SharedCredentialsProvider{},
 			})
-		aws := newAWSSDKProvider(creds)
-		return NewProvider(aws)
+		aws := newAWSSDKProvider(creds, v.GetInt("aws.max_retries"))
+		return NewProvider(aws, v.GetString("aws.availability_zone"))
 	})
 }

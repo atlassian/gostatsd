@@ -6,6 +6,9 @@ import (
 	"net/http"
 )
 
+// DefaultWebConsoleAddr is the default address on which a WebConsoleServer will listen
+const DefaultWebConsoleAddr = ":8181"
+
 // WebConsoleServer is an object that listens for HTTP connection on a TCP address Addr
 // and provides a web interface for its MetricAggregator
 type WebConsoleServer struct {
@@ -105,7 +108,7 @@ func (s *WebConsoleServer) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 // ListenAndServe listens on the ConsoleServer's TCP network address and then calls Serve
 func (s *WebConsoleServer) ListenAndServe() error {
 	if s.Addr == "" {
-		s.Addr = DefaultConsoleAddr
+		s.Addr = DefaultWebConsoleAddr
 	}
 	return http.ListenAndServe(s.Addr, s)
 }

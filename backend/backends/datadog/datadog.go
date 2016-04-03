@@ -139,7 +139,7 @@ func (d *Client) SendMetrics(metrics types.MetricMap) error {
 		return func() error {
 			resp, e := d.Client.Do(req)
 			if e != nil {
-				return fmt.Errorf("error POSTing metrics, %s", strings.Replace(err.Error(), viper.GetString("datadog.api_key"), "*****", -1))
+				return fmt.Errorf("error POSTing metrics, %s", strings.Replace(err.Error(), d.APIKey, "*****", -1))
 			}
 			defer resp.Body.Close()
 
@@ -178,8 +178,8 @@ func (d *Client) authenticatedURL() string {
 }
 
 // NewClient returns a new Datadog API client
-func NewClient() (*Client, error) {
-	if viper.GetString("datadog.api_key") == "" {
+func NewClient(apiKey string, clientTimeout time.Duration) (*Client, error) {
+	if apiKey == "" {
 		return nil, fmt.Errorf("[%s] api_key is a required field", backendName)
 	}
 	hostname, err := os.Hostname()
@@ -187,18 +187,18 @@ func NewClient() (*Client, error) {
 		return nil, err
 	}
 	return &Client{
-		APIKey:      viper.GetString("datadog.api_key"),
+		APIKey:      apiKey,
 		APIEndpoint: apiURL,
 		Hostname:    hostname,
 		Client: &http.Client{
-			Timeout: viper.GetDuration("datadog.timeout"),
+			Timeout: clientTimeout,
 		},
 	}, nil
 }
 
 func init() {
-	viper.SetDefault("datadog.timeout", time.Duration(5)*time.Second)
-	backend.RegisterBackend(backendName, func() (backend.MetricSender, error) {
-		return NewClient()
+	backend.RegisterBackend(backendName, func(v *viper.Viper) (backend.MetricSender, error) {
+		v.SetDefault("datadog.timeout", time.Duration(5)*time.Second)
+		return NewClient(v.GetString("datadog.api_key"), v.GetDuration("datadog.timeout"))
 	})
 }

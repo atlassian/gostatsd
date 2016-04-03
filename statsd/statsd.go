@@ -12,9 +12,40 @@ import (
 	_ "github.com/jtblin/gostatsd/cloudprovider/providers" // import cloud providers for initialisation
 	"github.com/jtblin/gostatsd/types"
 
-	log "github.com/Sirupsen/logrus"
+	"strings"
+
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
+	"golang.org/x/net/context"
+)
+
+var DefaultBackends = []string{"graphite"}
+var DefaultMaxReaders = runtime.NumCPU()
+var DefaultMaxMessengers = runtime.NumCPU() * 8
+var DefaultMaxWorkers = runtime.NumCPU() * 8 * 8
+var DefaultPercentThreshold = []string{"90"}
+var DefaultTags = []string{""}
+
+const (
+	DefaultExpiryInterval = 5 * time.Minute
+	DefaultFlushInterval  = 1 * time.Second
+	DefaultMetricsAddr    = ":8125"
+)
+
+const (
+	ParamBackends         = "backends"
+	ParamConsoleAddr      = "console-addr"
+	ParamCloudProvider    = "cloud-provider"
+	ParamDefaultTags      = "default-tags"
+	ParamExpiryInterval   = "expiry-interval"
+	ParamFlushInterval    = "flush-interval"
+	ParamMaxReaders       = "max-readers"
+	ParamMaxMessengers    = "max-messengers"
+	ParamMaxWorkers       = "max-workers"
+	ParamMetricsAddr      = "metrics-addr"
+	ParamNamespace        = "namespace"
+	ParamPercentThreshold = "percent-threshold"
+	ParamWebAddr          = "web-addr"
 )
 
 // Server encapsulates all of the parameters necessary for starting up
@@ -22,10 +53,8 @@ import (
 type Server struct {
 	aggregator       *MetricAggregator
 	Backends         []string
-	ConfigPath       string
 	ConsoleAddr      string
 	CloudProvider    string
-	CPUProfile       string
 	DefaultTags      []string
 	ExpiryInterval   time.Duration
 	FlushInterval    time.Duration
@@ -35,73 +64,52 @@ type Server struct {
 	MetricsAddr      string
 	Namespace        string
 	PercentThreshold []string
-	Verbose          bool
-	Version          bool
 	WebConsoleAddr   string
+	Viper            *viper.Viper
 }
 
-var server *Server
-
-// NewServer will create a new Server with default values if none exists
-// otherwise it will return the singleton.
+// NewServer will create a new Server with the default configuration.
 func NewServer() *Server {
-	if server != nil {
-		return server
+	return &Server{
+		Backends:         DefaultBackends,
+		ConsoleAddr:      DefaultConsoleAddr,
+		DefaultTags:      DefaultTags,
+		ExpiryInterval:   DefaultExpiryInterval,
+		FlushInterval:    DefaultFlushInterval,
+		MaxReaders:       DefaultMaxReaders,
+		MaxMessengers:    DefaultMaxMessengers,
+		MaxWorkers:       DefaultMaxWorkers,
+		MetricsAddr:      DefaultMetricsAddr,
+		PercentThreshold: DefaultPercentThreshold,
+		WebConsoleAddr:   DefaultWebConsoleAddr,
+		Viper:            viper.New(),
 	}
-	server = &Server{
-		Backends:         []string{"graphite"},
-		ConsoleAddr:      ":8126",
-		ExpiryInterval:   5 * time.Minute,
-		FlushInterval:    1 * time.Second,
-		MaxReaders:       runtime.NumCPU(),
-		MaxMessengers:    runtime.NumCPU() * 8,
-		MaxWorkers:       runtime.NumCPU() * 8 * 8,
-		MetricsAddr:      ":8125",
-		PercentThreshold: []string{"90"},
-		WebConsoleAddr:   ":8181",
-	}
-	return server
 }
 
-// AddFlags adds flags for a specific DockerAuthServer to the specified FlagSet
-func (s *Server) AddFlags(fs *pflag.FlagSet) {
-	fs.StringSliceVar(&s.Backends, "backends", s.Backends, "Comma-separated list of backends")
-	fs.StringVar(&s.ConfigPath, "config-path", s.ConfigPath, "Path to the configuration file")
-	fs.StringVar(&s.ConsoleAddr, "console-addr", s.ConsoleAddr, "If set, use as the address of the telnet-based console")
-	fs.StringVar(&s.CloudProvider, "cloud-provider", s.CloudProvider, "If set, use the cloud provider to retrieve metadata about the sender")
-	fs.StringVar(&s.CPUProfile, "cpu-profile", s.CPUProfile, "Use profiler and write results to this file")
-	fs.StringSliceVar(&s.DefaultTags, "default-tags", s.DefaultTags, "Default tags to add to the metrics")
-	fs.DurationVar(&s.ExpiryInterval, "expiry-interval", s.ExpiryInterval, "After how long do we expire metrics (0 to disable)")
-	fs.DurationVar(&s.FlushInterval, "flush-interval", s.FlushInterval, "How often to flush metrics to the backends")
-	fs.IntVar(&s.MaxReaders, "max-readers", s.MaxReaders, "Maximum number of socket readers")
-	fs.IntVar(&s.MaxMessengers, "max-messengers", s.MaxMessengers, "Maximum number of workers to process messages")
-	fs.IntVar(&s.MaxWorkers, "max-workers", s.MaxWorkers, "Maximum number of workers to process metrics")
-	fs.StringVar(&s.MetricsAddr, "metrics-addr", s.MetricsAddr, "Address on which to listen for metrics")
-	fs.StringVar(&s.Namespace, "namespace", s.Namespace, "Namespace all metrics")
-	fs.StringSliceVar(&s.PercentThreshold, "percent-threshold", s.PercentThreshold, "Comma-separated list of percentiles")
-	fs.BoolVar(&s.Verbose, "verbose", false, "Verbose")
-	fs.BoolVar(&s.Version, "version", false, "Print the version and exit")
-	fs.StringVar(&s.WebConsoleAddr, "web-addr", s.WebConsoleAddr, "If set, use as the address of the web-based console")
+// AddFlags adds flags to the specified FlagSet
+func AddFlags(fs *pflag.FlagSet) {
+	fs.String(ParamConsoleAddr, DefaultConsoleAddr, "If set, use as the address of the telnet-based console")
+	fs.String(ParamCloudProvider, "", "If set, use the cloud provider to retrieve metadata about the sender")
+	fs.Duration(ParamExpiryInterval, DefaultExpiryInterval, "After how long do we expire metrics (0 to disable)")
+	fs.Duration(ParamFlushInterval, DefaultFlushInterval, "How often to flush metrics to the backends")
+	fs.Int(ParamMaxReaders, DefaultMaxReaders, "Maximum number of socket readers")
+	fs.Int(ParamMaxMessengers, DefaultMaxMessengers, "Maximum number of workers to process messages")
+	fs.Int(ParamMaxWorkers, DefaultMaxWorkers, "Maximum number of workers to process metrics")
+	fs.String(ParamMetricsAddr, DefaultMetricsAddr, "Address on which to listen for metrics")
+	fs.String(ParamNamespace, "", "Namespace all metrics")
+	fs.String(ParamWebAddr, DefaultWebConsoleAddr, "If set, use as the address of the web-based console")
+	//TODO Remove workaround when https://github.com/spf13/viper/issues/112 is fixed
+	fs.String(ParamBackends, strings.Join(DefaultBackends, ","), "Comma-separated list of backends")
+	fs.String(ParamDefaultTags, strings.Join(DefaultTags, ","), "Comma-separated list of tags to add to all metrics")
+	fs.String(ParamPercentThreshold, strings.Join(DefaultPercentThreshold, ","), "Comma-separated list of percentiles")
 }
 
-// Run runs the specified StatsdServer.
-func (s *Server) Run() error {
-	if s.Verbose {
-		log.SetLevel(log.DebugLevel)
-	}
-
-	if s.ConfigPath != "" {
-		viper.SetConfigFile(s.ConfigPath)
-		err := viper.ReadInConfig()
-		if err != nil {
-			return err
-		}
-	}
-
+// Run runs the server until context signals done.
+func (s *Server) Run(ctx context.Context) error {
 	// Start the metric aggregator
-	var backends []backend.MetricSender
+	backends := make([]backend.MetricSender, 0, len(s.Backends))
 	for _, backendName := range s.Backends {
-		b, err := backend.InitBackend(backendName)
+		b, err := backend.InitBackend(backendName, s.Viper)
 		if err != nil {
 			return err
 		}
@@ -125,7 +133,7 @@ func (s *Server) Run() error {
 	f := func(metric *types.Metric) {
 		aggregator.MetricQueue <- metric
 	}
-	cloud, err := cloudprovider.InitCloudProvider(s.CloudProvider)
+	cloud, err := cloudprovider.InitCloudProvider(s.CloudProvider, s.Viper)
 	if err != nil {
 		return err
 	}
@@ -142,8 +150,11 @@ func (s *Server) Run() error {
 		go console.ListenAndServe()
 	}
 
-	// Listen forever
-	select {}
+	// Listen until done
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	}
 }
 
 func internalStatName(name string) string {

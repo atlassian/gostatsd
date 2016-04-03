@@ -4,8 +4,10 @@ import (
 	"fmt"
 	"sync"
 
-	log "github.com/Sirupsen/logrus"
 	"github.com/jtblin/gostatsd/types"
+
+	log "github.com/Sirupsen/logrus"
+	"github.com/spf13/viper"
 )
 
 // All registered auth backends.
@@ -13,7 +15,7 @@ var backendsMutex sync.Mutex
 var backends = make(map[string]Factory)
 
 // Factory is a function that returns a MetricSender.
-type Factory func() (MetricSender, error)
+type Factory func(v *viper.Viper) (MetricSender, error)
 
 // MetricSender represents a backend
 type MetricSender interface {
@@ -52,24 +54,24 @@ func RegisterBackend(name string, backend Factory) {
 // GetBackend creates an instance of the named backend, or nil if
 // the name is not known.  The error return is only used if the named backend
 // was known but failed to initialize.
-func GetBackend(name string) (MetricSender, error) {
+func GetBackend(name string, v *viper.Viper) (MetricSender, error) {
 	backendsMutex.Lock()
 	defer backendsMutex.Unlock()
 	f, found := backends[name]
 	if !found {
 		return nil, nil
 	}
-	return f()
+	return f(v)
 }
 
 // InitBackend creates an instance of the named backend.
-func InitBackend(name string) (MetricSender, error) {
+func InitBackend(name string, v *viper.Viper) (MetricSender, error) {
 	if name == "" {
 		log.Info("No backend specified.")
 		return nil, nil
 	}
 
-	backend, err := GetBackend(name)
+	backend, err := GetBackend(name, v)
 	if err != nil {
 		return nil, fmt.Errorf("could not init backend %q: %v", name, err)
 	}

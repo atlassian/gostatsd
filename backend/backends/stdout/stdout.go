@@ -10,12 +10,13 @@ import (
 	"github.com/jtblin/gostatsd/types"
 
 	log "github.com/Sirupsen/logrus"
+	"github.com/spf13/viper"
 )
 
 const backendName = "stdout"
 
 func init() {
-	backend.RegisterBackend(backendName, func() (backend.MetricSender, error) {
+	backend.RegisterBackend(backendName, func(v *viper.Viper) (backend.MetricSender, error) {
 		return NewClient()
 	})
 }
