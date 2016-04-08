@@ -5,7 +5,7 @@ import (
 	"math"
 	"strconv"
 
-	"github.com/jtblin/gostatsd/types"
+	"github.com/atlassian/gostatsd/types"
 )
 
 type lexer struct {

@@ -8,7 +8,7 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/jtblin/gostatsd/statsd"
+	"github.com/atlassian/gostatsd/statsd"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/spf13/pflag"

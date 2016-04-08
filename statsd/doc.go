@@ -12,7 +12,7 @@ the aggregator's associated backend MetricSender objects.
 Currently the library implements just a few types of MetricSender, one compatible with Graphite
 (http://graphite.wikidot.org), one for Datadog and one just for stdout, but any object implementing the MetricSender
 interface can be used with the library. See available backends at
-https://github.com/jtblin/gostatsd/tree/master/backend/backends.
+https://github.com/atlassian/gostatsd/tree/master/backend/backends.
 
 As with the orginal etsy statsd, multiple backends can be used simultaneously.
 */

@@ -3,8 +3,8 @@ package aws
 import (
 	"fmt"
 
-	"github.com/jtblin/gostatsd/cloudprovider"
-	"github.com/jtblin/gostatsd/types"
+	"github.com/atlassian/gostatsd/cloudprovider"
+	"github.com/atlassian/gostatsd/types"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/aws/aws-sdk-go/aws"

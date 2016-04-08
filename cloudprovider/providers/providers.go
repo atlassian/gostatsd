@@ -1,5 +1,5 @@
 package providers
 
 import (
-	_ "github.com/jtblin/gostatsd/cloudprovider/providers/aws" // imports provider to avoid cycle error
+	_ "github.com/atlassian/gostatsd/cloudprovider/providers/aws" // imports provider to avoid cycle error
 )

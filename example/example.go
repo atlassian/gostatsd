@@ -3,8 +3,8 @@ package main
 import (
 	"log"
 
-	"github.com/jtblin/gostatsd/statsd"
-	"github.com/jtblin/gostatsd/types"
+	"github.com/atlassian/gostatsd/statsd"
+	"github.com/atlassian/gostatsd/types"
 )
 
 func main() {

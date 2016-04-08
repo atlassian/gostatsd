@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jtblin/gostatsd/types"
+	"github.com/atlassian/gostatsd/types"
 )
 
 func TestParseLine(t *testing.T) {

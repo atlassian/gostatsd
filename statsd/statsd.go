@@ -6,11 +6,11 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/jtblin/gostatsd/backend"
-	_ "github.com/jtblin/gostatsd/backend/backends" // import backends for initialisation
-	"github.com/jtblin/gostatsd/cloudprovider"
-	_ "github.com/jtblin/gostatsd/cloudprovider/providers" // import cloud providers for initialisation
-	"github.com/jtblin/gostatsd/types"
+	"github.com/atlassian/gostatsd/backend"
+	_ "github.com/atlassian/gostatsd/backend/backends" // import backends for initialisation
+	"github.com/atlassian/gostatsd/cloudprovider"
+	_ "github.com/atlassian/gostatsd/cloudprovider/providers" // import cloud providers for initialisation
+	"github.com/atlassian/gostatsd/types"
 
 	"strings"
 

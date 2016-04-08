@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jtblin/gostatsd/backend"
-	"github.com/jtblin/gostatsd/types"
+	"github.com/atlassian/gostatsd/backend"
+	"github.com/atlassian/gostatsd/types"
 
 	"github.com/spf13/viper"
 )

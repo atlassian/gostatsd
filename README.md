@@ -1,10 +1,11 @@
 gostatsd
 ========
 
-[![Build Status](https://travis-ci.org/jtblin/gostatsd.svg?branch=master)](https://travis-ci.org/jtblin/gostatsd)
-[![Coverage Status](https://coveralls.io/repos/github/jtblin/gostatsd/badge.svg?branch=master)](https://coveralls.io/github/jtblin/gostatsd?branch=master)
+[![Build Status](https://travis-ci.org/atlassian/gostatsd.svg?branch=master)](https://travis-ci.org/atlassian/gostatsd)
+[![Coverage Status](https://coveralls.io/repos/github/atlassian/gostatsd/badge.svg?branch=master)](https://coveralls.io/github/atlassian/gostatsd?branch=master)
 
-An implementation of [Etsy's][etsy] [statsd][statsd] in Go.
+An implementation of [Etsy's][etsy] [statsd][statsd] in Go,
+based on original code from [@kisielk](https://github.com/kisielk/).
 
 The project provides both a server called "gostatsd" which works much like
 Etsy's version, but also provides a library for developing customized servers.
@@ -13,7 +14,7 @@ Backends are pluggable and only need to support the [backend interface](backend/
 
 Being written in Go, it is able to use all cores which makes it easy to scale up the
 server based on load. The server can also be run HA and be scaled out, see
-[Load balancing and scaling out](https://github.com/jtblin/gostatsd#load-balancing-and-scaling-out).
+[Load balancing and scaling out](https://github.com/atlassian/gostatsd#load-balancing-and-scaling-out).
 
 
 Building the server
@@ -91,10 +92,10 @@ Using the library
 -----------------
 In your source code:
 
-    import "github.com/jtblin/gostatsd/statsd"
+    import "github.com/atlassian/gostatsd/statsd"
 
-Documentation can be found via `go doc github.com/jtblin/gostatsd/statsd` or at
-http://godoc.org/github.com/jtblin/gostatsd/statsd
+Documentation can be found via `go doc github.com/atlassian/gostatsd/statsd` or at
+http://godoc.org/github.com/atlassian/gostatsd/statsd
 
 [etsy]: http://www.etsy.com
 [statsd]: http://www.github.com/etsy/statsd

@@ -6,7 +6,7 @@ BUILD_DATE := $$(date +%Y-%m-%d-%H:%M)
 GIT_HASH := $$(git rev-parse --short HEAD)
 GOBUILD_VERSION_ARGS := -ldflags "-s -X $(VERSION_VAR)=$(REPO_VERSION) -X $(GIT_VAR)=$(GIT_HASH) -X $(BUILD_DATE_VAR)=$(BUILD_DATE)"
 BINARY_NAME := gostatsd
-IMAGE_NAME := jtblin/$(BINARY_NAME)
+IMAGE_NAME := atlassianlabs/$(BINARY_NAME)
 ARCH ?= darwin
 
 setup:
@@ -18,7 +18,7 @@ setup:
 	GO15VENDOREXPERIMENT=1 glide install
 
 build: *.go fmt
-	go build -o build/bin/$(ARCH)/$(BINARY_NAME) $(GOBUILD_VERSION_ARGS) github.com/jtblin/$(BINARY_NAME)
+	go build -o build/bin/$(ARCH)/$(BINARY_NAME) $(GOBUILD_VERSION_ARGS) github.com/atlassian/$(BINARY_NAME)
 
 fmt:
 	gofmt -w=true -s $$(find . -type f -name '*.go' -not -path "./vendor/*")
@@ -61,7 +61,7 @@ git-hook:
 	cp dev/push-hook.sh .git/hooks/pre-push
 
 cross:
-	CGO_ENABLED=0 GOOS=linux go build -o build/bin/linux/$(BINARY_NAME) $(GOBUILD_VERSION_ARGS) -a -installsuffix cgo  github.com/jtblin/$(BINARY_NAME)
+	CGO_ENABLED=0 GOOS=linux go build -o build/bin/linux/$(BINARY_NAME) $(GOBUILD_VERSION_ARGS) -a -installsuffix cgo  github.com/atlassian/$(BINARY_NAME)
 
 docker: cross
 	cd build && docker build -t $(IMAGE_NAME):$(GIT_HASH) .

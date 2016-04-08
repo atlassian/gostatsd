@@ -7,7 +7,7 @@ statsd-tester:
     - "8080:8080"
 gostatsd:
   command: gostatsd --backends=stdout
-  image: jtblin/gostatsd
+  image: atlassianlabs/gostatsd
   ports:
     - 8181
     - 8125/udp

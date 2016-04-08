@@ -5,7 +5,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/jtblin/gostatsd/types"
+	"github.com/atlassian/gostatsd/types"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/koding/cache"

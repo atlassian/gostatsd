@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"net"
 
-	"github.com/jtblin/gostatsd/types"
+	"github.com/atlassian/gostatsd/types"
 	"github.com/kisielk/cmd"
 )
 

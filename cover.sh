@@ -17,7 +17,7 @@ declare -a packages=('backend' 'backend/backends' 'backend/backends/datadog' 'ba
 # Test each package and append coverage profile info to coverage.out
 for pkg in "${packages[@]}"
 do
-    go test -v -covermode=count -coverprofile=coverage_tmp.out "github.com/jtblin/gostatsd/$pkg" || ERROR="Error testing $pkg"
+    go test -v -covermode=count -coverprofile=coverage_tmp.out "github.com/atlassian/gostatsd/$pkg" || ERROR="Error testing $pkg"
     tail -n +2 coverage_tmp.out >> coverage.out 2> /dev/null ||:
 done
 
