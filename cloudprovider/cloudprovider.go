@@ -76,6 +76,7 @@ func InitCloudProvider(name string, v *viper.Viper) (Interface, error) {
 var runningMutex sync.Mutex
 var running = make(map[string]time.Time)
 var instances = cache.NewMemoryWithTTL(1 * time.Hour)
+var failed = cache.NewMemoryWithTTL(1 * time.Minute)
 
 // GetInstance returns an instance from the cache or from the cloud provider.
 func GetInstance(cloud Interface, IP string) (instance *types.Instance, err error) {
@@ -87,6 +88,17 @@ func GetInstance(cloud Interface, IP string) (instance *types.Instance, err erro
 
 	if err != cache.ErrNotFound {
 		// Better returning an error than hitting the cloud provider thousands of times per second
+		return nil, err
+	}
+
+	cachedErr, err := failed.Get(IP)
+	if err == nil {
+		// We have a cached failure
+		return nil, cachedErr.(error)
+	}
+
+	if err != cache.ErrNotFound {
+		// Some error getting it from cache?
 		return nil, err
 	}
 
@@ -109,6 +121,7 @@ func GetInstance(cloud Interface, IP string) (instance *types.Instance, err erro
 	}()
 
 	if instance, err = cloud.Instance(IP); err != nil {
+		failed.Set(IP, fmt.Errorf("Cached failure: %v for %s", err, IP))
 		return nil, err
 	}
 	instances.Set(IP, instance)
