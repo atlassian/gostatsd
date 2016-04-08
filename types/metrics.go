@@ -29,8 +29,8 @@ const (
 
 // Regular expressions used for metric name normalization.
 var (
-	regDot       = regexp.MustCompile("\\.")
-	regSemiColon = regexp.MustCompile(":")
+	regDot       = regexp.MustCompile(`\.`)
+	regSemiColon = regexp.MustCompile(`:`)
 )
 
 // TagToMetricName transforms tags into metric names.

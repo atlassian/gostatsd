@@ -1,3 +1,8 @@
+0.12.5
+------
+- Implement negative lookup cache (#8)
+- Read configuration from environment, flags and config
+
 0.12.4
 ------
 - Do not multiply number of metric workers

@@ -178,10 +178,8 @@ func (s *Server) Run(ctx context.Context) error {
 	}
 
 	// Listen until done
-	select {
-	case <-ctx.Done():
-		return ctx.Err()
-	}
+	<-ctx.Done()
+	return ctx.Err()
 }
 
 func internalStatName(name string) string {
