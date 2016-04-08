@@ -131,4 +131,5 @@ func GetInstance(cloud Interface, IP string) (instance *types.Instance, err erro
 
 func init() {
 	instances.StartGC(1 * time.Minute)
+	failed.StartGC(1 * time.Minute)
 }
