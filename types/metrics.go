@@ -247,7 +247,7 @@ func (s Sets) HasChildren(k string) bool {
 // MetricMap is used for storing aggregated Metric values.
 // The keys of each map are metric names.
 type MetricMap struct {
-	NumStats       int
+	NumStats       uint32
 	ProcessingTime time.Duration
 	FlushInterval  time.Duration
 	Counters       Counters

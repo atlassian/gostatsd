@@ -15,23 +15,29 @@ setup:
 	go get -v -u github.com/alecthomas/gometalinter
 	go get -v -u github.com/jstemmer/go-junit-report
 	gometalinter --install --update
-	GO15VENDOREXPERIMENT=1 glide install
+	glide install
 
 build: *.go fmt
-	go build -o build/bin/$(ARCH)/$(BINARY_NAME) $(GOBUILD_VERSION_ARGS) github.com/atlassian/$(BINARY_NAME)
+	go build -o build/bin/$(ARCH)/$(BINARY_NAME) $(GOBUILD_VERSION_ARGS) github.com/atlassian/gostatsd
+
+build-race: *.go fmt
+	go build -race -o build/bin/$(ARCH)/$(BINARY_NAME) $(GOBUILD_VERSION_ARGS) github.com/atlassian/gostatsd
+
+build-all:
+	go build $$(glide nv)
 
 fmt:
 	gofmt -w=true -s $$(find . -type f -name '*.go' -not -path "./vendor/*")
 	goimports -w=true -d $$(find . -type f -name '*.go' -not -path "./vendor/*")
 
 test:
-	GO15VENDOREXPERIMENT=1 go test $$(glide nv)
+	go test $$(glide nv)
 
-race:
-	GO15VENDOREXPERIMENT=1 go build -race $$(glide nv)
+test-race:
+	go test -race $$(glide nv)
 
 bench:
-	GO15VENDOREXPERIMENT=1 go test -bench=. $$(glide nv)
+	go test -bench=. $$(glide nv)
 
 cover:
 	./cover.sh
@@ -49,6 +55,11 @@ check:
 	go install
 	gometalinter --deadline=60s ./... --vendor --linter='errcheck:errcheck:-ignore=net:Close' --cyclo-over=20 \
 		--linter='vet:go tool vet -composites=false {paths}:PATH:LINE:MESSAGE' --disable=interfacer --dupl-threshold=65
+
+check-all:
+	go install
+	gometalinter --deadline=600s ./... --vendor --cyclo-over=20 \
+		--linter='vet:go tool vet {paths}:PATH:LINE:MESSAGE' --dupl-threshold=65
 
 profile:
 	./build/bin/$(ARCH)/$(BINARY_NAME) --backends=stdout --cpu-profile=./profile.out --flush-interval=1s

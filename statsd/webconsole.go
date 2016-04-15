@@ -1,13 +1,14 @@
 package statsd
 
+// DefaultWebConsoleAddr is the default address on which a WebConsoleServer will listen.
+const DefaultWebConsoleAddr = ":8181"
+
+/*
 import (
 	"fmt"
 	"html/template"
 	"net/http"
 )
-
-// DefaultWebConsoleAddr is the default address on which a WebConsoleServer will listen.
-const DefaultWebConsoleAddr = ":8181"
 
 // WebConsoleServer is an object that listens for HTTP connection on a TCP address Addr
 // and provides a web interface for its MetricAggregator.
@@ -112,3 +113,4 @@ func (s *WebConsoleServer) ListenAndServe() error {
 	}
 	return http.ListenAndServe(s.Addr, s)
 }
+*/

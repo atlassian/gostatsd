@@ -93,7 +93,6 @@ func main() {
 		FlushInterval:    v.GetDuration(statsd.ParamFlushInterval),
 		MaxReaders:       v.GetInt(statsd.ParamMaxReaders),
 		MaxWorkers:       v.GetInt(statsd.ParamMaxWorkers),
-		MaxMessengers:    v.GetInt(statsd.ParamMaxMessengers),
 		MetricsAddr:      v.GetString(statsd.ParamMetricsAddr),
 		Namespace:        v.GetString(statsd.ParamNamespace),
 		PercentThreshold: toSlice(v.GetString(statsd.ParamPercentThreshold)),
@@ -117,6 +116,9 @@ func augmentErr(exitErr *error, newErr error) {
 
 func toSlice(s string) []string {
 	//TODO Remove workaround when https://github.com/spf13/viper/issues/112 is fixed
+	if s == "" {
+		return nil
+	}
 	return strings.Split(s, ",")
 }
 

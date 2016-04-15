@@ -81,9 +81,6 @@ func (client *Client) SendMetrics(metrics types.MetricMap) error {
 		fmt.Fprintf(buf, "stats.sets.%s %d %d\n", nk, len(set.Values), now)
 	})
 
-	fmt.Fprintf(buf, "statsd.numStats %d %d\n", metrics.NumStats, now)
-	fmt.Fprintf(buf, "statsd.processingTime %f %d\n", float64(metrics.ProcessingTime)/float64(time.Millisecond), now)
-
 	conn, err := net.Dial("tcp", client.address)
 	if err != nil {
 		return fmt.Errorf("error connecting to graphite backend: %s", err)

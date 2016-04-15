@@ -16,7 +16,7 @@ setup:
 	GO15VENDOREXPERIMENT=1 glide install
 
 build: *.go fmt
-	go build -o $(BINARY_NAME) $(GOBUILD_VERSION_ARGS) github.com/atlassian/$(BINARY_NAME)
+	go build -o $(BINARY_NAME) $(GOBUILD_VERSION_ARGS) github.com/atlassian/gostatsd/tester
 
 fmt:
 	gofmt -w=true -s $(shell find . -type f -name '*.go' -not -path "./vendor/*")

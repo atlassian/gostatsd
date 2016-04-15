@@ -2,20 +2,24 @@ package main
 
 import (
 	"log"
+	"net"
 
 	"github.com/atlassian/gostatsd/statsd"
 	"github.com/atlassian/gostatsd/types"
+
+	"golang.org/x/net/context"
 )
 
 func main() {
-	f := func(m *types.Metric) {
+	f := func(ctx context.Context, m *types.Metric) error {
 		log.Printf("%s", m)
+		return nil
 	}
-	r := statsd.MetricReceiver{
-		Addr: ":8125", Namespace: "stats", MaxReaders: 1,
-		MaxMessengers: 1, Handler: statsd.HandlerFunc(f),
+	r := statsd.NewMetricReceiver("stats", nil, nil, statsd.HandlerFunc(f))
+	c, err := net.ListenPacket("udp", ":8125")
+	if err != nil {
+		log.Fatal(err)
 	}
-	r.ListenAndReceive()
-
-	select {}
+	defer c.Close()
+	r.Receive(context.TODO(), c)
 }

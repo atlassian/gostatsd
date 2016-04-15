@@ -46,7 +46,7 @@ func (client *Client) SampleConfig() string {
 }
 
 // SendMetrics sends the metrics in a MetricsMap to the Graphite server.
-func (client *Client) SendMetrics(metrics types.MetricMap) error {
+func (client *Client) SendMetrics(metrics types.MetricMap) (retErr error) {
 	buf := new(bytes.Buffer)
 	now := time.Now().Unix()
 	metrics.Counters.Each(func(key, tagsKey string, counter types.Counter) {
@@ -79,14 +79,14 @@ func (client *Client) SendMetrics(metrics types.MetricMap) error {
 		fmt.Fprintf(buf, "stats.set.%s %d %d\n", nk, len(set.Values), now)
 	})
 
-	fmt.Fprintf(buf, "statsd.numStats %d %d\n", metrics.NumStats, now)
-	fmt.Fprintf(buf, "statsd.processingTime %f %d\n", float64(metrics.ProcessingTime)/float64(time.Millisecond), now)
-
-	_, err := buf.WriteTo(log.StandardLogger().Writer())
-	if err != nil {
-		return err
-	}
-	return nil
+	writer := log.StandardLogger().Writer()
+	defer func() {
+		if err := writer.Close(); err != nil && retErr == nil {
+			retErr = err
+		}
+	}()
+	_, err := buf.WriteTo(writer)
+	return err
 }
 
 // BackendName returns the name of the backend.
