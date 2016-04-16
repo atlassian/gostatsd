@@ -12,5 +12,5 @@ install:
 script:
   - make test-race
   - make build-all
-  - make check || true
+  - make check
   - make coveralls
