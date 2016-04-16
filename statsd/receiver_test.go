@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"github.com/atlassian/gostatsd/types"
+
+	"golang.org/x/net/context"
 )
 
 func TestParseLine(t *testing.T) {
@@ -78,10 +80,15 @@ func compare(tests map[string]types.Metric, mr *metricReceiver, t *testing.T) {
 	}
 }
 
+var parselineBlackhole *types.Metric
+
 func benchmarkParseLine(mr *metricReceiver, input string, b *testing.B) {
+	slice := []byte(input)
+	var r *types.Metric
 	for n := 0; n < b.N; n++ {
-		mr.parseLine([]byte(input))
+		r, _ = mr.parseLine(slice)
 	}
+	parselineBlackhole = r
 }
 
 func BenchmarkParseLineCounter(b *testing.B) {
@@ -115,33 +122,39 @@ func BenchmarkParseLineCounterWithDefaultTagsAndTagsAndNameSpace(b *testing.B) {
 	benchmarkParseLine(&metricReceiver{namespace: "stats", tags: []string{"env:foo", "foo:bar"}}, "foo.bar.baz:2|c|#foo:bar,baz", b)
 }
 
-type FakeAddr struct{}
+type fakeAddr struct{}
 
-func (fa FakeAddr) Network() string { return "udp" }
-func (fa FakeAddr) String() string  { return ":8181" }
+func (fa fakeAddr) Network() string { return "udp" }
+func (fa fakeAddr) String() string  { return "127.0.0.1:8181" }
 
-type FakePacketConn struct{}
+var fakeMetric = []byte("foo.bar.baz:2|c")
+var receiveBlackhole error
 
-func (fpc FakePacketConn) ReadFrom(b []byte) (n int, addr net.Addr, err error) {
-	b = []byte("foo.bar.baz:2|c")
-	return len(b), FakeAddr{}, nil
+type fakePacketConn struct{}
+
+func (fpc fakePacketConn) ReadFrom(b []byte) (int, net.Addr, error) {
+	n := copy(b, fakeMetric)
+	return n, fakeAddr{}, nil
 }
-func (fpc FakePacketConn) WriteTo(b []byte, addr net.Addr) (n int, err error) { return }
-func (fpc FakePacketConn) Close() error                                       { return nil }
-func (fpc FakePacketConn) LocalAddr() net.Addr                                { return FakeAddr{} }
-func (fpc FakePacketConn) SetDeadline(t time.Time) error                      { return nil }
-func (fpc FakePacketConn) SetReadDeadline(t time.Time) error                  { return nil }
-func (fpc FakePacketConn) SetWriteDeadline(t time.Time) error                 { return nil }
+func (fpc fakePacketConn) WriteTo(b []byte, addr net.Addr) (int, error) { return 0, nil }
+func (fpc fakePacketConn) Close() error                                 { return nil }
+func (fpc fakePacketConn) LocalAddr() net.Addr                          { return fakeAddr{} }
+func (fpc fakePacketConn) SetDeadline(t time.Time) error                { return nil }
+func (fpc fakePacketConn) SetReadDeadline(t time.Time) error            { return nil }
+func (fpc fakePacketConn) SetWriteDeadline(t time.Time) error           { return nil }
 
-// Need to change MetricReceiver.receive to a finite loop to be able to run the benchmark
-//func BenchmarkReceive(b *testing.B) {
-//	mq := make(messageQueue, maxQueueSize)
-//	go manageQueue(mq)
-//	mr := &MetricReceiver{}
-//	c := FakePacketConn{}
-//	b.ResetTimer()
-//
-//	for n := 0; n < b.N; n++ {
-//		mr.receive(c, mq)
-//	}
-//}
+func BenchmarkReceive(b *testing.B) {
+	mr := &metricReceiver{
+		handler: HandlerFunc(nopHandler),
+	}
+	c := fakePacketConn{}
+	var r error
+	for n := 0; n < b.N; n++ {
+		r = mr.Receive(context.Background(), c)
+	}
+	receiveBlackhole = r
+}
+
+func nopHandler(ctx context.Context, m *types.Metric) error {
+	return context.Canceled // Stops receiver after first read is done
+}
