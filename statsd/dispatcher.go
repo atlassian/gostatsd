@@ -5,7 +5,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/atlassian/gostatsd/backend"
 	"github.com/atlassian/gostatsd/types"
 
 	log "github.com/Sirupsen/logrus"
@@ -26,7 +25,7 @@ type AggregatorFactory interface {
 	Create() Aggregator
 }
 
-// The AggregatorFactoryFunc type is an adapter to allow the use of ordinary functions as AggregatorFactory.
+// AggregatorFactoryFunc type is an adapter to allow the use of ordinary functions as AggregatorFactory.
 type AggregatorFactoryFunc func() Aggregator
 
 // Create calls f().
@@ -53,12 +52,11 @@ type worker struct {
 }
 
 type dispatcher struct {
-	senders []backend.MetricSender // Senders to which metrics are flushed
 	workers map[uint16]*worker
 }
 
 // NewDispatcher creates a new Dispatcher with provided configuration.
-func NewDispatcher(numWorkers int, perWorkerBufferSize int, af AggregatorFactory, senders []backend.MetricSender) Dispatcher {
+func NewDispatcher(numWorkers int, perWorkerBufferSize int, af AggregatorFactory) Dispatcher {
 	workers := make(map[uint16]*worker)
 
 	n := uint16(numWorkers)
@@ -72,12 +70,11 @@ func NewDispatcher(numWorkers int, perWorkerBufferSize int, af AggregatorFactory
 		}
 	}
 	return &dispatcher{
-		senders,
 		workers,
 	}
 }
 
-// Run runs the Flusher.
+// Run runs the Dispatcher.
 func (d *dispatcher) Run(ctx context.Context) error {
 	var wg sync.WaitGroup
 	wg.Add(len(d.workers))
@@ -96,6 +93,7 @@ func (d *dispatcher) Run(ctx context.Context) error {
 	return ctx.Err()
 }
 
+// DispatchMetric dispatches metric to a corresponding Aggregator.
 func (d *dispatcher) DispatchMetric(ctx context.Context, m *types.Metric) error {
 	hash := adler32.Checksum([]byte(m.Name))
 	worker := d.workers[uint16(hash%uint32(len(d.workers)))]
@@ -132,7 +130,7 @@ loop:
 }
 
 // Process concurrently executes provided function in goroutines that own Aggregators.
-// Function may be executed zero or up to numWorkers times. It is executed
+// ProcessFunc function may be executed zero or up to numWorkers times. It is executed
 // less than numWorkers times if the context signals "done".
 func (d *dispatcher) Process(ctx context.Context, f ProcessFunc) *sync.WaitGroup {
 	cmd := &processCommand{sync.WaitGroup{}, f}

@@ -163,7 +163,7 @@ func (s *Server) Run(ctx context.Context) error {
 		expiryInterval:    s.ExpiryInterval,
 		systemTags:        s.DefaultTags,
 	}
-	dispatcher := NewDispatcher(s.MaxWorkers, s.MaxQueueSize, &factory, backends)
+	dispatcher := NewDispatcher(s.MaxWorkers, s.MaxQueueSize, &factory)
 
 	var wgDispatcher sync.WaitGroup
 	defer wgDispatcher.Wait()                                       // Wait for dispatcher to shutdown
