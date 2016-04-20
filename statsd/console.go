@@ -121,7 +121,7 @@ func (c *consoleConn) serve(ctx context.Context) {
 
 	console := cmd.New(commands, c.conn, c.conn)
 	console.Prompt = "console> "
-	if err := console.Loop(); err != nil && err != context.Canceled && err != errClientQuit {
+	if err := console.Loop(); err != nil && err != context.Canceled && err != context.DeadlineExceeded && err != errClientQuit {
 		log.Infof("Problem with console connection: %v", err)
 	}
 }

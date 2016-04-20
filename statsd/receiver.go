@@ -103,7 +103,7 @@ func (mr *metricReceiver) Receive(ctx context.Context, c net.PacketConn) error {
 		atomic.AddUint64(&mr.packetsReceived, 1)
 		atomic.StoreInt64(&mr.lastPacket, time.Now().UnixNano())
 		if err := mr.handleMessage(ctx, addr, buf[:nbytes]); err != nil {
-			if err == context.Canceled {
+			if err == context.Canceled || err == context.DeadlineExceeded {
 				return err
 			}
 			log.Warnf("Failed to handle message: %v", err)

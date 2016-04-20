@@ -198,7 +198,7 @@ func (s *Server) Run(ctx context.Context) error {
 	for r := 0; r < s.MaxReaders; r++ {
 		go func() {
 			defer wgReceiver.Done()
-			if err := receiver.Receive(ctx, c); err != nil && err != context.Canceled {
+			if err := receiver.Receive(ctx, c); err != nil && err != context.Canceled && err != context.DeadlineExceeded {
 				log.Panicf("Receiver quit unexpectedly: %v", err)
 			}
 		}()
@@ -211,7 +211,7 @@ func (s *Server) Run(ctx context.Context) error {
 	wgFlusher.Add(1)
 	go func() {
 		defer wgFlusher.Done()
-		if err := flusher.Run(ctx); err != nil && err != context.Canceled {
+		if err := flusher.Run(ctx); err != nil && err != context.Canceled && err != context.DeadlineExceeded {
 			log.Panicf("Flusher quit unexpectedly: %v", err)
 		}
 	}()
