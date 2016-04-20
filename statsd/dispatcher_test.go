@@ -1,17 +1,16 @@
 package statsd
 
 import (
+	"fmt"
+	"math/rand"
 	"sync"
-	"time"
 	"testing"
+	"time"
 
 	"github.com/atlassian/gostatsd/types"
 
 	"golang.org/x/net/context"
-	"math/rand"
-	"fmt"
 )
-
 
 type testAggregator struct {
 	agrNumber int
@@ -64,7 +63,7 @@ func (af *testAggregatorFactory) Create() Aggregator {
 
 	agr := testAggregator{
 		agrNumber: agrNumber,
-		af: af,
+		af:        af,
 	}
 	agr.Counters = types.Counters{}
 	agr.Timers = types.Timers{}
@@ -77,9 +76,9 @@ func (af *testAggregatorFactory) Create() Aggregator {
 func newTestFactory() *testAggregatorFactory {
 	return &testAggregatorFactory{
 		receiveInvocations: make(map[int]int),
-		flushInvocations: make(map[int]int),
+		flushInvocations:   make(map[int]int),
 		processInvocations: make(map[int]int),
-		resetInvocations: make(map[int]int),
+		resetInvocations:   make(map[int]int),
 	}
 }
 
@@ -139,8 +138,8 @@ func TestDispatchMetricShouldDistributeMetrics(t *testing.T) {
 			}
 		}()
 	}
-	wg.Wait() // Wait for all metrics to be dispatched
-	cancelFunc() // After all metrics have been dispatched, we signal dispatcher to shut down
+	wg.Wait()       // Wait for all metrics to be dispatched
+	cancelFunc()    // After all metrics have been dispatched, we signal dispatcher to shut down
 	wgFinish.Wait() // Wait for dispatcher to shutdown
 
 	receiveInvocations := getTotalInvocations(factory.receiveInvocations)
