@@ -2,8 +2,10 @@ package main
 
 import (
 	"fmt"
+	"math/rand"
 	"os"
 	"runtime"
+	"time"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/spf13/pflag"
@@ -29,6 +31,7 @@ func main() {
 		os.Exit(0)
 	}
 
+	rand.Seed(time.Now().Unix())
 	if err := s.Run(); err != nil {
 		log.Fatalf("%v\n", err)
 	}

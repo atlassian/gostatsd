@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"sync/atomic"
 	"time"
 
 	log "github.com/Sirupsen/logrus"
@@ -14,6 +15,7 @@ import (
 // Server encapsulates all of the parameters necessary for starting up
 // the server. These can either be set via command line or directly.
 type Server struct {
+	Started       int32
 	Concurrency   int
 	MaxPacketSize int
 
@@ -28,7 +30,6 @@ type Server struct {
 	stats chan Stats
 
 	Load    bool
-	Started bool
 	Verbose bool
 	Version bool
 
@@ -79,6 +80,9 @@ func (s *Server) Run() error {
 	if s.Namespace == "" {
 		s.Namespace = os.Getenv("MICROS_ENV")
 	}
+	if s.Namespace != "" {
+		s.Namespace += "."
+	}
 
 	if s.Concurrency <= 0 || s.Concurrency > 65536 {
 		return fmt.Errorf("concurrency needs to be an integer between 1 and 65,536")
@@ -114,7 +118,7 @@ func (s *Server) startHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) stopHandler(w http.ResponseWriter, r *http.Request) {
-	if s.Started {
+	if atomic.LoadInt32(&s.Started) != 0 {
 		log.Info("stopping process")
 		s.stop <- true
 		stats := <-s.stats
@@ -143,7 +147,7 @@ func (s *Server) gatherStats() {
 	s.Stats.StopTime = time.Now()
 	duration := s.Stats.StopTime.Sub(s.Stats.StartTime)
 	s.Stats.Duration = duration.String()
-	s.Stats.MetricsPerSecond = float64(s.Stats.NumMetrics) / duration.Seconds()
-	s.Stats.PacketsPerSecond = float64(s.Stats.NumPackets) / duration.Seconds()
+	s.Stats.MetricsPerSecond = float64(atomic.LoadInt64(&s.Stats.NumMetrics)) / duration.Seconds()
+	s.Stats.PacketsPerSecond = float64(atomic.LoadInt64(&s.Stats.NumPackets)) / duration.Seconds()
 	s.stats <- s.Stats
 }

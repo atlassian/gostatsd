@@ -45,7 +45,7 @@ commit-hook:
 	cp dev/commit-hook.sh .git/hooks/pre-commit
 
 cross: fmt
-	CGO_ENABLED=0 GOOS=linux go build -o $(BINARY_NAME)-linux $(GOBUILD_VERSION_ARGS) -a -installsuffix cgo  github.com/atlassian/$(BINARY_NAME)
+	CGO_ENABLED=0 GOOS=linux go build -o $(BINARY_NAME)-linux $(GOBUILD_VERSION_ARGS) -a -installsuffix cgo  github.com/atlassian/gostatsd/tester
 
 docker: cross
 	docker build -t $(IMAGE_NAME):$(GIT_HASH) .
