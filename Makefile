@@ -39,6 +39,9 @@ test-race:
 bench:
 	go test -bench=. $$(glide nv)
 
+bench-race:
+	go test -race -bench=. $$(glide nv)
+
 cover:
 	./cover.sh
 	go tool cover -func=coverage.out

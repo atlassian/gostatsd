@@ -10,7 +10,8 @@ install:
   - make setup
 
 script:
-  - make test-race
   - make build-all
+  - make test-race
   - make check
+  - make bench-race
   - make coveralls
