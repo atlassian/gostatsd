@@ -133,6 +133,14 @@ func AddFlags(fs *pflag.FlagSet) {
 
 // Run runs the server until context signals done.
 func (s *Server) Run(ctx context.Context) error {
+	return s.runWithCustomSocket(ctx, func() (net.PacketConn, error) {
+		return net.ListenPacket("udp", s.MetricsAddr)
+	})
+}
+
+type socketFactory func() (net.PacketConn, error)
+
+func (s *Server) runWithCustomSocket(ctx context.Context, sf socketFactory) error {
 	backends := make([]backend.MetricSender, 0, len(s.Backends))
 	for _, backendName := range s.Backends {
 		b, err := backend.InitBackend(backendName, s.Viper)
@@ -181,8 +189,8 @@ func (s *Server) Run(ctx context.Context) error {
 	var wgReceiver sync.WaitGroup
 	defer wgReceiver.Wait() // Wait for all receivers to finish
 
-	// Start the metric receiver
-	c, err := net.ListenPacket("udp", s.MetricsAddr)
+	// Open socket
+	c, err := sf()
 	if err != nil {
 		return err
 	}
