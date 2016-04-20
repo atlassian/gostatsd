@@ -125,14 +125,14 @@ func TestDispatchMetricShouldDistributeMetrics(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(numMetrics)
 	for i := 0; i < numMetrics; i++ {
+		m := &types.Metric{
+			Type:  types.COUNTER,
+			Name:  fmt.Sprintf("counter.metric.%d", r.Int63()),
+			Tags:  nil,
+			Value: r.Float64(),
+		}
 		go func() {
 			defer wg.Done()
-			m := &types.Metric{
-				Type:  types.COUNTER,
-				Name:  fmt.Sprintf("counter.metric.%d", r.Int63()),
-				Tags:  nil,
-				Value: r.Float64(),
-			}
 			if err := d.DispatchMetric(ctx, m); err != nil {
 				t.Errorf("unexpected error: %v", err)
 			}
