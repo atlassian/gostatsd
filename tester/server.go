@@ -15,7 +15,6 @@ import (
 // Server encapsulates all of the parameters necessary for starting up
 // the server. These can either be set via command line or directly.
 type Server struct {
-	Started       int32
 	Concurrency   int
 	MaxPacketSize int
 
@@ -29,11 +28,12 @@ type Server struct {
 	stop  chan bool
 	stats chan Stats
 
+	Stats Stats
+
+	Started int32
 	Load    bool
 	Verbose bool
 	Version bool
-
-	Stats Stats
 }
 
 // Stats reprensents the stats for the session.
