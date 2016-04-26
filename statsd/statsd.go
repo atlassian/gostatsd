@@ -180,8 +180,8 @@ func (s *Server) runWithCustomSocket(ctx context.Context, sf socketFactory) erro
 	wgDispatcher.Add(1)
 	go func() {
 		defer wgDispatcher.Done()
-		if err := dispatcher.Run(ctxDisp); err != nil && err != context.Canceled {
-			log.Panicf("Dispatcher quit unexpectedly: %v", err)
+		if dispErr := dispatcher.Run(ctxDisp); dispErr != nil && dispErr != context.Canceled {
+			log.Panicf("Dispatcher quit unexpectedly: %v", dispErr)
 		}
 	}()
 

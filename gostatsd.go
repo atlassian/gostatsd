@@ -67,8 +67,8 @@ func main() {
 			return
 		}
 		defer func() {
-			if err := f.Close(); err != nil {
-				augmentErr(&exitErr, fmt.Errorf("Failed to close profile file: %v", err))
+			if closeErr := f.Close(); closeErr != nil {
+				augmentErr(&exitErr, fmt.Errorf("Failed to close profile file: %v", closeErr))
 			}
 		}()
 		err = pprof.StartCPUProfile(f)
