@@ -15,7 +15,7 @@ func init() {
 	})
 }
 
-// Client is an object that is used to send messages to stdout.
+// Client is an object that is used to discard messages.
 type Client struct{}
 
 // NewClient constructs a StdoutClient object.
@@ -23,7 +23,7 @@ func NewClient() (backend.MetricSender, error) {
 	return &Client{}, nil
 }
 
-// SampleConfig returns the sample config for the stdout backend.
+// SampleConfig returns the sample config for the null backend.
 func (client *Client) SampleConfig() string {
 	return ""
 }

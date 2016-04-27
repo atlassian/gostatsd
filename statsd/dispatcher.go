@@ -35,20 +35,20 @@ func (f AggregatorFactoryFunc) Create() Aggregator {
 
 type flushCommand struct {
 	ctx    context.Context
-	wg     sync.WaitGroup
 	result chan<- *types.MetricMap
+	wg     sync.WaitGroup
 }
 
 type processCommand struct {
-	wg sync.WaitGroup
 	f  ProcessFunc
+	wg sync.WaitGroup
 }
 
 type worker struct {
-	metrics     chan *types.Metric
-	flushChan   chan *flushCommand
-	processChan chan *processCommand
-	aggr        Aggregator
+	aggr         Aggregator
+	flushChan    chan *flushCommand
+	metricsQueue chan *types.Metric
+	processChan  chan *processCommand
 }
 
 type dispatcher struct {
@@ -57,20 +57,20 @@ type dispatcher struct {
 
 // NewDispatcher creates a new Dispatcher with provided configuration.
 func NewDispatcher(numWorkers int, perWorkerBufferSize int, af AggregatorFactory) Dispatcher {
-	workers := make(map[uint16]*worker)
+	workers := make(map[uint16]*worker, numWorkers)
 
 	n := uint16(numWorkers)
 
 	for i := uint16(0); i < n; i++ {
 		workers[i] = &worker{
-			make(chan *types.Metric, perWorkerBufferSize),
-			make(chan *flushCommand),
-			make(chan *processCommand),
-			af.Create(),
+			aggr:         af.Create(),
+			flushChan:    make(chan *flushCommand),
+			metricsQueue: make(chan *types.Metric, perWorkerBufferSize),
+			processChan:  make(chan *processCommand),
 		}
 	}
 	return &dispatcher{
-		workers,
+		workers: workers,
 	}
 }
 
@@ -83,7 +83,7 @@ func (d *dispatcher) Run(ctx context.Context) error {
 	}
 	defer func() {
 		for _, worker := range d.workers {
-			close(worker.metrics) // Close channel to terminate worker
+			close(worker.metricsQueue) // Close channel to terminate worker
 		}
 		wg.Wait() // Wait for all workers to finish
 	}()
@@ -100,7 +100,7 @@ func (d *dispatcher) DispatchMetric(ctx context.Context, m *types.Metric) error 
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
-	case worker.metrics <- m:
+	case worker.metricsQueue <- m:
 		return nil
 	}
 }
@@ -108,7 +108,10 @@ func (d *dispatcher) DispatchMetric(ctx context.Context, m *types.Metric) error 
 // Flush calls Flush on all managed Aggregators and returns results.
 func (d *dispatcher) Flush(ctx context.Context) <-chan *types.MetricMap {
 	results := make(chan *types.MetricMap, len(d.workers)) // Enough capacity not to block workers
-	cmd := &flushCommand{ctx, sync.WaitGroup{}, results}
+	cmd := &flushCommand{
+		ctx:    ctx,
+		result: results,
+	}
 	cmd.wg.Add(len(d.workers))
 	flushesSent := 0
 loop:
@@ -133,7 +136,9 @@ loop:
 // ProcessFunc function may be executed zero or up to numWorkers times. It is executed
 // less than numWorkers times if the context signals "done".
 func (d *dispatcher) Process(ctx context.Context, f ProcessFunc) *sync.WaitGroup {
-	cmd := &processCommand{sync.WaitGroup{}, f}
+	cmd := &processCommand{
+		f: f,
+	}
 	cmd.wg.Add(len(d.workers))
 	cmdSent := 0
 loop:
@@ -155,7 +160,7 @@ func (w *worker) work(wg *sync.WaitGroup) {
 
 	for {
 		select {
-		case metric, ok := <-w.metrics:
+		case metric, ok := <-w.metricsQueue:
 			if !ok {
 				log.Info("Worker metrics queue was closed, exiting")
 				return
