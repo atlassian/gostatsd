@@ -1,11 +1,10 @@
 package statsd
 
 import (
-	"net"
 	"reflect"
 	"testing"
-	"time"
 
+	"github.com/atlassian/gostatsd/tester/fakesocket"
 	"github.com/atlassian/gostatsd/types"
 
 	"golang.org/x/net/context"
@@ -122,32 +121,13 @@ func BenchmarkParseLineCounterWithDefaultTagsAndTagsAndNameSpace(b *testing.B) {
 	benchmarkParseLine(&metricReceiver{namespace: "stats", tags: []string{"env:foo", "foo:bar"}}, "foo.bar.baz:2|c|#foo:bar,baz", b)
 }
 
-type fakeAddr struct{}
-
-func (fa fakeAddr) Network() string { return "udp" }
-func (fa fakeAddr) String() string  { return "127.0.0.1:8181" }
-
-var fakeMetric = []byte("foo.bar.baz:2|c")
 var receiveBlackhole error
-
-type fakePacketConn struct{}
-
-func (fpc fakePacketConn) ReadFrom(b []byte) (int, net.Addr, error) {
-	n := copy(b, fakeMetric)
-	return n, fakeAddr{}, nil
-}
-func (fpc fakePacketConn) WriteTo(b []byte, addr net.Addr) (int, error) { return 0, nil }
-func (fpc fakePacketConn) Close() error                                 { return nil }
-func (fpc fakePacketConn) LocalAddr() net.Addr                          { return fakeAddr{} }
-func (fpc fakePacketConn) SetDeadline(t time.Time) error                { return nil }
-func (fpc fakePacketConn) SetReadDeadline(t time.Time) error            { return nil }
-func (fpc fakePacketConn) SetWriteDeadline(t time.Time) error           { return nil }
 
 func BenchmarkReceive(b *testing.B) {
 	mr := &metricReceiver{
 		handler: HandlerFunc(nopHandler),
 	}
-	c := fakePacketConn{}
+	c := fakesocket.FakePacketConn{}
 	var r error
 	for n := 0; n < b.N; n++ {
 		r = mr.Receive(context.Background(), c)

@@ -133,14 +133,17 @@ func AddFlags(fs *pflag.FlagSet) {
 
 // Run runs the server until context signals done.
 func (s *Server) Run(ctx context.Context) error {
-	return s.runWithCustomSocket(ctx, func() (net.PacketConn, error) {
+	return s.RunWithCustomSocket(ctx, func() (net.PacketConn, error) {
 		return net.ListenPacket("udp", s.MetricsAddr)
 	})
 }
 
-type socketFactory func() (net.PacketConn, error)
+// SocketFactory is an indirection layer over net.ListenPacket() to allow for different implementations.
+type SocketFactory func() (net.PacketConn, error)
 
-func (s *Server) runWithCustomSocket(ctx context.Context, sf socketFactory) error {
+// RunWithCustomSocket runs the server until context signals done.
+// Listening socket is created using sf.
+func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) error {
 	backends := make([]backend.MetricSender, 0, len(s.Backends))
 	for _, backendName := range s.Backends {
 		b, err := backend.InitBackend(backendName, s.Viper)

@@ -30,10 +30,12 @@ type Server struct {
 
 	Stats Stats
 
-	Started int32
-	Load    bool
-	Verbose bool
-	Version bool
+	Benchmark  int
+	Started    int32
+	Load       bool
+	Verbose    bool
+	Version    bool
+	CPUProfile bool
 }
 
 // Stats reprensents the stats for the session.
@@ -64,6 +66,8 @@ func (s *Server) AddFlags(fs *pflag.FlagSet) {
 	fs.IntVar(&s.MaxPacketSize, "max-packet-size", s.MaxPacketSize, "Max size of the packet sent to statsd")
 	fs.DurationVar(&s.FlushInterval, "flush-interval", s.FlushInterval, "How often to flush metrics to the backends")
 	fs.BoolVar(&s.Load, "load", false, "Trigger load testing")
+	fs.IntVar(&s.Benchmark, "benchmark", 0, "Time in seconds to run benchmark (0 - disabled)")
+	fs.BoolVar(&s.CPUProfile, "cpu-profile", false, "Enable CPU profiler for benchmark")
 	fs.StringVar(&s.MetricsAddr, "metrics-addr", s.MetricsAddr, "Address on which to send metrics")
 	fs.StringVar(&s.Namespace, "namespace", s.Namespace, "Namespace all metrics")
 	fs.BoolVar(&s.Verbose, "verbose", false, "Verbose")

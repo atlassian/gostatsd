@@ -4,11 +4,16 @@ import (
 	"fmt"
 	"math/rand"
 	"os"
-	"runtime"
+	"runtime/pprof"
 	"time"
+
+	"github.com/atlassian/gostatsd/statsd"
+	"github.com/atlassian/gostatsd/tester/fakesocket"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/spf13/pflag"
+	"github.com/spf13/viper"
+	"golang.org/x/net/context"
 )
 
 var (
@@ -21,7 +26,6 @@ var (
 )
 
 func main() {
-	runtime.GOMAXPROCS(runtime.NumCPU())
 	s := newServer()
 	s.AddFlags(pflag.CommandLine)
 	pflag.Parse()
@@ -32,7 +36,36 @@ func main() {
 	}
 
 	rand.Seed(time.Now().Unix())
-	if err := s.Run(); err != nil {
+	if s.Benchmark != 0 {
+		rand.Seed(time.Now().Unix())
+		server := statsd.Server{
+			Backends:         []string{"null"},
+			ConsoleAddr:      "",
+			DefaultTags:      statsd.DefaultTags,
+			ExpiryInterval:   statsd.DefaultExpiryInterval,
+			FlushInterval:    statsd.DefaultFlushInterval,
+			MaxReaders:       statsd.DefaultMaxReaders,
+			MaxWorkers:       statsd.DefaultMaxWorkers,
+			MaxQueueSize:     statsd.DefaultMaxQueueSize,
+			PercentThreshold: statsd.DefaultPercentThreshold,
+			Viper:            viper.New(),
+		}
+		ctx, cancelFunc := context.WithTimeout(context.Background(), time.Duration(s.Benchmark)*time.Second)
+		defer cancelFunc()
+		if s.CPUProfile {
+			f, e := os.Create("profile.pprof")
+			if e != nil {
+				log.Fatal(e)
+			}
+			defer f.Close()
+			_ = pprof.StartCPUProfile(f)
+			defer pprof.StopCPUProfile()
+		}
+		err := server.RunWithCustomSocket(ctx, fakesocket.Factory)
+		if err != nil && err != context.Canceled && err != context.DeadlineExceeded {
+			log.Errorf("statsd run failed: %v", err)
+		}
+	} else if err := s.Run(); err != nil {
 		log.Fatalf("%v\n", err)
 	}
 }
