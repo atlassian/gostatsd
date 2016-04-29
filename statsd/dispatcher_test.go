@@ -18,7 +18,7 @@ type testAggregator struct {
 	types.MetricMap
 }
 
-func (a *testAggregator) ReceiveMetric(m *types.Metric, t time.Time) {
+func (a *testAggregator) Receive(m *types.Metric, t time.Time) {
 	a.af.Mutex.Lock()
 	defer a.af.Mutex.Unlock()
 	a.af.receiveInvocations[a.agrNumber]++

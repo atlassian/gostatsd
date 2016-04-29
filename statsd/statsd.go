@@ -255,7 +255,7 @@ func (af *agrFactory) Create() Aggregator {
 	tags = append(tags, af.systemTags...)
 	tags = append(tags, fmt.Sprintf("aggregator_%d", af.workerNumber))
 	af.workerNumber++
-	return NewMetricAggregator(af.percentThresholds, af.flushInterval, af.expiryInterval, tags)
+	return NewAggregator(af.percentThresholds, af.flushInterval, af.expiryInterval, tags)
 }
 
 func internalStatName(name string) string {

@@ -165,7 +165,7 @@ func (w *worker) work(wg *sync.WaitGroup) {
 				log.Info("Worker metrics queue was closed, exiting")
 				return
 			}
-			w.aggr.ReceiveMetric(metric, time.Now())
+			w.aggr.Receive(metric, time.Now())
 		case cmd := <-w.flushChan:
 			w.executeFlush(cmd)
 		case cmd := <-w.processChan:

@@ -15,17 +15,17 @@ import (
 type ProcessFunc func(*types.MetricMap)
 
 // Aggregator is an object that aggregates statsd metrics.
-// The function NewMetricAggregator should be used to create the objects.
+// The function NewAggregator should be used to create the objects.
 //
-// Incoming metrics should be passed via ReceiveMetric function.
+// Incoming metrics should be passed via Receive function.
 type Aggregator interface {
-	ReceiveMetric(*types.Metric, time.Time)
+	Receive(*types.Metric, time.Time)
 	Flush(func() time.Time) *types.MetricMap
 	Process(ProcessFunc)
 	Reset(time.Time)
 }
 
-type metricAggregator struct {
+type aggregator struct {
 	expiryInterval    time.Duration // How often to expire metrics
 	lastFlush         time.Time     // Last time the metrics where aggregated
 	percentThresholds []float64
@@ -33,9 +33,9 @@ type metricAggregator struct {
 	types.MetricMap
 }
 
-// NewMetricAggregator creates a new Aggregator object.
-func NewMetricAggregator(percentThresholds []float64, flushInterval, expiryInterval time.Duration, systemTags []string) Aggregator {
-	a := metricAggregator{}
+// NewAggregator creates a new Aggregator object.
+func NewAggregator(percentThresholds []float64, flushInterval, expiryInterval time.Duration, systemTags []string) Aggregator {
+	a := aggregator{}
 	a.FlushInterval = flushInterval
 	a.lastFlush = time.Now()
 	a.expiryInterval = expiryInterval
@@ -55,7 +55,7 @@ func round(v float64) float64 {
 }
 
 // Flush prepares the contents of an Aggregator for sending via the Sender.
-func (a *metricAggregator) Flush(now func() time.Time) *types.MetricMap {
+func (a *aggregator) Flush(now func() time.Time) *types.MetricMap {
 	startTime := now()
 	flushInterval := startTime.Sub(a.lastFlush)
 
@@ -169,11 +169,11 @@ func (a *metricAggregator) Flush(now func() time.Time) *types.MetricMap {
 	}
 }
 
-func (a *metricAggregator) Process(f ProcessFunc) {
+func (a *aggregator) Process(f ProcessFunc) {
 	f(&a.MetricMap)
 }
 
-func (a *metricAggregator) isExpired(now, ts time.Time) bool {
+func (a *aggregator) isExpired(now, ts time.Time) bool {
 	return a.expiryInterval != time.Duration(0) && now.Sub(ts) > a.expiryInterval
 }
 
@@ -185,7 +185,7 @@ func deleteMetric(key, tagsKey string, metrics types.AggregatedMetrics) {
 }
 
 // Reset clears the contents of an Aggregator.
-func (a *metricAggregator) Reset(now time.Time) {
+func (a *aggregator) Reset(now time.Time) {
 	a.NumStats = 0
 
 	a.Counters.Each(func(key, tagsKey string, counter types.Counter) {
@@ -223,7 +223,7 @@ func (a *metricAggregator) Reset(now time.Time) {
 	})
 }
 
-func (a *metricAggregator) receiveCounter(name, tags string, value int64, now time.Time) {
+func (a *aggregator) receiveCounter(name, tags string, value int64, now time.Time) {
 	v, ok := a.Counters[name]
 	if ok {
 		c, ok := v[tags]
@@ -239,7 +239,7 @@ func (a *metricAggregator) receiveCounter(name, tags string, value int64, now ti
 	}
 }
 
-func (a *metricAggregator) receiveGauge(name, tags string, value float64, now time.Time) {
+func (a *aggregator) receiveGauge(name, tags string, value float64, now time.Time) {
 	// TODO: handle +/-
 	v, ok := a.Gauges[name]
 	if ok {
@@ -256,7 +256,7 @@ func (a *metricAggregator) receiveGauge(name, tags string, value float64, now ti
 	}
 }
 
-func (a *metricAggregator) receiveTimer(name, tags string, value float64, now time.Time) {
+func (a *aggregator) receiveTimer(name, tags string, value float64, now time.Time) {
 	v, ok := a.Timers[name]
 	if ok {
 		t, ok := v[tags]
@@ -272,7 +272,7 @@ func (a *metricAggregator) receiveTimer(name, tags string, value float64, now ti
 	}
 }
 
-func (a *metricAggregator) receiveSet(name, tags string, value string, now time.Time) {
+func (a *aggregator) receiveSet(name, tags string, value string, now time.Time) {
 	v, ok := a.Sets[name]
 	if ok {
 		s, ok := v[tags]
@@ -297,8 +297,8 @@ func (a *metricAggregator) receiveSet(name, tags string, value string, now time.
 	}
 }
 
-// ReceiveMetric aggregates an incoming metric.
-func (a *metricAggregator) ReceiveMetric(m *types.Metric, now time.Time) {
+// Receive aggregates an incoming metric.
+func (a *aggregator) Receive(m *types.Metric, now time.Time) {
 	a.NumStats++
 	tagsKey := m.Tags.String()
 
