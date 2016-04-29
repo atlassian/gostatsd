@@ -35,7 +35,7 @@ type flusher struct {
 	flushInterval time.Duration // How often to flush metrics to the sender
 	dispatcher    Dispatcher
 	receiver      Receiver
-	systemTags    string
+	defaultTags   string
 	senders       []backend.MetricSender
 
 	// Sent statistics for Receiver. Keep sent values to calculate diff.
@@ -45,12 +45,12 @@ type flusher struct {
 }
 
 // NewFlusher creates a new Flusher with provided configuration.
-func NewFlusher(flushInterval time.Duration, dispatcher Dispatcher, receiver Receiver, systemTags []string, senders []backend.MetricSender) Flusher {
+func NewFlusher(flushInterval time.Duration, dispatcher Dispatcher, receiver Receiver, defaultTags []string, senders []backend.MetricSender) Flusher {
 	return &flusher{
 		flushInterval: flushInterval,
 		dispatcher:    dispatcher,
 		receiver:      receiver,
-		systemTags:    strings.Join(systemTags, ","),
+		defaultTags:   strings.Join(defaultTags, ","),
 		senders:       senders,
 	}
 }
@@ -147,7 +147,7 @@ func (f *flusher) addCounter(c types.Counters, name string, timestamp time.Time,
 	counter.PerSecond = float64(counter.Value) / (float64(f.flushInterval) / float64(time.Second))
 
 	elem := make(map[string]types.Counter, 1)
-	elem[f.systemTags] = counter
+	elem[f.defaultTags] = counter
 
 	c[internalStatName(name)] = elem
 }

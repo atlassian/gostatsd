@@ -29,12 +29,12 @@ type aggregator struct {
 	expiryInterval    time.Duration // How often to expire metrics
 	lastFlush         time.Time     // Last time the metrics where aggregated
 	percentThresholds []float64
-	systemTags        string // Tags to add to system metrics
+	defaultTags       string // Tags to add to system metrics
 	types.MetricMap
 }
 
 // NewAggregator creates a new Aggregator object.
-func NewAggregator(percentThresholds []float64, flushInterval, expiryInterval time.Duration, systemTags []string) Aggregator {
+func NewAggregator(percentThresholds []float64, flushInterval, expiryInterval time.Duration, defaultTags []string) Aggregator {
 	a := aggregator{}
 	a.FlushInterval = flushInterval
 	a.lastFlush = time.Now()
@@ -44,7 +44,7 @@ func NewAggregator(percentThresholds []float64, flushInterval, expiryInterval ti
 	a.Timers = types.Timers{}
 	a.Gauges = types.Gauges{}
 	a.Sets = types.Sets{}
-	a.systemTags = types.Tags(systemTags).String()
+	a.defaultTags = types.Tags(defaultTags).String()
 	return &a
 }
 
@@ -60,7 +60,7 @@ func (a *aggregator) Flush(now func() time.Time) *types.MetricMap {
 	flushInterval := startTime.Sub(a.lastFlush)
 
 	statName := internalStatName("num_stats")
-	a.receiveCounter(statName, a.systemTags, int64(a.NumStats), startTime)
+	a.receiveCounter(statName, a.defaultTags, int64(a.NumStats), startTime)
 
 	a.Counters.Each(func(key, tagsKey string, counter types.Counter) {
 		perSecond := float64(counter.Value) / flushInterval.Seconds()
@@ -154,7 +154,7 @@ func (a *aggregator) Flush(now func() time.Time) *types.MetricMap {
 	a.ProcessingTime = flushTime.Sub(startTime)
 
 	statName = internalStatName("processing_time")
-	a.receiveGauge(statName, a.systemTags, float64(a.ProcessingTime)/float64(time.Millisecond), flushTime)
+	a.receiveGauge(statName, a.defaultTags, float64(a.ProcessingTime)/float64(time.Millisecond), flushTime)
 
 	a.lastFlush = flushTime
 

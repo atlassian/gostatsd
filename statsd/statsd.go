@@ -172,7 +172,7 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 		percentThresholds: percentThresholds,
 		flushInterval:     s.FlushInterval,
 		expiryInterval:    s.ExpiryInterval,
-		systemTags:        s.DefaultTags,
+		defaultTags:       s.DefaultTags,
 	}
 	dispatcher := NewDispatcher(s.MaxWorkers, s.MaxQueueSize, &factory)
 
@@ -246,13 +246,13 @@ type agrFactory struct {
 	percentThresholds []float64
 	flushInterval     time.Duration
 	expiryInterval    time.Duration
-	systemTags        []string
+	defaultTags       []string
 	workerNumber      uint16
 }
 
 func (af *agrFactory) Create() Aggregator {
-	tags := make([]string, 0, len(af.systemTags)+1)
-	tags = append(tags, af.systemTags...)
+	tags := make([]string, 0, len(af.defaultTags)+1)
+	tags = append(tags, af.defaultTags...)
 	tags = append(tags, fmt.Sprintf("aggregator_%d", af.workerNumber))
 	af.workerNumber++
 	return NewAggregator(af.percentThresholds, af.flushInterval, af.expiryInterval, tags)
