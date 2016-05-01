@@ -6,7 +6,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/atlassian/gostatsd/backend"
+	backendTypes "github.com/atlassian/gostatsd/backend/types"
 	"github.com/atlassian/gostatsd/types"
 
 	log "github.com/Sirupsen/logrus"
@@ -36,7 +36,7 @@ type flusher struct {
 	dispatcher    Dispatcher
 	receiver      Receiver
 	defaultTags   string
-	senders       []backend.MetricSender
+	senders       []backendTypes.MetricSender
 
 	// Sent statistics for Receiver. Keep sent values to calculate diff.
 	sentBadLines        uint64
@@ -45,7 +45,7 @@ type flusher struct {
 }
 
 // NewFlusher creates a new Flusher with provided configuration.
-func NewFlusher(flushInterval time.Duration, dispatcher Dispatcher, receiver Receiver, defaultTags []string, senders []backend.MetricSender) Flusher {
+func NewFlusher(flushInterval time.Duration, dispatcher Dispatcher, receiver Receiver, defaultTags []string, senders []backendTypes.MetricSender) Flusher {
 	return &flusher{
 		flushInterval: flushInterval,
 		dispatcher:    dispatcher,
@@ -99,7 +99,7 @@ func (f *flusher) sendFlushedData(ctx context.Context, metrics *types.MetricMap)
 	var wg sync.WaitGroup
 	wg.Add(len(f.senders))
 	for _, sender := range f.senders {
-		go func(s backend.MetricSender) {
+		go func(s backendTypes.MetricSender) {
 			defer wg.Done()
 			log.Debugf("Sending metrics to backend %s", s.BackendName())
 			//TODO pass ctx

@@ -7,20 +7,14 @@ import (
 	"strings"
 	"time"
 
-	"github.com/atlassian/gostatsd/backend"
+	backendTypes "github.com/atlassian/gostatsd/backend/types"
 	"github.com/atlassian/gostatsd/types"
 
 	"github.com/spf13/viper"
 )
 
-const backendName = "graphite"
-
-func init() {
-	backend.RegisterBackend(backendName, func(v *viper.Viper) (backend.MetricSender, error) {
-		v.SetDefault("graphite.address", "localhost:2003")
-		return NewClient(v.GetString("graphite.address"))
-	})
-}
+// BackendName is the name of this backend.
+const BackendName = "graphite"
 
 const sampleConfig = `
 [graphite]
@@ -39,13 +33,13 @@ func normalizeBucketName(bucket string, tagsKey string) string {
 	return bucket
 }
 
-// Client is an object that is used to send messages to a Graphite server's TCP interface.
-type Client struct {
+// client is an object that is used to send messages to a Graphite server's TCP interface.
+type client struct {
 	address string
 }
 
 // SendMetrics sends the metrics in a MetricsMap to the Graphite server.
-func (client *Client) SendMetrics(metrics types.MetricMap) error {
+func (client *client) SendMetrics(metrics types.MetricMap) error {
 	if metrics.NumStats == 0 {
 		return nil
 	}
@@ -95,16 +89,22 @@ func (client *Client) SendMetrics(metrics types.MetricMap) error {
 }
 
 // SampleConfig returns the sample config for the graphite backend.
-func (client *Client) SampleConfig() string {
+func (client *client) SampleConfig() string {
 	return sampleConfig
 }
 
+// NewClientFromViper constructs a GraphiteClient object by connecting to an address.
+func NewClientFromViper(v *viper.Viper) (backendTypes.MetricSender, error) {
+	v.SetDefault("graphite.address", "localhost:2003")
+	return NewClient(v.GetString("graphite.address"))
+}
+
 // NewClient constructs a GraphiteClient object by connecting to an address.
-func NewClient(address string) (backend.MetricSender, error) {
-	return &Client{address}, nil
+func NewClient(address string) (backendTypes.MetricSender, error) {
+	return &client{address}, nil
 }
 
 // BackendName returns the name of the backend.
-func (client *Client) BackendName() string {
-	return backendName
+func (client *client) BackendName() string {
+	return BackendName
 }
