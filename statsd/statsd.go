@@ -12,7 +12,6 @@ import (
 	"github.com/atlassian/gostatsd/backend"
 	backendTypes "github.com/atlassian/gostatsd/backend/types"
 	"github.com/atlassian/gostatsd/cloudprovider"
-	_ "github.com/atlassian/gostatsd/cloudprovider/providers" // import cloud providers for initialisation
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/spf13/pflag"

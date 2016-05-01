@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/atlassian/gostatsd/cloudprovider"
+	cloudTypes "github.com/atlassian/gostatsd/cloudprovider/types"
 	"github.com/atlassian/gostatsd/types"
 
 	log "github.com/Sirupsen/logrus"
@@ -55,14 +56,14 @@ type metricReceiver struct {
 	packetsReceived uint64
 	metricsReceived uint64
 
-	cloud     cloudprovider.Interface // Cloud provider interface
-	handler   Handler                 // handler to invoke
-	namespace string                  // Namespace to prefix all metrics
-	tags      types.Tags              // Tags to add to all metrics
+	cloud     cloudTypes.Interface // Cloud provider interface
+	handler   Handler              // handler to invoke
+	namespace string               // Namespace to prefix all metrics
+	tags      types.Tags           // Tags to add to all metrics
 }
 
 // NewMetricReceiver initialises a new Receiver.
-func NewMetricReceiver(ns string, tags []string, cloud cloudprovider.Interface, handler Handler) Receiver {
+func NewMetricReceiver(ns string, tags []string, cloud cloudTypes.Interface, handler Handler) Receiver {
 	return &metricReceiver{
 		cloud:     cloud,
 		handler:   handler,
