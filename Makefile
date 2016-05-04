@@ -57,7 +57,7 @@ junit-test: build
 check:
 	go install
 	go install ./tester
-	gometalinter --deadline=120s ./... --vendor --linter='errcheck:errcheck:-ignore=net:Close' --cyclo-over=20 \
+	gometalinter --deadline=180s ./... --vendor --linter='errcheck:errcheck:-ignore=net:Close' --cyclo-over=20 \
 		--linter='vet:go tool vet -composites=false {paths}:PATH:LINE:MESSAGE' --disable=interfacer --dupl-threshold=200
 
 check-all:
