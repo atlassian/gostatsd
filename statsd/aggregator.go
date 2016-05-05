@@ -3,61 +3,48 @@ package statsd
 import (
 	"fmt"
 	"math"
-	"runtime"
 	"sort"
-	"strings"
-	"sync"
 	"time"
 
-	"github.com/atlassian/gostatsd/backend"
 	"github.com/atlassian/gostatsd/types"
 
 	log "github.com/Sirupsen/logrus"
 )
 
-// metricAggregatorStats is a bookkeeping structure for statistics about a MetricAggregator.
-type metricAggregatorStats struct {
-	BadLines       int64
-	LastMessage    time.Time
-	LastFlush      time.Time
-	LastFlushError time.Time
-	NumStats       int
-	ProcessingTime time.Duration
+// ProcessFunc is a function that gets executed by Aggregator with its state passed into the function.
+type ProcessFunc func(*types.MetricMap)
+
+// Aggregator is an object that aggregates statsd metrics.
+// The function NewAggregator should be used to create the objects.
+//
+// Incoming metrics should be passed via Receive function.
+type Aggregator interface {
+	Receive(*types.Metric, time.Time)
+	Flush(func() time.Time) *types.MetricMap
+	Process(ProcessFunc)
+	Reset(time.Time)
 }
 
-// MetricAggregator is an object that aggregates statsd metrics.
-// The function NewMetricAggregator should be used to create the objects.
-//
-// Incoming metrics should be sent to the MetricQueue channel.
-type MetricAggregator struct {
-	sync.Mutex
-	ExpiryInterval    time.Duration      // How often to expire metrics
-	FlushInterval     time.Duration      // How often to flush metrics to the sender
-	LastFlush         time.Time          // Last time the metrics where aggregated
-	MaxWorkers        int                // Number of workers to metrics queue
-	MetricQueue       chan *types.Metric // Queue on which metrics are received
-	PercentThresholds []float64
-	Senders           []backend.MetricSender // The sender to which metrics are flushed
-	Stats             metricAggregatorStats
-	Tags              types.Tags // Tags to add to all metrics
+type aggregator struct {
+	expiryInterval    time.Duration // How often to expire metrics
+	lastFlush         time.Time     // Last time the metrics where aggregated
+	percentThresholds []float64
+	defaultTags       string // Tags to add to system metrics
 	types.MetricMap
 }
 
-// NewMetricAggregator creates a new MetricAggregator object.
-func NewMetricAggregator(senders []backend.MetricSender, percentThresholds []float64, flushInterval time.Duration, expiryInterval time.Duration, maxWorkers int, tags []string) *MetricAggregator {
-	a := MetricAggregator{}
+// NewAggregator creates a new Aggregator object.
+func NewAggregator(percentThresholds []float64, flushInterval, expiryInterval time.Duration, defaultTags []string) Aggregator {
+	a := aggregator{}
 	a.FlushInterval = flushInterval
-	a.LastFlush = time.Now()
-	a.ExpiryInterval = expiryInterval
-	a.Senders = senders
-	a.MetricQueue = make(chan *types.Metric, maxQueueSize*10) // we are going to receive more metrics than messages
-	a.MaxWorkers = maxWorkers
-	a.PercentThresholds = percentThresholds
+	a.lastFlush = time.Now()
+	a.expiryInterval = expiryInterval
+	a.percentThresholds = percentThresholds
 	a.Counters = types.Counters{}
 	a.Timers = types.Timers{}
 	a.Gauges = types.Gauges{}
 	a.Sets = types.Sets{}
-	a.Tags = tags
+	a.defaultTags = types.Tags(defaultTags).String()
 	return &a
 }
 
@@ -67,13 +54,13 @@ func round(v float64) float64 {
 	return math.Floor(v + 0.5)
 }
 
-// flush prepares the contents of a MetricAggregator for sending via the Sender.
-func (a *MetricAggregator) flush(now func() time.Time) (metrics types.MetricMap) {
-	a.Lock()
-	defer a.Unlock()
-
+// Flush prepares the contents of an Aggregator for sending via the Sender.
+func (a *aggregator) Flush(now func() time.Time) *types.MetricMap {
 	startTime := now()
-	flushInterval := startTime.Sub(a.LastFlush)
+	flushInterval := startTime.Sub(a.lastFlush)
+
+	statName := internalStatName("num_stats")
+	a.receiveCounter(statName, a.defaultTags, int64(a.NumStats), startTime)
 
 	a.Counters.Each(func(key, tagsKey string, counter types.Counter) {
 		perSecond := float64(counter.Value) / flushInterval.Seconds()
@@ -102,7 +89,7 @@ func (a *MetricAggregator) flush(now func() time.Time) (metrics types.MetricMap)
 			var sum = timer.Min
 			var thresholdBoundary = timer.Max
 
-			for _, pct := range a.PercentThresholds {
+			for _, pct := range a.percentThresholds {
 				numInThreshold := timer.Count
 				if timer.Count > 1 {
 					numInThreshold = int(round(math.Abs(pct) / 100 * count))
@@ -162,28 +149,18 @@ func (a *MetricAggregator) flush(now func() time.Time) (metrics types.MetricMap)
 		}
 	})
 
-	tags := a.Tags.String()
-	a.Stats.NumStats = a.NumStats
-	a.Stats.ProcessingTime = now().Sub(startTime)
+	flushTime := now()
 
-	statName := internalStatName("numStats")
-	a.receiveCounter(statName, tags, int64(a.NumStats), now())
-	m := a.Counters[statName][tags]
-	m.PerSecond = float64(a.NumStats) / flushInterval.Seconds()
-	a.Counters[statName][tags] = m
+	a.ProcessingTime = flushTime.Sub(startTime)
 
-	statName = internalStatName("processingTime")
-	a.receiveGauge(statName, tags, float64(a.Stats.ProcessingTime)/float64(time.Millisecond), now())
+	statName = internalStatName("processing_time")
+	a.receiveGauge(statName, a.defaultTags, float64(a.ProcessingTime)/float64(time.Millisecond), flushTime)
 
-	if badLines, ok := a.Counters[internalStatName("bad_lines_seen")][tags]; ok {
-		a.Stats.BadLines += badLines.Value
-	}
+	a.lastFlush = flushTime
 
-	a.LastFlush = now()
-
-	return types.MetricMap{
-		NumStats:       a.Stats.NumStats,
-		ProcessingTime: a.Stats.ProcessingTime,
+	return &types.MetricMap{
+		NumStats:       a.NumStats,
+		ProcessingTime: a.ProcessingTime,
 		FlushInterval:  flushInterval,
 		Counters:       a.Counters.Clone(),
 		Timers:         a.Timers.Clone(),
@@ -192,26 +169,28 @@ func (a *MetricAggregator) flush(now func() time.Time) (metrics types.MetricMap)
 	}
 }
 
-func (a *MetricAggregator) isExpired(now, ts time.Time) bool {
-	return a.ExpiryInterval != time.Duration(0) && now.Sub(ts) > a.ExpiryInterval
+func (a *aggregator) Process(f ProcessFunc) {
+	f(&a.MetricMap)
 }
 
-func (a *MetricAggregator) deleteMetric(key, tagsKey string, metrics types.AggregatedMetrics) {
+func (a *aggregator) isExpired(now, ts time.Time) bool {
+	return a.expiryInterval != time.Duration(0) && now.Sub(ts) > a.expiryInterval
+}
+
+func deleteMetric(key, tagsKey string, metrics types.AggregatedMetrics) {
 	metrics.DeleteChild(key, tagsKey)
 	if !metrics.HasChildren(key) {
 		metrics.Delete(key)
 	}
 }
 
-// Reset clears the contents of a MetricAggregator
-func (a *MetricAggregator) Reset(now time.Time) {
-	a.Lock()
-	defer a.Unlock()
+// Reset clears the contents of an Aggregator.
+func (a *aggregator) Reset(now time.Time) {
 	a.NumStats = 0
 
 	a.Counters.Each(func(key, tagsKey string, counter types.Counter) {
 		if a.isExpired(now, counter.Timestamp) {
-			a.deleteMetric(key, tagsKey, a.Counters)
+			deleteMetric(key, tagsKey, a.Counters)
 		} else {
 			interval := counter.Interval
 			a.Counters[key][tagsKey] = types.Counter{Interval: interval}
@@ -220,7 +199,7 @@ func (a *MetricAggregator) Reset(now time.Time) {
 
 	a.Timers.Each(func(key, tagsKey string, timer types.Timer) {
 		if a.isExpired(now, timer.Timestamp) {
-			a.deleteMetric(key, tagsKey, a.Timers)
+			deleteMetric(key, tagsKey, a.Timers)
 		} else {
 			interval := timer.Interval
 			a.Timers[key][tagsKey] = types.Timer{Interval: interval}
@@ -229,14 +208,14 @@ func (a *MetricAggregator) Reset(now time.Time) {
 
 	a.Gauges.Each(func(key, tagsKey string, gauge types.Gauge) {
 		if a.isExpired(now, gauge.Timestamp) {
-			a.deleteMetric(key, tagsKey, a.Gauges)
+			deleteMetric(key, tagsKey, a.Gauges)
 		}
 		// No reset for gauges, they keep the last value until expiration
 	})
 
 	a.Sets.Each(func(key, tagsKey string, set types.Set) {
 		if a.isExpired(now, set.Timestamp) {
-			a.deleteMetric(key, tagsKey, a.Sets)
+			deleteMetric(key, tagsKey, a.Sets)
 		} else {
 			interval := set.Interval
 			a.Sets[key][tagsKey] = types.Set{Interval: interval, Values: make(map[string]int64)}
@@ -244,12 +223,12 @@ func (a *MetricAggregator) Reset(now time.Time) {
 	})
 }
 
-func (a *MetricAggregator) receiveCounter(name, tags string, value int64, now time.Time) {
+func (a *aggregator) receiveCounter(name, tags string, value int64, now time.Time) {
 	v, ok := a.Counters[name]
 	if ok {
 		c, ok := v[tags]
 		if ok {
-			c.Value = c.Value + value
+			c.Value += value
 			a.Counters[name][tags] = c
 		} else {
 			a.Counters[name][tags] = types.NewCounter(now, a.FlushInterval, value)
@@ -260,7 +239,7 @@ func (a *MetricAggregator) receiveCounter(name, tags string, value int64, now ti
 	}
 }
 
-func (a *MetricAggregator) receiveGauge(name, tags string, value float64, now time.Time) {
+func (a *aggregator) receiveGauge(name, tags string, value float64, now time.Time) {
 	// TODO: handle +/-
 	v, ok := a.Gauges[name]
 	if ok {
@@ -277,7 +256,7 @@ func (a *MetricAggregator) receiveGauge(name, tags string, value float64, now ti
 	}
 }
 
-func (a *MetricAggregator) receiveTimer(name, tags string, value float64, now time.Time) {
+func (a *aggregator) receiveTimer(name, tags string, value float64, now time.Time) {
 	v, ok := a.Timers[name]
 	if ok {
 		t, ok := v[tags]
@@ -293,7 +272,7 @@ func (a *MetricAggregator) receiveTimer(name, tags string, value float64, now ti
 	}
 }
 
-func (a *MetricAggregator) receiveSet(name, tags string, value string, now time.Time) {
+func (a *aggregator) receiveSet(name, tags string, value string, now time.Time) {
 	v, ok := a.Sets[name]
 	if ok {
 		s, ok := v[tags]
@@ -318,14 +297,9 @@ func (a *MetricAggregator) receiveSet(name, tags string, value string, now time.
 	}
 }
 
-// receiveMetric is called for each incoming metric on MetricChan.
-func (a *MetricAggregator) receiveMetric(m *types.Metric, now time.Time) {
-	a.Lock()
-	defer a.Unlock()
-
-	if !strings.HasPrefix(m.Name, internalStatName("")) {
-		a.NumStats++
-	}
+// Receive aggregates an incoming metric.
+func (a *aggregator) Receive(m *types.Metric, now time.Time) {
+	a.NumStats++
 	tagsKey := m.Tags.String()
 
 	switch m.Type {
@@ -339,50 +313,5 @@ func (a *MetricAggregator) receiveMetric(m *types.Metric, now time.Time) {
 		a.receiveSet(m.Name, tagsKey, m.StringValue, now)
 	default:
 		log.Errorf("Unknow metric type %s for %s", m.Type, m.Name)
-	}
-
-	a.Stats.LastMessage = time.Now()
-}
-
-func (a *MetricAggregator) processQueue() {
-	for metric := range a.MetricQueue {
-		a.receiveMetric(metric, time.Now())
-		runtime.Gosched()
-	}
-}
-
-// Aggregate starts the MetricAggregator so it begins consuming metrics from MetricChan
-// and flushing them periodically via its Sender.
-func (a *MetricAggregator) Aggregate() {
-	flushChan := make(chan error)
-	flushTimer := time.NewTimer(a.FlushInterval)
-
-	for i := 0; i < a.MaxWorkers; i++ {
-		go a.processQueue()
-	}
-
-	for {
-		select {
-		case <-flushTimer.C: // Time to flush to the backends
-			flushed := a.flush(time.Now) // pass func for stubbing
-			a.Reset(time.Now())
-			for _, sender := range a.Senders {
-				s := sender
-				go func() {
-					log.Debugf("Send metrics to backend %s", s.BackendName())
-					flushChan <- s.SendMetrics(flushed)
-				}()
-			}
-			flushTimer = time.NewTimer(a.FlushInterval)
-		case flushResult := <-flushChan:
-			a.Lock()
-			if flushResult != nil {
-				log.Errorf("Sending metrics to backend failed: %s", flushResult)
-				a.Stats.LastFlushError = time.Now()
-			} else {
-				a.Stats.LastFlush = time.Now()
-			}
-			a.Unlock()
-		}
 	}
 }

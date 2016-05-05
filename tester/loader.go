@@ -1,9 +1,12 @@
 package main
 
 import (
-	"math/rand"
+	"bytes"
+	"net"
 	"sync/atomic"
 	"time"
+
+	log "github.com/Sirupsen/logrus"
 )
 
 func (s *Server) load() {
@@ -13,16 +16,21 @@ func (s *Server) load() {
 			atomic.StoreInt64(&s.Stats.NumMetrics, 0)
 			atomic.StoreInt64(&s.Stats.NumPackets, 0)
 			s.Stats.StartTime = time.Now()
-			s.Started = true
+			atomic.StoreInt32(&s.Started, 1)
 
 			go func() {
 				for worker := 0; worker < s.Concurrency; worker++ {
-					rand.Seed(time.Now().Unix())
 					go func() {
-						for s.Started {
-							buf := s.writeLines()
+						conn, err := net.Dial("udp", s.MetricsAddr)
+						if err != nil {
+							log.Panicf("Error connecting to statsd backend: %v", err)
+						}
+						defer conn.Close()
+						buf := new(bytes.Buffer)
+						for atomic.LoadInt32(&s.Started) != 0 {
+							s.writeLines(conn, buf)
 							if buf.Len() > 0 {
-								s.write(buf)
+								s.write(conn, buf)
 							}
 							time.Sleep(100 * time.Microsecond)
 						}
@@ -30,7 +38,7 @@ func (s *Server) load() {
 				}
 			}()
 		case <-s.stop:
-			s.Started = false
+			atomic.StoreInt32(&s.Started, 0)
 			s.gatherStats()
 		}
 	}

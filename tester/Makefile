@@ -16,7 +16,7 @@ setup:
 	GO15VENDOREXPERIMENT=1 glide install
 
 build: *.go fmt
-	go build -o $(BINARY_NAME) $(GOBUILD_VERSION_ARGS) github.com/atlassian/$(BINARY_NAME)
+	go build -o $(BINARY_NAME) $(GOBUILD_VERSION_ARGS) github.com/atlassian/gostatsd/tester
 
 fmt:
 	gofmt -w=true -s $(shell find . -type f -name '*.go' -not -path "./vendor/*")
@@ -45,7 +45,7 @@ commit-hook:
 	cp dev/commit-hook.sh .git/hooks/pre-commit
 
 cross: fmt
-	CGO_ENABLED=0 GOOS=linux go build -o $(BINARY_NAME)-linux $(GOBUILD_VERSION_ARGS) -a -installsuffix cgo  github.com/atlassian/$(BINARY_NAME)
+	CGO_ENABLED=0 GOOS=linux go build -o $(BINARY_NAME)-linux $(GOBUILD_VERSION_ARGS) -a -installsuffix cgo  github.com/atlassian/gostatsd/tester
 
 docker: cross
 	docker build -t $(IMAGE_NAME):$(GIT_HASH) .

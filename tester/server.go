@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"sync/atomic"
 	"time"
 
 	log "github.com/Sirupsen/logrus"
@@ -27,12 +28,14 @@ type Server struct {
 	stop  chan bool
 	stats chan Stats
 
-	Load    bool
-	Started bool
-	Verbose bool
-	Version bool
-
 	Stats Stats
+
+	Benchmark  int
+	Started    int32
+	Load       bool
+	Verbose    bool
+	Version    bool
+	CPUProfile bool
 }
 
 // Stats reprensents the stats for the session.
@@ -63,6 +66,8 @@ func (s *Server) AddFlags(fs *pflag.FlagSet) {
 	fs.IntVar(&s.MaxPacketSize, "max-packet-size", s.MaxPacketSize, "Max size of the packet sent to statsd")
 	fs.DurationVar(&s.FlushInterval, "flush-interval", s.FlushInterval, "How often to flush metrics to the backends")
 	fs.BoolVar(&s.Load, "load", false, "Trigger load testing")
+	fs.IntVar(&s.Benchmark, "benchmark", 0, "Time in seconds to run benchmark (0 - disabled)")
+	fs.BoolVar(&s.CPUProfile, "cpu-profile", false, "Enable CPU profiler for benchmark")
 	fs.StringVar(&s.MetricsAddr, "metrics-addr", s.MetricsAddr, "Address on which to send metrics")
 	fs.StringVar(&s.Namespace, "namespace", s.Namespace, "Namespace all metrics")
 	fs.BoolVar(&s.Verbose, "verbose", false, "Verbose")
@@ -78,6 +83,9 @@ func (s *Server) Run() error {
 
 	if s.Namespace == "" {
 		s.Namespace = os.Getenv("MICROS_ENV")
+	}
+	if s.Namespace != "" {
+		s.Namespace += "."
 	}
 
 	if s.Concurrency <= 0 || s.Concurrency > 65536 {
@@ -114,7 +122,7 @@ func (s *Server) startHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) stopHandler(w http.ResponseWriter, r *http.Request) {
-	if s.Started {
+	if atomic.LoadInt32(&s.Started) != 0 {
 		log.Info("stopping process")
 		s.stop <- true
 		stats := <-s.stats
@@ -143,7 +151,7 @@ func (s *Server) gatherStats() {
 	s.Stats.StopTime = time.Now()
 	duration := s.Stats.StopTime.Sub(s.Stats.StartTime)
 	s.Stats.Duration = duration.String()
-	s.Stats.MetricsPerSecond = float64(s.Stats.NumMetrics) / duration.Seconds()
-	s.Stats.PacketsPerSecond = float64(s.Stats.NumPackets) / duration.Seconds()
+	s.Stats.MetricsPerSecond = float64(atomic.LoadInt64(&s.Stats.NumMetrics)) / duration.Seconds()
+	s.Stats.PacketsPerSecond = float64(atomic.LoadInt64(&s.Stats.NumPackets)) / duration.Seconds()
 	s.stats <- s.Stats
 }

@@ -5,133 +5,116 @@ import (
 	"fmt"
 	"io"
 	"net"
-	"runtime"
 	"strings"
+	"sync/atomic"
+	"time"
 
 	"github.com/atlassian/gostatsd/cloudprovider"
 	"github.com/atlassian/gostatsd/types"
 
 	log "github.com/Sirupsen/logrus"
+	"golang.org/x/net/context"
 )
 
-// DefaultMetricsAddr is the default address on which a MetricReceiver will listen.
-const (
-	defaultMetricsAddr = ":8125"
-	maxQueueSize       = 100000      // arbitrary: testing shows it rarely goes above 2k
-	packetBufSize      = 1024 * 1024 // 1 MB
-	packetSizeUDP      = 1500
-)
+const packetSizeUDP = 1500
 
-// Handler interface can be used to handle metrics for a MetricReceiver.
+// Handler interface can be used to handle metrics for a Receiver.
 type Handler interface {
-	HandleMetric(m *types.Metric)
+	HandleMetric(context.Context, *types.Metric) error
 }
 
 // The HandlerFunc type is an adapter to allow the use of ordinary functions as metric handlers.
-type HandlerFunc func(*types.Metric)
+type HandlerFunc func(context.Context, *types.Metric) error
 
 // HandleMetric calls f(m).
-func (f HandlerFunc) HandleMetric(m *types.Metric) {
-	f(m)
+func (f HandlerFunc) HandleMetric(ctx context.Context, m *types.Metric) error {
+	return f(ctx, m)
 }
 
-// MetricReceiver receives data on its listening port and converts lines in to Metrics.
-// For each types.Metric it calls r.Handler.HandleMetric()
-type MetricReceiver struct {
-	Addr          string                  // UDP address on which to listen for metrics
-	Cloud         cloudprovider.Interface // Cloud provider interface
-	Handler       Handler                 // handler to invoke
-	MaxReaders    int                     // Maximum number of workers
-	MaxMessengers int                     // Maximum number of workers
-	Namespace     string                  // Namespace to prefix all metrics
-	Tags          types.Tags              // Tags to add to all metrics
+// Receiver receives data on its PacketConn and converts lines into Metrics.
+// For each types.Metric it calls Handler.HandleMetric()
+type Receiver interface {
+	Receive(context.Context, net.PacketConn) error
+	GetStats() ReceiverStats
 }
 
-type message struct {
-	addr net.Addr
-	msg  []byte
+// ReceiverStats holds statistics for a Receiver.
+type ReceiverStats struct {
+	LastPacket      time.Time
+	BadLines        uint64
+	PacketsReceived uint64
+	MetricsReceived uint64
 }
 
-// NewMetricReceiver initialises a new MetricReceiver.
-func NewMetricReceiver(addr, ns string, maxReaders, maxMessengers int, tags []string, cloud cloudprovider.Interface, handler Handler) *MetricReceiver {
-	return &MetricReceiver{
-		Addr:          addr,
-		Cloud:         cloud,
-		Handler:       handler,
-		MaxReaders:    maxReaders,
-		MaxMessengers: maxMessengers,
-		Namespace:     ns,
-		Tags:          tags,
+type metricReceiver struct {
+	// Counter fields below must be read/written only using atomic instructions.
+	// 64-bit fields must be the first fields in the struct to guarantee proper memory alignment.
+	// See https://golang.org/pkg/sync/atomic/#pkg-note-BUG
+	lastPacket      int64 // When last packet was received. Unix timestamp in nsec.
+	badLines        uint64
+	packetsReceived uint64
+	metricsReceived uint64
+
+	cloud     cloudprovider.Interface // Cloud provider interface
+	handler   Handler                 // handler to invoke
+	namespace string                  // Namespace to prefix all metrics
+	tags      types.Tags              // Tags to add to all metrics
+}
+
+// NewMetricReceiver initialises a new Receiver.
+func NewMetricReceiver(ns string, tags []string, cloud cloudprovider.Interface, handler Handler) Receiver {
+	return &metricReceiver{
+		cloud:     cloud,
+		handler:   handler,
+		namespace: ns,
+		tags:      tags,
 	}
 }
 
-// ListenAndReceive listens on the UDP network address of srv.Addr and then calls
-// Receive to handle the incoming datagrams. If Addr is blank then DefaultMetricsAddr is used.
-func (mr *MetricReceiver) ListenAndReceive() error {
-	addr := mr.Addr
-	if addr == "" {
-		addr = defaultMetricsAddr
-	}
-	c, err := net.ListenPacket("udp", addr)
-	if err != nil {
-		return err
-	}
-
-	mq := make(messageQueue, maxQueueSize)
-	for i := 0; i < mr.MaxMessengers; i++ {
-		go mq.dequeue(mr)
-	}
-	for i := 0; i < mr.MaxReaders; i++ {
-		go mr.receive(c, mq)
-	}
-	return nil
-}
-
-// increment allows counting server stats using default tags.
-func (mr *MetricReceiver) increment(name string, value int) {
-	mr.Handler.HandleMetric(types.NewMetric(internalStatName(name), float64(value), types.COUNTER, mr.Tags))
-}
-
-type messageQueue chan message
-
-func (mq messageQueue) enqueue(m message, mr *MetricReceiver) {
-	mq <- m
-}
-
-func (mq messageQueue) dequeue(mr *MetricReceiver) {
-	for m := range mq {
-		mr.handleMessage(m.addr, m.msg)
-		runtime.Gosched()
+// GetStats returns current Receiver stats. Safe for concurrent use.
+func (mr *metricReceiver) GetStats() ReceiverStats {
+	return ReceiverStats{
+		time.Unix(0, atomic.LoadInt64(&mr.lastPacket)),
+		atomic.LoadUint64(&mr.badLines),
+		atomic.LoadUint64(&mr.packetsReceived),
+		atomic.LoadUint64(&mr.metricsReceived),
 	}
 }
 
-// receive accepts incoming datagrams on c and calls mr.handleMessage() for each message.
-func (mr *MetricReceiver) receive(c net.PacketConn, mq messageQueue) {
-	defer c.Close()
-
-	var buf []byte
+// Receive accepts incoming datagrams on c, parses them and calls Handler.HandleMetric() for each metric.
+func (mr *metricReceiver) Receive(ctx context.Context, c net.PacketConn) error {
+	buf := make([]byte, packetSizeUDP)
 	for {
-		if len(buf) < packetSizeUDP {
-			buf = make([]byte, packetBufSize, packetBufSize)
-		}
-
+		// This will error out when the socket is closed.
 		nbytes, addr, err := c.ReadFrom(buf)
 		if err != nil {
-			log.Printf("Error %s", err)
+			if netErr, ok := err.(net.Error); ok && !netErr.Temporary() {
+				select {
+				case <-ctx.Done():
+				default:
+					return fmt.Errorf("non-temporary error reading from socket: %v", err)
+				}
+				return nil
+			}
+			log.Warnf("Error reading from socket: %v", err)
 			continue
 		}
-		msg := buf[:nbytes]
-		mr.increment("packets_received", 1)
-		mq.enqueue(message{addr, msg}, mr)
-		buf = buf[nbytes:]
-		runtime.Gosched()
+		// TODO consider updating counter for every N-th iteration to reduce contention
+		atomic.AddUint64(&mr.packetsReceived, 1)
+		atomic.StoreInt64(&mr.lastPacket, time.Now().UnixNano())
+		if err := mr.handleMessage(ctx, addr, buf[:nbytes]); err != nil {
+			if err == context.Canceled || err == context.DeadlineExceeded {
+				return err
+			}
+			log.Warnf("Failed to handle message: %v", err)
+		}
 	}
 }
 
-// handleMessage handles the contents of a datagram and call r.Handler.HandleMetric()
-// for each line that successfully parses in to a types.Metric.
-func (mr *MetricReceiver) handleMessage(addr net.Addr, msg []byte) {
-	numMetrics := 0
+// handleMessage handles the contents of a datagram and call Handler.HandleMetric()
+// for each line that successfully parses into a types.Metric.
+func (mr *metricReceiver) handleMessage(ctx context.Context, addr net.Addr, msg []byte) error {
+	var numMetrics uint16
 	var triedToGetTags bool
 	var additionalTags types.Tags
 	buf := bytes.NewBuffer(msg)
@@ -140,8 +123,7 @@ func (mr *MetricReceiver) handleMessage(addr net.Addr, msg []byte) {
 
 		// protocol does not require line to end in \n, if EOF use received line if valid
 		if readerr != nil && readerr != io.EOF {
-			log.Warnf("Error reading message from %s: %v", addr, readerr)
-			return
+			return fmt.Errorf("error reading message from %s: %v", addr, readerr)
 		} else if readerr != io.EOF {
 			// remove newline, only if not EOF
 			if len(line) > 0 {
@@ -155,7 +137,7 @@ func (mr *MetricReceiver) handleMessage(addr net.Addr, msg []byte) {
 				// logging as debug to avoid spamming logs when a bad actor sends
 				// badly formatted messages
 				log.Debugf("Error parsing line %q from %s: %v", line, addr, err)
-				mr.increment("bad_lines_seen", 1)
+				atomic.AddUint64(&mr.badLines, 1)
 				continue
 			}
 			if !triedToGetTags {
@@ -164,21 +146,22 @@ func (mr *MetricReceiver) handleMessage(addr net.Addr, msg []byte) {
 			}
 			if len(additionalTags) > 0 {
 				metric.Tags = append(metric.Tags, additionalTags...)
-				log.Debugf("Metric tags: %v", metric.Tags)
 			}
-			mr.Handler.HandleMetric(metric)
+			if err := mr.handler.HandleMetric(ctx, metric); err != nil {
+				return err
+			}
 			numMetrics++
 		}
 
 		if readerr == io.EOF {
 			// if was EOF, finished handling
-			mr.increment("metrics_received", numMetrics)
-			return
+			atomic.AddUint64(&mr.metricsReceived, uint64(numMetrics))
+			return nil
 		}
 	}
 }
 
-func (mr *MetricReceiver) getAdditionalTags(addr string) types.Tags {
+func (mr *metricReceiver) getAdditionalTags(addr string) types.Tags {
 	n := strings.IndexByte(addr, ':')
 	if n <= 1 {
 		return nil
@@ -186,10 +169,10 @@ func (mr *MetricReceiver) getAdditionalTags(addr string) types.Tags {
 	hostname := addr[0:n]
 	if net.ParseIP(hostname) != nil {
 		tags := make(types.Tags, 0, 16)
-		if mr.Cloud != nil {
-			instance, err := cloudprovider.GetInstance(mr.Cloud, hostname)
+		if mr.cloud != nil {
+			instance, err := cloudprovider.GetInstance(mr.cloud, hostname)
 			if err != nil {
-				log.Warnf("Error retrieving instance details from cloud provider %s: %v", mr.Cloud.ProviderName(), err)
+				log.Warnf("Error retrieving instance details from cloud provider %s: %v", mr.cloud.ProviderName(), err)
 			} else {
 				hostname = instance.ID
 				tags = append(tags, fmt.Sprintf("region:%s", instance.Region))
@@ -203,13 +186,13 @@ func (mr *MetricReceiver) getAdditionalTags(addr string) types.Tags {
 }
 
 // ParseLine with lexer impl.
-func (mr *MetricReceiver) parseLine(line []byte) (*types.Metric, error) {
+func (mr *metricReceiver) parseLine(line []byte) (*types.Metric, error) {
 	llen := len(line)
 	if llen == 0 {
 		return nil, nil
 	}
 	metric := &types.Metric{}
-	metric.Tags = append(metric.Tags, mr.Tags...)
-	l := &lexer{input: line, len: llen, m: metric, namespace: mr.Namespace}
+	metric.Tags = append(metric.Tags, mr.tags...)
+	l := &lexer{input: line, len: llen, m: metric, namespace: mr.namespace}
 	return l.run()
 }

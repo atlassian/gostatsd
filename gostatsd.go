@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
-	"runtime/pprof"
 	"strings"
 	"syscall"
 
@@ -28,8 +27,6 @@ var (
 const (
 	// ParamVerbose enables verbose logging.
 	ParamVerbose = "verbose"
-	// ParamCPUProfile enables use of profiler and write results to this file.
-	ParamCPUProfile = "cpu-profile"
 	// ParamJSON makes logger log in JSON format.
 	ParamJSON = "json"
 	// ParamConfigPath provides file with configuration.
@@ -59,25 +56,6 @@ func main() {
 			log.Fatalf("%v", exitErr)
 		}
 	}()
-	CPUProfile := v.GetString(ParamCPUProfile)
-	if CPUProfile != "" {
-		f, err := os.Create(CPUProfile)
-		if err != nil {
-			augmentErr(&exitErr, fmt.Errorf("Failed to open profile file: %v", err))
-			return
-		}
-		defer func() {
-			if err := f.Close(); err != nil {
-				augmentErr(&exitErr, fmt.Errorf("Failed to close profile file: %v", err))
-			}
-		}()
-		err = pprof.StartCPUProfile(f)
-		if err != nil {
-			augmentErr(&exitErr, fmt.Errorf("Failed to start CPU profiler: %v", err))
-			return
-		}
-		defer pprof.StopCPUProfile()
-	}
 
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	defer cancelFunc()
@@ -93,7 +71,6 @@ func main() {
 		FlushInterval:    v.GetDuration(statsd.ParamFlushInterval),
 		MaxReaders:       v.GetInt(statsd.ParamMaxReaders),
 		MaxWorkers:       v.GetInt(statsd.ParamMaxWorkers),
-		MaxMessengers:    v.GetInt(statsd.ParamMaxMessengers),
 		MetricsAddr:      v.GetString(statsd.ParamMetricsAddr),
 		Namespace:        v.GetString(statsd.ParamNamespace),
 		PercentThreshold: toSlice(v.GetString(statsd.ParamPercentThreshold)),
@@ -117,6 +94,9 @@ func augmentErr(exitErr *error, newErr error) {
 
 func toSlice(s string) []string {
 	//TODO Remove workaround when https://github.com/spf13/viper/issues/112 is fixed
+	if s == "" {
+		return nil
+	}
 	return strings.Split(s, ",")
 }
 
@@ -147,7 +127,6 @@ func setupConfiguration() (*viper.Viper, bool, error) {
 	cmd.BoolVar(&version, ParamVersion, false, "Print the version and exit")
 	cmd.Bool(ParamVerbose, false, "Verbose")
 	cmd.Bool(ParamJSON, false, "Log in JSON format")
-	cmd.String(ParamCPUProfile, "", "Use profiler and write results to this file")
 	cmd.String(ParamConfigPath, "", "Path to the configuration file")
 
 	statsd.AddFlags(cmd)

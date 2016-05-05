@@ -1,7 +1,7 @@
 language: go
 
 go:
-  - 1.6
+  - 1.6.1
 
 before_install:
   - go get -v github.com/mattn/goveralls
@@ -10,7 +10,8 @@ install:
   - make setup
 
 script:
-  - make test
-  - make race
-  - make check || true
+  - make build-all
+  - make test-race
+  - make check
+  - make bench-race
   - make coveralls

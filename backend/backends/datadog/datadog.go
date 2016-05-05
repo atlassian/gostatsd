@@ -118,9 +118,6 @@ func (d *Client) SendMetrics(metrics types.MetricMap) error {
 		ts.AddMetric(fmt.Sprintf("%s", key), tagsKey, GAUGE, float64(len(set.Values)), set.Flush)
 	})
 
-	ts.AddMetric("statsd.numStats", "", GAUGE, float64(metrics.NumStats), metrics.FlushInterval)
-	ts.AddMetric("statsd.processingTime", "", GAUGE, float64(metrics.ProcessingTime)/float64(time.Millisecond), metrics.FlushInterval)
-
 	tsBytes, err := json.Marshal(ts)
 	if err != nil {
 		return fmt.Errorf("[%s] unable to marshal TimeSeries, %s", backendName, err.Error())

@@ -2,18 +2,19 @@ package statsd
 
 import (
 	"fmt"
+	"net"
 	"runtime"
 	"strconv"
+	"strings"
+	"sync"
 	"time"
 
 	"github.com/atlassian/gostatsd/backend"
 	_ "github.com/atlassian/gostatsd/backend/backends" // import backends for initialisation
 	"github.com/atlassian/gostatsd/cloudprovider"
 	_ "github.com/atlassian/gostatsd/cloudprovider/providers" // import cloud providers for initialisation
-	"github.com/atlassian/gostatsd/types"
 
-	"strings"
-
+	log "github.com/Sirupsen/logrus"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 	"golang.org/x/net/context"
@@ -25,11 +26,8 @@ var DefaultBackends = []string{"graphite"}
 // DefaultMaxReaders is the default number of socket reading goroutines.
 var DefaultMaxReaders = runtime.NumCPU()
 
-// DefaultMaxMessengers is the default number of message processing goroutines.
-var DefaultMaxMessengers = runtime.NumCPU() * 8
-
 // DefaultMaxWorkers is the default number of goroutines that aggregate metrics.
-var DefaultMaxWorkers = runtime.NumCPU() * 8 * 8
+var DefaultMaxWorkers = runtime.NumCPU()
 
 // DefaultPercentThreshold is the default list of applied percentiles.
 var DefaultPercentThreshold = []string{"90"}
@@ -44,6 +42,8 @@ const (
 	DefaultFlushInterval = 1 * time.Second
 	// DefaultMetricsAddr is the default address on which to listen for metrics.
 	DefaultMetricsAddr = ":8125"
+	// DefaultMaxQueueSize is the default maximum number of buffered metrics per worker.
+	DefaultMaxQueueSize = 10000 // arbitrary
 )
 
 const (
@@ -61,10 +61,10 @@ const (
 	ParamFlushInterval = "flush-interval"
 	// ParamMaxReaders is the name of parameter with number of socket readers.
 	ParamMaxReaders = "max-readers"
-	// ParamMaxMessengers is the name of parameter with number of message processing goroutines.
-	ParamMaxMessengers = "max-messengers"
 	// ParamMaxWorkers is the name of parameter with number of goroutines that aggregate metrics.
 	ParamMaxWorkers = "max-workers"
+	// ParamMaxQueueSize is the name of parameter with maximum number of buffered metrics per worker.
+	ParamMaxQueueSize = "max-queue-size"
 	// ParamMetricsAddr is the name of parameter with address on which to listen for metrics.
 	ParamMetricsAddr = "metrics-addr"
 	// ParamNamespace is the name of parameter with namespace for all metrics.
@@ -78,7 +78,6 @@ const (
 // Server encapsulates all of the parameters necessary for starting up
 // the statsd server. These can either be set via command line or directly.
 type Server struct {
-	aggregator       *MetricAggregator
 	Backends         []string
 	ConsoleAddr      string
 	CloudProvider    string
@@ -87,6 +86,7 @@ type Server struct {
 	FlushInterval    time.Duration
 	MaxReaders       int
 	MaxWorkers       int
+	MaxQueueSize     int
 	MaxMessengers    int
 	MetricsAddr      string
 	Namespace        string
@@ -104,8 +104,8 @@ func NewServer() *Server {
 		ExpiryInterval:   DefaultExpiryInterval,
 		FlushInterval:    DefaultFlushInterval,
 		MaxReaders:       DefaultMaxReaders,
-		MaxMessengers:    DefaultMaxMessengers,
 		MaxWorkers:       DefaultMaxWorkers,
+		MaxQueueSize:     DefaultMaxQueueSize,
 		MetricsAddr:      DefaultMetricsAddr,
 		PercentThreshold: DefaultPercentThreshold,
 		WebConsoleAddr:   DefaultWebConsoleAddr,
@@ -120,8 +120,8 @@ func AddFlags(fs *pflag.FlagSet) {
 	fs.Duration(ParamExpiryInterval, DefaultExpiryInterval, "After how long do we expire metrics (0 to disable)")
 	fs.Duration(ParamFlushInterval, DefaultFlushInterval, "How often to flush metrics to the backends")
 	fs.Int(ParamMaxReaders, DefaultMaxReaders, "Maximum number of socket readers")
-	fs.Int(ParamMaxMessengers, DefaultMaxMessengers, "Maximum number of workers to process messages")
 	fs.Int(ParamMaxWorkers, DefaultMaxWorkers, "Maximum number of workers to process metrics")
+	fs.Int(ParamMaxQueueSize, DefaultMaxQueueSize, "Maximum number of buffered metrics per worker")
 	fs.String(ParamMetricsAddr, DefaultMetricsAddr, "Address on which to listen for metrics")
 	fs.String(ParamNamespace, "", "Namespace all metrics")
 	fs.String(ParamWebAddr, DefaultWebConsoleAddr, "If set, use as the address of the web-based console")
@@ -133,7 +133,17 @@ func AddFlags(fs *pflag.FlagSet) {
 
 // Run runs the server until context signals done.
 func (s *Server) Run(ctx context.Context) error {
-	// Start the metric aggregator
+	return s.RunWithCustomSocket(ctx, func() (net.PacketConn, error) {
+		return net.ListenPacket("udp", s.MetricsAddr)
+	})
+}
+
+// SocketFactory is an indirection layer over net.ListenPacket() to allow for different implementations.
+type SocketFactory func() (net.PacketConn, error)
+
+// RunWithCustomSocket runs the server until context signals done.
+// Listening socket is created using sf.
+func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) error {
 	backends := make([]backend.MetricSender, 0, len(s.Backends))
 	for _, backendName := range s.Backends {
 		b, err := backend.InitBackend(backendName, s.Viper)
@@ -152,34 +162,100 @@ func (s *Server) Run(ctx context.Context) error {
 		percentThresholds = append(percentThresholds, pt)
 	}
 
-	aggregator := NewMetricAggregator(backends, percentThresholds, s.FlushInterval, s.ExpiryInterval, s.MaxWorkers, s.DefaultTags)
-	go aggregator.Aggregate()
-	s.aggregator = aggregator
-
-	// Start the metric receiver
-	f := func(metric *types.Metric) {
-		aggregator.MetricQueue <- metric
-	}
 	cloud, err := cloudprovider.InitCloudProvider(s.CloudProvider, s.Viper)
 	if err != nil {
 		return err
 	}
-	receiver := NewMetricReceiver(s.MetricsAddr, s.Namespace, s.MaxReaders, s.MaxMessengers, s.DefaultTags, cloud, HandlerFunc(f))
-	go receiver.ListenAndReceive()
+
+	// 1. Start the Dispatcher
+	factory := agrFactory{
+		percentThresholds: percentThresholds,
+		flushInterval:     s.FlushInterval,
+		expiryInterval:    s.ExpiryInterval,
+		defaultTags:       s.DefaultTags,
+	}
+	dispatcher := NewDispatcher(s.MaxWorkers, s.MaxQueueSize, &factory)
+
+	var wgDispatcher sync.WaitGroup
+	defer wgDispatcher.Wait()                                       // Wait for dispatcher to shutdown
+	ctxDisp, cancelDisp := context.WithCancel(context.Background()) // Separate context!
+	defer cancelDisp()                                              // Tell the dispatcher to shutdown
+	wgDispatcher.Add(1)
+	go func() {
+		defer wgDispatcher.Done()
+		if dispErr := dispatcher.Run(ctxDisp); dispErr != nil && dispErr != context.Canceled {
+			log.Panicf("Dispatcher quit unexpectedly: %v", dispErr)
+		}
+	}()
+
+	// 2. Start the Receiver
+	var wgReceiver sync.WaitGroup
+	defer wgReceiver.Wait() // Wait for all receivers to finish
+
+	// Open socket
+	c, err := sf()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		// This makes receivers error out and stop
+		if err := c.Close(); err != nil {
+			log.Warnf("Error closing socket: %v", err)
+		}
+	}()
+
+	receiver := NewMetricReceiver(s.Namespace, s.DefaultTags, cloud, HandlerFunc(dispatcher.DispatchMetric))
+	wgReceiver.Add(s.MaxReaders)
+	for r := 0; r < s.MaxReaders; r++ {
+		go func() {
+			defer wgReceiver.Done()
+			if err := receiver.Receive(ctx, c); err != nil && err != context.Canceled && err != context.DeadlineExceeded {
+				log.Panicf("Receiver quit unexpectedly: %v", err)
+			}
+		}()
+	}
+
+	// 3. Start the Flusher
+	flusher := NewFlusher(s.FlushInterval, dispatcher, receiver, s.DefaultTags, backends)
+	var wgFlusher sync.WaitGroup
+	defer wgFlusher.Wait() // Wait for the Flusher to finish
+	wgFlusher.Add(1)
+	go func() {
+		defer wgFlusher.Done()
+		if err := flusher.Run(ctx); err != nil && err != context.Canceled && err != context.DeadlineExceeded {
+			log.Panicf("Flusher quit unexpectedly: %v", err)
+		}
+	}()
 
 	// Start the console(s)
 	if s.ConsoleAddr != "" {
-		console := ConsoleServer{s.ConsoleAddr, aggregator}
-		go console.ListenAndServe()
+		console := ConsoleServer{s.ConsoleAddr, receiver, dispatcher, flusher}
+		go console.ListenAndServe(ctx)
 	}
-	if s.WebConsoleAddr != "" {
-		console := WebConsoleServer{s.WebConsoleAddr, aggregator}
-		go console.ListenAndServe()
-	}
+	//if s.WebConsoleAddr != "" {
+	//	console := WebConsoleServer{s.WebConsoleAddr, aggregator}
+	//	go console.ListenAndServe()
+	//}
 
 	// Listen until done
 	<-ctx.Done()
 	return ctx.Err()
+}
+
+type agrFactory struct {
+	percentThresholds []float64
+	flushInterval     time.Duration
+	expiryInterval    time.Duration
+	defaultTags       []string
+	workerNumber      uint16
+}
+
+func (af *agrFactory) Create() Aggregator {
+	tags := make([]string, 0, len(af.defaultTags)+1)
+	tags = append(tags, af.defaultTags...)
+	tags = append(tags, fmt.Sprintf("aggregator_%d", af.workerNumber))
+	af.workerNumber++
+	return NewAggregator(af.percentThresholds, af.flushInterval, af.expiryInterval, tags)
 }
 
 func internalStatName(name string) string {
