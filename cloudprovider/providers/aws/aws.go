@@ -3,7 +3,7 @@ package aws
 import (
 	"fmt"
 
-	"github.com/atlassian/gostatsd/cloudprovider"
+	cloudTypes "github.com/atlassian/gostatsd/cloudprovider/types"
 	"github.com/atlassian/gostatsd/types"
 
 	log "github.com/Sirupsen/logrus"
@@ -17,7 +17,8 @@ import (
 )
 
 const (
-	providerName = "aws"
+	// ProviderName is the name of AWS cloud provider.
+	ProviderName = "aws"
 )
 
 const sampleConfig = `
@@ -29,8 +30,8 @@ const sampleConfig = `
 	availability_zone = "us-west-2" # optional, will be retrieved from ec2 metadata if empty
 `
 
-// Provider represents an aws provider.
-type Provider struct {
+// provider represents an aws provider.
+type provider struct {
 	availabilityZone string
 	ec2              EC2
 	metadata         EC2Metadata
@@ -112,7 +113,7 @@ func newEc2Filter(name string, value string) *ec2.Filter {
 }
 
 // Instance returns the instance details from aws.
-func (p *Provider) Instance(IP string) (*types.Instance, error) {
+func (p *provider) Instance(IP string) (*cloudTypes.Instance, error) {
 	filters := []*ec2.Filter{newEc2Filter("private-ip-address", IP)}
 	request := &ec2.DescribeInstancesInput{
 		Filters: filters,
@@ -131,7 +132,7 @@ func (p *Provider) Instance(IP string) (*types.Instance, error) {
 	if err != nil {
 		log.Errorf("Error getting instance region: %v", err)
 	}
-	instance := &types.Instance{ID: aws.StringValue(i.InstanceId), Region: region}
+	instance := &cloudTypes.Instance{ID: aws.StringValue(i.InstanceId), Region: region}
 	for _, tag := range i.Tags {
 		instance.Tags = append(instance.Tags, fmt.Sprintf("%s:%s",
 			types.NormalizeTagElement(aws.StringValue(tag.Key)), types.NormalizeTagElement(aws.StringValue(tag.Value))))
@@ -140,12 +141,12 @@ func (p *Provider) Instance(IP string) (*types.Instance, error) {
 }
 
 // ProviderName returns the name of the provider.
-func (p *Provider) ProviderName() string {
-	return providerName
+func (p *provider) ProviderName() string {
+	return ProviderName
 }
 
 // SampleConfig returns the sample config for the datadog backend.
-func (p *Provider) SampleConfig() string {
+func (p *provider) SampleConfig() string {
 	return sampleConfig
 }
 
@@ -174,7 +175,7 @@ func azToRegion(az string) (string, error) {
 }
 
 // NewProvider returns a new aws provider.
-func NewProvider(awsServices Services, az string) (p *Provider, err error) {
+func NewProvider(awsServices Services, az string) (cloudTypes.Interface, error) {
 	metadata, err := awsServices.Metadata()
 	if err != nil {
 		return nil, fmt.Errorf("error creating AWS metadata client: %v", err)
@@ -195,25 +196,24 @@ func NewProvider(awsServices Services, az string) (p *Provider, err error) {
 		return nil, fmt.Errorf("error creating AWS EC2 client: %v", err)
 	}
 
-	return &Provider{availabilityZone: az, region: region, ec2: ec2, metadata: metadata}, nil
+	return &provider{availabilityZone: az, region: region, ec2: ec2, metadata: metadata}, nil
 }
 
 func newAWSSDKProvider(creds *credentials.Credentials, maxRetries int) *awsSDKProvider {
 	return &awsSDKProvider{creds: creds, maxRetries: maxRetries}
 }
 
-func init() {
-	cloudprovider.RegisterCloudProvider(providerName, func(v *viper.Viper) (cloudprovider.Interface, error) {
-		v.SetDefault("aws.max_retries", 3)
-		creds := credentials.NewChainCredentials(
-			[]credentials.Provider{
-				&credentials.EnvProvider{},
-				&ec2rolecreds.EC2RoleProvider{
-					Client: ec2metadata.New(session.New(&aws.Config{})),
-				},
-				&credentials.SharedCredentialsProvider{},
-			})
-		aws := newAWSSDKProvider(creds, v.GetInt("aws.max_retries"))
-		return NewProvider(aws, v.GetString("aws.availability_zone"))
-	})
+// NewProviderFromViper returns a new aws provider.
+func NewProviderFromViper(v *viper.Viper) (cloudTypes.Interface, error) {
+	v.SetDefault("aws.max_retries", 3)
+	creds := credentials.NewChainCredentials(
+		[]credentials.Provider{
+			&credentials.EnvProvider{},
+			&ec2rolecreds.EC2RoleProvider{
+				Client: ec2metadata.New(session.New(&aws.Config{})),
+			},
+			&credentials.SharedCredentialsProvider{},
+		})
+	aws := newAWSSDKProvider(creds, v.GetInt("aws.max_retries"))
+	return NewProvider(aws, v.GetString("aws.availability_zone"))
 }

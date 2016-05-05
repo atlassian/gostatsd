@@ -10,9 +10,8 @@ import (
 	"time"
 
 	"github.com/atlassian/gostatsd/backend"
-	_ "github.com/atlassian/gostatsd/backend/backends" // import backends for initialisation
+	backendTypes "github.com/atlassian/gostatsd/backend/types"
 	"github.com/atlassian/gostatsd/cloudprovider"
-	_ "github.com/atlassian/gostatsd/cloudprovider/providers" // import cloud providers for initialisation
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/spf13/pflag"
@@ -144,7 +143,7 @@ type SocketFactory func() (net.PacketConn, error)
 // RunWithCustomSocket runs the server until context signals done.
 // Listening socket is created using sf.
 func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) error {
-	backends := make([]backend.MetricSender, 0, len(s.Backends))
+	backends := make([]backendTypes.MetricSender, 0, len(s.Backends))
 	for _, backendName := range s.Backends {
 		b, err := backend.InitBackend(backendName, s.Viper)
 		if err != nil {

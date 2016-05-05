@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/atlassian/gostatsd/backend"
+	backendTypes "github.com/atlassian/gostatsd/backend/types"
 	"github.com/atlassian/gostatsd/types"
 
 	log "github.com/Sirupsen/logrus"
@@ -19,8 +19,9 @@ import (
 )
 
 const (
-	apiURL             = "https://app.datadoghq.com/api/v1/series"
-	backendName        = "datadog"
+	apiURL = "https://app.datadoghq.com/api/v1/series"
+	// BackendName is the name of this backend.
+	BackendName        = "datadog"
 	dogstatsdVersion   = "5.6.3"
 	dogstatsdUserAgent = "python-requests/2.6.0 CPython/2.7.10"
 	// GAUGE is datadog gauge type.
@@ -29,8 +30,8 @@ const (
 	RATE = "rate"
 )
 
-// Client represents a Datadog client.
-type Client struct {
+// client represents a Datadog client.
+type client struct {
 	APIKey      string
 	APIEndpoint string
 	Hostname    string
@@ -84,7 +85,7 @@ func (ts *TimeSeries) AddMetric(name, stags, metricType string, value float64, i
 }
 
 // SendMetrics sends metrics to Datadog.
-func (d *Client) SendMetrics(metrics types.MetricMap) error {
+func (d *client) SendMetrics(metrics types.MetricMap) error {
 	if metrics.NumStats == 0 {
 		return nil
 	}
@@ -120,12 +121,12 @@ func (d *Client) SendMetrics(metrics types.MetricMap) error {
 
 	tsBytes, err := json.Marshal(ts)
 	if err != nil {
-		return fmt.Errorf("[%s] unable to marshal TimeSeries, %s", backendName, err.Error())
+		return fmt.Errorf("[%s] unable to marshal TimeSeries, %s", BackendName, err.Error())
 	}
-	log.Debugf("[%s] json: %s", backendName, tsBytes)
+	log.Debugf("[%s] json: %s", BackendName, tsBytes)
 	req, err := http.NewRequest("POST", d.authenticatedURL(), bytes.NewBuffer(tsBytes))
 	if err != nil {
-		return fmt.Errorf("[%s] unable to create http.Request, %s", backendName, err.Error())
+		return fmt.Errorf("[%s] unable to create http.Request, %s", BackendName, err.Error())
 	}
 	req.Header.Add("Content-Type", "application/json")
 	// Mimic dogstatsd code
@@ -151,39 +152,45 @@ func (d *Client) SendMetrics(metrics types.MetricMap) error {
 	b.MaxElapsedTime = 10 * time.Second
 	err = backoff.Retry(post(req), b)
 	if err != nil {
-		return fmt.Errorf("[%s] %s", backendName, err.Error())
+		return fmt.Errorf("[%s] %s", BackendName, err.Error())
 	}
 
 	return nil
 }
 
 // SampleConfig returns the sample config for the datadog backend.
-func (d *Client) SampleConfig() string {
+func (d *client) SampleConfig() string {
 	return sampleConfig
 }
 
 // BackendName returns the name of the backend.
-func (d *Client) BackendName() string {
-	return backendName
+func (d *client) BackendName() string {
+	return BackendName
 }
 
-func (d *Client) authenticatedURL() string {
+func (d *client) authenticatedURL() string {
 	q := url.Values{
 		"api_key": []string{d.APIKey},
 	}
 	return fmt.Sprintf("%s?%s", d.APIEndpoint, q.Encode())
 }
 
+// NewClientFromViper returns a new Datadog API client.
+func NewClientFromViper(v *viper.Viper) (backendTypes.MetricSender, error) {
+	v.SetDefault("datadog.timeout", time.Duration(5)*time.Second)
+	return NewClient(v.GetString("datadog.api_key"), v.GetDuration("datadog.timeout"))
+}
+
 // NewClient returns a new Datadog API client.
-func NewClient(apiKey string, clientTimeout time.Duration) (*Client, error) {
+func NewClient(apiKey string, clientTimeout time.Duration) (backendTypes.MetricSender, error) {
 	if apiKey == "" {
-		return nil, fmt.Errorf("[%s] api_key is a required field", backendName)
+		return nil, fmt.Errorf("[%s] api_key is a required field", BackendName)
 	}
 	hostname, err := os.Hostname()
 	if err != nil {
 		return nil, err
 	}
-	return &Client{
+	return &client{
 		APIKey:      apiKey,
 		APIEndpoint: apiURL,
 		Hostname:    hostname,
@@ -191,11 +198,4 @@ func NewClient(apiKey string, clientTimeout time.Duration) (*Client, error) {
 			Timeout: clientTimeout,
 		},
 	}, nil
-}
-
-func init() {
-	backend.RegisterBackend(backendName, func(v *viper.Viper) (backend.MetricSender, error) {
-		v.SetDefault("datadog.timeout", time.Duration(5)*time.Second)
-		return NewClient(v.GetString("datadog.api_key"), v.GetDuration("datadog.timeout"))
-	})
 }

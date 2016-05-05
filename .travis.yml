@@ -12,6 +12,6 @@ install:
 script:
   - make build-all
   - make test-race
-  - make check
+  - METALINTER_CONCURRENCY=2 make check
   - make bench-race
   - make coveralls

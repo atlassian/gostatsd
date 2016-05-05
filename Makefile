@@ -8,6 +8,7 @@ GOBUILD_VERSION_ARGS := -ldflags "-s -X $(VERSION_VAR)=$(REPO_VERSION) -X $(GIT_
 BINARY_NAME := gostatsd
 IMAGE_NAME := atlassianlabs/$(BINARY_NAME)
 ARCH ?= darwin
+METALINTER_CONCURRENCY ?= 4
 
 setup:
 	go get -v -u github.com/Masterminds/glide
@@ -57,13 +58,13 @@ junit-test: build
 check:
 	go install
 	go install ./tester
-	gometalinter --deadline=180s ./... --vendor --linter='errcheck:errcheck:-ignore=net:Close' --cyclo-over=20 \
+	gometalinter --concurrency=$(METALINTER_CONCURRENCY) --deadline=180s ./... --vendor --linter='errcheck:errcheck:-ignore=net:Close' --cyclo-over=20 \
 		--linter='vet:go tool vet -composites=false {paths}:PATH:LINE:MESSAGE' --disable=interfacer --dupl-threshold=200
 
 check-all:
 	go install
 	go install ./tester
-	gometalinter --deadline=600s ./... --vendor --cyclo-over=20 \
+	gometalinter --concurrency=$(METALINTER_CONCURRENCY) --deadline=600s ./... --vendor --cyclo-over=20 \
 		--linter='vet:go tool vet {paths}:PATH:LINE:MESSAGE' --dupl-threshold=65
 
 profile:

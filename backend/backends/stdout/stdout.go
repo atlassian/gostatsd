@@ -6,27 +6,27 @@ import (
 	"strings"
 	"time"
 
-	"github.com/atlassian/gostatsd/backend"
+	backendTypes "github.com/atlassian/gostatsd/backend/types"
 	"github.com/atlassian/gostatsd/types"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/spf13/viper"
 )
 
-const backendName = "stdout"
+// BackendName is the name of this backend.
+const BackendName = "stdout"
 
-func init() {
-	backend.RegisterBackend(backendName, func(v *viper.Viper) (backend.MetricSender, error) {
-		return NewClient()
-	})
+// client is an object that is used to send messages to stdout.
+type client struct{}
+
+// NewClientFromViper constructs a stdout backend.
+func NewClientFromViper(v *viper.Viper) (backendTypes.MetricSender, error) {
+	return NewClient()
 }
 
-// Client is an object that is used to send messages to stdout.
-type Client struct{}
-
-// NewClient constructs a StdoutClient object.
-func NewClient() (backend.MetricSender, error) {
-	return &Client{}, nil
+// NewClient constructs a stdout backend.
+func NewClient() (backendTypes.MetricSender, error) {
+	return &client{}, nil
 }
 
 // composeMetricName adds the key and the tags to compose the metric name.
@@ -41,12 +41,12 @@ func composeMetricName(key string, tagsKey string) string {
 }
 
 // SampleConfig returns the sample config for the stdout backend.
-func (client *Client) SampleConfig() string {
+func (client client) SampleConfig() string {
 	return ""
 }
 
 // SendMetrics sends the metrics in a MetricsMap to the Graphite server.
-func (client *Client) SendMetrics(metrics types.MetricMap) (retErr error) {
+func (client client) SendMetrics(metrics types.MetricMap) (retErr error) {
 	buf := new(bytes.Buffer)
 	now := time.Now().Unix()
 	metrics.Counters.Each(func(key, tagsKey string, counter types.Counter) {
@@ -90,6 +90,6 @@ func (client *Client) SendMetrics(metrics types.MetricMap) (retErr error) {
 }
 
 // BackendName returns the name of the backend.
-func (client *Client) BackendName() string {
-	return backendName
+func (client client) BackendName() string {
+	return BackendName
 }

@@ -6,7 +6,7 @@ import (
 	"net"
 	"strings"
 
-	"github.com/atlassian/gostatsd/backend"
+	backendTypes "github.com/atlassian/gostatsd/backend/types"
 	"github.com/atlassian/gostatsd/types"
 
 	log "github.com/Sirupsen/logrus"
@@ -14,15 +14,10 @@ import (
 )
 
 const (
-	backendName      = "statsdaemon"
+	// BackendName is the name of this backend.
+	BackendName      = "statsdaemon"
 	maxUDPPacketSize = 1472
 )
-
-func init() {
-	backend.RegisterBackend(backendName, func(v *viper.Viper) (backend.MetricSender, error) {
-		return NewClient(v.GetString("statsdaemon.address"))
-	})
-}
 
 const sampleConfig = `
 [statsdaemon]
@@ -30,12 +25,12 @@ const sampleConfig = `
 	address = "statsdaemon-master:6126"
 `
 
-// Client is an object that is used to send messages to a statsd server's UDP interface.
-type Client struct {
+// client is an object that is used to send messages to a statsd server's UDP interface.
+type client struct {
 	addr string
 }
 
-func (client *Client) write(conn *net.Conn, buf *bytes.Buffer) error {
+func (client *client) write(conn *net.Conn, buf *bytes.Buffer) error {
 	_, err := buf.WriteTo(*conn)
 	if err != nil {
 		return fmt.Errorf("error sending to statsd backend: %s", err)
@@ -43,7 +38,7 @@ func (client *Client) write(conn *net.Conn, buf *bytes.Buffer) error {
 	return nil
 }
 
-func (client *Client) writeLine(conn *net.Conn, buf *bytes.Buffer, format, name, tags string, value interface{}) error {
+func (client *client) writeLine(conn *net.Conn, buf *bytes.Buffer, format, name, tags string, value interface{}) error {
 	line := new(bytes.Buffer)
 	if tags != "" {
 		format += "|#%s"
@@ -72,7 +67,7 @@ func logError(err error) error {
 }
 
 // SendMetrics sends the metrics in a MetricsMap to the statsd master server.
-func (client *Client) SendMetrics(metrics types.MetricMap) error {
+func (client *client) SendMetrics(metrics types.MetricMap) error {
 	if metrics.NumStats == 0 {
 		return nil
 	}
@@ -125,17 +120,22 @@ func (client *Client) SendMetrics(metrics types.MetricMap) error {
 }
 
 // SampleConfig returns the sample config for the statsd backend.
-func (client *Client) SampleConfig() string {
+func (client *client) SampleConfig() string {
 	return sampleConfig
 }
 
 // NewClient constructs a GraphiteClient object by connecting to an address.
-func NewClient(address string) (backend.MetricSender, error) {
+func NewClient(address string) (backendTypes.MetricSender, error) {
 	log.Infof("Backend statsdaemon address: %s", address)
-	return &Client{address}, nil
+	return &client{address}, nil
+}
+
+// NewClientFromViper constructs a statsd client by connecting to an address.
+func NewClientFromViper(v *viper.Viper) (backendTypes.MetricSender, error) {
+	return NewClient(v.GetString("statsdaemon.address"))
 }
 
 // BackendName returns the name of the backend.
-func (client *Client) BackendName() string {
-	return backendName
+func (client *client) BackendName() string {
+	return BackendName
 }
