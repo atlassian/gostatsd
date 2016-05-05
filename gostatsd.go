@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
-	"runtime/pprof"
 	"strings"
 	"syscall"
 
@@ -28,8 +27,6 @@ var (
 const (
 	// ParamVerbose enables verbose logging.
 	ParamVerbose = "verbose"
-	// ParamCPUProfile enables use of profiler and write results to this file.
-	ParamCPUProfile = "cpu-profile"
 	// ParamJSON makes logger log in JSON format.
 	ParamJSON = "json"
 	// ParamConfigPath provides file with configuration.
@@ -59,25 +56,6 @@ func main() {
 			log.Fatalf("%v", exitErr)
 		}
 	}()
-	CPUProfile := v.GetString(ParamCPUProfile)
-	if CPUProfile != "" {
-		f, err := os.Create(CPUProfile)
-		if err != nil {
-			augmentErr(&exitErr, fmt.Errorf("Failed to open profile file: %v", err))
-			return
-		}
-		defer func() {
-			if closeErr := f.Close(); closeErr != nil {
-				augmentErr(&exitErr, fmt.Errorf("Failed to close profile file: %v", closeErr))
-			}
-		}()
-		err = pprof.StartCPUProfile(f)
-		if err != nil {
-			augmentErr(&exitErr, fmt.Errorf("Failed to start CPU profiler: %v", err))
-			return
-		}
-		defer pprof.StopCPUProfile()
-	}
 
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	defer cancelFunc()
@@ -149,7 +127,6 @@ func setupConfiguration() (*viper.Viper, bool, error) {
 	cmd.BoolVar(&version, ParamVersion, false, "Print the version and exit")
 	cmd.Bool(ParamVerbose, false, "Verbose")
 	cmd.Bool(ParamJSON, false, "Log in JSON format")
-	cmd.String(ParamCPUProfile, "", "Use profiler and write results to this file")
 	cmd.String(ParamConfigPath, "", "Path to the configuration file")
 
 	statsd.AddFlags(cmd)
