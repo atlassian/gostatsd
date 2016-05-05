@@ -95,7 +95,7 @@ In your source code:
     import "github.com/atlassian/gostatsd/statsd"
 
 Documentation can be found via `go doc github.com/atlassian/gostatsd/statsd` or at
-http://godoc.org/github.com/atlassian/gostatsd/statsd
+https://godoc.org/github.com/atlassian/gostatsd/statsd
 
 [etsy]: http://www.etsy.com
 [statsd]: http://www.github.com/etsy/statsd
