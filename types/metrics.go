@@ -8,7 +8,7 @@ import (
 )
 
 // MetricType is an enumeration of all the possible types of Metric.
-type MetricType float64
+type MetricType byte
 
 // StatsdSourceID stores the key used to tag metrics with the origin IP address.
 const StatsdSourceID = "statsd_source_id"
@@ -16,7 +16,7 @@ const StatsdSourceID = "statsd_source_id"
 const (
 	_ = iota
 	// COUNTER is statsd counter type
-	COUNTER MetricType = 1 << (10 * iota)
+	COUNTER MetricType = iota
 	// TIMER is statsd timer type
 	TIMER
 	// GAUGE is statsd gauge type
@@ -32,14 +32,14 @@ var (
 )
 
 func (m MetricType) String() string {
-	switch {
-	case m >= SET:
+	switch m {
+	case SET:
 		return "set"
-	case m >= GAUGE:
+	case GAUGE:
 		return "gauge"
-	case m >= TIMER:
+	case TIMER:
 		return "timer"
-	case m >= COUNTER:
+	case COUNTER:
 		return "counter"
 	}
 	return "unknown"
@@ -47,11 +47,11 @@ func (m MetricType) String() string {
 
 // Metric represents a single data collected datapoint.
 type Metric struct {
-	Type        MetricType // The type of metric
 	Name        string     // The name of the metric
 	Value       float64    // The numeric value of the metric
 	Tags        Tags       // The tags for the metric
 	StringValue string     // The string value for some metrics e.g. Set
+	Type        MetricType // The type of metric
 }
 
 // NewMetric creates a metric with tags.
