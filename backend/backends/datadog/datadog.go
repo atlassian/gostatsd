@@ -19,23 +19,23 @@ import (
 )
 
 const (
-	apiURL = "https://app.datadoghq.com/api/v1/series"
+	apiURL = "https://app.datadoghq.com"
 	// BackendName is the name of this backend.
 	BackendName        = "datadog"
 	dogstatsdVersion   = "5.6.3"
 	dogstatsdUserAgent = "python-requests/2.6.0 CPython/2.7.10"
-	// GAUGE is datadog gauge type.
-	GAUGE = "gauge"
-	// RATE is datadog rate type.
-	RATE = "rate"
+	// gauge is datadog gauge type.
+	gauge = "gauge"
+	// rate is datadog rate type.
+	rate = "rate"
 )
 
 // client represents a Datadog client.
 type client struct {
-	APIKey      string
-	APIEndpoint string
-	Hostname    string
-	Client      *http.Client
+	apiKey      string
+	apiEndpoint string
+	hostname    string
+	client      *http.Client
 }
 
 const sampleConfig = `
@@ -47,37 +47,37 @@ const sampleConfig = `
 	# timeout = "5s"
 `
 
-// TimeSeries represents a time series data structure.
-type TimeSeries struct {
-	Series    []*Metric `json:"series"`
-	Timestamp int64     `json:"-"`
-	Hostname  string    `json:"-"`
+// timeSeries represents a time series data structure.
+type timeSeries struct {
+	Series    []metric `json:"series"`
+	Timestamp int64    `json:"-"`
+	Hostname  string   `json:"-"`
 }
 
-// Metric represents a metric data structure for Datadog.
-type Metric struct {
+// metric represents a metric data structure for Datadog.
+type metric struct {
 	Host     string   `json:"host,omitempty"`
 	Interval float64  `json:"interval,omitempty"`
 	Metric   string   `json:"metric"`
-	Points   [1]Point `json:"points"`
+	Points   [1]point `json:"points"`
 	Tags     []string `json:"tags,omitempty"`
 	Type     string   `json:"type,omitempty"`
 }
 
-// Point is a Datadog data point.
-type Point [2]float64
+// point is a Datadog data point.
+type point [2]float64
 
 // AddMetric adds a metric to the series.
-func (ts *TimeSeries) AddMetric(name, stags, metricType string, value float64, interval time.Duration) {
+func (ts *timeSeries) addMetric(name, stags, metricType string, value float64, interval time.Duration) {
 	hostname, tags := types.ExtractSourceFromTags(stags)
 	if hostname == "" {
 		hostname = ts.Hostname
 	}
-	metric := &Metric{
+	metric := metric{
 		Host:     hostname,
 		Interval: interval.Seconds(),
 		Metric:   name,
-		Points:   [1]Point{{float64(ts.Timestamp), value}},
+		Points:   [1]point{{float64(ts.Timestamp), value}},
 		Tags:     tags.Normalise(),
 		Type:     metricType,
 	}
@@ -89,70 +89,51 @@ func (d *client) SendMetrics(metrics types.MetricMap) error {
 	if metrics.NumStats == 0 {
 		return nil
 	}
-	ts := TimeSeries{Timestamp: time.Now().Unix(), Hostname: d.Hostname}
+	ts := timeSeries{Timestamp: time.Now().Unix(), Hostname: d.hostname}
 
 	metrics.Counters.Each(func(key, tagsKey string, counter types.Counter) {
-		ts.AddMetric(fmt.Sprintf("%s", key), tagsKey, RATE, counter.PerSecond, counter.Flush)
-		ts.AddMetric(fmt.Sprintf("%s.count", key), tagsKey, GAUGE, float64(counter.Value), counter.Flush)
+		ts.addMetric(key, tagsKey, rate, counter.PerSecond, counter.Flush)
+		ts.addMetric(fmt.Sprintf("%s.count", key), tagsKey, gauge, float64(counter.Value), counter.Flush)
 	})
 
 	metrics.Timers.Each(func(key, tagsKey string, timer types.Timer) {
-		ts.AddMetric(fmt.Sprintf("%s.lower", key), tagsKey, GAUGE, timer.Min, timer.Flush)
-		ts.AddMetric(fmt.Sprintf("%s.upper", key), tagsKey, GAUGE, timer.Max, timer.Flush)
-		ts.AddMetric(fmt.Sprintf("%s.count", key), tagsKey, GAUGE, float64(timer.Count), timer.Flush)
-		ts.AddMetric(fmt.Sprintf("%s.count_ps", key), tagsKey, RATE, timer.PerSecond, timer.Flush)
-		ts.AddMetric(fmt.Sprintf("%s.mean", key), tagsKey, GAUGE, timer.Mean, timer.Flush)
-		ts.AddMetric(fmt.Sprintf("%s.median", key), tagsKey, GAUGE, timer.Median, timer.Flush)
-		ts.AddMetric(fmt.Sprintf("%s.std", key), tagsKey, GAUGE, timer.StdDev, timer.Flush)
-		ts.AddMetric(fmt.Sprintf("%s.sum", key), tagsKey, GAUGE, timer.Sum, timer.Flush)
-		ts.AddMetric(fmt.Sprintf("%s.sum_squares", key), tagsKey, GAUGE, timer.SumSquares, timer.Flush)
+		ts.addMetric(fmt.Sprintf("%s.lower", key), tagsKey, gauge, timer.Min, timer.Flush)
+		ts.addMetric(fmt.Sprintf("%s.upper", key), tagsKey, gauge, timer.Max, timer.Flush)
+		ts.addMetric(fmt.Sprintf("%s.count", key), tagsKey, gauge, float64(timer.Count), timer.Flush)
+		ts.addMetric(fmt.Sprintf("%s.count_ps", key), tagsKey, rate, timer.PerSecond, timer.Flush)
+		ts.addMetric(fmt.Sprintf("%s.mean", key), tagsKey, gauge, timer.Mean, timer.Flush)
+		ts.addMetric(fmt.Sprintf("%s.median", key), tagsKey, gauge, timer.Median, timer.Flush)
+		ts.addMetric(fmt.Sprintf("%s.std", key), tagsKey, gauge, timer.StdDev, timer.Flush)
+		ts.addMetric(fmt.Sprintf("%s.sum", key), tagsKey, gauge, timer.Sum, timer.Flush)
+		ts.addMetric(fmt.Sprintf("%s.sum_squares", key), tagsKey, gauge, timer.SumSquares, timer.Flush)
 		for _, pct := range timer.Percentiles {
-			ts.AddMetric(fmt.Sprintf("%s.%s", key, pct.String()), tagsKey, GAUGE, pct.Float(), timer.Flush)
+			ts.addMetric(fmt.Sprintf("%s.%s", key, pct.String()), tagsKey, gauge, pct.Float(), timer.Flush)
 		}
 	})
 
-	metrics.Gauges.Each(func(key, tagsKey string, gauge types.Gauge) {
-		ts.AddMetric(fmt.Sprintf("%s", key), tagsKey, GAUGE, gauge.Value, gauge.Flush)
+	metrics.Gauges.Each(func(key, tagsKey string, g types.Gauge) {
+		ts.addMetric(key, tagsKey, gauge, g.Value, g.Flush)
 	})
 
 	metrics.Sets.Each(func(key, tagsKey string, set types.Set) {
-		ts.AddMetric(fmt.Sprintf("%s", key), tagsKey, GAUGE, float64(len(set.Values)), set.Flush)
+		ts.addMetric(key, tagsKey, gauge, float64(len(set.Values)), set.Flush)
 	})
 
 	tsBytes, err := json.Marshal(ts)
 	if err != nil {
-		return fmt.Errorf("[%s] unable to marshal TimeSeries, %s", BackendName, err.Error())
+		return fmt.Errorf("[%s] unable to marshal TimeSeries: %v", BackendName, err)
 	}
 	log.Debugf("[%s] json: %s", BackendName, tsBytes)
-	req, err := http.NewRequest("POST", d.authenticatedURL(), bytes.NewBuffer(tsBytes))
+	req, err := http.NewRequest("POST", d.authenticatedURL("/api/v1/series"), bytes.NewBuffer(tsBytes))
 	if err != nil {
-		return fmt.Errorf("[%s] unable to create http.Request, %s", BackendName, err.Error())
-	}
-	req.Header.Add("Content-Type", "application/json")
-	// Mimic dogstatsd code
-	req.Header.Add("DD-Dogstatsd-Version", dogstatsdVersion)
-	req.Header.Add("User-Agent", dogstatsdUserAgent)
-
-	post := func(req *http.Request) func() error {
-		return func() error {
-			resp, e := d.Client.Do(req)
-			if e != nil {
-				return fmt.Errorf("error POSTing metrics, %s", strings.Replace(err.Error(), d.APIKey, "*****", -1))
-			}
-			defer resp.Body.Close()
-
-			if resp.StatusCode < 200 || resp.StatusCode > 209 {
-				return fmt.Errorf("received bad status code, %d", resp.StatusCode)
-			}
-			return nil
-		}
+		return fmt.Errorf("[%s] unable to create http.Request: %v", BackendName, err)
 	}
 
 	b := backoff.NewExponentialBackOff()
 	b.MaxElapsedTime = 10 * time.Second
-	err = backoff.Retry(post(req), b)
+	err = backoff.Retry(d.post(req), b)
 	if err != nil {
-		return fmt.Errorf("[%s] %s", BackendName, err.Error())
+		return fmt.Errorf("[%s] %v", BackendName, err)
 	}
 
 	return nil
@@ -168,11 +149,30 @@ func (d *client) BackendName() string {
 	return BackendName
 }
 
-func (d *client) authenticatedURL() string {
-	q := url.Values{
-		"api_key": []string{d.APIKey},
+func (d *client) post(req *http.Request) func() error {
+	req.Header.Add("Content-Type", "application/json")
+	// Mimic dogstatsd code
+	req.Header.Add("DD-Dogstatsd-Version", dogstatsdVersion)
+	req.Header.Add("User-Agent", dogstatsdUserAgent)
+	return func() error {
+		resp, err := d.client.Do(req)
+		if err != nil {
+			return fmt.Errorf("error POSTing metrics: %s", strings.Replace(err.Error(), d.apiKey, "*****", -1))
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode < 200 || resp.StatusCode >= 205 {
+			return fmt.Errorf("received bad status code %d", resp.StatusCode)
+		}
+		return nil
 	}
-	return fmt.Sprintf("%s?%s", d.APIEndpoint, q.Encode())
+}
+
+func (d *client) authenticatedURL(path string) string {
+	q := url.Values{
+		"api_key": []string{d.apiKey},
+	}
+	return fmt.Sprintf("%s%s?%s", d.apiEndpoint, path, q.Encode())
 }
 
 // NewClientFromViper returns a new Datadog API client.
@@ -191,10 +191,10 @@ func NewClient(apiKey string, clientTimeout time.Duration) (backendTypes.MetricS
 		return nil, err
 	}
 	return &client{
-		APIKey:      apiKey,
-		APIEndpoint: apiURL,
-		Hostname:    hostname,
-		Client: &http.Client{
+		apiKey:      apiKey,
+		apiEndpoint: apiURL,
+		hostname:    hostname,
+		client: &http.Client{
 			Timeout: clientTimeout,
 		},
 	}, nil
