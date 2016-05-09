@@ -64,7 +64,7 @@ func NewMetric(name string, value float64, mtype MetricType, tags Tags) *Metric 
 	}
 }
 
-func (m Metric) String() string {
+func (m *Metric) String() string {
 	return fmt.Sprintf("{%s, %s, %f, %s, %v}", m.Type, m.Name, m.Value, m.StringValue, m.Tags)
 }
 
@@ -88,7 +88,7 @@ type MetricMap struct {
 	Sets           Sets
 }
 
-func (m MetricMap) String() string {
+func (m *MetricMap) String() string {
 	buf := new(bytes.Buffer)
 	m.Counters.Each(func(k, tags string, counter Counter) {
 		fmt.Fprintf(buf, "stats.counter.%s: %d tags=%s\n", k, counter.Value, tags)

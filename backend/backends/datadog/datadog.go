@@ -88,7 +88,7 @@ func (ts *timeSeries) addMetric(name, stags, metricType string, value float64, i
 }
 
 // SendMetrics sends metrics to Datadog.
-func (d *client) SendMetrics(metrics types.MetricMap) error {
+func (d *client) SendMetrics(metrics *types.MetricMap) error {
 	if metrics.NumStats == 0 {
 		return nil
 	}

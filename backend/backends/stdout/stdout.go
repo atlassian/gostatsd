@@ -46,7 +46,7 @@ func (client client) SampleConfig() string {
 }
 
 // SendMetrics sends the metrics in a MetricsMap to the Graphite server.
-func (client client) SendMetrics(metrics types.MetricMap) (retErr error) {
+func (client client) SendMetrics(metrics *types.MetricMap) (retErr error) {
 	buf := new(bytes.Buffer)
 	now := time.Now().Unix()
 	metrics.Counters.Each(func(key, tagsKey string, counter types.Counter) {
