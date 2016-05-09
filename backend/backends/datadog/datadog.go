@@ -21,9 +21,11 @@ import (
 const (
 	apiURL = "https://app.datadoghq.com"
 	// BackendName is the name of this backend.
-	BackendName        = "datadog"
-	dogstatsdVersion   = "5.6.3"
-	dogstatsdUserAgent = "python-requests/2.6.0 CPython/2.7.10"
+	BackendName                                = "datadog"
+	dogstatsdVersion                           = "5.6.3"
+	dogstatsdUserAgent                         = "python-requests/2.6.0 CPython/2.7.10"
+	defaultMaxRequestElapsedTime time.Duration = 10 * time.Second
+	defaultClientTimeout         time.Duration = 5 * time.Second
 	// gauge is datadog gauge type.
 	gauge = "gauge"
 	// rate is datadog rate type.
@@ -32,10 +34,11 @@ const (
 
 // client represents a Datadog client.
 type client struct {
-	apiKey      string
-	apiEndpoint string
-	hostname    string
-	client      *http.Client
+	apiKey                string
+	apiEndpoint           string
+	hostname              string
+	maxRequestElapsedTime time.Duration
+	client                *http.Client
 }
 
 const sampleConfig = `
@@ -130,7 +133,7 @@ func (d *client) SendMetrics(metrics types.MetricMap) error {
 	}
 
 	b := backoff.NewExponentialBackOff()
-	b.MaxElapsedTime = 10 * time.Second
+	b.MaxElapsedTime = d.maxRequestElapsedTime
 	err = backoff.Retry(d.post(req), b)
 	if err != nil {
 		return fmt.Errorf("[%s] %v", BackendName, err)
@@ -177,12 +180,17 @@ func (d *client) authenticatedURL(path string) string {
 
 // NewClientFromViper returns a new Datadog API client.
 func NewClientFromViper(v *viper.Viper) (backendTypes.MetricSender, error) {
-	v.SetDefault("datadog.timeout", time.Duration(5)*time.Second)
-	return NewClient(v.GetString("datadog.api_key"), v.GetDuration("datadog.timeout"))
+	v.SetDefault("datadog.timeout", defaultClientTimeout)
+	v.SetDefault("datadog.max_request_elapsed_time", defaultMaxRequestElapsedTime)
+	return NewClient(
+		v.GetString("datadog.api_key"),
+		v.GetDuration("datadog.timeout"),
+		v.GetDuration("datadog.max_request_elapsed_time"),
+	)
 }
 
 // NewClient returns a new Datadog API client.
-func NewClient(apiKey string, clientTimeout time.Duration) (backendTypes.MetricSender, error) {
+func NewClient(apiKey string, clientTimeout, maxRequestElapsedTime time.Duration) (backendTypes.MetricSender, error) {
 	if apiKey == "" {
 		return nil, fmt.Errorf("[%s] api_key is a required field", BackendName)
 	}
@@ -191,9 +199,10 @@ func NewClient(apiKey string, clientTimeout time.Duration) (backendTypes.MetricS
 		return nil, err
 	}
 	return &client{
-		apiKey:      apiKey,
-		apiEndpoint: apiURL,
-		hostname:    hostname,
+		apiKey:                apiKey,
+		apiEndpoint:           apiURL,
+		hostname:              hostname,
+		maxRequestElapsedTime: maxRequestElapsedTime,
 		client: &http.Client{
 			Timeout: clientTimeout,
 		},
