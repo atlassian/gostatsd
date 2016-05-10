@@ -2,6 +2,7 @@ package statsd
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -188,10 +189,15 @@ func (mr *metricReceiver) getAdditionalTags(addr string) types.Tags {
 
 // ParseLine with lexer impl.
 func (mr *metricReceiver) parseLine(line []byte) (*types.Metric, error) {
+	if line == nil {
+		return nil, errors.New("Error parsing line. Byte array is nil")
+	}
+
 	llen := len(line)
 	if llen == 0 {
-		return nil, nil
+		return nil, errors.New("Error parsing line. Byte array is empty")
 	}
+
 	metric := &types.Metric{}
 	metric.Tags = append(metric.Tags, mr.tags...)
 	l := &lexer{input: line, len: llen, m: metric, namespace: mr.namespace}
