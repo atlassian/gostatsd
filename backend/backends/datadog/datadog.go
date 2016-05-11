@@ -76,15 +76,14 @@ func (ts *timeSeries) addMetric(name, stags, metricType string, value float64, i
 	if hostname == "" {
 		hostname = ts.Hostname
 	}
-	metric := metric{
+	ts.Series = append(ts.Series, metric{
 		Host:     hostname,
 		Interval: interval.Seconds(),
 		Metric:   name,
 		Points:   [1]point{{float64(ts.Timestamp), value}},
 		Tags:     tags.Normalise(),
 		Type:     metricType,
-	}
-	ts.Series = append(ts.Series, metric)
+	})
 }
 
 // SendMetrics sends metrics to Datadog.
