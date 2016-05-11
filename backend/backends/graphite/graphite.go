@@ -39,7 +39,7 @@ type client struct {
 }
 
 // SendMetrics sends the metrics in a MetricsMap to the Graphite server.
-func (client *client) SendMetrics(metrics types.MetricMap) error {
+func (client *client) SendMetrics(metrics *types.MetricMap) error {
 	if metrics.NumStats == 0 {
 		return nil
 	}

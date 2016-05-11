@@ -103,7 +103,7 @@ func (f *flusher) sendFlushedData(ctx context.Context, metrics *types.MetricMap)
 			defer wg.Done()
 			log.Debugf("Sending metrics to backend %s", s.BackendName())
 			//TODO pass ctx
-			f.handleSendResult(s.SendMetrics(*metrics))
+			f.handleSendResult(s.SendMetrics(metrics))
 		}(sender)
 	}
 	wg.Wait()

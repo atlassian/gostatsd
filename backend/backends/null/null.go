@@ -29,7 +29,7 @@ func (client client) SampleConfig() string {
 }
 
 // SendMetrics discards the metrics in a MetricsMap.
-func (client client) SendMetrics(metrics types.MetricMap) error {
+func (client client) SendMetrics(metrics *types.MetricMap) error {
 	return nil
 }
 

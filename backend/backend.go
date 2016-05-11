@@ -25,10 +25,10 @@ var backends = map[string]backendTypes.Factory{
 }
 
 // The MetricSenderFunc type is an adapter to allow the use of ordinary functions as metric senders.
-type MetricSenderFunc func(types.MetricMap) error
+type MetricSenderFunc func(*types.MetricMap) error
 
 // SendMetrics calls f(m).
-func (f MetricSenderFunc) SendMetrics(m types.MetricMap) error {
+func (f MetricSenderFunc) SendMetrics(m *types.MetricMap) error {
 	return f(m)
 }
 

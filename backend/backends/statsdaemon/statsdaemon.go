@@ -67,7 +67,7 @@ func logError(err error) error {
 }
 
 // SendMetrics sends the metrics in a MetricsMap to the statsd master server.
-func (client *client) SendMetrics(metrics types.MetricMap) error {
+func (client *client) SendMetrics(metrics *types.MetricMap) error {
 	if metrics.NumStats == 0 {
 		return nil
 	}

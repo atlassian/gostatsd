@@ -11,9 +11,9 @@ import (
 
 type FakeBackend struct{}
 
-func (fb *FakeBackend) SendMetrics(metrics types.MetricMap) error { return nil }
-func (fb *FakeBackend) SampleConfig() string                      { return "" }
-func (fb *FakeBackend) BackendName() string                       { return "fake" }
+func (fb *FakeBackend) SendMetrics(metrics *types.MetricMap) error { return nil }
+func (fb *FakeBackend) SampleConfig() string                       { return "" }
+func (fb *FakeBackend) BackendName() string                        { return "fake" }
 
 func newFakeAggregator() *aggregator {
 	return NewAggregator(
