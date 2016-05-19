@@ -173,7 +173,7 @@ func (mr *metricReceiver) getAdditionalTags(addr string) types.Tags {
 		if mr.cloud != nil {
 			instance, err := cloudprovider.GetInstance(mr.cloud, hostname)
 			if err != nil {
-				log.Warnf("Error retrieving instance details from cloud provider %s: %v", mr.cloud.ProviderName(), err)
+				log.Debugf("Error retrieving instance details from cloud provider %s: %v", mr.cloud.ProviderName(), err)
 			} else {
 				hostname = instance.ID
 				tags = append(tags, fmt.Sprintf("region:%s", instance.Region))
