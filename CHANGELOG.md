@@ -1,3 +1,8 @@
+0.12.6
+------
+- null backend to do benchmarking
+- Internals refactoring
+
 0.12.5
 ------
 - Implement negative lookup cache (#8)
