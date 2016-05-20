@@ -59,7 +59,7 @@ func (a *aggregator) Flush(now func() time.Time) *types.MetricMap {
 	startTime := now()
 	flushInterval := startTime.Sub(a.lastFlush)
 
-	statName := internalStatName("num_stats")
+	statName := internalStatName("aggregator_num_stats")
 	a.receiveCounter(statName, a.defaultTags, int64(a.NumStats), startTime)
 
 	a.Counters.Each(func(key, tagsKey string, counter types.Counter) {

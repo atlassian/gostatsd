@@ -65,8 +65,8 @@ func TestFlush(t *testing.T) {
 	expected.Counters["some"][""] = types.Counter{Value: 50, PerSecond: 5}
 	expected.Counters["some"]["thing"] = types.Counter{Value: 100, PerSecond: 10}
 	expected.Counters["some"]["other:thing"] = types.Counter{Value: 150, PerSecond: 15}
-	expected.Counters["statsd.num_stats"] = make(map[string]types.Counter)
-	expected.Counters["statsd.num_stats"][""] = types.Counter{
+	expected.Counters["statsd.aggregator_num_stats"] = make(map[string]types.Counter)
+	expected.Counters["statsd.aggregator_num_stats"][""] = types.Counter{
 		Value: 0, PerSecond: 0,
 		Interval: types.Interval{Timestamp: now, Flush: time.Duration(10) * time.Second},
 	} // count happens in Receive

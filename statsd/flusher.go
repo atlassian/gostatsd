@@ -126,9 +126,9 @@ func (f *flusher) internalStats(totalStats uint32) *types.MetricMap {
 	f.addCounter(c, "bad_lines_seen", now, int64(receiverStats.BadLines-f.sentBadLines))
 	f.addCounter(c, "metrics_received", now, int64(receiverStats.MetricsReceived-f.sentMetricsReceived))
 	f.addCounter(c, "packets_received", now, int64(receiverStats.PacketsReceived-f.sentPacketsReceived))
-	f.addCounter(c, "total_num_stats", now, int64(totalStats))
+	f.addCounter(c, "numStats", now, int64(totalStats))
 
-	log.Infof("total_num_stats: %d", totalStats)
+	log.Debugf("numStats: %d", totalStats)
 
 	f.sentBadLines = receiverStats.BadLines
 	f.sentMetricsReceived = receiverStats.MetricsReceived
