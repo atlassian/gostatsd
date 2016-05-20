@@ -97,6 +97,6 @@ In your source code:
 Documentation can be found via `go doc github.com/atlassian/gostatsd/statsd` or at
 https://godoc.org/github.com/atlassian/gostatsd/statsd
 
-[etsy]: http://www.etsy.com
-[statsd]: http://www.github.com/etsy/statsd
+[etsy]: https://www.etsy.com
+[statsd]: https://www.github.com/etsy/statsd
 [netcat]: http://netcat.sourceforge.net/
