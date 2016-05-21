@@ -52,17 +52,18 @@ type worker struct {
 }
 
 type dispatcher struct {
-	workers map[uint16]*worker
+	numWorkers int
+	workers    map[uint16]worker
 }
 
 // NewDispatcher creates a new Dispatcher with provided configuration.
 func NewDispatcher(numWorkers int, perWorkerBufferSize int, af AggregatorFactory) Dispatcher {
-	workers := make(map[uint16]*worker, numWorkers)
+	workers := make(map[uint16]worker, numWorkers)
 
 	n := uint16(numWorkers)
 
 	for i := uint16(0); i < n; i++ {
-		workers[i] = &worker{
+		workers[i] = worker{
 			aggr:         af.Create(),
 			flushChan:    make(chan *flushCommand),
 			metricsQueue: make(chan *types.Metric, perWorkerBufferSize),
@@ -70,16 +71,18 @@ func NewDispatcher(numWorkers int, perWorkerBufferSize int, af AggregatorFactory
 		}
 	}
 	return &dispatcher{
-		workers: workers,
+		numWorkers: numWorkers,
+		workers:    workers,
 	}
 }
 
 // Run runs the Dispatcher.
 func (d *dispatcher) Run(ctx context.Context) error {
 	var wg sync.WaitGroup
-	wg.Add(len(d.workers))
+	wg.Add(d.numWorkers)
 	for _, worker := range d.workers {
-		go worker.work(&wg)
+		w := worker // Make a copy of the loop variable! https://github.com/golang/go/wiki/CommonMistakes
+		go w.work(&wg)
 	}
 	defer func() {
 		for _, worker := range d.workers {
@@ -96,18 +99,18 @@ func (d *dispatcher) Run(ctx context.Context) error {
 // DispatchMetric dispatches metric to a corresponding Aggregator.
 func (d *dispatcher) DispatchMetric(ctx context.Context, m *types.Metric) error {
 	hash := adler32.Checksum([]byte(m.Name))
-	worker := d.workers[uint16(hash%uint32(len(d.workers)))]
+	w := d.workers[uint16(hash%uint32(d.numWorkers))]
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
-	case worker.metricsQueue <- m:
+	case w.metricsQueue <- m:
 		return nil
 	}
 }
 
 // Flush calls Flush on all managed Aggregators and returns results.
 func (d *dispatcher) Flush(ctx context.Context) <-chan *types.MetricMap {
-	results := make(chan *types.MetricMap, len(d.workers)) // Enough capacity not to block workers
+	results := make(chan *types.MetricMap, d.numWorkers) // Enough capacity not to block workers
 	cmd := &flushCommand{
 		ctx:    ctx,
 		result: results,

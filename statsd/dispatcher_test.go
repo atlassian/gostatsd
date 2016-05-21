@@ -110,7 +110,7 @@ func TestDispatchMetricShouldDistributeMetrics(t *testing.T) {
 	r := rand.New(rand.NewSource(time.Now().UnixNano()))
 	n := r.Intn(5) + 1
 	factory := newTestFactory()
-	d := NewDispatcher(n, 1000, factory).(*dispatcher)
+	d := NewDispatcher(n, 10, factory).(*dispatcher)
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	defer cancelFunc()
 	var wgFinish sync.WaitGroup
