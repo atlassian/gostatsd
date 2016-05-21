@@ -3,6 +3,7 @@ package statsd
 import (
 	"fmt"
 	"math/rand"
+	"runtime"
 	"sync"
 	"testing"
 	"time"
@@ -20,14 +21,14 @@ type testAggregator struct {
 
 func (a *testAggregator) Receive(m *types.Metric, t time.Time) {
 	a.af.Mutex.Lock()
-	defer a.af.Mutex.Unlock()
 	a.af.receiveInvocations[a.agrNumber]++
+	a.af.Mutex.Unlock()
 }
 
 func (a *testAggregator) Flush(f func() time.Time) *types.MetricMap {
 	a.af.Mutex.Lock()
-	defer a.af.Mutex.Unlock()
 	a.af.flushInvocations[a.agrNumber]++
+	a.af.Mutex.Unlock()
 	return nil
 }
 
@@ -40,8 +41,8 @@ func (a *testAggregator) Process(f ProcessFunc) {
 
 func (a *testAggregator) Reset(t time.Time) {
 	a.af.Mutex.Lock()
-	defer a.af.Mutex.Unlock()
 	a.af.resetInvocations[a.agrNumber]++
+	a.af.Mutex.Unlock()
 }
 
 type testAggregatorFactory struct {
@@ -154,4 +155,37 @@ func getTotalInvocations(inv map[int]int) int {
 		counter += i
 	}
 	return counter
+}
+
+func BenchmarkDispatcher(b *testing.B) {
+	rand.Seed(time.Now().UnixNano())
+	factory := newTestFactory()
+	d := NewDispatcher(runtime.NumCPU(), 10, factory).(*dispatcher)
+	ctx, cancelFunc := context.WithCancel(context.Background())
+	defer cancelFunc()
+	var wgFinish sync.WaitGroup
+	wgFinish.Add(1)
+	go func() {
+		defer wgFinish.Done()
+		if err := d.Run(ctx); err != context.Canceled {
+			b.Errorf("unexpected exit error: %v", err)
+		}
+	}()
+	b.ReportAllocs()
+	b.ResetTimer()
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
+			m := &types.Metric{
+				Type:  types.COUNTER,
+				Name:  fmt.Sprintf("counter.metric.%d", rand.Int63()),
+				Tags:  nil,
+				Value: rand.Float64(),
+			}
+			if err := d.DispatchMetric(ctx, m); err != nil {
+				b.Errorf("unexpected error: %v", err)
+			}
+		}
+	})
+	cancelFunc()    // After all metrics have been dispatched, we signal dispatcher to shut down
+	wgFinish.Wait() // Wait for dispatcher to shutdown
 }
