@@ -101,7 +101,7 @@ func (f *flusher) sendFlushedData(ctx context.Context, metrics *types.MetricMap)
 	for _, backend := range f.backends {
 		go func(b backendTypes.Backend) {
 			defer wg.Done()
-			log.Debugf("Sending metrics to backend %s", b.BackendName())
+			log.Debugf("Sending %d metrics to backend %s", metrics.NumStats, b.BackendName())
 			f.handleSendResult(b.SendMetrics(ctx, metrics))
 		}(backend)
 	}

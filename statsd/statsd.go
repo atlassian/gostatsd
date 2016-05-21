@@ -256,11 +256,11 @@ func (h *handler) DispatchMetric(ctx context.Context, m *types.Metric) error {
 
 func (h *handler) DispatchEvent(ctx context.Context, e *types.Event) error {
 	for _, backend := range h.backends {
-		go func() {
-			if err := backend.SendEvent(ctx, e); err != nil {
+		go func(b backendTypes.Backend) {
+			if err := b.SendEvent(ctx, e); err != nil {
 				log.Errorf("Sending event to backend failed: %v", err)
 			}
-		}()
+		}(backend)
 	}
 	return nil
 }
