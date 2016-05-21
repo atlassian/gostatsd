@@ -9,7 +9,6 @@ import (
 	"github.com/atlassian/gostatsd/backend/backends/statsdaemon"
 	"github.com/atlassian/gostatsd/backend/backends/stdout"
 	backendTypes "github.com/atlassian/gostatsd/backend/types"
-	"github.com/atlassian/gostatsd/types"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/spf13/viper"
@@ -24,23 +23,10 @@ var backends = map[string]backendTypes.Factory{
 	stdout.BackendName:      stdout.NewClientFromViper,
 }
 
-// The MetricSenderFunc type is an adapter to allow the use of ordinary functions as metric senders.
-type MetricSenderFunc func(*types.MetricMap) error
-
-// SendMetrics calls f(m).
-func (f MetricSenderFunc) SendMetrics(m *types.MetricMap) error {
-	return f(m)
-}
-
-// BackendName returns the name of the backend.
-func (f MetricSenderFunc) BackendName() string {
-	return "MetricSenderFunc"
-}
-
 // GetBackend creates an instance of the named backend, or nil if
 // the name is not known. The error return is only used if the named backend
 // was known but failed to initialize.
-func GetBackend(name string, v *viper.Viper) (backendTypes.MetricSender, error) {
+func GetBackend(name string, v *viper.Viper) (backendTypes.Backend, error) {
 	f, found := backends[name]
 	if !found {
 		return nil, nil
@@ -49,7 +35,7 @@ func GetBackend(name string, v *viper.Viper) (backendTypes.MetricSender, error) 
 }
 
 // InitBackend creates an instance of the named backend.
-func InitBackend(name string, v *viper.Viper) (backendTypes.MetricSender, error) {
+func InitBackend(name string, v *viper.Viper) (backendTypes.Backend, error) {
 	if name == "" {
 		log.Info("No backend specified.")
 		return nil, nil

@@ -11,6 +11,7 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/spf13/viper"
+	"golang.org/x/net/context"
 )
 
 const (
@@ -67,7 +68,7 @@ func logError(err error) error {
 }
 
 // SendMetrics sends the metrics in a MetricsMap to the statsd master server.
-func (client *client) SendMetrics(metrics *types.MetricMap) error {
+func (client *client) SendMetrics(ctx context.Context, metrics *types.MetricMap) error {
 	if metrics.NumStats == 0 {
 		return nil
 	}
@@ -119,19 +120,24 @@ func (client *client) SendMetrics(metrics *types.MetricMap) error {
 	return nil
 }
 
+// SendEvent discards events.
+func (client *client) SendEvent(ctx context.Context, e *types.Event) error {
+	return nil
+}
+
 // SampleConfig returns the sample config for the statsd backend.
 func (client *client) SampleConfig() string {
 	return sampleConfig
 }
 
 // NewClient constructs a GraphiteClient object by connecting to an address.
-func NewClient(address string) (backendTypes.MetricSender, error) {
+func NewClient(address string) (backendTypes.Backend, error) {
 	log.Infof("Backend statsdaemon address: %s", address)
 	return &client{address}, nil
 }
 
 // NewClientFromViper constructs a statsd client by connecting to an address.
-func NewClientFromViper(v *viper.Viper) (backendTypes.MetricSender, error) {
+func NewClientFromViper(v *viper.Viper) (backendTypes.Backend, error) {
 	return NewClient(v.GetString("statsdaemon.address"))
 }
 

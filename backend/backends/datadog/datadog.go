@@ -16,6 +16,7 @@ import (
 	log "github.com/Sirupsen/logrus"
 	"github.com/cenkalti/backoff"
 	"github.com/spf13/viper"
+	"golang.org/x/net/context"
 )
 
 const (
@@ -86,8 +87,21 @@ func (ts *timeSeries) addMetric(name, stags, metricType string, value float64, i
 	})
 }
 
+// event represents an event data structure for Datadog.
+type event struct {
+	Title          string   `json:"title"`
+	Text           string   `json:"text"`
+	DateHappened   int64    `json:"date_happened,omitempty"`
+	Hostname       string   `json:"host,omitempty"`
+	AggregationKey string   `json:"aggregation_key,omitempty"`
+	SourceTypeName string   `json:"source_type_name,omitempty"`
+	Tags           []string `json:"tags,omitempty"`
+	Priority       string   `json:"priority,omitempty"`
+	AlertType      string   `json:"alert_type,omitempty"`
+}
+
 // SendMetrics sends metrics to Datadog.
-func (d *client) SendMetrics(metrics *types.MetricMap) error {
+func (d *client) SendMetrics(ctx context.Context, metrics *types.MetricMap) error {
 	if metrics.NumStats == 0 {
 		return nil
 	}
@@ -121,24 +135,22 @@ func (d *client) SendMetrics(metrics *types.MetricMap) error {
 		ts.addMetric(key, tagsKey, gauge, float64(len(set.Values)), set.Flush)
 	})
 
-	tsBytes, err := json.Marshal(ts)
-	if err != nil {
-		return fmt.Errorf("[%s] unable to marshal TimeSeries: %v", BackendName, err)
-	}
-	log.Debugf("[%s] json: %s", BackendName, tsBytes)
-	req, err := http.NewRequest("POST", d.authenticatedURL("/api/v1/series"), bytes.NewBuffer(tsBytes))
-	if err != nil {
-		return fmt.Errorf("[%s] unable to create http.Request: %v", BackendName, err)
-	}
+	return d.post("/api/v1/series", "metrics", ts)
+}
 
-	b := backoff.NewExponentialBackOff()
-	b.MaxElapsedTime = d.maxRequestElapsedTime
-	err = backoff.Retry(d.post(req), b)
-	if err != nil {
-		return fmt.Errorf("[%s] %v", BackendName, err)
-	}
-
-	return nil
+// SendEvent sends an event to Datadog.
+func (d *client) SendEvent(ctx context.Context, e *types.Event) error {
+	return d.post("/api/v1/events", "events", event{
+		Title:          e.Title,
+		Text:           e.Text,
+		DateHappened:   e.DateHappened,
+		Hostname:       e.Hostname,
+		AggregationKey: e.AggregationKey,
+		SourceTypeName: e.SourceTypeName,
+		Tags:           e.Tags,
+		Priority:       e.Priority.StringWithEmptyDefault(),
+		AlertType:      e.AlertType.StringWithEmptyDefault(),
+	})
 }
 
 // SampleConfig returns the sample config for the datadog backend.
@@ -151,7 +163,28 @@ func (d *client) BackendName() string {
 	return BackendName
 }
 
-func (d *client) post(req *http.Request) func() error {
+func (d *client) post(path, typeOfPost string, data interface{}) error {
+	tsBytes, err := json.Marshal(data)
+	if err != nil {
+		return fmt.Errorf("[%s] unable to marshal %s: %v", BackendName, typeOfPost, err)
+	}
+	log.Debugf("[%s] %s json: %s", BackendName, typeOfPost, tsBytes)
+	req, err := http.NewRequest("POST", d.authenticatedURL(path), bytes.NewBuffer(tsBytes))
+	if err != nil {
+		return fmt.Errorf("[%s] unable to create http.Request: %v", BackendName, err)
+	}
+
+	b := backoff.NewExponentialBackOff()
+	b.MaxElapsedTime = d.maxRequestElapsedTime
+	err = backoff.Retry(d.doPost(req), b)
+	if err != nil {
+		return fmt.Errorf("[%s] %v", BackendName, err)
+	}
+
+	return nil
+}
+
+func (d *client) doPost(req *http.Request) func() error {
 	req.Header.Add("Content-Type", "application/json")
 	// Mimic dogstatsd code
 	req.Header.Add("DD-Dogstatsd-Version", dogstatsdVersion)
@@ -159,7 +192,7 @@ func (d *client) post(req *http.Request) func() error {
 	return func() error {
 		resp, err := d.client.Do(req)
 		if err != nil {
-			return fmt.Errorf("error POSTing metrics: %s", strings.Replace(err.Error(), d.apiKey, "*****", -1))
+			return fmt.Errorf("error POSTing: %s", strings.Replace(err.Error(), d.apiKey, "*****", -1))
 		}
 		defer resp.Body.Close()
 
@@ -178,7 +211,7 @@ func (d *client) authenticatedURL(path string) string {
 }
 
 // NewClientFromViper returns a new Datadog API client.
-func NewClientFromViper(v *viper.Viper) (backendTypes.MetricSender, error) {
+func NewClientFromViper(v *viper.Viper) (backendTypes.Backend, error) {
 	v.SetDefault("datadog.timeout", defaultClientTimeout)
 	v.SetDefault("datadog.max_request_elapsed_time", defaultMaxRequestElapsedTime)
 	return NewClient(
@@ -189,7 +222,7 @@ func NewClientFromViper(v *viper.Viper) (backendTypes.MetricSender, error) {
 }
 
 // NewClient returns a new Datadog API client.
-func NewClient(apiKey string, clientTimeout, maxRequestElapsedTime time.Duration) (backendTypes.MetricSender, error) {
+func NewClient(apiKey string, clientTimeout, maxRequestElapsedTime time.Duration) (backendTypes.Backend, error) {
 	if apiKey == "" {
 		return nil, fmt.Errorf("[%s] api_key is a required field", BackendName)
 	}

@@ -11,15 +11,23 @@ import (
 )
 
 func main() {
-	f := func(ctx context.Context, m *types.Metric) error {
-		log.Printf("%s", m)
-		return nil
-	}
-	r := statsd.NewMetricReceiver("stats", nil, nil, statsd.HandlerFunc(f))
+	r := statsd.NewMetricReceiver("stats", nil, nil, handler{})
 	c, err := net.ListenPacket("udp", ":8125")
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer c.Close()
 	r.Receive(context.TODO(), c)
+}
+
+type handler struct{}
+
+func (h handler) DispatchMetric(ctx context.Context, m *types.Metric) error {
+	log.Printf("%s", m)
+	return nil
+}
+
+func (h handler) DispatchEvent(ctx context.Context, e *types.Event) error {
+	log.Printf("%s", e)
+	return nil
 }
