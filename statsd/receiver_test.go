@@ -33,6 +33,17 @@ func TestParseLine(t *testing.T) {
 	}
 
 	mr := &metricReceiver{}
+
+	_, err := mr.parseLine([]byte{})
+	if err == nil {
+		t.Errorf("Attempting to parse empty byte slice and did not get error back")
+	}
+
+	_, err = mr.parseLine(nil)
+	if err == nil {
+		t.Errorf("Attempting to parse nil slice and did not get error back")
+	}
+
 	compare(tests, mr, t)
 
 	failing := []string{"fOO|bar:bazkk", "foo.bar.baz:1|q", "NaN.should.be:NaN|g"}
