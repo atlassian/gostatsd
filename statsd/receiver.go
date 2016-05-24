@@ -148,7 +148,7 @@ func (mr *metricReceiver) handleMessage(ctx context.Context, addr net.Addr, msg 
 				metric.Tags = append(metric.Tags, mr.tags...)
 				metric.Tags = append(metric.Tags, additionalTags...)
 				err = mr.handler.DispatchMetric(ctx, metric)
-			} else {
+			} else if event != nil {
 				numEvents++
 				event.Tags = append(event.Tags, mr.tags...)
 				event.Tags = append(event.Tags, additionalTags...)
@@ -156,6 +156,9 @@ func (mr *metricReceiver) handleMessage(ctx context.Context, addr net.Addr, msg 
 					event.DateHappened = time.Now().Unix()
 				}
 				err = mr.handler.DispatchEvent(ctx, event)
+			} else {
+				// Should never happen.
+				log.Panic("Both event and metric are nil")
 			}
 			if err != nil {
 				exitError = err

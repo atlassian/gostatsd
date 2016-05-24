@@ -91,8 +91,15 @@ func (client client) SendMetrics(ctx context.Context, metrics *types.MetricMap) 
 }
 
 // SendEvent discards events.
-func (client client) SendEvent(ctx context.Context, e *types.Event) error {
-	return nil
+func (client client) SendEvent(ctx context.Context, e *types.Event) (retErr error) {
+	writer := log.StandardLogger().Writer()
+	defer func() {
+		if err := writer.Close(); err != nil && retErr == nil {
+			retErr = err
+		}
+	}()
+	_, err := fmt.Fprintf(writer, "event: %+v\n", e)
+	return err
 }
 
 // BackendName returns the name of the backend.
