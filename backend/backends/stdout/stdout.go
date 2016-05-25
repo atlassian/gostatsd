@@ -11,6 +11,7 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/spf13/viper"
+	"golang.org/x/net/context"
 )
 
 // BackendName is the name of this backend.
@@ -20,12 +21,12 @@ const BackendName = "stdout"
 type client struct{}
 
 // NewClientFromViper constructs a stdout backend.
-func NewClientFromViper(v *viper.Viper) (backendTypes.MetricSender, error) {
+func NewClientFromViper(v *viper.Viper) (backendTypes.Backend, error) {
 	return NewClient()
 }
 
 // NewClient constructs a stdout backend.
-func NewClient() (backendTypes.MetricSender, error) {
+func NewClient() (backendTypes.Backend, error) {
 	return &client{}, nil
 }
 
@@ -45,8 +46,8 @@ func (client client) SampleConfig() string {
 	return ""
 }
 
-// SendMetrics sends the metrics in a MetricsMap to the Graphite server.
-func (client client) SendMetrics(metrics *types.MetricMap) (retErr error) {
+// SendMetrics prints the metrics in a MetricsMap to the stdout.
+func (client client) SendMetrics(ctx context.Context, metrics *types.MetricMap) (retErr error) {
 	buf := new(bytes.Buffer)
 	now := time.Now().Unix()
 	metrics.Counters.Each(func(key, tagsKey string, counter types.Counter) {
@@ -86,6 +87,18 @@ func (client client) SendMetrics(metrics *types.MetricMap) (retErr error) {
 		}
 	}()
 	_, err := buf.WriteTo(writer)
+	return err
+}
+
+// SendEvent prints events to the stdout.
+func (client client) SendEvent(ctx context.Context, e *types.Event) (retErr error) {
+	writer := log.StandardLogger().Writer()
+	defer func() {
+		if err := writer.Close(); err != nil && retErr == nil {
+			retErr = err
+		}
+	}()
+	_, err := fmt.Fprintf(writer, "event: %+v\n", e)
 	return err
 }
 

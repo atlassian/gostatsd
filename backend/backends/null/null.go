@@ -5,6 +5,7 @@ import (
 	"github.com/atlassian/gostatsd/types"
 
 	"github.com/spf13/viper"
+	"golang.org/x/net/context"
 )
 
 // BackendName is the name of this backend.
@@ -14,12 +15,12 @@ const BackendName = "null"
 type client struct{}
 
 // NewClientFromViper constructs a GraphiteClient object by connecting to an address.
-func NewClientFromViper(v *viper.Viper) (backendTypes.MetricSender, error) {
+func NewClientFromViper(v *viper.Viper) (backendTypes.Backend, error) {
 	return NewClient()
 }
 
 // NewClient constructs a client object.
-func NewClient() (backendTypes.MetricSender, error) {
+func NewClient() (backendTypes.Backend, error) {
 	return client{}, nil
 }
 
@@ -29,7 +30,12 @@ func (client client) SampleConfig() string {
 }
 
 // SendMetrics discards the metrics in a MetricsMap.
-func (client client) SendMetrics(metrics *types.MetricMap) error {
+func (client client) SendMetrics(ctx context.Context, metrics *types.MetricMap) error {
+	return nil
+}
+
+// SendEvent discards events.
+func (client client) SendEvent(ctx context.Context, e *types.Event) error {
 	return nil
 }
 

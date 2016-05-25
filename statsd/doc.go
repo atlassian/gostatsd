@@ -7,10 +7,10 @@ The main components of the library are Receiver, Dispatcher, Aggregator and Flus
 Receiver is responsible for receiving metrics from the socket.
 Dispatcher dispatches received metrics among several Aggregators, which do
 aggregation based on type of the metric. At every FlushInterval Flusher flushes metrics via
-associated backend MetricSender objects.
+associated Backend objects.
 
-Currently the library implements just a few types of MetricSender, one compatible with Graphite
-(http://graphite.wikidot.org), one for Datadog and one just for stdout, but any object implementing the MetricSender
+Currently the library implements just a few types of Backend, one compatible with Graphite
+(http://graphite.wikidot.org), one for Datadog and one just for stdout, but any object implementing the Backend
 interface can be used with the library. See available backends at
 https://github.com/atlassian/gostatsd/tree/master/backend/backends.
 

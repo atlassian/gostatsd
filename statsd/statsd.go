@@ -12,6 +12,7 @@ import (
 	"github.com/atlassian/gostatsd/backend"
 	backendTypes "github.com/atlassian/gostatsd/backend/types"
 	"github.com/atlassian/gostatsd/cloudprovider"
+	"github.com/atlassian/gostatsd/types"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/spf13/pflag"
@@ -143,7 +144,7 @@ type SocketFactory func() (net.PacketConn, error)
 // RunWithCustomSocket runs the server until context signals done.
 // Listening socket is created using sf.
 func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) error {
-	backends := make([]backendTypes.MetricSender, 0, len(s.Backends))
+	backends := make([]backendTypes.Backend, 0, len(s.Backends))
 	for _, backendName := range s.Backends {
 		b, err := backend.InitBackend(backendName, s.Viper)
 		if err != nil {
@@ -203,7 +204,10 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 		}
 	}()
 
-	receiver := NewMetricReceiver(s.Namespace, s.DefaultTags, cloud, HandlerFunc(dispatcher.DispatchMetric))
+	receiver := NewMetricReceiver(s.Namespace, s.DefaultTags, cloud, &handler{
+		dispatcher: dispatcher,
+		backends:   backends,
+	})
 	wgReceiver.Add(s.MaxReaders)
 	for r := 0; r < s.MaxReaders; r++ {
 		go func() {
@@ -239,6 +243,26 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 	// Listen until done
 	<-ctx.Done()
 	return ctx.Err()
+}
+
+type handler struct {
+	dispatcher Dispatcher
+	backends   []backendTypes.Backend
+}
+
+func (h *handler) DispatchMetric(ctx context.Context, m *types.Metric) error {
+	return h.dispatcher.DispatchMetric(ctx, m)
+}
+
+func (h *handler) DispatchEvent(ctx context.Context, e *types.Event) error {
+	for _, backend := range h.backends {
+		go func(b backendTypes.Backend) {
+			if err := b.SendEvent(ctx, e); err != nil {
+				log.Errorf("Sending event to backend failed: %v", err)
+			}
+		}(backend)
+	}
+	return nil
 }
 
 type agrFactory struct {

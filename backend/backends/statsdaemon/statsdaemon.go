@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"net"
+	"strconv"
 	"strings"
 
 	backendTypes "github.com/atlassian/gostatsd/backend/types"
@@ -11,6 +12,7 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/spf13/viper"
+	"golang.org/x/net/context"
 )
 
 const (
@@ -67,7 +69,7 @@ func logError(err error) error {
 }
 
 // SendMetrics sends the metrics in a MetricsMap to the statsd master server.
-func (client *client) SendMetrics(metrics *types.MetricMap) error {
+func (client *client) SendMetrics(ctx context.Context, metrics *types.MetricMap) error {
 	if metrics.NumStats == 0 {
 		return nil
 	}
@@ -119,19 +121,80 @@ func (client *client) SendMetrics(metrics *types.MetricMap) error {
 	return nil
 }
 
+// SendEvent sends events to the statsd master server.
+func (client *client) SendEvent(ctx context.Context, e *types.Event) error {
+	conn, err := net.Dial("udp", client.addr)
+	if err != nil {
+		return fmt.Errorf("error connecting to statsd backend: %s", err)
+	}
+	defer conn.Close()
+
+	_, err = conn.Write(constructEventMessage(e).Bytes())
+
+	return err
+}
+
+func constructEventMessage(e *types.Event) *bytes.Buffer {
+	text := strings.Replace(e.Text, "\n", "\\n", -1)
+
+	var buf bytes.Buffer
+	buf.WriteString("_e{")
+	buf.WriteString(strconv.Itoa(len(e.Title)))
+	buf.WriteByte(',')
+	buf.WriteString(strconv.Itoa(len(text)))
+	buf.WriteString("}:")
+	buf.WriteString(e.Title)
+	buf.WriteByte('|')
+	buf.WriteString(text)
+
+	if e.DateHappened != 0 {
+		buf.WriteString("|d:")
+		buf.WriteString(strconv.FormatInt(e.DateHappened, 10))
+	}
+	if e.Hostname != "" {
+		buf.WriteString("|h:")
+		buf.WriteString(e.Hostname)
+	}
+	if e.AggregationKey != "" {
+		buf.WriteString("|k:")
+		buf.WriteString(e.AggregationKey)
+	}
+	if e.SourceTypeName != "" {
+		buf.WriteString("|s:")
+		buf.WriteString(e.SourceTypeName)
+	}
+	if e.Priority != types.PriNormal {
+		buf.WriteString("|p:")
+		buf.WriteString(e.Priority.String())
+	}
+	if e.AlertType != types.AlertInfo {
+		buf.WriteString("|t:")
+		buf.WriteString(e.AlertType.String())
+	}
+	if len(e.Tags) > 0 {
+		buf.WriteString("|#")
+		buf.WriteString(e.Tags[0])
+		for _, tag := range e.Tags[1:] {
+			buf.WriteByte(',')
+			buf.WriteString(tag)
+		}
+	}
+	return &buf
+}
+
 // SampleConfig returns the sample config for the statsd backend.
 func (client *client) SampleConfig() string {
 	return sampleConfig
 }
 
 // NewClient constructs a GraphiteClient object by connecting to an address.
-func NewClient(address string) (backendTypes.MetricSender, error) {
+func NewClient(address string) (backendTypes.Backend, error) {
 	log.Infof("Backend statsdaemon address: %s", address)
 	return &client{address}, nil
 }
 
 // NewClientFromViper constructs a statsd client by connecting to an address.
-func NewClientFromViper(v *viper.Viper) (backendTypes.MetricSender, error) {
+func NewClientFromViper(v *viper.Viper) (backendTypes.Backend, error) {
 	return NewClient(v.GetString("statsdaemon.address"))
 }
 

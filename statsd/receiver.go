@@ -19,17 +19,10 @@ import (
 
 const packetSizeUDP = 1500
 
-// Handler interface can be used to handle metrics for a Receiver.
+// Handler interface can be used to handle metrics and events for a Receiver.
 type Handler interface {
-	HandleMetric(context.Context, *types.Metric) error
-}
-
-// The HandlerFunc type is an adapter to allow the use of ordinary functions as metric handlers.
-type HandlerFunc func(context.Context, *types.Metric) error
-
-// HandleMetric calls f(m).
-func (f HandlerFunc) HandleMetric(ctx context.Context, m *types.Metric) error {
-	return f(ctx, m)
+	DispatchMetric(context.Context, *types.Metric) error
+	DispatchEvent(context.Context, *types.Event) error
 }
 
 // Receiver receives data on its PacketConn and converts lines into Metrics.
@@ -45,6 +38,7 @@ type ReceiverStats struct {
 	BadLines        uint64
 	PacketsReceived uint64
 	MetricsReceived uint64
+	EventsReceived  uint64
 }
 
 type metricReceiver struct {
@@ -55,6 +49,7 @@ type metricReceiver struct {
 	badLines        uint64
 	packetsReceived uint64
 	metricsReceived uint64
+	eventsReceived  uint64
 
 	cloud     cloudTypes.Interface // Cloud provider interface
 	handler   Handler              // handler to invoke
@@ -75,10 +70,11 @@ func NewMetricReceiver(ns string, tags []string, cloud cloudTypes.Interface, han
 // GetStats returns current Receiver stats. Safe for concurrent use.
 func (mr *metricReceiver) GetStats() ReceiverStats {
 	return ReceiverStats{
-		time.Unix(0, atomic.LoadInt64(&mr.lastPacket)),
-		atomic.LoadUint64(&mr.badLines),
-		atomic.LoadUint64(&mr.packetsReceived),
-		atomic.LoadUint64(&mr.metricsReceived),
+		LastPacket:      time.Unix(0, atomic.LoadInt64(&mr.lastPacket)),
+		BadLines:        atomic.LoadUint64(&mr.badLines),
+		PacketsReceived: atomic.LoadUint64(&mr.packetsReceived),
+		MetricsReceived: atomic.LoadUint64(&mr.metricsReceived),
+		EventsReceived:  atomic.LoadUint64(&mr.eventsReceived),
 	}
 }
 
@@ -115,16 +111,18 @@ func (mr *metricReceiver) Receive(ctx context.Context, c net.PacketConn) error {
 // handleMessage handles the contents of a datagram and call Handler.HandleMetric()
 // for each line that successfully parses into a types.Metric.
 func (mr *metricReceiver) handleMessage(ctx context.Context, addr net.Addr, msg []byte) error {
-	var numMetrics uint16
+	var numMetrics, numEvents uint16
 	var triedToGetTags bool
 	var additionalTags types.Tags
+	var exitError error
 	buf := bytes.NewBuffer(msg)
 	for {
 		line, readerr := buf.ReadBytes('\n')
 
 		// protocol does not require line to end in \n, if EOF use received line if valid
 		if readerr != nil && readerr != io.EOF {
-			return fmt.Errorf("error reading message from %s: %v", addr, readerr)
+			exitError = fmt.Errorf("error reading message from %s: %v", addr, readerr)
+			break
 		} else if readerr != io.EOF {
 			// remove newline, only if not EOF
 			if len(line) > 0 {
@@ -133,7 +131,7 @@ func (mr *metricReceiver) handleMessage(ctx context.Context, addr net.Addr, msg 
 		}
 
 		if len(line) > 1 {
-			metric, err := mr.parseLine(line)
+			metric, event, err := mr.parseLine(line)
 			if err != nil {
 				// logging as debug to avoid spamming logs when a bad actor sends
 				// badly formatted messages
@@ -145,21 +143,37 @@ func (mr *metricReceiver) handleMessage(ctx context.Context, addr net.Addr, msg 
 				triedToGetTags = true
 				additionalTags = mr.getAdditionalTags(addr.String())
 			}
-			if len(additionalTags) > 0 {
+			if metric != nil {
+				numMetrics++
+				metric.Tags = append(metric.Tags, mr.tags...)
 				metric.Tags = append(metric.Tags, additionalTags...)
+				err = mr.handler.DispatchMetric(ctx, metric)
+			} else if event != nil {
+				numEvents++
+				event.Tags = append(event.Tags, mr.tags...)
+				event.Tags = append(event.Tags, additionalTags...)
+				if event.DateHappened == 0 {
+					event.DateHappened = time.Now().Unix()
+				}
+				err = mr.handler.DispatchEvent(ctx, event)
+			} else {
+				// Should never happen.
+				log.Panic("Both event and metric are nil")
 			}
-			if err := mr.handler.HandleMetric(ctx, metric); err != nil {
-				return err
+			if err != nil {
+				exitError = err
+				break
 			}
-			numMetrics++
 		}
 
 		if readerr == io.EOF {
 			// if was EOF, finished handling
-			atomic.AddUint64(&mr.metricsReceived, uint64(numMetrics))
-			return nil
+			break
 		}
 	}
+	atomic.AddUint64(&mr.metricsReceived, uint64(numMetrics))
+	atomic.AddUint64(&mr.eventsReceived, uint64(numEvents))
+	return exitError
 }
 
 func (mr *metricReceiver) getAdditionalTags(addr string) types.Tags {
@@ -186,14 +200,8 @@ func (mr *metricReceiver) getAdditionalTags(addr string) types.Tags {
 	return nil
 }
 
-// ParseLine with lexer impl.
-func (mr *metricReceiver) parseLine(line []byte) (*types.Metric, error) {
-	llen := len(line)
-	if llen == 0 {
-		return nil, nil
-	}
-	metric := &types.Metric{}
-	metric.Tags = append(metric.Tags, mr.tags...)
-	l := &lexer{input: line, len: llen, m: metric, namespace: mr.namespace}
-	return l.run()
+// parseLine with lexer impl.
+func (mr *metricReceiver) parseLine(line []byte) (*types.Metric, *types.Event, error) {
+	l := lexer{}
+	return l.run(line, mr.namespace)
 }

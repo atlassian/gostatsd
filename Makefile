@@ -83,8 +83,10 @@ cross:
 docker: cross
 	cd build && docker build -t $(IMAGE_NAME):$(GIT_HASH) .
 
-release: check test docker
+release-hash: check test docker
 	docker push $(IMAGE_NAME):$(GIT_HASH)
+
+release: check test docker release-hash
 	docker tag $(IMAGE_NAME):$(GIT_HASH) $(IMAGE_NAME):latest
 	docker push $(IMAGE_NAME):latest
 	docker tag $(IMAGE_NAME):$(GIT_HASH) $(IMAGE_NAME):$(REPO_VERSION)
