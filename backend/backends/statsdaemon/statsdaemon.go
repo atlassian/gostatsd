@@ -121,7 +121,7 @@ func (client *client) SendMetrics(ctx context.Context, metrics *types.MetricMap)
 	return nil
 }
 
-// SendEvent discards events.
+// SendEvent sends events to the statsd master server.
 func (client *client) SendEvent(ctx context.Context, e *types.Event) error {
 	conn, err := net.Dial("udp", client.addr)
 	if err != nil {

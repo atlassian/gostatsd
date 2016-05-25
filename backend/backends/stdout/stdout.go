@@ -46,7 +46,7 @@ func (client client) SampleConfig() string {
 	return ""
 }
 
-// SendMetrics sends the metrics in a MetricsMap to the Graphite server.
+// SendMetrics prints the metrics in a MetricsMap to the stdout.
 func (client client) SendMetrics(ctx context.Context, metrics *types.MetricMap) (retErr error) {
 	buf := new(bytes.Buffer)
 	now := time.Now().Unix()
@@ -90,7 +90,7 @@ func (client client) SendMetrics(ctx context.Context, metrics *types.MetricMap) 
 	return err
 }
 
-// SendEvent discards events.
+// SendEvent prints events to the stdout.
 func (client client) SendEvent(ctx context.Context, e *types.Event) (retErr error) {
 	writer := log.StandardLogger().Writer()
 	defer func() {
