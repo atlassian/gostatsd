@@ -122,7 +122,7 @@ func TestDispatchMetricShouldDistributeMetrics(t *testing.T) {
 			t.Errorf("unexpected exit error: %v", err)
 		}
 	}()
-	numMetrics := r.Intn(1000)
+	numMetrics := r.Intn(1000) + n * 10
 	var wg sync.WaitGroup
 	wg.Add(numMetrics)
 	for i := 0; i < numMetrics; i++ {
@@ -146,6 +146,13 @@ func TestDispatchMetricShouldDistributeMetrics(t *testing.T) {
 	receiveInvocations := getTotalInvocations(factory.receiveInvocations)
 	if numMetrics != receiveInvocations {
 		t.Errorf("expected number of receiver metrics: %d, got %d", numMetrics, receiveInvocations)
+	}
+	for agrNum, count := range factory.receiveInvocations {
+		if count == 0 {
+			t.Errorf("aggregator %d was never invoked", agrNum)
+		} else {
+			t.Logf("aggregator %d was invoked %d time(s)", agrNum, count)
+		}
 	}
 }
 
