@@ -1,3 +1,13 @@
+0.13.0
+------
+- Fix goroutine start bug in dispatcher - versions 0.12.6, 0.12.7 do not work properly
+- [Datadog events](http://docs.datadoghq.com/guides/overview/#events) support
+
+0.12.7
+------
+- Remove deprecated -f flag passed to Docker tag command
+- Rename num_stats back to numStats to be compatible with original statsd
+
 0.12.6
 ------
 - null backend to do benchmarking
