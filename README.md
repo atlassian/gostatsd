@@ -3,6 +3,10 @@ gostatsd
 
 [![Build Status](https://travis-ci.org/atlassian/gostatsd.svg?branch=master)](https://travis-ci.org/atlassian/gostatsd)
 [![Coverage Status](https://coveralls.io/repos/github/atlassian/gostatsd/badge.svg?branch=master)](https://coveralls.io/github/atlassian/gostatsd?branch=master)
+[![GitHub tag](https://img.shields.io/github/tag/atlassian/gostatsd.svg?maxAge=86400)](https://github.com/atlassian/gostatsd)
+[![Docker Pulls](https://img.shields.io/docker/pulls/atlassianlabs/gostatsd.svg)](https://hub.docker.com/r/atlassianlabs/gostatsd/)
+[![Docker Stars](https://img.shields.io/docker/stars/atlassianlabs/gostatsd.svg)](https://hub.docker.com/r/atlassianlabs/gostatsd/)
+[![ImageLayers Size](https://imagelayers.io/badge/atlassianlabs/gostatsd:latest.svg)](https://imagelayers.io/?images=atlassianlabs/gostatsd:latest)
 
 An implementation of [Etsy's][etsy] [statsd][statsd] in Go,
 based on original code from [@kisielk](https://github.com/kisielk/).
