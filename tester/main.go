@@ -26,6 +26,7 @@ var (
 )
 
 func main() {
+	rand.Seed(time.Now().UnixNano())
 	s := newServer()
 	s.AddFlags(pflag.CommandLine)
 	pflag.Parse()
@@ -34,10 +35,7 @@ func main() {
 		fmt.Printf("Version: %s - Commit: %s - Date: %s\n", Version, GitCommit, BuildDate)
 		os.Exit(0)
 	}
-
-	rand.Seed(time.Now().Unix())
 	if s.Benchmark != 0 {
-		rand.Seed(time.Now().Unix())
 		server := statsd.Server{
 			Backends:         []string{"null"},
 			ConsoleAddr:      "",

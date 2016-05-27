@@ -2,10 +2,12 @@ package main
 
 import (
 	"fmt"
+	"math/rand"
 	"os"
 	"os/signal"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/atlassian/gostatsd/statsd"
 
@@ -39,6 +41,7 @@ const (
 const EnvPrefix = "GSD" //Go Stats D
 
 func main() {
+	rand.Seed(time.Now().UnixNano())
 	v, version, err := setupConfiguration()
 	if err != nil {
 		if err == pflag.ErrHelp {

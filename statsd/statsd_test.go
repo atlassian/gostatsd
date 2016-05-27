@@ -14,7 +14,7 @@ import (
 // TestStatsdThroughput emulates statsd work using fake network socket and null backend to
 // measure throughput.
 func TestStatsdThroughput(t *testing.T) {
-	rand.Seed(time.Now().Unix())
+	rand.Seed(time.Now().UnixNano())
 	s := Server{
 		Backends:         []string{"null"},
 		DefaultTags:      DefaultTags,
