@@ -216,12 +216,13 @@ func (d *client) authenticatedURL(path string) string {
 
 // NewClientFromViper returns a new Datadog API client.
 func NewClientFromViper(v *viper.Viper) (backendTypes.Backend, error) {
-	v.SetDefault("datadog.timeout", defaultClientTimeout)
-	v.SetDefault("datadog.max_request_elapsed_time", defaultMaxRequestElapsedTime)
+	dd := getSubViper(v, "datadog")
+	dd.SetDefault("timeout", defaultClientTimeout)
+	dd.SetDefault("max_request_elapsed_time", defaultMaxRequestElapsedTime)
 	return NewClient(
-		v.GetString("datadog.api_key"),
-		v.GetDuration("datadog.timeout"),
-		v.GetDuration("datadog.max_request_elapsed_time"),
+		dd.GetString("api_key"),
+		dd.GetDuration("timeout"),
+		dd.GetDuration("max_request_elapsed_time"),
 	)
 }
 
@@ -229,6 +230,12 @@ func NewClientFromViper(v *viper.Viper) (backendTypes.Backend, error) {
 func NewClient(apiKey string, clientTimeout, maxRequestElapsedTime time.Duration) (backendTypes.Backend, error) {
 	if apiKey == "" {
 		return nil, fmt.Errorf("[%s] api_key is a required field", BackendName)
+	}
+	if clientTimeout <= 0 {
+		return nil, fmt.Errorf("[%s] clientTimeout must be positive", BackendName)
+	}
+	if maxRequestElapsedTime <= 0 {
+		return nil, fmt.Errorf("[%s] maxRequestElapsedTime must be positive", BackendName)
 	}
 	hostname, err := os.Hostname()
 	if err != nil {
@@ -244,4 +251,17 @@ func NewClient(apiKey string, clientTimeout, maxRequestElapsedTime time.Duration
 			Timeout: clientTimeout,
 		},
 	}, nil
+}
+
+// Workaround https://github.com/spf13/viper/pull/165 and https://github.com/spf13/viper/issues/191
+func getSubViper(v *viper.Viper, key string) *viper.Viper {
+	var n *viper.Viper
+	namespace := v.Get(key)
+	if namespace != nil {
+		n = v.Sub(key)
+	}
+	if n == nil {
+		n = viper.New()
+	}
+	return n
 }
