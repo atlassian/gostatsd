@@ -1,8 +1,8 @@
-hash: af2a23f7471bce95ca8ab39984fe8e0c8a53f21937190d586d81f24360d8a19e
-updated: 2016-03-19T21:45:31.048863038+11:00
+hash: 77f5d07297f572efdb56df9e840dfcbf72f81b48765952ed91257cef28c5e538
+updated: 2016-05-27T13:43:39.171534753+10:00
 imports:
 - name: github.com/aws/aws-sdk-go
-  version: 996f601d8198d4fdc49bb5d93c73f27a6bdfe900
+  version: 073693d6cf3e1a74b323877172a5392f3e56bc97
   subpackages:
   - aws/credentials
   - aws/credentials/ec2rolecreds
@@ -26,13 +26,15 @@ imports:
   - private/protocol/xml/xmlutil
   - private/protocol/rest
 - name: github.com/BurntSushi/toml
-  version: 75869ce70f3cd0f6d1473c58f4adac5941f1055a
+  version: f0aeabca5a127c4078abb8c8d64298b147264b55
 - name: github.com/cenkalti/backoff
-  version: 4dc77674aceaabba2c7e3da25d4c823edfb73f99
+  version: a6030178a585d5972d4d33ce61f4a1fa40eaaed0
+- name: github.com/fsnotify/fsnotify
+  version: 30411dbcefb7a1da7e84f75530ad3abe4011b4f8
 - name: github.com/go-ini/ini
-  version: 776aa739ce9373377cd16f526cdf06cb4c89b40f
+  version: 12f418cc7edc5a618a51407b7ac1f1f512139df3
 - name: github.com/hashicorp/hcl
-  version: 71c7409f1abba841e528a80556ed2c67671744c3
+  version: 9a905a34e6280ce905da1a32344b25e81011197a
   subpackages:
   - hcl/ast
   - hcl/parser
@@ -48,38 +50,32 @@ imports:
   version: d175a37b36239828941c8e176ffa0f4d9221f641
 - name: github.com/koding/cache
   version: 704055ea875a873a183314b60735f7ba403429da
-- name: github.com/kr/pretty
-  version: e6ac2fc51e89a3249e82157fa0bb7a18ef9dd5bb
-- name: github.com/kr/text
-  version: bb797dc4fb8320488f47bf11de07a733d7233e1f
 - name: github.com/magiconair/properties
-  version: 497d0afefddf378f9ffb3c89db6a326985908519
+  version: c265cfa48dda6474e208715ca93e987829f572f8
 - name: github.com/mitchellh/mapstructure
   version: d2dd0262208475919e1a362f675cfc0e7c10e905
 - name: github.com/Sirupsen/logrus
-  version: 219c8cb75c258c552e999735be6df753ffc7afdc
+  version: 6d9ae300aaf85d6acd2e5424081c7fcddb21dab8
 - name: github.com/spf13/cast
-  version: ee7b3e0353166ab1f3a605294ac8cd2b77953778
+  version: 27b586b42e29bec072fe7379259cc719e1289da6
 - name: github.com/spf13/jwalterweatherman
-  version: d00654080cddbd2b082acaa74007cb94a2b40866
+  version: 33c24e77fb80341fe7130ee7c594256ff08ccc46
 - name: github.com/spf13/pflag
-  version: 7f60f83a2c81bc3c3c0d5297f61ddfa68da9d3b7
+  version: cb88ea77998c3f024757528e3305022ab50b43be
 - name: github.com/spf13/viper
-  version: c975dc1b4eacf4ec7fdbf0873638de5d090ba323
+  version: d8a428b8a30606e1d0b355d91edf282609ade1a6
 - name: github.com/stretchr/testify
-  version: 6fe211e493929a8aac0469b93f28b1d0688a9a3a
+  version: 8d64eb7173c7753d6419fd4a9caf057398611364
   subpackages:
   - assert
 - name: golang.org/x/net
-  version: 35b06af0720201bc2f326773a80767387544f8c4
+  version: 30db96677b74e24b967e23f911eb3364fc61a011
   subpackages:
   - context
 - name: golang.org/x/sys
-  version: 7a56174f0086b32866ebd746a794417edbc678a1
+  version: d4feaf1a7e61e1d9e79e6c4e76c6349e9cab0a03
   subpackages:
   - unix
-- name: gopkg.in/fsnotify.v1
-  version: 875cf421b32f8f1b31bd43776297876d01542279
 - name: gopkg.in/yaml.v2
   version: a83829b6f1293c91addabc89d0571c246397bbf4
 devImports: []
