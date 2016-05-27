@@ -176,12 +176,16 @@ func (d *client) post(path, typeOfPost string, data interface{}) error {
 
 	b := backoff.NewExponentialBackOff()
 	b.MaxElapsedTime = d.maxRequestElapsedTime
-	err = backoff.Retry(d.doPost(req), b)
+	err = backoff.RetryNotify(d.doPost(req), b, handleFailedAttempt)
 	if err != nil {
 		return fmt.Errorf("[%s] %v", BackendName, err)
 	}
 
 	return nil
+}
+
+func handleFailedAttempt(err error, d time.Duration) {
+	log.Warnf("[%s] failed to send metrics, sleeping for %s: %v", BackendName, d, err)
 }
 
 func (d *client) doPost(req *http.Request) func() error {
@@ -228,8 +232,9 @@ func NewClient(apiKey string, clientTimeout, maxRequestElapsedTime time.Duration
 	}
 	hostname, err := os.Hostname()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("[%s] cannot get hostname: %v", BackendName, err)
 	}
+	log.Infof("[%s] maxRequestElapsedTime=%s clientTimeout=%s", BackendName, maxRequestElapsedTime, clientTimeout)
 	return &client{
 		apiKey:                apiKey,
 		apiEndpoint:           apiURL,
