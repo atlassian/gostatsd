@@ -122,7 +122,7 @@ func TestDispatchMetricShouldDistributeMetrics(t *testing.T) {
 			t.Errorf("unexpected exit error: %v", err)
 		}
 	}()
-	numMetrics := r.Intn(1000) + n * 10
+	numMetrics := r.Intn(1000) + n*10
 	var wg sync.WaitGroup
 	wg.Add(numMetrics)
 	for i := 0; i < numMetrics; i++ {
