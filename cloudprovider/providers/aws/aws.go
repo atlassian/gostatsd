@@ -1,7 +1,10 @@
 package aws
 
 import (
+	"errors"
 	"fmt"
+	"net/http"
+	"time"
 
 	cloudTypes "github.com/atlassian/gostatsd/cloudprovider/types"
 	"github.com/atlassian/gostatsd/types"
@@ -63,13 +66,12 @@ type awsSdkEC2 struct {
 }
 
 func (p *awsSDKProvider) Metadata() (EC2Metadata, error) {
-	client := ec2metadata.New(session.New(&aws.Config{}))
-	return client, nil
+	return p.ec2Metadata, nil
 }
 
 type awsSDKProvider struct {
-	creds      *credentials.Credentials
-	maxRetries int
+	config      *aws.Config
+	ec2Metadata *ec2metadata.EC2Metadata
 }
 
 func isNilOrEmpty(s *string) bool {
@@ -132,10 +134,14 @@ func (p *provider) Instance(IP string) (*cloudTypes.Instance, error) {
 	if err != nil {
 		log.Errorf("Error getting instance region: %v", err)
 	}
-	instance := &cloudTypes.Instance{ID: aws.StringValue(i.InstanceId), Region: region}
-	for _, tag := range i.Tags {
-		instance.Tags = append(instance.Tags, fmt.Sprintf("%s:%s",
-			types.NormalizeTagElement(aws.StringValue(tag.Key)), types.NormalizeTagElement(aws.StringValue(tag.Value))))
+	instance := &cloudTypes.Instance{
+		ID:     aws.StringValue(i.InstanceId),
+		Region: region,
+		Tags:   make(types.Tags, len(i.Tags)),
+	}
+	for idx, tag := range i.Tags {
+		instance.Tags[idx] = fmt.Sprintf("%s:%s",
+			types.NormalizeTagElement(aws.StringValue(tag.Key)), types.NormalizeTagElement(aws.StringValue(tag.Value)))
 	}
 	return instance, nil
 }
@@ -152,11 +158,9 @@ func (p *provider) SampleConfig() string {
 
 // Compute is an implementation of ec2 Compute.
 func (p *awsSDKProvider) Compute(regionName string) (EC2, error) {
-	service := ec2.New(session.New(&aws.Config{
-		Region:      &regionName,
-		Credentials: p.creds,
-		MaxRetries:  aws.Int(p.maxRetries),
-	}))
+	service := ec2.New(session.New(p.config.Copy(&aws.Config{
+		Region: &regionName,
+	})))
 
 	ec2 := &awsSdkEC2{
 		ec2: service,
@@ -167,8 +171,8 @@ func (p *awsSDKProvider) Compute(regionName string) (EC2, error) {
 // Derives the region from a valid az name.
 // Returns an error if the az is known invalid (empty).
 func azToRegion(az string) (string, error) {
-	if len(az) < 1 {
-		return "", fmt.Errorf("invalid (empty) AZ")
+	if az == "" {
+		return "", errors.New("invalid (empty) AZ")
 	}
 	region := az[:len(az)-1]
 	return region, nil
@@ -199,21 +203,54 @@ func NewProvider(awsServices Services, az string) (cloudTypes.Interface, error) 
 	return &provider{availabilityZone: az, region: region, ec2: ec2, metadata: metadata}, nil
 }
 
-func newAWSSDKProvider(creds *credentials.Credentials, maxRetries int) *awsSDKProvider {
-	return &awsSDKProvider{creds: creds, maxRetries: maxRetries}
+func newAWSSDKProvider(config *aws.Config, ec2Metadata *ec2metadata.EC2Metadata) (Services, error) {
+	if config.HTTPClient != nil && config.HTTPClient.Timeout <= 0 {
+		return nil, errors.New("http client timeout must be positive")
+	}
+	return &awsSDKProvider{
+		config:      config,
+		ec2Metadata: ec2Metadata,
+	}, nil
 }
 
 // NewProviderFromViper returns a new aws provider.
 func NewProviderFromViper(v *viper.Viper) (cloudTypes.Interface, error) {
-	v.SetDefault("aws.max_retries", 3)
-	creds := credentials.NewChainCredentials(
-		[]credentials.Provider{
-			&credentials.EnvProvider{},
-			&ec2rolecreds.EC2RoleProvider{
-				Client: ec2metadata.New(session.New(&aws.Config{})),
-			},
-			&credentials.SharedCredentialsProvider{},
-		})
-	aws := newAWSSDKProvider(creds, v.GetInt("aws.max_retries"))
-	return NewProvider(aws, v.GetString("aws.availability_zone"))
+	a := getSubViper(v, "aws")
+	a.SetDefault("max_retries", 3)
+	a.SetDefault("http_timeout", 3*time.Second)
+	// This is the main config without credentials.
+	config := &aws.Config{
+		MaxRetries: aws.Int(a.GetInt("max_retries")),
+		HTTPClient: &http.Client{
+			Timeout: a.GetDuration("http_timeout"),
+		},
+	}
+	ec2Metadata := ec2metadata.New(session.New(config))
+	aws, err := newAWSSDKProvider(config.Copy(&aws.Config{
+		Credentials: credentials.NewChainCredentials(
+			[]credentials.Provider{
+				&credentials.EnvProvider{},
+				&ec2rolecreds.EC2RoleProvider{
+					Client: ec2Metadata,
+				},
+				&credentials.SharedCredentialsProvider{},
+			}),
+	}), ec2Metadata)
+	if err != nil {
+		return nil, err
+	}
+	return NewProvider(aws, a.GetString("availability_zone"))
+}
+
+// Workaround https://github.com/spf13/viper/pull/165 and https://github.com/spf13/viper/issues/191
+func getSubViper(v *viper.Viper, key string) *viper.Viper {
+	var n *viper.Viper
+	namespace := v.Get(key)
+	if namespace != nil {
+		n = v.Sub(key)
+	}
+	if n == nil {
+		n = viper.New()
+	}
+	return n
 }

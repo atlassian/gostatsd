@@ -101,8 +101,9 @@ func (client *client) SampleConfig() string {
 
 // NewClientFromViper constructs a GraphiteClient object by connecting to an address.
 func NewClientFromViper(v *viper.Viper) (backendTypes.Backend, error) {
-	v.SetDefault("graphite.address", "localhost:2003")
-	return NewClient(v.GetString("graphite.address"))
+	g := getSubViper(v, "graphite")
+	g.SetDefault("address", "localhost:2003")
+	return NewClient(g.GetString("address"))
 }
 
 // NewClient constructs a GraphiteClient object by connecting to an address.
@@ -113,4 +114,17 @@ func NewClient(address string) (backendTypes.Backend, error) {
 // BackendName returns the name of the backend.
 func (client *client) BackendName() string {
 	return BackendName
+}
+
+// Workaround https://github.com/spf13/viper/pull/165 and https://github.com/spf13/viper/issues/191
+func getSubViper(v *viper.Viper, key string) *viper.Viper {
+	var n *viper.Viper
+	namespace := v.Get(key)
+	if namespace != nil {
+		n = v.Sub(key)
+	}
+	if n == nil {
+		n = viper.New()
+	}
+	return n
 }
