@@ -169,14 +169,12 @@ func (d *client) post(path, typeOfPost string, data interface{}) error {
 		return fmt.Errorf("[%s] unable to marshal %s: %v", BackendName, typeOfPost, err)
 	}
 	log.Debugf("[%s] %s json: %s", BackendName, typeOfPost, tsBytes)
-	req, err := http.NewRequest("POST", d.authenticatedURL(path), bytes.NewBuffer(tsBytes))
-	if err != nil {
-		return fmt.Errorf("[%s] unable to create http.Request: %v", BackendName, err)
-	}
 
 	b := backoff.NewExponentialBackOff()
 	b.MaxElapsedTime = d.maxRequestElapsedTime
-	err = backoff.RetryNotify(d.doPost(req), b, handleFailedAttempt)
+	err = backoff.RetryNotify(d.doPost(path, tsBytes), b, func(err error, d time.Duration) {
+		log.Warnf("[%s] failed to send %s, sleeping for %s: %v", BackendName, typeOfPost, d, err)
+	})
 	if err != nil {
 		return fmt.Errorf("[%s] %v", BackendName, err)
 	}
@@ -184,16 +182,17 @@ func (d *client) post(path, typeOfPost string, data interface{}) error {
 	return nil
 }
 
-func handleFailedAttempt(err error, d time.Duration) {
-	log.Warnf("[%s] failed to send metrics, sleeping for %s: %v", BackendName, d, err)
-}
-
-func (d *client) doPost(req *http.Request) func() error {
-	req.Header.Add("Content-Type", "application/json")
-	// Mimic dogstatsd code
-	req.Header.Add("DD-Dogstatsd-Version", dogstatsdVersion)
-	req.Header.Add("User-Agent", dogstatsdUserAgent)
+func (d *client) doPost(path string, body []byte) func() error {
+	authenticatedURL := d.authenticatedURL(path)
 	return func() error {
+		req, err := http.NewRequest("POST", authenticatedURL, bytes.NewBuffer(body))
+		if err != nil {
+			return fmt.Errorf("unable to create http.Request: %v", err)
+		}
+		req.Header.Add("Content-Type", "application/json")
+		// Mimic dogstatsd code
+		req.Header.Add("DD-Dogstatsd-Version", dogstatsdVersion)
+		req.Header.Add("User-Agent", dogstatsdUserAgent)
 		resp, err := d.client.Do(req)
 		if err != nil {
 			return fmt.Errorf("error POSTing: %s", strings.Replace(err.Error(), d.apiKey, "*****", -1))
@@ -217,9 +216,11 @@ func (d *client) authenticatedURL(path string) string {
 // NewClientFromViper returns a new Datadog API client.
 func NewClientFromViper(v *viper.Viper) (backendTypes.Backend, error) {
 	dd := getSubViper(v, "datadog")
+	dd.SetDefault("api_endpoint", apiURL)
 	dd.SetDefault("timeout", defaultClientTimeout)
 	dd.SetDefault("max_request_elapsed_time", defaultMaxRequestElapsedTime)
 	return NewClient(
+		dd.GetString("api_endpoint"),
 		dd.GetString("api_key"),
 		dd.GetDuration("timeout"),
 		dd.GetDuration("max_request_elapsed_time"),
@@ -227,9 +228,12 @@ func NewClientFromViper(v *viper.Viper) (backendTypes.Backend, error) {
 }
 
 // NewClient returns a new Datadog API client.
-func NewClient(apiKey string, clientTimeout, maxRequestElapsedTime time.Duration) (backendTypes.Backend, error) {
+func NewClient(apiEndpoint, apiKey string, clientTimeout, maxRequestElapsedTime time.Duration) (backendTypes.Backend, error) {
+	if apiEndpoint == "" {
+		return nil, fmt.Errorf("[%s] apiEndpoint is required", BackendName)
+	}
 	if apiKey == "" {
-		return nil, fmt.Errorf("[%s] api_key is a required field", BackendName)
+		return nil, fmt.Errorf("[%s] apiKey is required", BackendName)
 	}
 	if clientTimeout <= 0 {
 		return nil, fmt.Errorf("[%s] clientTimeout must be positive", BackendName)
@@ -244,7 +248,7 @@ func NewClient(apiKey string, clientTimeout, maxRequestElapsedTime time.Duration
 	log.Infof("[%s] maxRequestElapsedTime=%s clientTimeout=%s", BackendName, maxRequestElapsedTime, clientTimeout)
 	return &client{
 		apiKey:                apiKey,
-		apiEndpoint:           apiURL,
+		apiEndpoint:           apiEndpoint,
 		hostname:              hostname,
 		maxRequestElapsedTime: maxRequestElapsedTime,
 		client: &http.Client{
