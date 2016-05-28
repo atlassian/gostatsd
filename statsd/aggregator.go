@@ -20,7 +20,7 @@ type ProcessFunc func(*types.MetricMap)
 // Incoming metrics should be passed via Receive function.
 type Aggregator interface {
 	Receive(*types.Metric, time.Time)
-	Flush(func() time.Time) *types.MetricMap
+	Flush(func() time.Time)
 	Process(ProcessFunc)
 	Reset(time.Time)
 }
@@ -55,7 +55,7 @@ func round(v float64) float64 {
 }
 
 // Flush prepares the contents of an Aggregator for sending via the Sender.
-func (a *aggregator) Flush(now func() time.Time) *types.MetricMap {
+func (a *aggregator) Flush(now func() time.Time) {
 	startTime := now()
 	flushInterval := startTime.Sub(a.lastFlush)
 
@@ -157,16 +157,6 @@ func (a *aggregator) Flush(now func() time.Time) *types.MetricMap {
 	a.receiveGauge(statName, a.defaultTags, float64(a.ProcessingTime)/float64(time.Millisecond), flushTime)
 
 	a.lastFlush = flushTime
-
-	return &types.MetricMap{
-		NumStats:       a.NumStats,
-		ProcessingTime: a.ProcessingTime,
-		FlushInterval:  flushInterval,
-		Counters:       a.Counters.Clone(),
-		Timers:         a.Timers.Clone(),
-		Gauges:         a.Gauges.Clone(),
-		Sets:           a.Sets.Clone(),
-	}
 }
 
 func (a *aggregator) Process(f ProcessFunc) {

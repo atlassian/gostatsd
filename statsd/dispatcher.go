@@ -11,12 +11,14 @@ import (
 	"golang.org/x/net/context"
 )
 
+// DispatcherProcessFunc is a function that gets executed by Dispatcher for each Aggregator, passing it into the function.
+type DispatcherProcessFunc func(Aggregator)
+
 // Dispatcher is responsible for managing Aggregators' lifecycle and dispatching metrics among them.
 type Dispatcher interface {
 	Run(context.Context) error
 	DispatchMetric(context.Context, *types.Metric) error
-	Flush(context.Context) <-chan *types.MetricMap
-	Process(context.Context, ProcessFunc) *sync.WaitGroup
+	Process(context.Context, DispatcherProcessFunc) *sync.WaitGroup
 }
 
 // AggregatorFactory creates Aggregator objects.
@@ -33,20 +35,13 @@ func (f AggregatorFactoryFunc) Create() Aggregator {
 	return f()
 }
 
-type flushCommand struct {
-	ctx    context.Context
-	result chan<- *types.MetricMap
-	wg     sync.WaitGroup
-}
-
 type processCommand struct {
-	f  ProcessFunc
+	f  DispatcherProcessFunc
 	wg sync.WaitGroup
 }
 
 type worker struct {
 	aggr         Aggregator
-	flushChan    chan *flushCommand
 	metricsQueue chan *types.Metric
 	processChan  chan *processCommand
 }
@@ -65,7 +60,6 @@ func NewDispatcher(numWorkers int, perWorkerBufferSize int, af AggregatorFactory
 	for i := uint16(0); i < n; i++ {
 		workers[i] = worker{
 			aggr:         af.Create(),
-			flushChan:    make(chan *flushCommand),
 			metricsQueue: make(chan *types.Metric, perWorkerBufferSize),
 			processChan:  make(chan *processCommand),
 		}
@@ -108,37 +102,10 @@ func (d *dispatcher) DispatchMetric(ctx context.Context, m *types.Metric) error 
 	}
 }
 
-// Flush calls Flush on all managed Aggregators and returns results.
-func (d *dispatcher) Flush(ctx context.Context) <-chan *types.MetricMap {
-	results := make(chan *types.MetricMap, d.numWorkers) // Enough capacity not to block workers
-	cmd := &flushCommand{
-		ctx:    ctx,
-		result: results,
-	}
-	cmd.wg.Add(len(d.workers))
-	flushesSent := 0
-loop:
-	for _, worker := range d.workers {
-		select {
-		case <-ctx.Done():
-			cmd.wg.Add(flushesSent - len(d.workers)) // Not all flushes have been sent, should decrement the WG counter.
-			break loop
-		case worker.flushChan <- cmd:
-			flushesSent++
-		}
-	}
-	go func() {
-		// Wait until all the workers finish to ensure we close the channel only after we know nobody is going to send to it
-		cmd.wg.Wait()
-		close(results) // Signal consumer there are no more flush results
-	}()
-	return results
-}
-
 // Process concurrently executes provided function in goroutines that own Aggregators.
-// ProcessFunc function may be executed zero or up to numWorkers times. It is executed
+// DispatcherProcessFunc function may be executed zero or up to numWorkers times. It is executed
 // less than numWorkers times if the context signals "done".
-func (d *dispatcher) Process(ctx context.Context, f ProcessFunc) *sync.WaitGroup {
+func (d *dispatcher) Process(ctx context.Context, f DispatcherProcessFunc) *sync.WaitGroup {
 	cmd := &processCommand{
 		f: f,
 	}
@@ -169,25 +136,13 @@ func (w *worker) work(wg *sync.WaitGroup) {
 				return
 			}
 			w.aggr.Receive(metric, time.Now())
-		case cmd := <-w.flushChan:
-			w.executeFlush(cmd)
 		case cmd := <-w.processChan:
 			w.executeProcess(cmd)
 		}
 	}
 }
 
-func (w *worker) executeFlush(cmd *flushCommand) {
-	defer cmd.wg.Done()              // Done with the flush command
-	result := w.aggr.Flush(time.Now) // pass func for stubbing
-	w.aggr.Reset(time.Now())
-	select {
-	case <-cmd.ctx.Done():
-	case cmd.result <- result:
-	}
-}
-
 func (w *worker) executeProcess(cmd *processCommand) {
 	defer cmd.wg.Done() // Done with the process command
-	w.aggr.Process(cmd.f)
+	cmd.f(w.aggr)
 }

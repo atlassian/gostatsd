@@ -6,6 +6,7 @@ import (
 	"net"
 	"strconv"
 	"strings"
+	"sync"
 
 	backendTypes "github.com/atlassian/gostatsd/backend/types"
 	"github.com/atlassian/gostatsd/types"
@@ -27,45 +28,46 @@ const sampleConfig = `
 	address = "statsdaemon-master:6126"
 `
 
+// sendChannelSize specifies the size of the buffer of a channel between caller goroutine, producing buffers, and the
+// goroutine that writes them to the socket.
+const sendChannelSize = 1000
+
 // client is an object that is used to send messages to a statsd server's UDP interface.
 type client struct {
 	addr string
 }
 
-func (client *client) write(conn *net.Conn, buf *bytes.Buffer) error {
-	_, err := buf.WriteTo(*conn)
-	if err != nil {
-		return fmt.Errorf("error sending to statsd backend: %s", err)
-	}
-	return nil
+// overflowHandler is invoked when accumulated packed size has reached it's limit of maxUDPPacketSize.
+// This function should return a new buffer to be used for the rest of the work (may be the same buffer
+// if contents are processed somehow and are no longer needed).
+type overflowHandler func(*bytes.Buffer) (*bytes.Buffer, error)
+
+var bufFree = sync.Pool{
+	New: func() interface{} {
+		buf := new(bytes.Buffer)
+		buf.Grow(maxUDPPacketSize)
+		return buf
+	},
 }
 
-func (client *client) writeLine(conn *net.Conn, buf *bytes.Buffer, format, name, tags string, value interface{}) error {
-	line := new(bytes.Buffer)
-	if tags != "" {
-		format += "|#%s"
-	}
-	format += "\n"
+func writeLine(handler overflowHandler, line, buf *bytes.Buffer, format, name, tags string, value interface{}) (*bytes.Buffer, error) {
+	line.Reset()
 	if tags == "" {
+		format += "\n"
 		fmt.Fprintf(line, format, name, value)
 	} else {
+		format += "|#%s\n"
 		fmt.Fprintf(line, format, name, value, tags)
 	}
 	// Make sure we don't go over max udp datagram size
 	if buf.Len()+line.Len() > maxUDPPacketSize {
-		if err := client.write(conn, buf); err != nil {
-			return err
+		var err error
+		if buf, err = handler(buf); err != nil {
+			return nil, err
 		}
-		buf.Reset()
 	}
 	fmt.Fprint(buf, line)
-	line.Reset()
-	return nil
-}
-
-func logError(err error) error {
-	log.Errorf("Error sending to statsd backend: %s", err)
-	return err
+	return buf, nil
 }
 
 // SendMetrics sends the metrics in a MetricsMap to the statsd master server.
@@ -76,49 +78,125 @@ func (client *client) SendMetrics(ctx context.Context, metrics *types.MetricMap)
 
 	conn, err := net.Dial("udp", client.addr)
 	if err != nil {
-		return fmt.Errorf("error connecting to statsd backend: %s", err)
+		return fmt.Errorf("[%s] error connecting: %v", BackendName, err)
 	}
 	defer conn.Close()
 
-	var lastError error
-	buf := new(bytes.Buffer)
+	return processMetrics(metrics, func(buf *bytes.Buffer) (*bytes.Buffer, error) {
+		_, err := buf.WriteTo(conn)
+		if err != nil {
+			return nil, fmt.Errorf("[%s] error sending: %v", BackendName, err)
+		}
+		return buf, nil
+	})
+}
+
+// SendMetricsAsync flushes the metrics to the statsd server, preparing payload synchronously but doing the send asynchronously.
+func (client *client) SendMetricsAsync(ctx context.Context, metrics *types.MetricMap, c backendTypes.SendCallback) {
+	if metrics.NumStats == 0 {
+		c(nil)
+		return
+	}
+	localCtx, cancelFunc := context.WithCancel(ctx)
+
+	datagrams := make(chan *bytes.Buffer, sendChannelSize)
+
+	conn, err := net.Dial("udp", client.addr)
+	if err != nil {
+		c(fmt.Errorf("[%s] error connecting: %v", BackendName, err))
+		return
+	}
+	go func() {
+		defer conn.Close()
+		defer cancelFunc() // Tell the processMetrics function to stop if it is still running
+		for {
+			select {
+			case <-localCtx.Done():
+				c(localCtx.Err())
+				return
+			case buf, ok := <-datagrams:
+				if !ok {
+					c(nil)
+					return
+				}
+				_, errWrite := buf.WriteTo(conn)
+				buf.Reset() // In case of error we must reset the buffer before returning to the pool
+				bufFree.Put(buf)
+				if errWrite != nil {
+					c(fmt.Errorf("[%s] error sending: %v", BackendName, errWrite))
+					return
+				}
+			}
+		}
+	}()
+	err = processMetrics(metrics, func(buf *bytes.Buffer) (*bytes.Buffer, error) {
+		select {
+		case <-localCtx.Done(): // This can happen if 1) parent context is Done or 2) receiver encountered an error
+			return nil, localCtx.Err()
+		case datagrams <- buf:
+			return bufFree.Get().(*bytes.Buffer), nil
+		}
+	})
+	if err == nil {
+		// All metrics sent to the channel and context wasn't cancelled (yet) - consuming goroutine will exit
+		// with success (unless ctx gets a cancel after the close, which is also ok)
+		close(datagrams)
+	} else if err != context.Canceled && err != context.DeadlineExceeded {
+		log.Panicf("Unexpected error: %v", err)
+	}
+}
+
+func processMetrics(metrics *types.MetricMap, handler overflowHandler) (retErr error) {
+	type failure struct {
+		err error
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			if f, ok := r.(failure); ok {
+				retErr = f.err
+			} else {
+				panic(r)
+			}
+		}
+	}()
+	buf := bufFree.Get().(*bytes.Buffer)
+	line := bufFree.Get().(*bytes.Buffer)
 	metrics.Counters.Each(func(key, tagsKey string, counter types.Counter) {
 		// do not send statsd stats as they will be recalculated on the master instead
 		if !strings.HasPrefix(key, "statsd.") {
-			if err = client.writeLine(&conn, buf, "%s:%d|c", key, tagsKey, counter.Value); err != nil {
-				lastError = logError(err)
+			var err error
+			if buf, err = writeLine(handler, line, buf, "%s:%d|c", key, tagsKey, counter.Value); err != nil {
+				panic(failure{err})
 			}
 		}
 	})
 	metrics.Timers.Each(func(key, tagsKey string, timer types.Timer) {
 		for _, tr := range timer.Values {
-			if err = client.writeLine(&conn, buf, "%s:%f|ms", key, tagsKey, tr); err != nil {
-				lastError = logError(err)
+			var err error
+			if buf, err = writeLine(handler, line, buf, "%s:%f|ms", key, tagsKey, tr); err != nil {
+				panic(failure{err})
 			}
 		}
 	})
 	metrics.Gauges.Each(func(key, tagsKey string, gauge types.Gauge) {
-		if err = client.writeLine(&conn, buf, "%s:%f|g", key, tagsKey, gauge.Value); err != nil {
-			lastError = logError(err)
+		var err error
+		if buf, err = writeLine(handler, line, buf, "%s:%f|g", key, tagsKey, gauge.Value); err != nil {
+			panic(failure{err})
 		}
 	})
-
 	metrics.Sets.Each(func(key, tagsKey string, set types.Set) {
 		for k := range set.Values {
-			if err = client.writeLine(&conn, buf, "%s:%s|s", key, tagsKey, k); err != nil {
-				lastError = logError(err)
+			var err error
+			if buf, err = writeLine(handler, line, buf, "%s:%s|s", key, tagsKey, k); err != nil {
+				panic(failure{err})
 			}
 		}
 	})
-
-	if err = client.write(&conn, buf); err != nil {
-		return err
+	var err error
+	if buf.Len() > 0 {
+		_, err = handler(buf) // Process what's left in the buffer
 	}
-
-	if lastError != nil {
-		return lastError
-	}
-	return nil
+	return err
 }
 
 // SendEvent sends events to the statsd master server.

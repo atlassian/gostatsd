@@ -45,15 +45,3 @@ func (c Counters) Each(f func(string, string, Counter)) {
 		}
 	}
 }
-
-// Clone performs a deep copy of a map of counters into a new map.
-func (c Counters) Clone() Counters {
-	destination := Counters{}
-	c.Each(func(key, tags string, counter Counter) {
-		if _, ok := destination[key]; !ok {
-			destination[key] = make(map[string]Counter)
-		}
-		destination[key][tags] = counter
-	})
-	return destination
-}

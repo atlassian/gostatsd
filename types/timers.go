@@ -54,15 +54,3 @@ func (t Timers) Each(f func(string, string, Timer)) {
 		}
 	}
 }
-
-// Clone performs a deep copy of a map of timers into a new map.
-func (t Timers) Clone() Timers {
-	destination := Timers{}
-	t.Each(func(key, tags string, timer Timer) {
-		if _, ok := destination[key]; !ok {
-			destination[key] = make(map[string]Timer)
-		}
-		destination[key][tags] = timer
-	})
-	return destination
-}

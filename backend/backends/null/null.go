@@ -34,6 +34,11 @@ func (client client) SendMetrics(ctx context.Context, metrics *types.MetricMap) 
 	return nil
 }
 
+// SendMetricsAsync discards the metrics in a MetricsMap.
+func (client client) SendMetricsAsync(ctx context.Context, metrics *types.MetricMap, c backendTypes.SendCallback) {
+	c(nil)
+}
+
 // SendEvent discards events.
 func (client client) SendEvent(ctx context.Context, e *types.Event) error {
 	return nil

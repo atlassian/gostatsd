@@ -111,11 +111,11 @@ func TestFlush(t *testing.T) {
 	expected.Sets["some"] = make(map[string]types.Set)
 	expected.Sets["some"]["thing"] = types.Set{Values: unique}
 
-	actual := ma.Flush(nowFn)
-	assert.Equal(expected.Counters, actual.Counters)
-	assert.Equal(expected.Timers, actual.Timers)
-	assert.Equal(expected.Gauges, actual.Gauges)
-	assert.Equal(expected.Sets, actual.Sets)
+	ma.Flush(nowFn)
+	assert.Equal(expected.Counters, ma.Counters)
+	assert.Equal(expected.Timers, ma.Timers)
+	assert.Equal(expected.Gauges, ma.Gauges)
+	assert.Equal(expected.Sets, ma.Sets)
 }
 
 func BenchmarkFlush(b *testing.B) {

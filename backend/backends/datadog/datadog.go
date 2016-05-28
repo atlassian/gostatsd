@@ -105,6 +105,22 @@ func (d *client) SendMetrics(ctx context.Context, metrics *types.MetricMap) erro
 	if metrics.NumStats == 0 {
 		return nil
 	}
+	return d.postMetrics(d.prepareSeries(metrics))
+}
+
+// SendMetricsAsync flushes the metrics to Datadog, preparing payload synchronously but doing the send asynchronously.
+func (d *client) SendMetricsAsync(ctx context.Context, metrics *types.MetricMap, c backendTypes.SendCallback) {
+	if metrics.NumStats == 0 {
+		c(nil)
+		return
+	}
+	ts := d.prepareSeries(metrics)
+	go func() {
+		c(d.postMetrics(ts))
+	}()
+}
+
+func (d *client) prepareSeries(metrics *types.MetricMap) *timeSeries {
 	ts := timeSeries{Timestamp: time.Now().Unix(), Hostname: d.hostname}
 
 	metrics.Counters.Each(func(key, tagsKey string, counter types.Counter) {
@@ -134,7 +150,10 @@ func (d *client) SendMetrics(ctx context.Context, metrics *types.MetricMap) erro
 	metrics.Sets.Each(func(key, tagsKey string, set types.Set) {
 		ts.addMetric(key, tagsKey, gauge, float64(len(set.Values)), set.Flush)
 	})
+	return &ts
+}
 
+func (d *client) postMetrics(ts *timeSeries) error {
 	return d.post("/api/v1/series", "metrics", ts)
 }
 
@@ -182,7 +201,7 @@ func (d *client) post(path, typeOfPost string, data interface{}) error {
 	return nil
 }
 
-func (d *client) doPost(path string, body []byte) func() error {
+func (d *client) doPost(path string, body []byte) backoff.Operation {
 	authenticatedURL := d.authenticatedURL(path)
 	return func() error {
 		req, err := http.NewRequest("POST", authenticatedURL, bytes.NewBuffer(body))
