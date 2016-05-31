@@ -109,14 +109,14 @@ func (d *client) SendMetrics(ctx context.Context, metrics *types.MetricMap) erro
 }
 
 // SendMetricsAsync flushes the metrics to Datadog, preparing payload synchronously but doing the send asynchronously.
-func (d *client) SendMetricsAsync(ctx context.Context, metrics *types.MetricMap, c backendTypes.SendCallback) {
+func (d *client) SendMetricsAsync(ctx context.Context, metrics *types.MetricMap, cb backendTypes.SendCallback) {
 	if metrics.NumStats == 0 {
-		c(nil)
+		cb(nil)
 		return
 	}
 	ts := d.prepareSeries(metrics)
 	go func() {
-		c(d.postMetrics(ts))
+		cb(d.postMetrics(ts))
 	}()
 }
 

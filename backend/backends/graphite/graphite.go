@@ -48,14 +48,14 @@ func (client *client) SendMetrics(ctx context.Context, metrics *types.MetricMap)
 }
 
 // SendMetricsAsync flushes the metrics to the Graphite server, preparing payload synchronously but doing the send asynchronously.
-func (client *client) SendMetricsAsync(ctx context.Context, metrics *types.MetricMap, c backendTypes.SendCallback) {
+func (client *client) SendMetricsAsync(ctx context.Context, metrics *types.MetricMap, cb backendTypes.SendCallback) {
 	if metrics.NumStats == 0 {
-		c(nil)
+		cb(nil)
 		return
 	}
 	buf := preparePayload(metrics)
 	go func() {
-		c(client.doSend(ctx, buf))
+		cb(client.doSend(ctx, buf))
 	}()
 }
 

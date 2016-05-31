@@ -92,9 +92,9 @@ func (client *client) SendMetrics(ctx context.Context, metrics *types.MetricMap)
 }
 
 // SendMetricsAsync flushes the metrics to the statsd server, preparing payload synchronously but doing the send asynchronously.
-func (client *client) SendMetricsAsync(ctx context.Context, metrics *types.MetricMap, c backendTypes.SendCallback) {
+func (client *client) SendMetricsAsync(ctx context.Context, metrics *types.MetricMap, cb backendTypes.SendCallback) {
 	if metrics.NumStats == 0 {
-		c(nil)
+		cb(nil)
 		return
 	}
 	localCtx, cancelFunc := context.WithCancel(ctx)
@@ -103,27 +103,33 @@ func (client *client) SendMetricsAsync(ctx context.Context, metrics *types.Metri
 
 	conn, err := net.Dial("udp", client.addr)
 	if err != nil {
-		c(fmt.Errorf("[%s] error connecting: %v", BackendName, err))
+		cb(fmt.Errorf("[%s] error connecting: %v", BackendName, err))
 		return
 	}
 	go func() {
-		defer conn.Close()
+		var result error
+		defer func() {
+			errClose := conn.Close()
+			if errClose != nil && result == nil {
+				result = fmt.Errorf("[%s] error closing: %v", BackendName, errClose)
+			}
+			cb(result)
+		}()
 		defer cancelFunc() // Tell the processMetrics function to stop if it is still running
 		for {
 			select {
 			case <-localCtx.Done():
-				c(localCtx.Err())
+				result = localCtx.Err()
 				return
 			case buf, ok := <-datagrams:
 				if !ok {
-					c(nil)
 					return
 				}
 				_, errWrite := buf.WriteTo(conn)
-				buf.Reset() // In case of error we must reset the buffer before returning to the pool
+				buf.Reset() // In case of error buf might not be fully consumed so we must reset it before returning to the pool
 				bufFree.Put(buf)
 				if errWrite != nil {
-					c(fmt.Errorf("[%s] error sending: %v", BackendName, errWrite))
+					result = fmt.Errorf("[%s] error sending: %v", BackendName, errWrite)
 					return
 				}
 			}
