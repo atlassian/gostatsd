@@ -1,3 +1,11 @@
+0.13.1
+------
+- Log intermediate errors in Datadog backend
+- Consistently set timeouts for AWS SDK service clients
+- Update all dependencies
+- Fix Datadog backend retry error #18
+- Various internal improvements
+
 0.13.0
 ------
 - Fix goroutine start bug in dispatcher - versions 0.12.6, 0.12.7 do not work properly
