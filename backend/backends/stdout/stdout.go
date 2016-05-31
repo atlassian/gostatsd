@@ -47,7 +47,30 @@ func (client client) SampleConfig() string {
 }
 
 // SendMetrics prints the metrics in a MetricsMap to the stdout.
-func (client client) SendMetrics(ctx context.Context, metrics *types.MetricMap) (retErr error) {
+func (client client) SendMetrics(ctx context.Context, metrics *types.MetricMap) error {
+	return writePayload(preparePayload(metrics))
+}
+
+// SendMetricsAsync prints the metrics in a MetricsMap to the stdout, preparing payload synchronously but doing the send asynchronously.
+func (client client) SendMetricsAsync(ctx context.Context, metrics *types.MetricMap, cb backendTypes.SendCallback) {
+	buf := preparePayload(metrics)
+	go func() {
+		cb(writePayload(buf))
+	}()
+}
+
+func writePayload(buf *bytes.Buffer) (retErr error) {
+	writer := log.StandardLogger().Writer()
+	defer func() {
+		if err := writer.Close(); err != nil && retErr == nil {
+			retErr = err
+		}
+	}()
+	_, err := buf.WriteTo(writer)
+	return err
+}
+
+func preparePayload(metrics *types.MetricMap) *bytes.Buffer {
 	buf := new(bytes.Buffer)
 	now := time.Now().Unix()
 	metrics.Counters.Each(func(key, tagsKey string, counter types.Counter) {
@@ -74,20 +97,11 @@ func (client client) SendMetrics(ctx context.Context, metrics *types.MetricMap) 
 		nk := composeMetricName(key, tagsKey)
 		fmt.Fprintf(buf, "stats.gauge.%s %f %d\n", nk, gauge.Value, now)
 	})
-
 	metrics.Sets.Each(func(key, tagsKey string, set types.Set) {
 		nk := composeMetricName(key, tagsKey)
 		fmt.Fprintf(buf, "stats.set.%s %d %d\n", nk, len(set.Values), now)
 	})
-
-	writer := log.StandardLogger().Writer()
-	defer func() {
-		if err := writer.Close(); err != nil && retErr == nil {
-			retErr = err
-		}
-	}()
-	_, err := buf.WriteTo(writer)
-	return err
+	return buf
 }
 
 // SendEvent prints events to the stdout.

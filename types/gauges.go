@@ -44,15 +44,3 @@ func (g Gauges) Each(f func(string, string, Gauge)) {
 		}
 	}
 }
-
-// Clone performs a deep copy of a map of gauges into a new map.
-func (g Gauges) Clone() Gauges {
-	destination := Gauges{}
-	g.Each(func(key, tags string, gauge Gauge) {
-		if _, ok := destination[key]; !ok {
-			destination[key] = make(map[string]Gauge)
-		}
-		destination[key][tags] = gauge
-	})
-	return destination
-}

@@ -2,6 +2,8 @@ package statsd
 
 import (
 	"math/rand"
+	"net"
+	"runtime"
 	"testing"
 	"time"
 
@@ -15,6 +17,8 @@ import (
 // measure throughput.
 func TestStatsdThroughput(t *testing.T) {
 	rand.Seed(time.Now().UnixNano())
+	var memStatsStart, memStatsFinish runtime.MemStats
+	runtime.ReadMemStats(&memStatsStart)
 	s := Server{
 		Backends:         []string{"null"},
 		DefaultTags:      DefaultTags,
@@ -28,8 +32,19 @@ func TestStatsdThroughput(t *testing.T) {
 	}
 	ctx, cancelFunc := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancelFunc()
-	err := s.RunWithCustomSocket(ctx, fakesocket.Factory)
+	socket := new(fakesocket.CountingFakeRandomPacketConn)
+	err := s.RunWithCustomSocket(ctx, func() (net.PacketConn, error) { return socket, nil })
 	if err != nil && err != context.Canceled && err != context.DeadlineExceeded {
 		t.Errorf("statsd run failed: %v", err)
 	}
+	runtime.ReadMemStats(&memStatsFinish)
+	totalAlloc := memStatsFinish.TotalAlloc - memStatsStart.TotalAlloc
+	numMetrics := socket.NumReads
+	mallocs := memStatsFinish.Mallocs - memStatsStart.Mallocs
+	t.Logf("Processed metrics: %d\nTotalAlloc: %d (%d per metric)\nMallocs: %d (%d per metric)\nNumGC: %d\nGCCPUFraction: %f",
+		numMetrics,
+		totalAlloc, totalAlloc/numMetrics,
+		mallocs, mallocs/numMetrics,
+		memStatsFinish.NumGC-memStatsStart.NumGC,
+		memStatsFinish.GCCPUFraction)
 }

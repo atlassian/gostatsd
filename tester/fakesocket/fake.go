@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/rand"
 	"net"
+	"sync/atomic"
 	"time"
 )
 
@@ -76,6 +77,19 @@ func (frpc FakeRandomPacketConn) ReadFrom(b []byte) (int, net.Addr, error) {
 	}
 	n := copy(b, buf.Bytes())
 	return n, FakeAddr{}, nil
+}
+
+// CountingFakeRandomPacketConn is a fake net.PacketConn providing random fake metrics and counting number of performed read operations.
+// Safe for concurrent use.
+type CountingFakeRandomPacketConn struct {
+	NumReads uint64
+	FakeRandomPacketConn
+}
+
+// ReadFrom generates random metric and writes in into b.
+func (frpc *CountingFakeRandomPacketConn) ReadFrom(b []byte) (int, net.Addr, error) {
+	atomic.AddUint64(&frpc.NumReads, 1)
+	return frpc.FakeRandomPacketConn.ReadFrom(b)
 }
 
 // Factory is a replacement for net.ListenPacket() that produces instances of FakeRandomPacketConn.

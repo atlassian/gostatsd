@@ -78,34 +78,32 @@ func (f *flusher) GetStats() FlusherStats {
 }
 
 func (f *flusher) flushData(ctx context.Context) {
-	results := f.dispatcher.Flush(ctx)
 	var totalStats uint32
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case result, ok := <-results:
-			if !ok {
-				f.sendFlushedData(ctx, f.internalStats(totalStats))
-				return
-			}
-			totalStats += result.NumStats
-			f.sendFlushedData(ctx, result)
-		}
-	}
+	var sendWg sync.WaitGroup
+	processWg := f.dispatcher.Process(ctx, func(aggr Aggregator) {
+		aggr.Flush(time.Now)
+		aggr.Process(func(m *types.MetricMap) {
+			atomic.AddUint32(&totalStats, m.NumStats)
+			f.sendMetricsAsync(ctx, &sendWg, m)
+		})
+		aggr.Reset(time.Now())
+	})
+	processWg.Wait() // Wait for all workers to execute function
+	sendWg.Wait()    // Wait for all backends to finish sending
+
+	f.sendMetricsAsync(ctx, &sendWg, f.internalStats(totalStats))
+	sendWg.Wait() // Wait for all backends to finish sending internal metrics
 }
 
-func (f *flusher) sendFlushedData(ctx context.Context, metrics *types.MetricMap) {
-	var wg sync.WaitGroup
+func (f *flusher) sendMetricsAsync(ctx context.Context, wg *sync.WaitGroup, m *types.MetricMap) {
 	wg.Add(len(f.backends))
 	for _, backend := range f.backends {
-		go func(b backendTypes.Backend) {
+		log.Debugf("Sending %d metrics to backend %s", m.NumStats, backend.BackendName())
+		backend.SendMetricsAsync(ctx, m, func(err error) {
 			defer wg.Done()
-			log.Debugf("Sending %d metrics to backend %s", metrics.NumStats, b.BackendName())
-			f.handleSendResult(b.SendMetrics(ctx, metrics))
-		}(backend)
+			f.handleSendResult(err)
+		})
 	}
-	wg.Wait()
 }
 
 func (f *flusher) handleSendResult(flushResult error) {

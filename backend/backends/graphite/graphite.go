@@ -44,6 +44,41 @@ func (client *client) SendMetrics(ctx context.Context, metrics *types.MetricMap)
 	if metrics.NumStats == 0 {
 		return nil
 	}
+	return client.doSend(ctx, preparePayload(metrics))
+}
+
+// SendMetricsAsync flushes the metrics to the Graphite server, preparing payload synchronously but doing the send asynchronously.
+func (client *client) SendMetricsAsync(ctx context.Context, metrics *types.MetricMap, cb backendTypes.SendCallback) {
+	if metrics.NumStats == 0 {
+		cb(nil)
+		return
+	}
+	buf := preparePayload(metrics)
+	go func() {
+		cb(client.doSend(ctx, buf))
+	}()
+}
+
+func (client *client) doSend(ctx context.Context, buf *bytes.Buffer) (retErr error) {
+	conn, err := net.Dial("tcp", client.address)
+	if err != nil {
+		return fmt.Errorf("[%s] error connecting: %v", BackendName, err)
+	}
+	defer func() {
+		errClose := conn.Close()
+		if errClose != nil && retErr == nil {
+			retErr = fmt.Errorf("[%s] error sending: %v", BackendName, errClose)
+		}
+	}()
+
+	_, err = buf.WriteTo(conn)
+	if err != nil {
+		return fmt.Errorf("[%s] error sending: %v", BackendName, err)
+	}
+	return nil
+}
+
+func preparePayload(metrics *types.MetricMap) *bytes.Buffer {
 	buf := new(bytes.Buffer)
 	now := time.Now().Unix()
 	metrics.Counters.Each(func(key, tagsKey string, counter types.Counter) {
@@ -70,23 +105,11 @@ func (client *client) SendMetrics(ctx context.Context, metrics *types.MetricMap)
 		nk := normalizeBucketName(key, tagsKey)
 		fmt.Fprintf(buf, "stats.gauge.%s %f %d\n", nk, gauge.Value, now)
 	})
-
 	metrics.Sets.Each(func(key, tagsKey string, set types.Set) {
 		nk := normalizeBucketName(key, tagsKey)
 		fmt.Fprintf(buf, "stats.sets.%s %d %d\n", nk, len(set.Values), now)
 	})
-
-	conn, err := net.Dial("tcp", client.address)
-	if err != nil {
-		return fmt.Errorf("error connecting to graphite backend: %s", err)
-	}
-	defer conn.Close()
-
-	_, err = buf.WriteTo(conn)
-	if err != nil {
-		return fmt.Errorf("error sending to graphite: %s", err)
-	}
-	return nil
+	return buf
 }
 
 // SendEvent discards events.

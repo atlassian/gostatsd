@@ -44,15 +44,3 @@ func (s Sets) Each(f func(string, string, Set)) {
 		}
 	}
 }
-
-// Clone performs a deep copy of a map of sets into a new map.
-func (s Sets) Clone() Sets {
-	destination := Sets{}
-	s.Each(func(key, tags string, set Set) {
-		if _, ok := destination[key]; !ok {
-			destination[key] = make(map[string]Set)
-		}
-		destination[key][tags] = set
-	})
-	return destination
-}
