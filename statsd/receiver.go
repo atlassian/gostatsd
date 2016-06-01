@@ -78,7 +78,8 @@ func (mr *metricReceiver) GetStats() ReceiverStats {
 	}
 }
 
-// Receive accepts incoming datagrams on c, parses them and calls Handler.HandleMetric() for each metric.
+// Receive accepts incoming datagrams on c, parses them and calls Handler.DispatchMetric() for each metric
+// and Handler.DispatchEvent() for each event.
 func (mr *metricReceiver) Receive(ctx context.Context, c net.PacketConn) error {
 	buf := make([]byte, packetSizeUDP)
 	for {
@@ -108,8 +109,8 @@ func (mr *metricReceiver) Receive(ctx context.Context, c net.PacketConn) error {
 	}
 }
 
-// handleMessage handles the contents of a datagram and call Handler.HandleMetric()
-// for each line that successfully parses into a types.Metric.
+// handleMessage handles the contents of a datagram and calls Handler.DispatchMetric()
+// for each line that successfully parses into a types.Metric and Handler.DispatchEvent() for each event.
 func (mr *metricReceiver) handleMessage(ctx context.Context, addr net.Addr, msg []byte) error {
 	var numMetrics, numEvents uint16
 	var triedToGetTags bool
