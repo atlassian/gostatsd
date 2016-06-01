@@ -25,8 +25,8 @@ const (
 	BackendName                                = "datadog"
 	dogstatsdVersion                           = "5.6.3"
 	dogstatsdUserAgent                         = "python-requests/2.6.0 CPython/2.7.10"
-	defaultMaxRequestElapsedTime time.Duration = 10 * time.Second
-	defaultClientTimeout         time.Duration = 5 * time.Second
+	defaultMaxRequestElapsedTime time.Duration = 15 * time.Second
+	defaultClientTimeout         time.Duration = 9 * time.Second
 	// gauge is datadog gauge type.
 	gauge = "gauge"
 	// rate is datadog rate type.

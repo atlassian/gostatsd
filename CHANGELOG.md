@@ -1,3 +1,7 @@
+0.13.2
+------
+- Increase default Datadog timeouts to reduce number of errors in the logs
+
 0.13.1
 ------
 - Log intermediate errors in Datadog backend
