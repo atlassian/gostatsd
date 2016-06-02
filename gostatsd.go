@@ -3,6 +3,8 @@ package main
 import (
 	"fmt"
 	"math/rand"
+	"net/http"
+	_ "net/http/pprof"
 	"os"
 	"os/signal"
 	"strings"
@@ -29,6 +31,8 @@ var (
 const (
 	// ParamVerbose enables verbose logging.
 	ParamVerbose = "verbose"
+	// ParamProfile enables profiler endpoint on the specified address and port.
+	ParamProfile = "profile"
 	// ParamJSON makes logger log in JSON format.
 	ParamJSON = "json"
 	// ParamConfigPath provides file with configuration.
@@ -63,6 +67,13 @@ func main() {
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	defer cancelFunc()
 	cancelOnInterrupt(ctx, cancelFunc)
+
+	profileAddr := v.GetString(ParamProfile)
+	if profileAddr != "" {
+		go func() {
+			log.Errorf("Profiler server failed: %v", http.ListenAndServe(profileAddr, nil))
+		}()
+	}
 
 	log.Info("Starting server")
 	s := statsd.Server{
@@ -130,6 +141,7 @@ func setupConfiguration() (*viper.Viper, bool, error) {
 	cmd.BoolVar(&version, ParamVersion, false, "Print the version and exit")
 	cmd.Bool(ParamVerbose, false, "Verbose")
 	cmd.Bool(ParamJSON, false, "Log in JSON format")
+	cmd.String(ParamProfile, "", "Enable profiler endpoint on the specified address and port")
 	cmd.String(ParamConfigPath, "", "Path to the configuration file")
 
 	statsd.AddFlags(cmd)
