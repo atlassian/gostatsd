@@ -23,5 +23,5 @@ type Interface interface {
 	// SampleConfig returns the sample config for the cloud provider.
 	SampleConfig() string
 	// Instance returns the instance details from the cloud provider.
-	Instance(IP string) (*Instance, error)
+	Instance(types.IP) (*Instance, error)
 }

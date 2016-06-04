@@ -7,10 +7,13 @@ import (
 	"testing"
 	"time"
 
+	cloudTypes "github.com/atlassian/gostatsd/cloudprovider/types"
 	"github.com/atlassian/gostatsd/tester/fakesocket"
+	"github.com/atlassian/gostatsd/types"
 
 	"github.com/spf13/viper"
 	"golang.org/x/net/context"
+	"golang.org/x/time/rate"
 )
 
 // TestStatsdThroughput emulates statsd work using fake network socket and null backend to
@@ -20,7 +23,15 @@ func TestStatsdThroughput(t *testing.T) {
 	var memStatsStart, memStatsFinish runtime.MemStats
 	runtime.ReadMemStats(&memStatsStart)
 	s := Server{
-		Backends:         []string{"null"},
+		Backends: []string{"null"},
+		CloudProvider: &fakeProvider{
+			instance: &cloudTypes.Instance{
+				ID:     "i-13123123",
+				Region: "us-west-3",
+				Tags:   types.Tags{"tag1", "tag2:234"},
+			},
+		},
+		Limiter:          rate.NewLimiter(DefaultMaxCloudRequests, DefaultBurstCloudRequests),
 		DefaultTags:      DefaultTags,
 		ExpiryInterval:   DefaultExpiryInterval,
 		FlushInterval:    DefaultFlushInterval,
@@ -47,4 +58,20 @@ func TestStatsdThroughput(t *testing.T) {
 		mallocs, mallocs/numMetrics,
 		memStatsFinish.NumGC-memStatsStart.NumGC,
 		memStatsFinish.GCCPUFraction)
+}
+
+type fakeProvider struct {
+	instance *cloudTypes.Instance
+}
+
+func (fp *fakeProvider) ProviderName() string {
+	return "fakeProvider"
+}
+
+func (fp *fakeProvider) SampleConfig() string {
+	return ""
+}
+
+func (fp *fakeProvider) Instance(IP types.IP) (*cloudTypes.Instance, error) {
+	return fp.instance, nil
 }

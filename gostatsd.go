@@ -11,12 +11,15 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/atlassian/gostatsd/cloudprovider/providers/aws"
+	cloudTypes "github.com/atlassian/gostatsd/cloudprovider/types"
 	"github.com/atlassian/gostatsd/statsd"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 	"golang.org/x/net/context"
+	"golang.org/x/time/rate"
 )
 
 var (
@@ -43,6 +46,11 @@ const (
 
 // EnvPrefix is the prefix of the inspected environment variables.
 const EnvPrefix = "GSD" //Go Stats D
+
+// All known cloud providers.
+var providers = map[string]cloudTypes.Factory{
+	aws.ProviderName: aws.NewProviderFromViper,
+}
 
 func main() {
 	rand.Seed(time.Now().UnixNano())
@@ -76,10 +84,37 @@ func main() {
 	}
 
 	log.Info("Starting server")
-	s := statsd.Server{
+	s, err := constructServer(v)
+	if err != nil {
+		exitErr = err
+		return
+	}
+	if err := s.Run(ctx); err != nil && err != context.Canceled {
+		exitErr = fmt.Errorf("server error: %v", err)
+	}
+}
+
+func constructServer(v *viper.Viper) (*statsd.Server, error) {
+	var cloud cloudTypes.Interface
+	providerName := v.GetString(statsd.ParamCloudProvider)
+	if providerName == "" {
+		log.Info("No cloud provider specified")
+	} else {
+		providerFactory := providers[providerName]
+		if providerFactory == nil {
+			return nil, fmt.Errorf("unknown cloud provider %q", providerName)
+		}
+		var err error
+		cloud, err = providerFactory(v)
+		if err != nil {
+			return nil, fmt.Errorf("could not init cloud provider %q: %v", providerName, err)
+		}
+	}
+	return &statsd.Server{
 		Backends:         toSlice(v.GetString(statsd.ParamBackends)),
 		ConsoleAddr:      v.GetString(statsd.ParamConsoleAddr),
-		CloudProvider:    v.GetString(statsd.ParamCloudProvider),
+		CloudProvider:    cloud,
+		Limiter:          rate.NewLimiter(rate.Limit(v.GetInt(statsd.ParamMaxCloudRequests)), v.GetInt(statsd.ParamBurstCloudRequests)),
 		DefaultTags:      toSlice(v.GetString(statsd.ParamDefaultTags)),
 		ExpiryInterval:   v.GetDuration(statsd.ParamExpiryInterval),
 		FlushInterval:    v.GetDuration(statsd.ParamFlushInterval),
@@ -90,20 +125,7 @@ func main() {
 		PercentThreshold: toSlice(v.GetString(statsd.ParamPercentThreshold)),
 		WebConsoleAddr:   v.GetString(statsd.ParamWebAddr),
 		Viper:            v,
-	}
-	if err := s.Run(ctx); err != nil && err != context.Canceled {
-		augmentErr(&exitErr, fmt.Errorf("Server error: %v", err))
-	}
-}
-
-// augmentErr updates exitErr to point to newErr if exitErr is nil, otherwise logs newErr.
-// The idea is to log all errors and fail the program with the first one.
-func augmentErr(exitErr *error, newErr error) {
-	if *exitErr == nil {
-		*exitErr = newErr
-	} else {
-		log.Errorf("%v", newErr)
-	}
+	}, nil
 }
 
 func toSlice(s string) []string {

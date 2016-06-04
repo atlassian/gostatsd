@@ -10,6 +10,9 @@ import (
 // MetricType is an enumeration of all the possible types of Metric.
 type MetricType byte
 
+// IP is a v4/v6 IP address.
+type IP string
+
 // StatsdSourceID stores the key used to tag metrics with the origin IP address.
 const StatsdSourceID = "statsd_source_id"
 
@@ -51,6 +54,8 @@ type Metric struct {
 	Value       float64    // The numeric value of the metric
 	Tags        Tags       // The tags for the metric
 	StringValue string     // The string value for some metrics e.g. Set
+	Hostname    string     // Hostname of the source of the metric
+	SourceIP    IP         // IP of the source of the metric
 	Type        MetricType // The type of metric
 }
 

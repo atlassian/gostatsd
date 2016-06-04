@@ -290,7 +290,7 @@ func (a *aggregator) receiveSet(name, tags string, value string, now time.Time) 
 // Receive aggregates an incoming metric.
 func (a *aggregator) Receive(m *types.Metric, now time.Time) {
 	a.NumStats++
-	tagsKey := m.Tags.String()
+	tagsKey := addInstanceIDTag(m.Tags, m.Hostname).String()
 
 	switch m.Type {
 	case types.COUNTER:
@@ -304,4 +304,11 @@ func (a *aggregator) Receive(m *types.Metric, now time.Time) {
 	default:
 		log.Errorf("Unknow metric type %s for %s", m.Type, m.Name)
 	}
+}
+
+func addInstanceIDTag(tags types.Tags, hostname string) types.Tags {
+	if hostname == "" {
+		return tags
+	}
+	return append(tags, types.StatsdSourceID+":"+hostname)
 }

@@ -115,8 +115,8 @@ func newEc2Filter(name string, value string) *ec2.Filter {
 }
 
 // Instance returns the instance details from aws.
-func (p *provider) Instance(IP string) (*cloudTypes.Instance, error) {
-	filters := []*ec2.Filter{newEc2Filter("private-ip-address", IP)}
+func (p *provider) Instance(IP types.IP) (*cloudTypes.Instance, error) {
+	filters := []*ec2.Filter{newEc2Filter("private-ip-address", string(IP))}
 	request := &ec2.DescribeInstancesInput{
 		Filters: filters,
 	}
