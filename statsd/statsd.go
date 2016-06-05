@@ -198,7 +198,7 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 	// 2. Start handlers
 	handler := NewDispatchingHandler(dispatcher, backends)
 	if s.CloudProvider != nil {
-		ch := NewCloudHandler(s.CloudProvider, handler, s.Limiter)
+		ch := NewCloudHandler(s.CloudProvider, handler, s.Limiter, nil)
 		handler = ch
 		var wgCloudHandler sync.WaitGroup
 		defer wgCloudHandler.Wait()                                           // Wait for handler to shutdown

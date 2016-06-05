@@ -14,6 +14,55 @@ import (
 	"golang.org/x/time/rate"
 )
 
+func TestCloudHandlerExpirationAndRefresh(t *testing.T) {
+	testExpire(t, []types.IP{"4.3.2.1", "4.3.2.1"}, func(h Handler) error {
+		e := se1()
+		return h.DispatchEvent(context.Background(), &e)
+	})
+	testExpire(t, []types.IP{"1.2.3.4", "1.2.3.4"}, func(h Handler) error {
+		m := sm1()
+		return h.DispatchMetric(context.Background(), &m)
+	})
+}
+
+func testExpire(t *testing.T, expectedIps []types.IP, f func(Handler) error) {
+	fp := &fakeProviderIP{
+		Region: "us-west-3",
+	}
+	counting := &countingHandler{}
+	ch := NewCloudHandler(fp, counting, rate.NewLimiter(100, 120), &CacheOptions{
+		CacheRefreshPeriod:        100 * time.Millisecond,
+		CacheEvictAfterIdlePeriod: 700 * time.Millisecond,
+		CacheTTL:                  500 * time.Millisecond,
+		CacheNegativeTTL:          500 * time.Millisecond,
+	})
+	var wg sync.WaitGroup
+	defer wg.Wait()
+	ctx, cancelFunc := context.WithCancel(context.Background())
+	defer cancelFunc()
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		if handlerErr := ch.Run(ctx); handlerErr != nil && handlerErr != context.Canceled {
+			t.Errorf("Cloud handler quit unexpectedly: %v", handlerErr)
+		}
+	}()
+	if err := f(ch); err != nil {
+		t.Fatal(err)
+	}
+	time.Sleep(900 * time.Millisecond) // Should be refreshed couple of times and evicted.
+
+	cancelFunc()
+	wg.Wait()
+
+	if !reflect.DeepEqual(fp.ips, expectedIps) {
+		t.Errorf("%+v is not equal to the expected ips %+v", fp.ips, expectedIps)
+	}
+	if len(ch.(*cloudHandler).cache) > 0 {
+		t.Errorf("cache should be empty %s", ch.(*cloudHandler).cache)
+	}
+}
+
 func TestCloudHandlerDispatch(t *testing.T) {
 	fp := &fakeProviderIP{
 		Region: "us-west-3",
@@ -90,7 +139,7 @@ func TestCloudHandlerFailingProvider(t *testing.T) {
 }
 
 func doCheck(t *testing.T, cloud cloudTypes.Interface, counting *countingHandler, m1 types.Metric, e1 types.Event, m2 types.Metric, e2 types.Event, ips *[]types.IP, expectedIps []types.IP, expectedM []types.Metric, expectedE types.Events) {
-	ch := NewCloudHandler(cloud, counting, rate.NewLimiter(100, 120))
+	ch := NewCloudHandler(cloud, counting, rate.NewLimiter(100, 120), nil)
 	var wg sync.WaitGroup
 	defer wg.Wait()
 	ctx, cancelFunc := context.WithCancel(context.Background())

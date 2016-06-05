@@ -14,11 +14,15 @@ import (
 )
 
 const (
-	lookupChannelSize         = 1024 // Random size. Should be good enough.
-	cacheRefreshPeriod        = 1 * time.Minute
-	cacheEvictAfterIdlePeriod = 10 * time.Minute
-	cacheTTL                  = 30 * time.Minute
-	cacheNegativeTTL          = 1 * time.Minute
+	lookupChannelSize = 1024 // Random size. Should be good enough.
+	// DefaultCacheRefreshPeriod is the default cache refresh period.
+	DefaultCacheRefreshPeriod = 1 * time.Minute
+	// DefaultCacheEvictAfterIdlePeriod is the default idle cache eviction period.
+	DefaultCacheEvictAfterIdlePeriod = 10 * time.Minute
+	// DefaultCacheTTL is the default cache TTL for successful lookups.
+	DefaultCacheTTL = 30 * time.Minute
+	// DefaultCacheNegativeTTL is the default cache TTL for failed lookups (errors or when instance was not found).
+	DefaultCacheNegativeTTL = 1 * time.Minute
 )
 
 type lookupResult struct {
@@ -40,8 +44,17 @@ func (ih *instanceHolder) lastAccess() int64 {
 	return atomic.LoadInt64(&ih.lastAccessNano)
 }
 
+// CacheOptions holds cache behaviour configuration.
+type CacheOptions struct {
+	CacheRefreshPeriod        time.Duration
+	CacheEvictAfterIdlePeriod time.Duration
+	CacheTTL                  time.Duration
+	CacheNegativeTTL          time.Duration
+}
+
 // cloudHandler enriches metrics and events with additional information fetched from cloud provider.
 type cloudHandler struct {
+	cacheOpts    CacheOptions
 	cloud        cloudTypes.Interface // Cloud provider interface
 	next         Handler
 	limiter      *rate.Limiter
@@ -53,8 +66,18 @@ type cloudHandler struct {
 }
 
 // NewCloudHandler initialises a new cloud handler.
-func NewCloudHandler(cloud cloudTypes.Interface, next Handler, limiter *rate.Limiter) RunableHandler {
+// If cacheOptions is nil default cache configuration is used.
+func NewCloudHandler(cloud cloudTypes.Interface, next Handler, limiter *rate.Limiter, cacheOptions *CacheOptions) RunableHandler {
+	if cacheOptions == nil {
+		cacheOptions = &CacheOptions{
+			CacheRefreshPeriod:        DefaultCacheRefreshPeriod,
+			CacheEvictAfterIdlePeriod: DefaultCacheEvictAfterIdlePeriod,
+			CacheTTL:                  DefaultCacheTTL,
+			CacheNegativeTTL:          DefaultCacheNegativeTTL,
+		}
+	}
 	return &cloudHandler{
+		cacheOpts:    *cacheOptions,
 		cloud:        cloud,
 		next:         next,
 		limiter:      limiter,
@@ -100,7 +123,7 @@ func (ch *cloudHandler) Run(ctx context.Context) error {
 	wg.Add(1)
 	go ch.lookupDispatcher(ctx, &wg, toLookup, lookupResults)
 
-	refreshTicker := time.NewTicker(cacheRefreshPeriod)
+	refreshTicker := time.NewTicker(ch.cacheOpts.CacheRefreshPeriod)
 	defer refreshTicker.Stop()
 	// No locking for ch.cache READ access required - this goroutine owns the object and only it mutates it.
 	// So reads from the same goroutine are always safe (no concurrent mutations).
@@ -125,8 +148,9 @@ func (ch *cloudHandler) Run(ctx context.Context) error {
 func (ch *cloudHandler) doRefresh(ctx context.Context, toLookup chan<- types.IP, t time.Time) {
 	var toDelete []types.IP
 	now := t.UnixNano()
+	idleNano := ch.cacheOpts.CacheEvictAfterIdlePeriod.Nanoseconds()
 	for ip, holder := range ch.cache {
-		if now-holder.lastAccess() > cacheEvictAfterIdlePeriod.Nanoseconds() {
+		if now-holder.lastAccess() > idleNano {
 			// Entry was not used recently, remove it.
 			toDelete = append(toDelete, ip)
 		} else if t.After(holder.expires) {
@@ -150,18 +174,23 @@ func (ch *cloudHandler) doRefresh(ctx context.Context, toLookup chan<- types.IP,
 func (ch *cloudHandler) handleLookupResult(ctx context.Context, lr *lookupResult, awaitingMetrics map[types.IP][]*types.Metric, awaitingEvents map[types.IP][]*types.Event) {
 	var ttl time.Duration
 	if lr.instance == nil {
-		ttl = cacheNegativeTTL
+		ttl = ch.cacheOpts.CacheNegativeTTL
 	} else {
-		ttl = cacheTTL
+		ttl = ch.cacheOpts.CacheTTL
 	}
 	now := time.Now()
-	ih := &instanceHolder{
-		lastAccessNano: now.UnixNano(),
-		expires:        now.Add(ttl),
-		instance:       lr.instance,
+	newHolder := &instanceHolder{
+		expires:  now.Add(ttl),
+		instance: lr.instance,
+	}
+	currentHolder := ch.cache[lr.ip]
+	if currentHolder == nil {
+		newHolder.lastAccessNano = now.UnixNano()
+	} else {
+		newHolder.lastAccessNano = currentHolder.lastAccess()
 	}
 	ch.rw.Lock()
-	ch.cache[lr.ip] = ih
+	ch.cache[lr.ip] = newHolder
 	ch.rw.Unlock()
 	metrics := awaitingMetrics[lr.ip]
 	if metrics != nil {
