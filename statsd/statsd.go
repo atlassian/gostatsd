@@ -11,13 +11,13 @@ import (
 
 	"github.com/atlassian/gostatsd/backend"
 	backendTypes "github.com/atlassian/gostatsd/backend/types"
-	"github.com/atlassian/gostatsd/cloudprovider"
-	"github.com/atlassian/gostatsd/types"
+	cloudTypes "github.com/atlassian/gostatsd/cloudprovider/types"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 	"golang.org/x/net/context"
+	"golang.org/x/time/rate"
 )
 
 // DefaultBackends is the list of default backends.
@@ -36,6 +36,10 @@ var DefaultPercentThreshold = []string{"90"}
 var DefaultTags = []string{""}
 
 const (
+	// DefaultMaxCloudRequests is the maximum number of cloud provider requests per second.
+	DefaultMaxCloudRequests = 40
+	// DefaultBurstCloudRequests is the burst number of cloud provider requests per second.
+	DefaultBurstCloudRequests = DefaultMaxCloudRequests + 20
 	// DefaultExpiryInterval is the default expiry interval for metrics.
 	DefaultExpiryInterval = 5 * time.Minute
 	// DefaultFlushInterval is the default metrics flush interval.
@@ -53,6 +57,10 @@ const (
 	ParamConsoleAddr = "console-addr"
 	// ParamCloudProvider is the name of parameter with the name of cloud provider.
 	ParamCloudProvider = "cloud-provider"
+	// ParamMaxCloudRequests is the name of parameter with maximum number of cloud provider requests per second.
+	ParamMaxCloudRequests = "maxCloudRequests"
+	// ParamBurstCloudRequests is the name of parameter with burst number of cloud provider requests per second.
+	ParamBurstCloudRequests = "burstCloudRequests"
 	// ParamDefaultTags is the name of parameter with the list of additional tags.
 	ParamDefaultTags = "default-tags"
 	// ParamExpiryInterval is the name of parameter with expiry interval for metrics.
@@ -80,7 +88,8 @@ const (
 type Server struct {
 	Backends         []string
 	ConsoleAddr      string
-	CloudProvider    string
+	CloudProvider    cloudTypes.Interface
+	Limiter          *rate.Limiter
 	DefaultTags      []string
 	ExpiryInterval   time.Duration
 	FlushInterval    time.Duration
@@ -100,6 +109,7 @@ func NewServer() *Server {
 	return &Server{
 		Backends:         DefaultBackends,
 		ConsoleAddr:      DefaultConsoleAddr,
+		Limiter:          rate.NewLimiter(DefaultMaxCloudRequests, DefaultBurstCloudRequests),
 		DefaultTags:      DefaultTags,
 		ExpiryInterval:   DefaultExpiryInterval,
 		FlushInterval:    DefaultFlushInterval,
@@ -127,6 +137,8 @@ func AddFlags(fs *pflag.FlagSet) {
 	fs.String(ParamWebAddr, DefaultWebConsoleAddr, "If set, use as the address of the web-based console")
 	//TODO Remove workaround when https://github.com/spf13/viper/issues/112 is fixed
 	fs.String(ParamBackends, strings.Join(DefaultBackends, ","), "Comma-separated list of backends")
+	fs.Uint(ParamMaxCloudRequests, DefaultMaxCloudRequests, "Maximum number of cloud provider requests per second")
+	fs.Uint(ParamBurstCloudRequests, DefaultBurstCloudRequests, "Burst number of cloud provider requests per second")
 	fs.String(ParamDefaultTags, strings.Join(DefaultTags, ","), "Comma-separated list of tags to add to all metrics")
 	fs.String(ParamPercentThreshold, strings.Join(DefaultPercentThreshold, ","), "Comma-separated list of percentiles")
 }
@@ -162,11 +174,6 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 		percentThresholds = append(percentThresholds, pt)
 	}
 
-	cloud, err := cloudprovider.InitCloudProvider(s.CloudProvider, s.Viper)
-	if err != nil {
-		return err
-	}
-
 	// 1. Start the Dispatcher
 	factory := agrFactory{
 		percentThresholds: percentThresholds,
@@ -188,7 +195,25 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 		}
 	}()
 
-	// 2. Start the Receiver
+	// 2. Start handlers
+	handler := NewDispatchingHandler(dispatcher, backends)
+	if s.CloudProvider != nil {
+		ch := NewCloudHandler(s.CloudProvider, handler, s.Limiter, nil)
+		handler = ch
+		var wgCloudHandler sync.WaitGroup
+		defer wgCloudHandler.Wait()                                           // Wait for handler to shutdown
+		ctxHandler, cancelHandler := context.WithCancel(context.Background()) // Separate context!
+		defer cancelHandler()                                                 // Tell the handler to shutdown
+		wgCloudHandler.Add(1)
+		go func() {
+			defer wgCloudHandler.Done()
+			if handlerErr := ch.Run(ctxHandler); handlerErr != nil && handlerErr != context.Canceled {
+				log.Panicf("Cloud handler quit unexpectedly: %v", handlerErr)
+			}
+		}()
+	}
+
+	// 3. Start the Receiver
 	var wgReceiver sync.WaitGroup
 	defer wgReceiver.Wait() // Wait for all receivers to finish
 
@@ -204,10 +229,7 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 		}
 	}()
 
-	receiver := NewMetricReceiver(s.Namespace, s.DefaultTags, cloud, &handler{
-		dispatcher: dispatcher,
-		backends:   backends,
-	})
+	receiver := NewMetricReceiver(s.Namespace, s.DefaultTags, handler)
 	wgReceiver.Add(s.MaxReaders)
 	for r := 0; r < s.MaxReaders; r++ {
 		go func() {
@@ -218,7 +240,7 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 		}()
 	}
 
-	// 3. Start the Flusher
+	// 4. Start the Flusher
 	flusher := NewFlusher(s.FlushInterval, dispatcher, receiver, s.DefaultTags, backends)
 	var wgFlusher sync.WaitGroup
 	defer wgFlusher.Wait() // Wait for the Flusher to finish
@@ -230,7 +252,7 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 		}
 	}()
 
-	// Start the console(s)
+	// 5. Start the console(s)
 	if s.ConsoleAddr != "" {
 		console := ConsoleServer{s.ConsoleAddr, receiver, dispatcher, flusher}
 		go console.ListenAndServe(ctx)
@@ -240,29 +262,9 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 	//	go console.ListenAndServe()
 	//}
 
-	// Listen until done
+	// 6. Listen until done
 	<-ctx.Done()
 	return ctx.Err()
-}
-
-type handler struct {
-	dispatcher Dispatcher
-	backends   []backendTypes.Backend
-}
-
-func (h *handler) DispatchMetric(ctx context.Context, m *types.Metric) error {
-	return h.dispatcher.DispatchMetric(ctx, m)
-}
-
-func (h *handler) DispatchEvent(ctx context.Context, e *types.Event) error {
-	for _, backend := range h.backends {
-		go func(b backendTypes.Backend) {
-			if err := b.SendEvent(ctx, e); err != nil {
-				log.Errorf("Sending event to backend failed: %v", err)
-			}
-		}(backend)
-	}
-	return nil
 }
 
 type agrFactory struct {

@@ -1,5 +1,5 @@
-hash: 77f5d07297f572efdb56df9e840dfcbf72f81b48765952ed91257cef28c5e538
-updated: 2016-05-27T13:43:39.171534753+10:00
+hash: 2cb5a76da1d3068f810ff3bca34628345878726db1484667f5c3071eeb2304c1
+updated: 2016-06-05T00:39:44.833458299+10:00
 imports:
 - name: github.com/aws/aws-sdk-go
   version: 073693d6cf3e1a74b323877172a5392f3e56bc97
@@ -32,7 +32,7 @@ imports:
 - name: github.com/fsnotify/fsnotify
   version: 30411dbcefb7a1da7e84f75530ad3abe4011b4f8
 - name: github.com/go-ini/ini
-  version: 12f418cc7edc5a618a51407b7ac1f1f512139df3
+  version: 72ba3e6b9e6b87e0c74c9a7a4dc86e8dd8ba4355
 - name: github.com/hashicorp/hcl
   version: 9a905a34e6280ce905da1a32344b25e81011197a
   subpackages:
@@ -48,14 +48,12 @@ imports:
   version: 0b12d6b521d83fc7f755e7cfc1b1fbdd35a01a74
 - name: github.com/kisielk/cmd
   version: d175a37b36239828941c8e176ffa0f4d9221f641
-- name: github.com/koding/cache
-  version: 704055ea875a873a183314b60735f7ba403429da
 - name: github.com/magiconair/properties
   version: c265cfa48dda6474e208715ca93e987829f572f8
 - name: github.com/mitchellh/mapstructure
   version: d2dd0262208475919e1a362f675cfc0e7c10e905
 - name: github.com/Sirupsen/logrus
-  version: 6d9ae300aaf85d6acd2e5424081c7fcddb21dab8
+  version: f3cfb454f4c209e6668c95216c4744b8fddb2356
 - name: github.com/spf13/cast
   version: 27b586b42e29bec072fe7379259cc719e1289da6
 - name: github.com/spf13/jwalterweatherman
@@ -69,13 +67,17 @@ imports:
   subpackages:
   - assert
 - name: golang.org/x/net
-  version: 30db96677b74e24b967e23f911eb3364fc61a011
+  version: c4c3ea71919de159c9e246d7be66deb7f0a39a58
   subpackages:
   - context
 - name: golang.org/x/sys
-  version: d4feaf1a7e61e1d9e79e6c4e76c6349e9cab0a03
+  version: 076b546753157f758b316e59bcb51e6807c04057
   subpackages:
   - unix
+- name: golang.org/x/time
+  version: a4bde12657593d5e90d0533a3e4fd95e635124cb
+  subpackages:
+  - rate
 - name: gopkg.in/yaml.v2
   version: a83829b6f1293c91addabc89d0571c246397bbf4
 devImports: []

@@ -14,7 +14,7 @@ ERROR=""
 declare -a packages=('backend' 'backend/types' \
     'backend/backends/datadog' 'backend/backends/graphite' 'backend/backends/null' \
     'backend/backends/statsdaemon' 'backend/backends/stdout' \
-    'cloudprovider' 'cloudprovider/providers/aws' 'cloudprovider/types' \
+    'cloudprovider/providers/aws' 'cloudprovider/types' \
     'statsd' 'types');
 
 # Test each package and append coverage profile info to coverage.out

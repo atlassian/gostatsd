@@ -9,8 +9,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/atlassian/gostatsd/cloudprovider"
-	cloudTypes "github.com/atlassian/gostatsd/cloudprovider/types"
 	"github.com/atlassian/gostatsd/types"
 
 	log "github.com/Sirupsen/logrus"
@@ -23,6 +21,13 @@ const packetSizeUDP = 1500
 type Handler interface {
 	DispatchMetric(context.Context, *types.Metric) error
 	DispatchEvent(context.Context, *types.Event) error
+}
+
+// RunableHandler extends Handler interface to add the Run method that needs to be executed in a separate
+// goroutine to make the handler work.
+type RunableHandler interface {
+	Handler
+	Run(context.Context) error
 }
 
 // Receiver receives data on its PacketConn and converts lines into Metrics.
@@ -50,17 +55,14 @@ type metricReceiver struct {
 	packetsReceived uint64
 	metricsReceived uint64
 	eventsReceived  uint64
-
-	cloud     cloudTypes.Interface // Cloud provider interface
-	handler   Handler              // handler to invoke
-	namespace string               // Namespace to prefix all metrics
-	tags      types.Tags           // Tags to add to all metrics
+	handler         Handler    // handler to invoke
+	namespace       string     // Namespace to prefix all metrics
+	tags            types.Tags // Tags to add to all metrics
 }
 
 // NewMetricReceiver initialises a new Receiver.
-func NewMetricReceiver(ns string, tags []string, cloud cloudTypes.Interface, handler Handler) Receiver {
+func NewMetricReceiver(ns string, tags []string, handler Handler) Receiver {
 	return &metricReceiver{
-		cloud:     cloud,
 		handler:   handler,
 		namespace: ns,
 		tags:      tags,
@@ -100,23 +102,30 @@ func (mr *metricReceiver) Receive(ctx context.Context, c net.PacketConn) error {
 		// TODO consider updating counter for every N-th iteration to reduce contention
 		atomic.AddUint64(&mr.packetsReceived, 1)
 		atomic.StoreInt64(&mr.lastPacket, time.Now().UnixNano())
-		if err := mr.handleMessage(ctx, addr, buf[:nbytes]); err != nil {
+		if err := mr.handlePacket(ctx, addr, buf[:nbytes]); err != nil {
 			if err == context.Canceled || err == context.DeadlineExceeded {
 				return err
 			}
-			log.Warnf("Failed to handle message: %v", err)
+			log.Warnf("Failed to handle packet: %v", err)
 		}
 	}
 }
 
-// handleMessage handles the contents of a datagram and calls Handler.DispatchMetric()
+// handlePacket handles the contents of a datagram and calls Handler.DispatchMetric()
 // for each line that successfully parses into a types.Metric and Handler.DispatchEvent() for each event.
-func (mr *metricReceiver) handleMessage(ctx context.Context, addr net.Addr, msg []byte) error {
+func (mr *metricReceiver) handlePacket(ctx context.Context, addr net.Addr, msg []byte) error {
 	var numMetrics, numEvents uint16
-	var triedToGetTags bool
-	var additionalTags types.Tags
 	var exitError error
+	var ip types.IP
 	buf := bytes.NewBuffer(msg)
+	addrStr := addr.String()
+	n := strings.LastIndexByte(addrStr, ':')
+	if n <= 0 {
+		// This should not ever happen.
+		log.Errorf("Cannot parse source address %q", addrStr)
+	} else {
+		ip = types.IP(addrStr[:n])
+	}
 	for {
 		line, readerr := buf.ReadBytes('\n')
 
@@ -140,19 +149,15 @@ func (mr *metricReceiver) handleMessage(ctx context.Context, addr net.Addr, msg 
 				atomic.AddUint64(&mr.badLines, 1)
 				continue
 			}
-			if !triedToGetTags {
-				triedToGetTags = true
-				additionalTags = mr.getAdditionalTags(addr.String())
-			}
 			if metric != nil {
 				numMetrics++
 				metric.Tags = append(metric.Tags, mr.tags...)
-				metric.Tags = append(metric.Tags, additionalTags...)
+				metric.SourceIP = ip
 				err = mr.handler.DispatchMetric(ctx, metric)
 			} else if event != nil {
 				numEvents++
 				event.Tags = append(event.Tags, mr.tags...)
-				event.Tags = append(event.Tags, additionalTags...)
+				event.SourceIP = ip
 				if event.DateHappened == 0 {
 					event.DateHappened = time.Now().Unix()
 				}
@@ -175,30 +180,6 @@ func (mr *metricReceiver) handleMessage(ctx context.Context, addr net.Addr, msg 
 	atomic.AddUint64(&mr.metricsReceived, uint64(numMetrics))
 	atomic.AddUint64(&mr.eventsReceived, uint64(numEvents))
 	return exitError
-}
-
-func (mr *metricReceiver) getAdditionalTags(addr string) types.Tags {
-	n := strings.IndexByte(addr, ':')
-	if n <= 1 {
-		return nil
-	}
-	hostname := addr[0:n]
-	if net.ParseIP(hostname) != nil {
-		tags := make(types.Tags, 0, 16)
-		if mr.cloud != nil {
-			instance, err := cloudprovider.GetInstance(mr.cloud, hostname)
-			if err != nil {
-				log.Debugf("Error retrieving instance details from cloud provider %s: %v", mr.cloud.ProviderName(), err)
-			} else {
-				hostname = instance.ID
-				tags = append(tags, fmt.Sprintf("region:%s", instance.Region))
-				tags = append(tags, instance.Tags...)
-			}
-		}
-		tags = append(tags, fmt.Sprintf("%s:%s", types.StatsdSourceID, hostname))
-		return tags
-	}
-	return nil
 }
 
 // parseLine with lexer impl.
