@@ -15,7 +15,9 @@ import (
 	"golang.org/x/net/context"
 )
 
-const packetSizeUDP = 1500
+// ip packet size is stored in two bytes and that is how big in theory the packet can be.
+// In practice it is highly unlikely but still possible to get packets bigger than usual MTU of 1500.
+const packetSizeUDP = 0xffff
 
 // Handler interface can be used to handle metrics and events for a Receiver.
 type Handler interface {
