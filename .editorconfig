@@ -5,16 +5,18 @@ root = true
 
 [**]
 end_of_line = lf
-insert_final_newline = true
 charset = utf-8
 trim_trailing_whitespace = true
 
 [**.go]
+insert_final_newline = true
 indent_style = tab
 
 [Makefile]
+insert_final_newline = true
 indent_style = tab
 
 [**.{yml,yaml}]
+insert_final_newline = true
 indent_style = space
 indent_size = 2
