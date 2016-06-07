@@ -67,9 +67,13 @@ check-all:
 	gometalinter --concurrency=$(METALINTER_CONCURRENCY) --deadline=600s ./... --vendor --cyclo-over=20 \
 		--linter='vet:go tool vet {paths}:PATH:LINE:MESSAGE' --dupl-threshold=65
 
-profile:
-	./build/bin/$(ARCH)/$(BINARY_NAME) --backends=stdout --cpu-profile=./profile.out --flush-interval=1s
-	go tool pprof build/bin/$(ARCH)/$(BINARY_NAME) profile.out
+fuzz-setup:
+	go get -v -u github.com/dvyukov/go-fuzz/go-fuzz
+	go get -v -u github.com/dvyukov/go-fuzz/go-fuzz-build
+
+fuzz:
+	go-fuzz-build github.com/atlassian/gostatsd/statsd
+	go-fuzz -bin=./statsd-fuzz.zip -workdir=test_fixtures/lexer_fuzz
 
 watch:
 	CompileDaemon -color=true -build "make test"
