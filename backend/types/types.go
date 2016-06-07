@@ -19,8 +19,6 @@ type Backend interface {
 	BackendName() string
 	// SampleConfig returns the sample config for the backend.
 	SampleConfig() string
-	// SendMetrics flushes the metrics to the backend.
-	SendMetrics(context.Context, *types.MetricMap) error
 	// SendMetricsAsync flushes the metrics to the backend, preparing payload synchronously but doing the send asynchronously.
 	// Must not read/write MetricMap asynchronously.
 	SendMetricsAsync(context.Context, *types.MetricMap, SendCallback)

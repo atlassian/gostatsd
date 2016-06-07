@@ -46,11 +46,6 @@ func (client client) SampleConfig() string {
 	return ""
 }
 
-// SendMetrics prints the metrics in a MetricsMap to the stdout.
-func (client client) SendMetrics(ctx context.Context, metrics *types.MetricMap) error {
-	return writePayload(preparePayload(metrics))
-}
-
 // SendMetricsAsync prints the metrics in a MetricsMap to the stdout, preparing payload synchronously but doing the send asynchronously.
 func (client client) SendMetricsAsync(ctx context.Context, metrics *types.MetricMap, cb backendTypes.SendCallback) {
 	buf := preparePayload(metrics)

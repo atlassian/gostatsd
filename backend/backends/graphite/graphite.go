@@ -39,14 +39,6 @@ type client struct {
 	address string
 }
 
-// SendMetrics sends the metrics in a MetricsMap to the Graphite server.
-func (client *client) SendMetrics(ctx context.Context, metrics *types.MetricMap) error {
-	if metrics.NumStats == 0 {
-		return nil
-	}
-	return client.doSend(ctx, preparePayload(metrics))
-}
-
 // SendMetricsAsync flushes the metrics to the Graphite server, preparing payload synchronously but doing the send asynchronously.
 func (client *client) SendMetricsAsync(ctx context.Context, metrics *types.MetricMap, cb backendTypes.SendCallback) {
 	if metrics.NumStats == 0 {

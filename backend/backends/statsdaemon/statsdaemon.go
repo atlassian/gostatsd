@@ -70,47 +70,25 @@ func writeLine(handler overflowHandler, line, buf *bytes.Buffer, format, name, t
 	return buf, nil
 }
 
-// SendMetrics sends the metrics in a MetricsMap to the statsd master server.
-func (client *client) SendMetrics(ctx context.Context, metrics *types.MetricMap) error {
-	if metrics.NumStats == 0 {
-		return nil
-	}
-
-	conn, err := net.Dial("udp", client.addr)
-	if err != nil {
-		return fmt.Errorf("[%s] error connecting: %v", BackendName, err)
-	}
-	defer conn.Close()
-
-	return processMetrics(metrics, func(buf *bytes.Buffer) (*bytes.Buffer, error) {
-		_, err := buf.WriteTo(conn)
-		if err != nil {
-			return nil, fmt.Errorf("[%s] error sending: %v", BackendName, err)
-		}
-		return buf, nil
-	})
-}
-
 // SendMetricsAsync flushes the metrics to the statsd server, preparing payload synchronously but doing the send asynchronously.
 func (client *client) SendMetricsAsync(ctx context.Context, metrics *types.MetricMap, cb backendTypes.SendCallback) {
 	if metrics.NumStats == 0 {
 		cb(nil)
 		return
 	}
-	localCtx, cancelFunc := context.WithCancel(ctx)
-
-	datagrams := make(chan *bytes.Buffer, sendChannelSize)
-
 	conn, err := net.Dial("udp", client.addr)
 	if err != nil {
 		cb(fmt.Errorf("[%s] error connecting: %v", BackendName, err))
 		return
 	}
+
+	datagrams := make(chan *bytes.Buffer, sendChannelSize)
+	localCtx, cancelFunc := context.WithCancel(ctx)
+
 	go func() {
 		var result error
 		defer func() {
-			errClose := conn.Close()
-			if errClose != nil && result == nil {
+			if errClose := conn.Close(); errClose != nil && result == nil {
 				result = fmt.Errorf("[%s] error closing: %v", BackendName, errClose)
 			}
 			cb(result)

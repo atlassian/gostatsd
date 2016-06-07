@@ -41,7 +41,11 @@ func TestRetries(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := client.SendMetrics(context.Background(), metrics()); err != nil {
+	res := make(chan error)
+	client.SendMetricsAsync(context.Background(), metrics(), func(err error) {
+		res <- err
+	})
+	if err := <-res; err != nil {
 		t.Error(err)
 	}
 	if requestNum != 2 {

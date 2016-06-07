@@ -9,12 +9,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-type FakeBackend struct{}
-
-func (fb *FakeBackend) SendMetrics(metrics *types.MetricMap) error { return nil }
-func (fb *FakeBackend) SampleConfig() string                       { return "" }
-func (fb *FakeBackend) BackendName() string                        { return "fake" }
-
 func newFakeAggregator() *aggregator {
 	return NewAggregator(
 		[]float64{float64(90)},

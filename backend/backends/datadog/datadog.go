@@ -100,14 +100,6 @@ type event struct {
 	AlertType      string   `json:"alert_type,omitempty"`
 }
 
-// SendMetrics sends metrics to Datadog.
-func (d *client) SendMetrics(ctx context.Context, metrics *types.MetricMap) error {
-	if metrics.NumStats == 0 {
-		return nil
-	}
-	return d.postMetrics(d.prepareSeries(metrics))
-}
-
 // SendMetricsAsync flushes the metrics to Datadog, preparing payload synchronously but doing the send asynchronously.
 func (d *client) SendMetricsAsync(ctx context.Context, metrics *types.MetricMap, cb backendTypes.SendCallback) {
 	if metrics.NumStats == 0 {

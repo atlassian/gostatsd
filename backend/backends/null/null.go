@@ -29,11 +29,6 @@ func (client client) SampleConfig() string {
 	return ""
 }
 
-// SendMetrics discards the metrics in a MetricsMap.
-func (client client) SendMetrics(ctx context.Context, metrics *types.MetricMap) error {
-	return nil
-}
-
 // SendMetricsAsync discards the metrics in a MetricsMap.
 func (client client) SendMetricsAsync(ctx context.Context, metrics *types.MetricMap, cb backendTypes.SendCallback) {
 	cb(nil)
