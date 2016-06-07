@@ -10,11 +10,13 @@ IMAGE_NAME := atlassianlabs/$(BINARY_NAME)
 ARCH ?= darwin
 METALINTER_CONCURRENCY ?= 4
 
-setup:
-	go get -v -u github.com/Masterminds/glide
+setup: setup-ci
 	go get -v -u github.com/githubnemo/CompileDaemon
-	go get -v -u github.com/alecthomas/gometalinter
 	go get -v -u github.com/jstemmer/go-junit-report
+
+setup-ci:
+	go get -v -u github.com/Masterminds/glide
+	go get -v -u github.com/alecthomas/gometalinter
 	gometalinter --install --update
 	glide install
 
