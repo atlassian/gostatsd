@@ -1,3 +1,12 @@
+0.13.4
+------
+- Async rate limited cloud provider lookups (#22, #3)
+- Internals refactoring
+
+0.13.3
+------
+- Add configurable CPU profiler endpoint
+
 0.13.2
 ------
 - Increase default Datadog timeouts to reduce number of errors in the logs
