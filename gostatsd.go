@@ -7,12 +7,14 @@ import (
 	_ "net/http/pprof"
 	"os"
 	"os/signal"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
 
-	"github.com/atlassian/gostatsd/cloudprovider/providers/aws"
-	cloudTypes "github.com/atlassian/gostatsd/cloudprovider/types"
+	"github.com/atlassian/gostatsd/backend"
+	backendTypes "github.com/atlassian/gostatsd/backend/types"
+	"github.com/atlassian/gostatsd/cloudprovider"
 	"github.com/atlassian/gostatsd/statsd"
 
 	log "github.com/Sirupsen/logrus"
@@ -46,11 +48,6 @@ const (
 
 // EnvPrefix is the prefix of the inspected environment variables.
 const EnvPrefix = "GSD" //Go Stats D
-
-// All known cloud providers.
-var providers = map[string]cloudTypes.Factory{
-	aws.ProviderName: aws.NewProviderFromViper,
-}
 
 func main() {
 	rand.Seed(time.Now().UnixNano())
@@ -95,23 +92,29 @@ func main() {
 }
 
 func constructServer(v *viper.Viper) (*statsd.Server, error) {
-	var cloud cloudTypes.Interface
-	providerName := v.GetString(statsd.ParamCloudProvider)
-	if providerName == "" {
-		log.Info("No cloud provider specified")
-	} else {
-		providerFactory := providers[providerName]
-		if providerFactory == nil {
-			return nil, fmt.Errorf("unknown cloud provider %q", providerName)
-		}
-		var err error
-		cloud, err = providerFactory(v)
-		if err != nil {
-			return nil, fmt.Errorf("could not init cloud provider %q: %v", providerName, err)
-		}
+	// Cloud provider
+	cloud, err := cloudprovider.InitCloudProvider(v.GetString(statsd.ParamCloudProvider), v)
+	if err != nil {
+		return nil, err
 	}
+	// Backends
+	backendNames := toSlice(v.GetString(statsd.ParamBackends))
+	backends := make([]backendTypes.Backend, len(backendNames))
+	for i, backendName := range backendNames {
+		backend, errBackend := backend.InitBackend(backendName, v)
+		if errBackend != nil {
+			return nil, errBackend
+		}
+		backends[i] = backend
+	}
+	// Percentiles
+	pt, err := getPercentiles(toSlice(v.GetString(statsd.ParamPercentThreshold)))
+	if err != nil {
+		return nil, err
+	}
+	// Create server
 	return &statsd.Server{
-		Backends:         toSlice(v.GetString(statsd.ParamBackends)),
+		Backends:         backends,
 		ConsoleAddr:      v.GetString(statsd.ParamConsoleAddr),
 		CloudProvider:    cloud,
 		Limiter:          rate.NewLimiter(rate.Limit(v.GetInt(statsd.ParamMaxCloudRequests)), v.GetInt(statsd.ParamBurstCloudRequests)),
@@ -122,7 +125,7 @@ func constructServer(v *viper.Viper) (*statsd.Server, error) {
 		MaxWorkers:       v.GetInt(statsd.ParamMaxWorkers),
 		MetricsAddr:      v.GetString(statsd.ParamMetricsAddr),
 		Namespace:        v.GetString(statsd.ParamNamespace),
-		PercentThreshold: toSlice(v.GetString(statsd.ParamPercentThreshold)),
+		PercentThreshold: pt,
 		WebConsoleAddr:   v.GetString(statsd.ParamWebAddr),
 		Viper:            v,
 	}, nil
@@ -134,6 +137,18 @@ func toSlice(s string) []string {
 		return nil
 	}
 	return strings.Split(s, ",")
+}
+
+func getPercentiles(s []string) ([]float64, error) {
+	percentThresholds := make([]float64, len(s))
+	for i, sPercentThreshold := range s {
+		pt, err := strconv.ParseFloat(sPercentThreshold, 64)
+		if err != nil {
+			return nil, err
+		}
+		percentThresholds[i] = pt
+	}
+	return percentThresholds, nil
 }
 
 // cancelOnInterrupt calls f when os.Interrupt or SIGTERM is received.

@@ -2,12 +2,13 @@ package statsd
 
 import (
 	"math/rand"
-	"net"
 	"runtime"
 	"testing"
 	"time"
+	"sync/atomic"
 
 	cloudTypes "github.com/atlassian/gostatsd/cloudprovider/types"
+	backendTypes "github.com/atlassian/gostatsd/backend/types"
 	"github.com/atlassian/gostatsd/tester/fakesocket"
 	"github.com/atlassian/gostatsd/types"
 
@@ -22,8 +23,9 @@ func TestStatsdThroughput(t *testing.T) {
 	rand.Seed(time.Now().UnixNano())
 	var memStatsStart, memStatsFinish runtime.MemStats
 	runtime.ReadMemStats(&memStatsStart)
+	backend := &countingBackend{}
 	s := Server{
-		Backends: []string{"null"},
+		Backends: []backendTypes.Backend{backend},
 		CloudProvider: &fakeProvider{
 			instance: &cloudTypes.Instance{
 				ID:     "i-13123123",
@@ -43,14 +45,13 @@ func TestStatsdThroughput(t *testing.T) {
 	}
 	ctx, cancelFunc := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancelFunc()
-	socket := new(fakesocket.CountingFakeRandomPacketConn)
-	err := s.RunWithCustomSocket(ctx, func() (net.PacketConn, error) { return socket, nil })
+	err := s.RunWithCustomSocket(ctx, fakesocket.Factory)
 	if err != nil && err != context.Canceled && err != context.DeadlineExceeded {
 		t.Errorf("statsd run failed: %v", err)
 	}
 	runtime.ReadMemStats(&memStatsFinish)
 	totalAlloc := memStatsFinish.TotalAlloc - memStatsStart.TotalAlloc
-	numMetrics := socket.NumReads
+	numMetrics := backend.metrics
 	mallocs := memStatsFinish.Mallocs - memStatsStart.Mallocs
 	t.Logf("Processed metrics: %d\nTotalAlloc: %d (%d per metric)\nMallocs: %d (%d per metric)\nNumGC: %d\nGCCPUFraction: %f",
 		numMetrics,
@@ -58,6 +59,29 @@ func TestStatsdThroughput(t *testing.T) {
 		mallocs, mallocs/numMetrics,
 		memStatsFinish.NumGC-memStatsStart.NumGC,
 		memStatsFinish.GCCPUFraction)
+}
+
+type countingBackend struct {
+	metrics uint64
+	events uint64
+}
+
+func (cb *countingBackend) BackendName() string {
+	return "countingBackend"
+}
+
+func (cb *countingBackend) SampleConfig() string {
+	return ""
+}
+
+func (cb *countingBackend) SendMetricsAsync(ctx context.Context, m *types.MetricMap, callback backendTypes.SendCallback) {
+	atomic.AddUint64(&cb.metrics, uint64(m.NumStats))
+	callback(nil)
+}
+
+func (cb *countingBackend) SendEvent(ctx context.Context, e *types.Event) error {
+	atomic.AddUint64(&cb.events, 1)
+	return nil
 }
 
 type fakeProvider struct {

@@ -37,7 +37,7 @@ func GetBackend(name string, v *viper.Viper) (backendTypes.Backend, error) {
 // InitBackend creates an instance of the named backend.
 func InitBackend(name string, v *viper.Viper) (backendTypes.Backend, error) {
 	if name == "" {
-		log.Info("No backend specified.")
+		log.Info("No backend specified")
 		return nil, nil
 	}
 
