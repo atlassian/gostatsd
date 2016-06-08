@@ -9,7 +9,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/atlassian/gostatsd/backend"
 	backendTypes "github.com/atlassian/gostatsd/backend/types"
 	cloudTypes "github.com/atlassian/gostatsd/cloudprovider/types"
 
@@ -20,7 +19,7 @@ import (
 	"golang.org/x/time/rate"
 )
 
-// DefaultBackends is the list of default backends.
+// DefaultBackends is the list of default backends' names.
 var DefaultBackends = []string{"graphite"}
 
 // DefaultMaxReaders is the default number of socket reading goroutines.
@@ -30,10 +29,10 @@ var DefaultMaxReaders = runtime.NumCPU()
 var DefaultMaxWorkers = runtime.NumCPU()
 
 // DefaultPercentThreshold is the default list of applied percentiles.
-var DefaultPercentThreshold = []string{"90"}
+var DefaultPercentThreshold = []float64{90}
 
 // DefaultTags is the default list of additional tags.
-var DefaultTags = []string{""}
+var DefaultTags = []string{}
 
 const (
 	// DefaultMaxCloudRequests is the maximum number of cloud provider requests per second.
@@ -86,7 +85,7 @@ const (
 // Server encapsulates all of the parameters necessary for starting up
 // the statsd server. These can either be set via command line or directly.
 type Server struct {
-	Backends         []string
+	Backends         []backendTypes.Backend
 	ConsoleAddr      string
 	CloudProvider    cloudTypes.Interface
 	Limiter          *rate.Limiter
@@ -99,7 +98,7 @@ type Server struct {
 	MaxMessengers    int
 	MetricsAddr      string
 	Namespace        string
-	PercentThreshold []string
+	PercentThreshold []float64
 	WebConsoleAddr   string
 	Viper            *viper.Viper
 }
@@ -107,7 +106,6 @@ type Server struct {
 // NewServer will create a new Server with the default configuration.
 func NewServer() *Server {
 	return &Server{
-		Backends:         DefaultBackends,
 		ConsoleAddr:      DefaultConsoleAddr,
 		Limiter:          rate.NewLimiter(DefaultMaxCloudRequests, DefaultBurstCloudRequests),
 		DefaultTags:      DefaultTags,
@@ -140,7 +138,7 @@ func AddFlags(fs *pflag.FlagSet) {
 	fs.Uint(ParamMaxCloudRequests, DefaultMaxCloudRequests, "Maximum number of cloud provider requests per second")
 	fs.Uint(ParamBurstCloudRequests, DefaultBurstCloudRequests, "Burst number of cloud provider requests per second")
 	fs.String(ParamDefaultTags, strings.Join(DefaultTags, ","), "Comma-separated list of tags to add to all metrics")
-	fs.String(ParamPercentThreshold, strings.Join(DefaultPercentThreshold, ","), "Comma-separated list of percentiles")
+	fs.String(ParamPercentThreshold, strings.Join(toStringSlice(DefaultPercentThreshold), ","), "Comma-separated list of percentiles")
 }
 
 // Run runs the server until context signals done.
@@ -156,27 +154,9 @@ type SocketFactory func() (net.PacketConn, error)
 // RunWithCustomSocket runs the server until context signals done.
 // Listening socket is created using sf.
 func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) error {
-	backends := make([]backendTypes.Backend, 0, len(s.Backends))
-	for _, backendName := range s.Backends {
-		b, err := backend.InitBackend(backendName, s.Viper)
-		if err != nil {
-			return err
-		}
-		backends = append(backends, b)
-	}
-
-	var percentThresholds []float64
-	for _, sPercentThreshold := range s.PercentThreshold {
-		pt, err := strconv.ParseFloat(sPercentThreshold, 64)
-		if err != nil {
-			return err
-		}
-		percentThresholds = append(percentThresholds, pt)
-	}
-
 	// 1. Start the Dispatcher
 	factory := agrFactory{
-		percentThresholds: percentThresholds,
+		percentThresholds: s.PercentThreshold,
 		flushInterval:     s.FlushInterval,
 		expiryInterval:    s.ExpiryInterval,
 		defaultTags:       s.DefaultTags,
@@ -196,7 +176,7 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 	}()
 
 	// 2. Start handlers
-	handler := NewDispatchingHandler(dispatcher, backends)
+	handler := NewDispatchingHandler(dispatcher, s.Backends)
 	if s.CloudProvider != nil {
 		ch := NewCloudHandler(s.CloudProvider, handler, s.Limiter, nil)
 		handler = ch
@@ -241,7 +221,7 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 	}
 
 	// 4. Start the Flusher
-	flusher := NewFlusher(s.FlushInterval, dispatcher, receiver, s.DefaultTags, backends)
+	flusher := NewFlusher(s.FlushInterval, dispatcher, receiver, s.DefaultTags, s.Backends)
 	var wgFlusher sync.WaitGroup
 	defer wgFlusher.Wait() // Wait for the Flusher to finish
 	wgFlusher.Add(1)
@@ -285,4 +265,12 @@ func (af *agrFactory) Create() Aggregator {
 
 func internalStatName(name string) string {
 	return fmt.Sprintf("statsd.%s", name)
+}
+
+func toStringSlice(fs []float64) []string {
+	s := make([]string, len(fs))
+	for i, f := range fs {
+		s[i] = strconv.FormatFloat(f, 'f', -1, 64)
+	}
+	return s
 }
