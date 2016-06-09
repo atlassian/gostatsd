@@ -166,6 +166,7 @@ func cancelOnInterrupt(ctx context.Context, f context.CancelFunc) {
 
 func setupConfiguration() (*viper.Viper, bool, error) {
 	v := viper.New()
+	defer setupLogger(v) // Apply logging configuration in case of early exit
 	v.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
 	v.SetEnvPrefix(EnvPrefix)
 	v.SetTypeByDefaultValue(true)
@@ -189,13 +190,9 @@ func setupConfiguration() (*viper.Viper, bool, error) {
 		}
 	})
 
-	setupLogger(v) // setup logger from environment vars and flag defaults
-
 	if err := cmd.Parse(os.Args[1:]); err != nil {
 		return nil, false, err
 	}
-
-	setupLogger(v) // update logger with config from command line flags
 
 	configPath := v.GetString(ParamConfigPath)
 	if configPath != "" {
@@ -204,8 +201,6 @@ func setupConfiguration() (*viper.Viper, bool, error) {
 			return nil, false, err
 		}
 	}
-
-	setupLogger(v) // finally update logger with vars from config
 
 	return v, version, nil
 }
