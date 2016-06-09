@@ -10,12 +10,17 @@ import (
 	backendTypes "github.com/atlassian/gostatsd/backend/types"
 	"github.com/atlassian/gostatsd/types"
 
+	log "github.com/Sirupsen/logrus"
 	"github.com/spf13/viper"
 	"golang.org/x/net/context"
 )
 
-// BackendName is the name of this backend.
-const BackendName = "graphite"
+const (
+	// BackendName is the name of this backend.
+	BackendName         = "graphite"
+	defaultDialTimeout  = 5 * time.Second
+	defaultWriteTimeout = 30 * time.Second
+)
 
 const sampleConfig = `
 [graphite]
@@ -36,7 +41,9 @@ func normalizeBucketName(bucket string, tagsKey string) string {
 
 // client is an object that is used to send messages to a Graphite server's TCP interface.
 type client struct {
-	address string
+	address      string
+	dialTimeout  time.Duration
+	writeTimeout time.Duration
 }
 
 // SendMetricsAsync flushes the metrics to the Graphite server, preparing payload synchronously but doing the send asynchronously.
@@ -52,7 +59,7 @@ func (client *client) SendMetricsAsync(ctx context.Context, metrics *types.Metri
 }
 
 func (client *client) doSend(ctx context.Context, buf *bytes.Buffer) (retErr error) {
-	conn, err := net.Dial("tcp", client.address)
+	conn, err := net.DialTimeout("tcp", client.address, client.dialTimeout)
 	if err != nil {
 		return fmt.Errorf("[%s] error connecting: %v", BackendName, err)
 	}
@@ -62,8 +69,12 @@ func (client *client) doSend(ctx context.Context, buf *bytes.Buffer) (retErr err
 			retErr = fmt.Errorf("[%s] error sending: %v", BackendName, errClose)
 		}
 	}()
-
-	_, err = buf.WriteTo(conn)
+	if client.writeTimeout > 0 {
+		if err = conn.SetWriteDeadline(time.Now().Add(client.writeTimeout)); err != nil {
+			log.Warnf("[%s] failed to set write deadline: %v", BackendName, err)
+		}
+	}
+	_, err = conn.Write(buf.Bytes())
 	if err != nil {
 		return fmt.Errorf("[%s] error sending: %v", BackendName, err)
 	}
@@ -118,12 +129,32 @@ func (client *client) SampleConfig() string {
 func NewClientFromViper(v *viper.Viper) (backendTypes.Backend, error) {
 	g := getSubViper(v, "graphite")
 	g.SetDefault("address", "localhost:2003")
-	return NewClient(g.GetString("address"))
+	g.SetDefault("dial_timeout", defaultDialTimeout)
+	g.SetDefault("write_timeout", defaultWriteTimeout)
+	return NewClient(
+		g.GetString("address"),
+		g.GetDuration("dial_timeout"),
+		g.GetDuration("write_timeout"),
+	)
 }
 
-// NewClient constructs a GraphiteClient object by connecting to an address.
-func NewClient(address string) (backendTypes.Backend, error) {
-	return &client{address}, nil
+// NewClient constructs a Graphite backend object.
+func NewClient(address string, dialTimeout, writeTimeout time.Duration) (backendTypes.Backend, error) {
+	if address == "" {
+		return nil, fmt.Errorf("[%s] address is required", BackendName)
+	}
+	if dialTimeout <= 0 {
+		return nil, fmt.Errorf("[%s] dialTimeout should be positive", BackendName)
+	}
+	if writeTimeout < 0 {
+		return nil, fmt.Errorf("[%s] writeTimeout should be non-negative", BackendName)
+	}
+	log.Infof("[%s] address=%s dialTimeout=%s writeTimeout=%s", BackendName, address, dialTimeout, writeTimeout)
+	return &client{
+		address:      address,
+		dialTimeout:  dialTimeout,
+		writeTimeout: writeTimeout,
+	}, nil
 }
 
 // BackendName returns the name of the backend.
