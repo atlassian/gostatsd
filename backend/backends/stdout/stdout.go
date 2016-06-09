@@ -61,7 +61,7 @@ func writePayload(buf *bytes.Buffer) (retErr error) {
 			retErr = err
 		}
 	}()
-	_, err := buf.WriteTo(writer)
+	_, err := writer.Write(buf.Bytes())
 	return err
 }
 

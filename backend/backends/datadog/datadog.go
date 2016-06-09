@@ -22,11 +22,11 @@ import (
 const (
 	apiURL = "https://app.datadoghq.com"
 	// BackendName is the name of this backend.
-	BackendName                                = "datadog"
-	dogstatsdVersion                           = "5.6.3"
-	dogstatsdUserAgent                         = "python-requests/2.6.0 CPython/2.7.10"
-	defaultMaxRequestElapsedTime time.Duration = 15 * time.Second
-	defaultClientTimeout         time.Duration = 9 * time.Second
+	BackendName                  = "datadog"
+	dogstatsdVersion             = "5.6.3"
+	dogstatsdUserAgent           = "python-requests/2.6.0 CPython/2.7.10"
+	defaultMaxRequestElapsedTime = 15 * time.Second
+	defaultClientTimeout         = 9 * time.Second
 	// defaultMetricsPerBatch is the default number of metrics to send in a single batch.
 	defaultMetricsPerBatch uint16 = 1000
 	// gauge is datadog gauge type.
@@ -306,7 +306,7 @@ func NewClient(apiEndpoint, apiKey string, metricsPerBatch uint16, clientTimeout
 	if err != nil {
 		return nil, fmt.Errorf("[%s] cannot get hostname: %v", BackendName, err)
 	}
-	log.Infof("[%s] maxRequestElapsedTime=%s clientTimeout=%s", BackendName, maxRequestElapsedTime, clientTimeout)
+	log.Infof("[%s] maxRequestElapsedTime=%s clientTimeout=%s metricsPerBatch=%d", BackendName, maxRequestElapsedTime, clientTimeout, metricsPerBatch)
 	return &client{
 		apiKey:                apiKey,
 		apiEndpoint:           apiEndpoint,

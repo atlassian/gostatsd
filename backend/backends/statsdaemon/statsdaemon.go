@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	backendTypes "github.com/atlassian/gostatsd/backend/types"
 	"github.com/atlassian/gostatsd/types"
@@ -18,8 +19,9 @@ import (
 
 const (
 	// BackendName is the name of this backend.
-	BackendName      = "statsdaemon"
-	maxUDPPacketSize = 1472
+	BackendName        = "statsdaemon"
+	maxUDPPacketSize   = 1472
+	defaultDialTimeout = 5 * time.Second
 )
 
 const sampleConfig = `
@@ -34,7 +36,8 @@ const sendChannelSize = 1000
 
 // client is an object that is used to send messages to a statsd server's UDP interface.
 type client struct {
-	addr string
+	address     string
+	dialTimeout time.Duration
 }
 
 // overflowHandler is invoked when accumulated packed size has reached it's limit of maxUDPPacketSize.
@@ -76,7 +79,7 @@ func (client *client) SendMetricsAsync(ctx context.Context, metrics *types.Metri
 		cb(nil)
 		return
 	}
-	conn, err := net.Dial("udp", client.addr)
+	conn, err := net.DialTimeout("udp", client.address, client.dialTimeout)
 	if err != nil {
 		cb([]error{fmt.Errorf("[%s] error connecting: %v", BackendName, err)})
 		return
@@ -103,8 +106,8 @@ func (client *client) SendMetricsAsync(ctx context.Context, metrics *types.Metri
 				if !ok {
 					return
 				}
-				_, errWrite := buf.WriteTo(conn)
-				buf.Reset() // In case of error buf might not be fully consumed so we must reset it before returning to the pool
+				_, errWrite := conn.Write(buf.Bytes())
+				buf.Reset() // Reset buffer before returning it to the pool
 				bufFree.Put(buf)
 				if errWrite != nil {
 					result = fmt.Errorf("[%s] error sending: %v", BackendName, errWrite)
@@ -185,7 +188,7 @@ func processMetrics(metrics *types.MetricMap, handler overflowHandler) (retErr e
 
 // SendEvent sends events to the statsd master server.
 func (client *client) SendEvent(ctx context.Context, e *types.Event) error {
-	conn, err := net.Dial("udp", client.addr)
+	conn, err := net.DialTimeout("udp", client.address, client.dialTimeout)
 	if err != nil {
 		return fmt.Errorf("error connecting to statsd backend: %s", err)
 	}
@@ -249,18 +252,45 @@ func (client *client) SampleConfig() string {
 	return sampleConfig
 }
 
-// NewClient constructs a GraphiteClient object by connecting to an address.
-func NewClient(address string) (backendTypes.Backend, error) {
-	log.Infof("Backend statsdaemon address: %s", address)
-	return &client{address}, nil
+// NewClient constructs a new statsd backend client.
+func NewClient(address string, dialTimeout time.Duration) (backendTypes.Backend, error) {
+	if address == "" {
+		return nil, fmt.Errorf("[%s] address is required", BackendName)
+	}
+	if dialTimeout <= 0 {
+		return nil, fmt.Errorf("[%s] dialTimeout should be positive", BackendName)
+	}
+	log.Infof("[%s] address=%s dialTimeout=%s", BackendName, address, dialTimeout)
+	return &client{
+		address:     address,
+		dialTimeout: dialTimeout,
+	}, nil
 }
 
 // NewClientFromViper constructs a statsd client by connecting to an address.
 func NewClientFromViper(v *viper.Viper) (backendTypes.Backend, error) {
-	return NewClient(v.GetString("statsdaemon.address"))
+	g := getSubViper(v, "statsdaemon")
+	g.SetDefault("dial_timeout", defaultDialTimeout)
+	return NewClient(
+		g.GetString("address"),
+		g.GetDuration("dial_timeout"),
+	)
 }
 
 // BackendName returns the name of the backend.
 func (client *client) BackendName() string {
 	return BackendName
+}
+
+// Workaround https://github.com/spf13/viper/pull/165 and https://github.com/spf13/viper/issues/191
+func getSubViper(v *viper.Viper, key string) *viper.Viper {
+	var n *viper.Viper
+	namespace := v.Get(key)
+	if namespace != nil {
+		n = v.Sub(key)
+	}
+	if n == nil {
+		n = viper.New()
+	}
+	return n
 }
