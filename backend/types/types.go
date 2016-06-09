@@ -11,7 +11,7 @@ import (
 type Factory func(*viper.Viper) (Backend, error)
 
 // SendCallback is called by Backend.SendMetricsAsync() to notify about the result of operation.
-type SendCallback func(error)
+type SendCallback func([]error)
 
 // Backend represents a backend.
 type Backend interface {

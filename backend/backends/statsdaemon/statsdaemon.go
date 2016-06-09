@@ -78,7 +78,7 @@ func (client *client) SendMetricsAsync(ctx context.Context, metrics *types.Metri
 	}
 	conn, err := net.Dial("udp", client.addr)
 	if err != nil {
-		cb(fmt.Errorf("[%s] error connecting: %v", BackendName, err))
+		cb([]error{fmt.Errorf("[%s] error connecting: %v", BackendName, err)})
 		return
 	}
 
@@ -91,7 +91,7 @@ func (client *client) SendMetricsAsync(ctx context.Context, metrics *types.Metri
 			if errClose := conn.Close(); errClose != nil && result == nil {
 				result = fmt.Errorf("[%s] error closing: %v", BackendName, errClose)
 			}
-			cb(result)
+			cb([]error{result})
 		}()
 		defer cancelFunc() // Tell the processMetrics function to stop if it is still running
 		for {

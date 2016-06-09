@@ -47,7 +47,7 @@ func (client *client) SendMetricsAsync(ctx context.Context, metrics *types.Metri
 	}
 	buf := preparePayload(metrics)
 	go func() {
-		cb(client.doSend(ctx, buf))
+		cb([]error{client.doSend(ctx, buf)})
 	}()
 }
 

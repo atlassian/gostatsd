@@ -3,12 +3,12 @@ package statsd
 import (
 	"math/rand"
 	"runtime"
+	"sync/atomic"
 	"testing"
 	"time"
-	"sync/atomic"
 
-	cloudTypes "github.com/atlassian/gostatsd/cloudprovider/types"
 	backendTypes "github.com/atlassian/gostatsd/backend/types"
+	cloudTypes "github.com/atlassian/gostatsd/cloudprovider/types"
 	"github.com/atlassian/gostatsd/tester/fakesocket"
 	"github.com/atlassian/gostatsd/types"
 
@@ -63,7 +63,7 @@ func TestStatsdThroughput(t *testing.T) {
 
 type countingBackend struct {
 	metrics uint64
-	events uint64
+	events  uint64
 }
 
 func (cb *countingBackend) BackendName() string {

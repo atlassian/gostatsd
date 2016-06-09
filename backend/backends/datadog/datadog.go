@@ -27,6 +27,8 @@ const (
 	dogstatsdUserAgent                         = "python-requests/2.6.0 CPython/2.7.10"
 	defaultMaxRequestElapsedTime time.Duration = 15 * time.Second
 	defaultClientTimeout         time.Duration = 9 * time.Second
+	// defaultMetricsPerBatch is the default number of metrics to send in a single batch.
+	defaultMetricsPerBatch uint16 = 1000
 	// gauge is datadog gauge type.
 	gauge = "gauge"
 	// rate is datadog rate type.
@@ -40,6 +42,7 @@ type client struct {
 	hostname              string
 	maxRequestElapsedTime time.Duration
 	client                *http.Client
+	metricsPerBatch       uint16
 }
 
 const sampleConfig = `
@@ -106,18 +109,46 @@ func (d *client) SendMetricsAsync(ctx context.Context, metrics *types.MetricMap,
 		cb(nil)
 		return
 	}
-	ts := d.prepareSeries(metrics)
+	var counter uint16
+	results := make(chan error)
+	d.processMetrics(metrics, func(ts *timeSeries) {
+		go func() {
+			err := d.postMetrics(ts)
+			select {
+			case <-ctx.Done():
+			case results <- err:
+			}
+		}()
+		counter++
+	})
 	go func() {
-		cb(d.postMetrics(ts))
+		var errs []error
+	loop:
+		for c := counter; c > 0; c-- {
+			select {
+			case <-ctx.Done():
+				break loop
+			case err := <-results:
+				if err != nil {
+					errs = append(errs, err)
+				}
+			}
+		}
+		cb(errs)
 	}()
 }
 
-func (d *client) prepareSeries(metrics *types.MetricMap) *timeSeries {
-	ts := timeSeries{Timestamp: time.Now().Unix(), Hostname: d.hostname}
+func (d *client) processMetrics(metrics *types.MetricMap, cb func(*timeSeries)) {
+	ts := &timeSeries{
+		Series:    make([]metric, 0, d.metricsPerBatch),
+		Timestamp: time.Now().Unix(),
+		Hostname:  d.hostname,
+	}
 
 	metrics.Counters.Each(func(key, tagsKey string, counter types.Counter) {
 		ts.addMetric(key, tagsKey, rate, counter.PerSecond, counter.Flush)
 		ts.addMetric(fmt.Sprintf("%s.count", key), tagsKey, gauge, float64(counter.Value), counter.Flush)
+		d.maybeFlush(ts, cb)
 	})
 
 	metrics.Timers.Each(func(key, tagsKey string, timer types.Timer) {
@@ -133,16 +164,33 @@ func (d *client) prepareSeries(metrics *types.MetricMap) *timeSeries {
 		for _, pct := range timer.Percentiles {
 			ts.addMetric(fmt.Sprintf("%s.%s", key, pct.String()), tagsKey, gauge, pct.Float(), timer.Flush)
 		}
+		d.maybeFlush(ts, cb)
 	})
 
 	metrics.Gauges.Each(func(key, tagsKey string, g types.Gauge) {
 		ts.addMetric(key, tagsKey, gauge, g.Value, g.Flush)
+		d.maybeFlush(ts, cb)
 	})
 
 	metrics.Sets.Each(func(key, tagsKey string, set types.Set) {
 		ts.addMetric(key, tagsKey, gauge, float64(len(set.Values)), set.Flush)
+		d.maybeFlush(ts, cb)
 	})
-	return &ts
+
+	if len(ts.Series) > 0 {
+		cb(ts)
+	}
+}
+
+func (d *client) maybeFlush(ts *timeSeries, cb func(*timeSeries)) {
+	if len(ts.Series) >= int(d.metricsPerBatch-20) { // flush before it reaches max size and grows the slice
+		cb(ts)
+		*ts = timeSeries{
+			Series:    make([]metric, 0, d.metricsPerBatch),
+			Timestamp: ts.Timestamp,
+			Hostname:  ts.Hostname,
+		}
+	}
 }
 
 func (d *client) postMetrics(ts *timeSeries) error {
@@ -228,18 +276,20 @@ func (d *client) authenticatedURL(path string) string {
 func NewClientFromViper(v *viper.Viper) (backendTypes.Backend, error) {
 	dd := getSubViper(v, "datadog")
 	dd.SetDefault("api_endpoint", apiURL)
+	dd.SetDefault("metrics_per_batch", defaultMetricsPerBatch)
 	dd.SetDefault("timeout", defaultClientTimeout)
 	dd.SetDefault("max_request_elapsed_time", defaultMaxRequestElapsedTime)
 	return NewClient(
 		dd.GetString("api_endpoint"),
 		dd.GetString("api_key"),
+		uint16(dd.GetInt("metrics_per_batch")),
 		dd.GetDuration("timeout"),
 		dd.GetDuration("max_request_elapsed_time"),
 	)
 }
 
 // NewClient returns a new Datadog API client.
-func NewClient(apiEndpoint, apiKey string, clientTimeout, maxRequestElapsedTime time.Duration) (backendTypes.Backend, error) {
+func NewClient(apiEndpoint, apiKey string, metricsPerBatch uint16, clientTimeout, maxRequestElapsedTime time.Duration) (backendTypes.Backend, error) {
 	if apiEndpoint == "" {
 		return nil, fmt.Errorf("[%s] apiEndpoint is required", BackendName)
 	}

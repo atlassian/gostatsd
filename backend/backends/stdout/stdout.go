@@ -50,7 +50,7 @@ func (client client) SampleConfig() string {
 func (client client) SendMetricsAsync(ctx context.Context, metrics *types.MetricMap, cb backendTypes.SendCallback) {
 	buf := preparePayload(metrics)
 	go func() {
-		cb(writePayload(buf))
+		cb([]error{writePayload(buf)})
 	}()
 }
 
