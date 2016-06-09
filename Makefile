@@ -87,7 +87,7 @@ cross:
 	CGO_ENABLED=0 GOOS=linux go build -o build/bin/linux/$(BINARY_NAME) $(GOBUILD_VERSION_ARGS) -a -installsuffix cgo  github.com/atlassian/$(BINARY_NAME)
 
 docker: cross
-	cd build && docker build -t $(IMAGE_NAME):$(GIT_HASH) .
+	cd build && docker build --pull -t $(IMAGE_NAME):$(GIT_HASH) .
 
 release-hash: check test docker
 	docker push $(IMAGE_NAME):$(GIT_HASH)
