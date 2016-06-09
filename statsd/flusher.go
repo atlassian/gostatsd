@@ -99,17 +99,19 @@ func (f *flusher) sendMetricsAsync(ctx context.Context, wg *sync.WaitGroup, m *t
 	wg.Add(len(f.backends))
 	for _, backend := range f.backends {
 		log.Debugf("Sending %d metrics to backend %s", m.NumStats, backend.BackendName())
-		backend.SendMetricsAsync(ctx, m, func(err error) {
+		backend.SendMetricsAsync(ctx, m, func(errs []error) {
 			defer wg.Done()
-			f.handleSendResult(err)
+			f.handleSendResult(errs)
 		})
 	}
 }
 
-func (f *flusher) handleSendResult(flushResult error) {
+func (f *flusher) handleSendResult(flushResults []error) {
 	timestamp := time.Now().UnixNano()
-	if flushResult != nil {
-		log.Errorf("Sending metrics to backend failed: %v", flushResult)
+	if len(flushResults) > 0 {
+		for err := range flushResults {
+			log.Errorf("Sending metrics to backend failed: %v", err)
+		}
 		atomic.StoreInt64(&f.lastFlushError, timestamp)
 	} else {
 		atomic.StoreInt64(&f.lastFlush, timestamp)

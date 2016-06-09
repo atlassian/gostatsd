@@ -37,16 +37,16 @@ func TestRetries(t *testing.T) {
 	ts := httptest.NewServer(mux)
 	defer ts.Close()
 
-	client, err := NewClient(ts.URL, "apiKey123", 1*time.Second, 2*time.Second)
+	client, err := NewClient(ts.URL, "apiKey123", defaultMetricsPerBatch, 1*time.Second, 2*time.Second)
 	if err != nil {
 		t.Fatal(err)
 	}
-	res := make(chan error)
-	client.SendMetricsAsync(context.Background(), metrics(), func(err error) {
-		res <- err
+	res := make(chan []error, 1)
+	client.SendMetricsAsync(context.Background(), metrics(), func(errs []error) {
+		res <- errs
 	})
-	if err := <-res; err != nil {
-		t.Error(err)
+	if errs := <-res; len(errs) > 0 {
+		t.Error(errs)
 	}
 	if requestNum != 2 {
 		t.Errorf("unexpected number of requests: %d", requestNum)
