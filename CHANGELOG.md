@@ -1,3 +1,10 @@
+0.14.0
+------
+- Update to Alpine 3.4
+- Cap request size in Datadog backend (#27)
+- Set timeouts on Dials and tcp sends (#23)
+- Reuse HTTP connections in Datadog backend
+
 0.13.4
 ------
 - Async rate limited cloud provider lookups (#22, #3)
