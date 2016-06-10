@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
+	"io/ioutil"
 	"net/http"
 	"net/url"
 	"os"
@@ -29,6 +31,8 @@ const (
 	defaultClientTimeout         = 9 * time.Second
 	// defaultMetricsPerBatch is the default number of metrics to send in a single batch.
 	defaultMetricsPerBatch uint16 = 1000
+	// maxResponseSize is the maximum response size we are willing to read.
+	maxResponseSize = 10 * 1024
 	// gauge is datadog gauge type.
 	gauge = "gauge"
 	// rate is datadog rate type.
@@ -257,10 +261,13 @@ func (d *client) doPost(path string, body []byte) backoff.Operation {
 			return fmt.Errorf("error POSTing: %s", strings.Replace(err.Error(), d.apiKey, "*****", -1))
 		}
 		defer resp.Body.Close()
-
+		body := io.LimitReader(resp.Body, maxResponseSize)
 		if resp.StatusCode < 200 || resp.StatusCode >= 205 {
+			b, _ := ioutil.ReadAll(body)
+			log.Infof("[%s] failed request status: %d\n%s", BackendName, resp.StatusCode, b)
 			return fmt.Errorf("received bad status code %d", resp.StatusCode)
 		}
+		_, _ = io.Copy(ioutil.Discard, body)
 		return nil
 	}
 }
