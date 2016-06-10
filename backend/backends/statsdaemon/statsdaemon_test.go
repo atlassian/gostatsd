@@ -41,7 +41,8 @@ func TestProcessMetricsPanic(t *testing.T) {
 			t.Error("should have panicked")
 		}
 	}()
-	processMetrics(&m, func(buf *bytes.Buffer) (*bytes.Buffer, error) {
+	err := processMetrics(&m, func(buf *bytes.Buffer) (*bytes.Buffer, error) {
 		panic(expectedErr)
 	})
+	t.Errorf("unreachable %v", err)
 }
