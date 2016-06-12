@@ -126,16 +126,15 @@ func (d *client) SendMetricsAsync(ctx context.Context, metrics *types.MetricMap,
 		counter++
 	})
 	go func() {
-		var errs []error
+		errs := make([]error, 0, counter)
 	loop:
 		for c := counter; c > 0; c-- {
 			select {
 			case <-ctx.Done():
+				errs = append(errs, ctx.Err())
 				break loop
 			case err := <-results:
-				if err != nil {
-					errs = append(errs, err)
-				}
+				errs = append(errs, err)
 			}
 		}
 		cb(errs)

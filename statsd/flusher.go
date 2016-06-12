@@ -108,10 +108,14 @@ func (f *flusher) sendMetricsAsync(ctx context.Context, wg *sync.WaitGroup, m *t
 
 func (f *flusher) handleSendResult(flushResults []error) {
 	timestamp := time.Now().UnixNano()
-	if len(flushResults) > 0 {
-		for _, err := range flushResults {
+	var hasErrors bool
+	for _, err := range flushResults {
+		if err != nil {
+			hasErrors = true
 			log.Errorf("Sending metrics to backend failed: %v", err)
 		}
+	}
+	if hasErrors {
 		atomic.StoreInt64(&f.lastFlushError, timestamp)
 	} else {
 		atomic.StoreInt64(&f.lastFlush, timestamp)
