@@ -1,14 +1,19 @@
 package statsd
 
 import (
-	"runtime"
 	"testing"
+	"reflect"
 
 	"github.com/atlassian/gostatsd/tester/fakesocket"
 	"github.com/atlassian/gostatsd/types"
 
 	"golang.org/x/net/context"
 )
+
+type metricAndEvent struct {
+	metrics []types.Metric
+	events  types.Events
+}
 
 var receiveBlackhole error
 
@@ -18,8 +23,6 @@ func TestReceiveEmptyPacket(t *testing.T) {
 		{'\n'},
 		{'\n', '\n'},
 	}
-	var memStatsStart, memStatsFinish runtime.MemStats
-	runtime.ReadMemStats(&memStatsStart)
 	for _, inp := range input {
 		ch := &countingHandler{}
 		mr := NewMetricReceiver("", []string{}, ch).(*metricReceiver)
@@ -35,14 +38,62 @@ func TestReceiveEmptyPacket(t *testing.T) {
 			t.Errorf("%q: expected no metrics: %s", inp, ch.metrics)
 		}
 	}
-	runtime.ReadMemStats(&memStatsFinish)
-	totalAlloc := memStatsFinish.TotalAlloc - memStatsStart.TotalAlloc
-	mallocs := memStatsFinish.Mallocs - memStatsStart.Mallocs
-	t.Logf("TotalAlloc: %d\nMallocs: %d\nNumGC: %d\nGCCPUFraction: %f",
-		totalAlloc,
-		mallocs,
-		memStatsFinish.NumGC-memStatsStart.NumGC,
-		memStatsFinish.GCCPUFraction)
+}
+
+func TestReceivePacket(t *testing.T) {
+	input := map[string]metricAndEvent{
+		"f:2|c": {
+			metrics: []types.Metric{
+				{Name: "f", Value: 2, SourceIP: "127.0.0.1", Type: types.COUNTER},
+			},
+		},
+		"f:2|c\n": {
+			metrics: []types.Metric{
+				{Name: "f", Value: 2, SourceIP: "127.0.0.1", Type: types.COUNTER},
+			},
+		},
+		"f:2|c\nx:3|c": {
+			metrics: []types.Metric{
+				{Name: "f", Value: 2, SourceIP: "127.0.0.1", Type: types.COUNTER},
+				{Name: "x", Value: 3, SourceIP: "127.0.0.1", Type: types.COUNTER},
+			},
+		},
+		"f:2|c\nx:3|c\n": {
+			metrics: []types.Metric{
+				{Name: "f", Value: 2, SourceIP: "127.0.0.1", Type: types.COUNTER},
+				{Name: "x", Value: 3, SourceIP: "127.0.0.1", Type: types.COUNTER},
+			},
+		},
+		"_e{1,1}:a|b\nf:6|c": {
+			metrics: []types.Metric{
+				{Name: "f", Value: 6, SourceIP: "127.0.0.1", Type: types.COUNTER},
+			},
+			events: types.Events{
+				types.Event{Title: "a", Text: "b", SourceIP: "127.0.0.1"},
+			},
+		},
+	}
+	for packet, mAndE := range input {
+		ch := &countingHandler{}
+		mr := NewMetricReceiver("", []string{}, ch).(*metricReceiver)
+
+		err := mr.handlePacket(context.Background(), fakesocket.FakeAddr{}, []byte(packet))
+		if err != nil {
+			t.Errorf("%q: unexpected error: %v", err)
+		}
+		for i, e := range ch.events {
+			if e.DateHappened <= 0 {
+				t.Errorf("%q: DateHappened should be positive", e)
+			}
+			ch.events[i].DateHappened = 0
+		}
+		if !reflect.DeepEqual(ch.events, mAndE.events) {
+			t.Errorf("%q: expected to be equal:\n%s\n%s", packet, ch.events, mAndE.events)
+		}
+		if !reflect.DeepEqual(ch.metrics, mAndE.metrics) {
+			t.Errorf("%q: expected to be equal:\n%s\n%s", packet, ch.metrics, mAndE.metrics)
+		}
+	}
 }
 
 func BenchmarkReceive(b *testing.B) {
