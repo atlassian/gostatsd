@@ -45,8 +45,11 @@ func TestRetries(t *testing.T) {
 	client.SendMetricsAsync(context.Background(), metrics(), func(errs []error) {
 		res <- errs
 	})
-	if errs := <-res; len(errs) > 0 {
-		t.Error(errs)
+	errs := <-res
+	for _, err := range errs {
+		if err != nil {
+			t.Error(err)
+		}
 	}
 	if requestNum != 2 {
 		t.Errorf("unexpected number of requests: %d", requestNum)
