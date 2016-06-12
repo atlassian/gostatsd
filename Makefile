@@ -40,10 +40,10 @@ test-race:
 	go test -race $$(glide nv)
 
 bench:
-	go test -bench=. $$(glide nv)
+	go test -bench=. -run=XXX $$(glide nv)
 
 bench-race:
-	go test -race -bench=. $$(glide nv)
+	go test -race -bench=. -run=XXX $$(glide nv)
 
 cover:
 	./cover.sh
