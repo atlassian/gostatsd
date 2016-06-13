@@ -13,6 +13,7 @@ METALINTER_CONCURRENCY ?= 4
 setup: setup-ci
 	go get -v -u github.com/githubnemo/CompileDaemon
 	go get -v -u github.com/jstemmer/go-junit-report
+	go get -v -u github.com/Sirupsen/logrus
 
 setup-ci:
 	go get -v -u github.com/Masterminds/glide
