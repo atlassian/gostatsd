@@ -3,7 +3,6 @@ package statsd
 import (
 	"bytes"
 	"fmt"
-	"io"
 	"net"
 	"strings"
 	"sync/atomic"
@@ -119,7 +118,6 @@ func (mr *metricReceiver) handlePacket(ctx context.Context, addr net.Addr, msg [
 	var numMetrics, numEvents uint16
 	var exitError error
 	var ip types.IP
-	buf := bytes.NewBuffer(msg)
 	addrStr := addr.String()
 	n := strings.LastIndexByte(addrStr, ':')
 	if n <= 0 {
@@ -129,54 +127,50 @@ func (mr *metricReceiver) handlePacket(ctx context.Context, addr net.Addr, msg [
 		ip = types.IP(addrStr[:n])
 	}
 	for {
-		line, readerr := buf.ReadBytes('\n')
-
+		idx := bytes.IndexByte(msg, '\n')
+		var line []byte
 		// protocol does not require line to end in \n, if EOF use received line if valid
-		if readerr != nil && readerr != io.EOF {
-			exitError = fmt.Errorf("error reading message from %s: %v", addr, readerr)
-			break
-		} else if readerr != io.EOF {
-			// remove newline, only if not EOF
-			if len(line) > 0 {
-				line = line[:len(line)-1]
+		if idx == -1 { // no \n found
+			if len(msg) == 0 {
+				break
 			}
+			line = msg
+			msg = nil
+		} else { // usual case
+			line = msg[:idx]
+			msg = msg[idx+1:]
 		}
-
-		if len(line) > 1 {
-			metric, event, err := mr.parseLine(line)
-			if err != nil {
-				// logging as debug to avoid spamming logs when a bad actor sends
-				// badly formatted messages
-				log.Debugf("Error parsing line %q from %s: %v", line, addr, err)
-				atomic.AddUint64(&mr.badLines, 1)
-				continue
+		metric, event, err := mr.parseLine(line)
+		if err != nil {
+			// logging as debug to avoid spamming logs when a bad actor sends
+			// badly formatted messages
+			log.Debugf("Error parsing line %q from %s: %v", line, ip, err)
+			atomic.AddUint64(&mr.badLines, 1)
+			continue
+		}
+		if metric != nil {
+			numMetrics++
+			metric.Tags = append(metric.Tags, mr.tags...)
+			metric.SourceIP = ip
+			err = mr.handler.DispatchMetric(ctx, metric)
+		} else if event != nil {
+			numEvents++
+			event.Tags = append(event.Tags, mr.tags...)
+			event.SourceIP = ip
+			if event.DateHappened == 0 {
+				event.DateHappened = time.Now().Unix()
 			}
-			if metric != nil {
-				numMetrics++
-				metric.Tags = append(metric.Tags, mr.tags...)
-				metric.SourceIP = ip
-				err = mr.handler.DispatchMetric(ctx, metric)
-			} else if event != nil {
-				numEvents++
-				event.Tags = append(event.Tags, mr.tags...)
-				event.SourceIP = ip
-				if event.DateHappened == 0 {
-					event.DateHappened = time.Now().Unix()
-				}
-				err = mr.handler.DispatchEvent(ctx, event)
-			} else {
-				// Should never happen.
-				log.Panic("Both event and metric are nil")
-			}
-			if err != nil {
+			err = mr.handler.DispatchEvent(ctx, event)
+		} else {
+			// Should never happen.
+			log.Panic("Both event and metric are nil")
+		}
+		if err != nil {
+			if err == context.Canceled || err == context.DeadlineExceeded {
 				exitError = err
 				break
 			}
-		}
-
-		if readerr == io.EOF {
-			// if was EOF, finished handling
-			break
+			log.Warnf("Error dispatching metric/event %q from %s: %v", line, ip, err)
 		}
 	}
 	atomic.AddUint64(&mr.metricsReceived, uint64(numMetrics))
