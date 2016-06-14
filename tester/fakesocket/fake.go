@@ -64,12 +64,12 @@ func (frpc FakeRandomPacketConn) ReadFrom(b []byte) (int, net.Addr, error) {
 	case 1: // Gauge
 		fmt.Fprintf(buf, "statsd.tester.gauge_%d:%f|g\n", num, rand.Float64()*100)
 	case 2: // Timer
-		n := rand.Intn(9) + 1
+		n := 10
 		for i := 0; i < n; i++ {
 			fmt.Fprintf(buf, "statsd.tester.timer_%d:%f|ms\n", num, rand.Float64()*100)
 		}
 	case 3: // Set
-		for i := 0; i < 100; i++ {
+		for i := 0; i < 10; i++ {
 			fmt.Fprintf(buf, "statsd.tester.set_%d:%d|s\n", num, rand.Int31n(9)+1)
 		}
 	default:

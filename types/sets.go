@@ -4,12 +4,12 @@ import "time"
 
 // Set is used for storing aggregated values for sets.
 type Set struct {
-	Values   map[string]int64 // The number of occurrences for a specific value
-	Interval                  // The flush and expiration interval information
+	Values   map[string]struct{}
+	Interval // The flush and expiration interval information
 }
 
 // NewSet initialises a new set.
-func NewSet(timestamp time.Time, flushInterval time.Duration, values map[string]int64) Set {
+func NewSet(timestamp time.Time, flushInterval time.Duration, values map[string]struct{}) Set {
 	return Set{Values: values, Interval: Interval{Timestamp: timestamp, Flush: flushInterval}}
 }
 

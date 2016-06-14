@@ -51,11 +51,18 @@ func TestStatsdThroughput(t *testing.T) {
 	}
 	runtime.ReadMemStats(&memStatsFinish)
 	totalAlloc := memStatsFinish.TotalAlloc - memStatsStart.TotalAlloc
+	heapObjects := memStatsFinish.HeapObjects - memStatsStart.HeapObjects
 	numMetrics := backend.metrics
 	mallocs := memStatsFinish.Mallocs - memStatsStart.Mallocs
-	t.Logf("Processed metrics: %d\nTotalAlloc: %d (%d per metric)\nMallocs: %d (%d per metric)\nNumGC: %d\nGCCPUFraction: %f",
+	t.Logf(`Processed metrics: %d
+	TotalAlloc: %d (%d per metric)
+	HeapObjects: %d
+	Mallocs: %d (%d per metric)
+	NumGC: %d
+	GCCPUFraction: %f`,
 		numMetrics,
 		totalAlloc, totalAlloc/numMetrics,
+		heapObjects,
 		mallocs, mallocs/numMetrics,
 		memStatsFinish.NumGC-memStatsStart.NumGC,
 		memStatsFinish.GCCPUFraction)

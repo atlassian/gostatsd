@@ -1,9 +1,9 @@
 package statsd
 
 import (
-	"fmt"
 	"math"
 	"sort"
+	"strconv"
 	"time"
 
 	"github.com/atlassian/gostatsd/types"
@@ -25,10 +25,20 @@ type Aggregator interface {
 	Reset(time.Time)
 }
 
+// percentStruct is a cache of percentile names to avoid creating them for each timer.
+type percentStruct struct {
+	count      string
+	mean       string
+	sum        string
+	sumSquares string
+	upper      string
+	lower      string
+}
+
 type aggregator struct {
 	expiryInterval    time.Duration // How often to expire metrics
 	lastFlush         time.Time     // Last time the metrics where aggregated
-	percentThresholds []float64
+	percentThresholds map[float64]percentStruct
 	defaultTags       string // Tags to add to system metrics
 	types.MetricMap
 }
@@ -39,12 +49,23 @@ func NewAggregator(percentThresholds []float64, flushInterval, expiryInterval ti
 	a.FlushInterval = flushInterval
 	a.lastFlush = time.Now()
 	a.expiryInterval = expiryInterval
-	a.percentThresholds = percentThresholds
 	a.Counters = types.Counters{}
 	a.Timers = types.Timers{}
 	a.Gauges = types.Gauges{}
 	a.Sets = types.Sets{}
 	a.defaultTags = types.Tags(defaultTags).String()
+	a.percentThresholds = make(map[float64]percentStruct, len(percentThresholds))
+	for _, pct := range percentThresholds {
+		sPct := strconv.Itoa(int(pct))
+		a.percentThresholds[pct] = percentStruct{
+			count:      "count_" + sPct,
+			mean:       "mean_" + sPct,
+			sum:        "sum_" + sPct,
+			sumSquares: "sum_squares_" + sPct,
+			upper:      "upper_" + sPct,
+			lower:      "lower_" + sPct,
+		}
+	}
 	return &a
 }
 
@@ -58,13 +79,13 @@ func round(v float64) float64 {
 func (a *aggregator) Flush(now func() time.Time) {
 	startTime := now()
 	flushInterval := startTime.Sub(a.lastFlush)
+	flushInSeconds := float64(flushInterval.Nanoseconds()) / float64(time.Second.Nanoseconds())
 
 	statName := internalStatName("aggregator_num_stats")
 	a.receiveCounter(statName, a.defaultTags, int64(a.NumStats), startTime)
 
 	a.Counters.Each(func(key, tagsKey string, counter types.Counter) {
-		perSecond := float64(counter.Value) / flushInterval.Seconds()
-		counter.PerSecond = perSecond
+		counter.PerSecond = float64(counter.Value) / flushInSeconds
 		a.Counters[key][tagsKey] = counter
 	})
 
@@ -76,12 +97,13 @@ func (a *aggregator) Flush(now func() time.Time) {
 			timer.Count = len(timer.Values)
 			count := float64(timer.Count)
 
-			cumulativeValues := []float64{timer.Min}
-			cumulSumSquaresValues := []float64{timer.Min * timer.Min}
+			cumulativeValues := make([]float64, timer.Count)
+			cumulSumSquaresValues := make([]float64, timer.Count)
+			cumulativeValues[0] = timer.Min
+			cumulSumSquaresValues[0] = timer.Min * timer.Min
 			for i := 1; i < timer.Count; i++ {
-				cumulativeValues = append(cumulativeValues, timer.Values[i]+cumulativeValues[i-1])
-				cumulSumSquaresValues = append(cumulSumSquaresValues,
-					timer.Values[i]*timer.Values[i]+cumulSumSquaresValues[i-1])
+				cumulativeValues[i] = timer.Values[i] + cumulativeValues[i-1]
+				cumulSumSquaresValues[i] = timer.Values[i]*timer.Values[i] + cumulSumSquaresValues[i-1]
 			}
 
 			var sumSquares = timer.Min * timer.Min
@@ -89,7 +111,7 @@ func (a *aggregator) Flush(now func() time.Time) {
 			var sum = timer.Min
 			var thresholdBoundary = timer.Max
 
-			for _, pct := range a.percentThresholds {
+			for pct, pctStruct := range a.percentThresholds {
 				numInThreshold := timer.Count
 				if timer.Count > 1 {
 					numInThreshold = int(round(math.Abs(pct) / 100 * count))
@@ -108,15 +130,14 @@ func (a *aggregator) Flush(now func() time.Time) {
 					mean = sum / float64(numInThreshold)
 				}
 
-				sPct := fmt.Sprintf("%d", int(pct))
-				timer.Percentiles.Set(fmt.Sprintf("count_%s", sPct), float64(numInThreshold))
-				timer.Percentiles.Set(fmt.Sprintf("mean_%s", sPct), mean)
-				timer.Percentiles.Set(fmt.Sprintf("sum_%s", sPct), sum)
-				timer.Percentiles.Set(fmt.Sprintf("sum_squares_%s", sPct), sumSquares)
+				timer.Percentiles.Set(pctStruct.count, float64(numInThreshold))
+				timer.Percentiles.Set(pctStruct.mean, mean)
+				timer.Percentiles.Set(pctStruct.sum, sum)
+				timer.Percentiles.Set(pctStruct.sumSquares, sumSquares)
 				if pct > 0 {
-					timer.Percentiles.Set(fmt.Sprintf("upper_%s", sPct), thresholdBoundary)
+					timer.Percentiles.Set(pctStruct.upper, thresholdBoundary)
 				} else {
-					timer.Percentiles.Set(fmt.Sprintf("lower_%s", sPct), thresholdBoundary)
+					timer.Percentiles.Set(pctStruct.lower, thresholdBoundary)
 				}
 			}
 
@@ -124,13 +145,13 @@ func (a *aggregator) Flush(now func() time.Time) {
 			sumSquares = cumulSumSquaresValues[timer.Count-1]
 			mean = sum / count
 
-			var sumOfDiffs = float64(0)
+			var sumOfDiffs float64
 			for i := 0; i < timer.Count; i++ {
 				sumOfDiffs += (timer.Values[i] - mean) * (timer.Values[i] - mean)
 			}
 
 			mid := int(math.Floor(count / 2))
-			if math.Mod(count, float64(2)) == 0 {
+			if math.Mod(count, 2) == 0 {
 				timer.Median = (timer.Values[mid-1] + timer.Values[mid]) / 2
 			} else {
 				timer.Median = timer.Values[mid]
@@ -140,12 +161,12 @@ func (a *aggregator) Flush(now func() time.Time) {
 			timer.StdDev = math.Sqrt(sumOfDiffs / count)
 			timer.Sum = sum
 			timer.SumSquares = sumSquares
-			timer.PerSecond = count / flushInterval.Seconds()
+			timer.PerSecond = count / flushInSeconds
 
 			a.Timers[key][tagsKey] = timer
 		} else {
 			timer.Count = 0
-			timer.PerSecond = float64(0)
+			timer.PerSecond = 0
 		}
 	})
 
@@ -164,7 +185,7 @@ func (a *aggregator) Process(f ProcessFunc) {
 }
 
 func (a *aggregator) isExpired(now, ts time.Time) bool {
-	return a.expiryInterval != time.Duration(0) && now.Sub(ts) > a.expiryInterval
+	return a.expiryInterval != 0 && now.Sub(ts) > a.expiryInterval
 }
 
 func deleteMetric(key, tagsKey string, metrics types.AggregatedMetrics) {
@@ -207,8 +228,7 @@ func (a *aggregator) Reset(now time.Time) {
 		if a.isExpired(now, set.Timestamp) {
 			deleteMetric(key, tagsKey, a.Sets)
 		} else {
-			interval := set.Interval
-			a.Sets[key][tagsKey] = types.Set{Interval: interval, Values: make(map[string]int64)}
+			a.Sets[key][tagsKey] = types.Set{Interval: set.Interval, Values: make(map[string]struct{})}
 		}
 	})
 }
@@ -219,13 +239,14 @@ func (a *aggregator) receiveCounter(name, tags string, value int64, now time.Tim
 		c, ok := v[tags]
 		if ok {
 			c.Value += value
-			a.Counters[name][tags] = c
 		} else {
-			a.Counters[name][tags] = types.NewCounter(now, a.FlushInterval, value)
+			c = types.NewCounter(now, a.FlushInterval, value)
 		}
+		v[tags] = c
 	} else {
-		a.Counters[name] = make(map[string]types.Counter)
-		a.Counters[name][tags] = types.NewCounter(now, a.FlushInterval, value)
+		a.Counters[name] = map[string]types.Counter{
+			tags: types.NewCounter(now, a.FlushInterval, value),
+		}
 	}
 }
 
@@ -236,13 +257,14 @@ func (a *aggregator) receiveGauge(name, tags string, value float64, now time.Tim
 		g, ok := v[tags]
 		if ok {
 			g.Value = value
-			a.Gauges[name][tags] = g
 		} else {
-			a.Gauges[name][tags] = types.NewGauge(now, a.FlushInterval, value)
+			g = types.NewGauge(now, a.FlushInterval, value)
 		}
+		v[tags] = g
 	} else {
-		a.Gauges[name] = make(map[string]types.Gauge)
-		a.Gauges[name][tags] = types.NewGauge(now, a.FlushInterval, value)
+		a.Gauges[name] = map[string]types.Gauge{
+			tags: types.NewGauge(now, a.FlushInterval, value),
+		}
 	}
 }
 
@@ -252,13 +274,14 @@ func (a *aggregator) receiveTimer(name, tags string, value float64, now time.Tim
 		t, ok := v[tags]
 		if ok {
 			t.Values = append(t.Values, value)
-			a.Timers[name][tags] = t
 		} else {
-			a.Timers[name][tags] = types.NewTimer(now, a.FlushInterval, []float64{value})
+			t = types.NewTimer(now, a.FlushInterval, []float64{value})
 		}
+		v[tags] = t
 	} else {
-		a.Timers[name] = make(map[string]types.Timer)
-		a.Timers[name][tags] = types.NewTimer(now, a.FlushInterval, []float64{value})
+		a.Timers[name] = map[string]types.Timer{
+			tags: types.NewTimer(now, a.FlushInterval, []float64{value}),
+		}
 	}
 }
 
@@ -267,23 +290,18 @@ func (a *aggregator) receiveSet(name, tags string, value string, now time.Time) 
 	if ok {
 		s, ok := v[tags]
 		if ok {
-			_, ok := s.Values[value]
-			if ok {
-				s.Values[value]++
-			} else {
-				s.Values[value] = 1
-			}
-			a.Sets[name][tags] = s
+			s.Values[value] = struct{}{}
 		} else {
-			unique := make(map[string]int64)
-			unique[value] = 1
-			a.Sets[name][tags] = types.NewSet(now, a.FlushInterval, unique)
+			v[tags] = types.NewSet(now, a.FlushInterval, map[string]struct{}{
+				value: {},
+			})
 		}
 	} else {
-		a.Sets[name] = make(map[string]types.Set)
-		unique := make(map[string]int64)
-		unique[value] = 1
-		a.Sets[name][tags] = types.NewSet(now, a.FlushInterval, unique)
+		a.Sets[name] = map[string]types.Set{
+			tags: types.NewSet(now, a.FlushInterval, map[string]struct{}{
+				value: {},
+			}),
+		}
 	}
 }
 

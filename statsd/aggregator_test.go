@@ -98,8 +98,9 @@ func TestFlush(t *testing.T) {
 	} // start and end are the same...
 
 	ma.Sets["some"] = make(map[string]types.Set)
-	unique := make(map[string]int64)
-	unique["user"] = 1
+	unique := map[string]struct{}{
+		"user": {},
+	}
 	ma.Sets["some"]["thing"] = types.Set{Values: unique}
 
 	expected.Sets["some"] = make(map[string]types.Set)
@@ -129,8 +130,9 @@ func BenchmarkFlush(b *testing.B) {
 	ma.Gauges["some"]["other:thing"] = types.Gauge{Value: 150}
 
 	ma.Sets["some"] = make(map[string]types.Set)
-	unique := make(map[string]int64)
-	unique["user"] = 1
+	unique := map[string]struct{}{
+		"user": {},
+	}
 	ma.Sets["some"]["thing"] = types.Set{Values: unique}
 
 	b.ResetTimer()
@@ -184,14 +186,15 @@ func TestReset(t *testing.T) {
 
 	actual = newFakeAggregator()
 	actual.Sets["some"] = make(map[string]types.Set)
-	unique := make(map[string]int64)
-	unique["user"] = 1
+	unique := map[string]struct{}{
+		"user": {},
+	}
 	actual.Sets["some"]["thing"] = types.NewSet(now, time.Duration(10)*time.Second, unique)
 	actual.Reset(now)
 
 	expected = newFakeAggregator()
 	expected.Sets["some"] = make(map[string]types.Set)
-	expected.Sets["some"]["thing"] = types.NewSet(now, time.Duration(10)*time.Second, make(map[string]int64))
+	expected.Sets["some"]["thing"] = types.NewSet(now, time.Duration(10)*time.Second, make(map[string]struct{}))
 
 	assert.Equal(expected.Sets, actual.Sets)
 
@@ -233,8 +236,9 @@ func TestReset(t *testing.T) {
 	actual = newFakeAggregator()
 	actual.expiryInterval = time.Duration(10) * time.Second
 	actual.Sets["some"] = make(map[string]types.Set)
-	unique = make(map[string]int64)
-	unique["user"] = 1
+	unique = map[string]struct{}{
+		"user": {},
+	}
 	actual.Sets["some"]["thing"] = types.NewSet(past, time.Duration(10)*time.Second, unique)
 	actual.Reset(now)
 
@@ -313,12 +317,14 @@ func TestReceive(t *testing.T) {
 
 	expectedSets := types.Sets{}
 	expectedSets["uniq.usr"] = make(map[string]types.Set)
-	sets := make(map[string]int64)
-	sets["joe"] = 2
-	sets["bob"] = 1
-	sets["john"] = 1
-	sets2 := make(map[string]int64)
-	sets2["john"] = 1
+	sets := map[string]struct{}{
+		"joe":  {},
+		"bob":  {},
+		"john": {},
+	}
+	sets2 := map[string]struct{}{
+		"john": {},
+	}
 	expectedSets["uniq.usr"][""] = types.Set{Values: sets, Interval: interval}
 	expectedSets["uniq.usr"]["baz,foo:bar"] = types.Set{Values: sets2, Interval: interval}
 	assert.Equal(expectedSets, ma.Sets)
@@ -337,12 +343,15 @@ func benchmarkReceive(metric types.Metric, b *testing.B) {
 func BenchmarkReceiveCounter(b *testing.B) {
 	benchmarkReceive(types.Metric{Name: "foo.bar.baz", Value: 2, Type: types.COUNTER}, b)
 }
+
 func BenchmarkReceiveGauge(b *testing.B) {
 	benchmarkReceive(types.Metric{Name: "abc.def.g", Value: 3, Type: types.GAUGE}, b)
 }
+
 func BenchmarkReceiveTimer(b *testing.B) {
 	benchmarkReceive(types.Metric{Name: "def.g", Value: 10, Type: types.TIMER}, b)
 }
+
 func BenchmarkReceiveSet(b *testing.B) {
 	benchmarkReceive(types.Metric{Name: "uniq.usr", StringValue: "joe", Type: types.SET}, b)
 }

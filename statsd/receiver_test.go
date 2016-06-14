@@ -1,8 +1,8 @@
 package statsd
 
 import (
-	"testing"
 	"reflect"
+	"testing"
 
 	"github.com/atlassian/gostatsd/tester/fakesocket"
 	"github.com/atlassian/gostatsd/types"
