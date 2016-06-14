@@ -85,7 +85,7 @@ func preparePayload(metrics *types.MetricMap) *bytes.Buffer {
 		fmt.Fprintf(buf, "stats.timers.%s.sum %f %d\n", nk, timer.Sum, now)
 		fmt.Fprintf(buf, "stats.timers.%s.sum_squares %f %d\n", nk, timer.SumSquares, now)
 		for _, pct := range timer.Percentiles {
-			fmt.Fprintf(buf, "stats.timers.%s.%s %f %d\n", nk, pct.String(), pct.Float(), now)
+			fmt.Fprintf(buf, "stats.timers.%s.%s %f %d\n", nk, pct.Str, pct.Float, now)
 		}
 	})
 	metrics.Gauges.Each(func(key, tagsKey string, gauge types.Gauge) {
