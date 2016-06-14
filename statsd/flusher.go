@@ -107,19 +107,14 @@ func (f *flusher) sendMetricsAsync(ctx context.Context, wg *sync.WaitGroup, m *t
 }
 
 func (f *flusher) handleSendResult(flushResults []error) {
-	timestamp := time.Now().UnixNano()
-	var hasErrors bool
+	timestampPointer := &f.lastFlush
 	for _, err := range flushResults {
 		if err != nil {
-			hasErrors = true
+			timestampPointer = &f.lastFlushError
 			log.Errorf("Sending metrics to backend failed: %v", err)
 		}
 	}
-	if hasErrors {
-		atomic.StoreInt64(&f.lastFlushError, timestamp)
-	} else {
-		atomic.StoreInt64(&f.lastFlush, timestamp)
-	}
+	atomic.StoreInt64(timestampPointer, time.Now().UnixNano())
 }
 
 func (f *flusher) internalStats(totalStats uint32) *types.MetricMap {
@@ -149,8 +144,7 @@ func (f *flusher) addCounter(c types.Counters, name string, timestamp time.Time,
 	counter := types.NewCounter(timestamp, f.flushInterval, value)
 	counter.PerSecond = float64(counter.Value) / (float64(f.flushInterval) / float64(time.Second))
 
-	elem := make(map[string]types.Counter, 1)
-	elem[f.defaultTags] = counter
-
-	c[internalStatName(name)] = elem
+	c[internalStatName(name)] = map[string]types.Counter{
+		f.defaultTags: counter,
+	}
 }

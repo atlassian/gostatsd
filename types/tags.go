@@ -40,7 +40,7 @@ func (tags Tags) IndexOfKey(key string) (int, string) {
 
 // Normalise normalises tags as key:value.
 func (tags Tags) Normalise() Tags {
-	nTags := Tags{}
+	nTags := make(Tags, 0, len(tags))
 	for _, tag := range tags {
 		if tag != "" {
 			if !strings.Contains(tag, ":") {
