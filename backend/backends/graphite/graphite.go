@@ -84,7 +84,7 @@ func (client *client) SendMetricsAsync(ctx context.Context, metrics *types.Metri
 		cb(nil)
 		return
 	}
-	buf := client.preparePayload(metrics)
+	buf := client.preparePayload(metrics, time.Now())
 	go func() {
 		cb([]error{client.doSend(ctx, buf)})
 	}()
@@ -113,44 +113,42 @@ func (client *client) doSend(ctx context.Context, buf *bytes.Buffer) (retErr err
 	return nil
 }
 
-func (client *client) preparePayload(metrics *types.MetricMap) *bytes.Buffer {
+func (client *client) preparePayload(metrics *types.MetricMap, ts time.Time) *bytes.Buffer {
 	buf := new(bytes.Buffer)
+	now := ts.Unix()
 	if client.legacyNamespace {
 		metrics.Counters.Each(func(key, tagsKey string, counter types.Counter) {
 			k := sk(key)
-			ts := counter.Timestamp.Unix()
-			fmt.Fprintf(buf, "stats_counts.%s%s %d %d\n", k, client.globalSuffix, counter.Value, ts)
-			fmt.Fprintf(buf, "%s%s%s %f %d\n", client.counterNamespace, k, client.globalSuffix, counter.PerSecond, ts)
+			fmt.Fprintf(buf, "stats_counts.%s%s %d %d\n", k, client.globalSuffix, counter.Value, now)
+			fmt.Fprintf(buf, "%s%s%s %f %d\n", client.counterNamespace, k, client.globalSuffix, counter.PerSecond, now)
 		})
 	} else {
 		metrics.Counters.Each(func(key, tagsKey string, counter types.Counter) {
 			k := sk(key)
-			ts := counter.Timestamp.Unix()
-			fmt.Fprintf(buf, "%s%s.count%s %d %d\n", client.counterNamespace, k, client.globalSuffix, counter.Value, ts)
-			fmt.Fprintf(buf, "%s%s.rate%s %f %d\n", client.counterNamespace, k, client.globalSuffix, counter.PerSecond, ts)
+			fmt.Fprintf(buf, "%s%s.count%s %d %d\n", client.counterNamespace, k, client.globalSuffix, counter.Value, now)
+			fmt.Fprintf(buf, "%s%s.rate%s %f %d\n", client.counterNamespace, k, client.globalSuffix, counter.PerSecond, now)
 		})
 	}
 	metrics.Timers.Each(func(key, tagsKey string, timer types.Timer) {
 		k := sk(key)
-		ts := timer.Timestamp.Unix()
-		fmt.Fprintf(buf, "%s%s.lower%s %f %d\n", client.timerNamespace, k, client.globalSuffix, timer.Min, ts)
-		fmt.Fprintf(buf, "%s%s.upper%s %f %d\n", client.timerNamespace, k, client.globalSuffix, timer.Max, ts)
-		fmt.Fprintf(buf, "%s%s.count%s %d %d\n", client.timerNamespace, k, client.globalSuffix, timer.Count, ts)
-		fmt.Fprintf(buf, "%s%s.count_ps%s %f %d\n", client.timerNamespace, k, client.globalSuffix, timer.PerSecond, ts)
-		fmt.Fprintf(buf, "%s%s.mean%s %f %d\n", client.timerNamespace, k, client.globalSuffix, timer.Mean, ts)
-		fmt.Fprintf(buf, "%s%s.median%s %f %d\n", client.timerNamespace, k, client.globalSuffix, timer.Median, ts)
-		fmt.Fprintf(buf, "%s%s.std%s %f %d\n", client.timerNamespace, k, client.globalSuffix, timer.StdDev, ts)
-		fmt.Fprintf(buf, "%s%s.sum%s %f %d\n", client.timerNamespace, k, client.globalSuffix, timer.Sum, ts)
-		fmt.Fprintf(buf, "%s%s.sum_squares%s %f %d\n", client.timerNamespace, k, client.globalSuffix, timer.SumSquares, ts)
+		fmt.Fprintf(buf, "%s%s.lower%s %f %d\n", client.timerNamespace, k, client.globalSuffix, timer.Min, now)
+		fmt.Fprintf(buf, "%s%s.upper%s %f %d\n", client.timerNamespace, k, client.globalSuffix, timer.Max, now)
+		fmt.Fprintf(buf, "%s%s.count%s %d %d\n", client.timerNamespace, k, client.globalSuffix, timer.Count, now)
+		fmt.Fprintf(buf, "%s%s.count_ps%s %f %d\n", client.timerNamespace, k, client.globalSuffix, timer.PerSecond, now)
+		fmt.Fprintf(buf, "%s%s.mean%s %f %d\n", client.timerNamespace, k, client.globalSuffix, timer.Mean, now)
+		fmt.Fprintf(buf, "%s%s.median%s %f %d\n", client.timerNamespace, k, client.globalSuffix, timer.Median, now)
+		fmt.Fprintf(buf, "%s%s.std%s %f %d\n", client.timerNamespace, k, client.globalSuffix, timer.StdDev, now)
+		fmt.Fprintf(buf, "%s%s.sum%s %f %d\n", client.timerNamespace, k, client.globalSuffix, timer.Sum, now)
+		fmt.Fprintf(buf, "%s%s.sum_squares%s %f %d\n", client.timerNamespace, k, client.globalSuffix, timer.SumSquares, now)
 		for _, pct := range timer.Percentiles {
-			fmt.Fprintf(buf, "%s%s.%s%s %f %d\n", client.timerNamespace, k, pct.Str, client.globalSuffix, pct.Float, ts)
+			fmt.Fprintf(buf, "%s%s.%s%s %f %d\n", client.timerNamespace, k, pct.Str, client.globalSuffix, pct.Float, now)
 		}
 	})
 	metrics.Gauges.Each(func(key, tagsKey string, gauge types.Gauge) {
-		fmt.Fprintf(buf, "%s%s%s %f %d\n", client.gaugesNamespace, sk(key), client.globalSuffix, gauge.Value, gauge.Timestamp.Unix())
+		fmt.Fprintf(buf, "%s%s%s %f %d\n", client.gaugesNamespace, sk(key), client.globalSuffix, gauge.Value, now)
 	})
 	metrics.Sets.Each(func(key, tagsKey string, set types.Set) {
-		fmt.Fprintf(buf, "%s%s%s %d %d\n", client.setsNamespace, sk(key), client.globalSuffix, len(set.Values), set.Timestamp.Unix())
+		fmt.Fprintf(buf, "%s%s%s %d %d\n", client.setsNamespace, sk(key), client.globalSuffix, len(set.Values), now)
 	})
 	return buf
 }

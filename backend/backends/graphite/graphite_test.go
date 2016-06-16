@@ -17,7 +17,7 @@ type testData struct {
 
 func TestPreparePayload(t *testing.T) {
 	assert := assert.New(t)
-	interval := types.Interval{Timestamp: time.Unix(1234, 0), Flush: 1 * time.Second}
+	interval := types.Interval{Timestamp: time.Unix(123456, 0), Flush: 1 * time.Second}
 
 	metrics := &types.MetricMap{
 		Counters: types.Counters{
@@ -134,7 +134,7 @@ func TestPreparePayload(t *testing.T) {
 			continue
 		}
 		cl := c.(*client)
-		b := cl.preparePayload(td.metrics).Bytes()
+		b := cl.preparePayload(td.metrics, time.Unix(1234, 0)).Bytes()
 		assert.Equal(td.result, b, "test %d", i)
 	}
 }

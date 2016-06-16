@@ -239,6 +239,7 @@ func (a *aggregator) receiveCounter(name, tags string, value int64, now time.Tim
 		c, ok := v[tags]
 		if ok {
 			c.Value += value
+			c.Timestamp = now
 		} else {
 			c = types.NewCounter(now, a.FlushInterval, value)
 		}
@@ -257,6 +258,7 @@ func (a *aggregator) receiveGauge(name, tags string, value float64, now time.Tim
 		g, ok := v[tags]
 		if ok {
 			g.Value = value
+			g.Timestamp = now
 		} else {
 			g = types.NewGauge(now, a.FlushInterval, value)
 		}
@@ -274,6 +276,7 @@ func (a *aggregator) receiveTimer(name, tags string, value float64, now time.Tim
 		t, ok := v[tags]
 		if ok {
 			t.Values = append(t.Values, value)
+			t.Timestamp = now
 		} else {
 			t = types.NewTimer(now, a.FlushInterval, []float64{value})
 		}
@@ -291,11 +294,13 @@ func (a *aggregator) receiveSet(name, tags string, value string, now time.Time) 
 		s, ok := v[tags]
 		if ok {
 			s.Values[value] = struct{}{}
+			s.Timestamp = now
 		} else {
-			v[tags] = types.NewSet(now, a.FlushInterval, map[string]struct{}{
+			s = types.NewSet(now, a.FlushInterval, map[string]struct{}{
 				value: {},
 			})
 		}
+		v[tags] = s
 	} else {
 		a.Sets[name] = map[string]types.Set{
 			tags: types.NewSet(now, a.FlushInterval, map[string]struct{}{
