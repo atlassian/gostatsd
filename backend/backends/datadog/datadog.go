@@ -165,7 +165,7 @@ func (d *client) processMetrics(metrics *types.MetricMap, cb func(*timeSeries)) 
 		ts.addMetric(fmt.Sprintf("%s.sum", key), tagsKey, gauge, timer.Sum, timer.Flush)
 		ts.addMetric(fmt.Sprintf("%s.sum_squares", key), tagsKey, gauge, timer.SumSquares, timer.Flush)
 		for _, pct := range timer.Percentiles {
-			ts.addMetric(fmt.Sprintf("%s.%s", key, pct.String()), tagsKey, gauge, pct.Float(), timer.Flush)
+			ts.addMetric(fmt.Sprintf("%s.%s", key, pct.Str), tagsKey, gauge, pct.Float, timer.Flush)
 		}
 		d.maybeFlush(ts, cb)
 	})
