@@ -1,3 +1,8 @@
+0.14.1
+------
+- Better Graphite support (#35)
+- Minor internals refactoring
+
 0.14.0
 ------
 - Update to Alpine 3.4
