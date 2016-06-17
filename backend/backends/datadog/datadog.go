@@ -30,7 +30,7 @@ const (
 	defaultMaxRequestElapsedTime = 15 * time.Second
 	defaultClientTimeout         = 9 * time.Second
 	// defaultMetricsPerBatch is the default number of metrics to send in a single batch.
-	defaultMetricsPerBatch uint16 = 1000
+	defaultMetricsPerBatch = 1000
 	// maxResponseSize is the maximum response size we are willing to read.
 	maxResponseSize = 10 * 1024
 	// gauge is datadog gauge type.
@@ -46,7 +46,7 @@ type client struct {
 	hostname              string
 	maxRequestElapsedTime time.Duration
 	client                *http.Client
-	metricsPerBatch       uint16
+	metricsPerBatch       uint
 }
 
 const sampleConfig = `
@@ -186,7 +186,7 @@ func (d *client) processMetrics(metrics *types.MetricMap, cb func(*timeSeries)) 
 }
 
 func (d *client) maybeFlush(ts *timeSeries, cb func(*timeSeries)) {
-	if len(ts.Series) >= int(d.metricsPerBatch-20) { // flush before it reaches max size and grows the slice
+	if uint(len(ts.Series))+20 >= d.metricsPerBatch { // flush before it reaches max size and grows the slice
 		cb(ts)
 		*ts = timeSeries{
 			Series:    make([]metric, 0, d.metricsPerBatch),
@@ -288,19 +288,22 @@ func NewClientFromViper(v *viper.Viper) (backendTypes.Backend, error) {
 	return NewClient(
 		dd.GetString("api_endpoint"),
 		dd.GetString("api_key"),
-		uint16(dd.GetInt("metrics_per_batch")),
+		uint(dd.GetInt("metrics_per_batch")),
 		dd.GetDuration("timeout"),
 		dd.GetDuration("max_request_elapsed_time"),
 	)
 }
 
 // NewClient returns a new Datadog API client.
-func NewClient(apiEndpoint, apiKey string, metricsPerBatch uint16, clientTimeout, maxRequestElapsedTime time.Duration) (backendTypes.Backend, error) {
+func NewClient(apiEndpoint, apiKey string, metricsPerBatch uint, clientTimeout, maxRequestElapsedTime time.Duration) (backendTypes.Backend, error) {
 	if apiEndpoint == "" {
 		return nil, fmt.Errorf("[%s] apiEndpoint is required", BackendName)
 	}
 	if apiKey == "" {
 		return nil, fmt.Errorf("[%s] apiKey is required", BackendName)
+	}
+	if metricsPerBatch <= 0 {
+		return nil, fmt.Errorf("[%s] metricsPerBatch must be positive", BackendName)
 	}
 	if clientTimeout <= 0 {
 		return nil, fmt.Errorf("[%s] clientTimeout must be positive", BackendName)
@@ -321,6 +324,7 @@ func NewClient(apiEndpoint, apiKey string, metricsPerBatch uint16, clientTimeout
 		client: &http.Client{
 			Timeout: clientTimeout,
 		},
+		metricsPerBatch: metricsPerBatch,
 	}, nil
 }
 
