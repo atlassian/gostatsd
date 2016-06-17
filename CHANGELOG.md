@@ -1,3 +1,7 @@
+0.14.2
+------
+- Fix batching support in Datadog backend
+
 0.14.1
 ------
 - Better Graphite support (#35)
