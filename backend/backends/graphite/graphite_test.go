@@ -71,7 +71,7 @@ func TestPreparePayload(t *testing.T) {
 				"stats.timers.t1.std 0.000000 1234\n" +
 				"stats.timers.t1.sum 0.000000 1234\n" +
 				"stats.timers.t1.sum_squares 0.000000 1234\n" +
-				"stats.timers.t1.count_90 90.000000 1234\n"+
+				"stats.timers.t1.count_90 90.000000 1234\n" +
 				"stats.gauges.g1 3.000000 1234\n" +
 				"stats.sets.users 3 1234\n"),
 		},
@@ -97,7 +97,7 @@ func TestPreparePayload(t *testing.T) {
 				"stats.timers.t1.std.gs 0.000000 1234\n" +
 				"stats.timers.t1.sum.gs 0.000000 1234\n" +
 				"stats.timers.t1.sum_squares.gs 0.000000 1234\n" +
-				"stats.timers.t1.count_90.gs 90.000000 1234\n"+
+				"stats.timers.t1.count_90.gs 90.000000 1234\n" +
 				"stats.gauges.g1.gs 3.000000 1234\n" +
 				"stats.sets.users.gs 3 1234\n"),
 		},
@@ -123,7 +123,7 @@ func TestPreparePayload(t *testing.T) {
 				"gp.pt.t1.std.gs 0.000000 1234\n" +
 				"gp.pt.t1.sum.gs 0.000000 1234\n" +
 				"gp.pt.t1.sum_squares.gs 0.000000 1234\n" +
-				"gp.pt.t1.count_90.gs 90.000000 1234\n"+
+				"gp.pt.t1.count_90.gs 90.000000 1234\n" +
 				"gp.pg.g1.gs 3.000000 1234\n" +
 				"gp.ps.users.gs 3 1234\n"),
 		},
