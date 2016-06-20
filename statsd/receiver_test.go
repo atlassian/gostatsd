@@ -27,7 +27,7 @@ func TestReceiveEmptyPacket(t *testing.T) {
 		ch := &countingHandler{}
 		mr := NewMetricReceiver("", []string{}, ch).(*metricReceiver)
 
-		err := mr.handlePacket(context.Background(), fakesocket.FakeAddr{}, inp)
+		err := mr.handlePacket(context.Background(), fakesocket.FakeAddr, inp)
 		if err != nil {
 			t.Errorf("%q: unexpected error: %v", err)
 		}
@@ -77,7 +77,7 @@ func TestReceivePacket(t *testing.T) {
 		ch := &countingHandler{}
 		mr := NewMetricReceiver("", []string{}, ch).(*metricReceiver)
 
-		err := mr.handlePacket(context.Background(), fakesocket.FakeAddr{}, []byte(packet))
+		err := mr.handlePacket(context.Background(), fakesocket.FakeAddr, []byte(packet))
 		if err != nil {
 			t.Errorf("%q: unexpected error: %v", err)
 		}

@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"net"
-	"strings"
 	"sync/atomic"
 	"time"
 
@@ -117,20 +116,12 @@ func (mr *metricReceiver) Receive(ctx context.Context, c net.PacketConn) error {
 func (mr *metricReceiver) handlePacket(ctx context.Context, addr net.Addr, msg []byte) error {
 	var numMetrics, numEvents uint16
 	var exitError error
-	var ip types.IP
-	addrStr := addr.String()
-	n := strings.LastIndexByte(addrStr, ':')
-	if n <= 0 {
-		// This should not ever happen.
-		log.Errorf("Cannot parse source address %q", addrStr)
-	} else {
-		ip = types.IP(addrStr[:n])
-	}
+	ip := getIP(addr)
 	for {
 		idx := bytes.IndexByte(msg, '\n')
 		var line []byte
-		// protocol does not require line to end in \n, if EOF use received line if valid
-		if idx == -1 { // no \n found
+		// protocol does not require line to end in \n
+		if idx == -1 { // \n not found
 			if len(msg) == 0 {
 				break
 			}
@@ -182,4 +173,12 @@ func (mr *metricReceiver) handlePacket(ctx context.Context, addr net.Addr, msg [
 func (mr *metricReceiver) parseLine(line []byte) (*types.Metric, *types.Event, error) {
 	l := lexer{}
 	return l.run(line, mr.namespace)
+}
+
+func getIP(addr net.Addr) types.IP {
+	if a, ok := addr.(*net.UDPAddr); ok {
+		return types.IP(a.IP.String())
+	}
+	log.Errorf("Cannot get source address %q of type %T", addr, addr)
+	return types.UnknownIP
 }
