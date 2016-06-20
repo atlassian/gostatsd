@@ -314,6 +314,9 @@ func (ch *cloudHandler) updateTagsAndHostname(ip types.IP, tags *types.Tags, hos
 }
 
 func (ch *cloudHandler) getInstance(ip types.IP) (*cloudTypes.Instance, bool) {
+	if ip == types.UnknownIP {
+		return nil, true
+	}
 	ch.rw.RLock()
 	holder, ok := ch.cache[ip]
 	ch.rw.RUnlock()
