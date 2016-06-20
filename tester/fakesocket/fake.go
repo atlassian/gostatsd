@@ -14,13 +14,10 @@ import (
 var FakeMetric = []byte("foo.bar.baz:2|c")
 
 // FakeAddr is a fake net.Addr
-type FakeAddr struct{}
-
-// Network dummy impl.
-func (fa FakeAddr) Network() string { return "udp" }
-
-// String dummy impl.
-func (fa FakeAddr) String() string { return "127.0.0.1:8181" }
+var FakeAddr = &net.UDPAddr{
+	IP: net.IPv4(127, 0, 0, 1),
+	Port: 8181,
+}
 
 // FakePacketConn is a fake net.PacketConn providing FakeMetric when read from.
 type FakePacketConn struct{}
@@ -28,7 +25,7 @@ type FakePacketConn struct{}
 // ReadFrom copies FakeMetric into b.
 func (fpc FakePacketConn) ReadFrom(b []byte) (int, net.Addr, error) {
 	n := copy(b, FakeMetric)
-	return n, FakeAddr{}, nil
+	return n, FakeAddr, nil
 }
 
 // WriteTo dummy impl.
@@ -38,7 +35,7 @@ func (fpc FakePacketConn) WriteTo(b []byte, addr net.Addr) (int, error) { return
 func (fpc FakePacketConn) Close() error { return nil }
 
 // LocalAddr dummy impl.
-func (fpc FakePacketConn) LocalAddr() net.Addr { return FakeAddr{} }
+func (fpc FakePacketConn) LocalAddr() net.Addr { return FakeAddr }
 
 // SetDeadline dummy impl.
 func (fpc FakePacketConn) SetDeadline(t time.Time) error { return nil }
@@ -76,7 +73,7 @@ func (frpc FakeRandomPacketConn) ReadFrom(b []byte) (int, net.Addr, error) {
 		panic(errors.New("unreachable"))
 	}
 	n := copy(b, buf.Bytes())
-	return n, FakeAddr{}, nil
+	return n, FakeAddr, nil
 }
 
 // CountingFakeRandomPacketConn is a fake net.PacketConn providing random fake metrics and counting number of performed read operations.
