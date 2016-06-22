@@ -15,7 +15,7 @@ var FakeMetric = []byte("foo.bar.baz:2|c")
 
 // FakeAddr is a fake net.Addr
 var FakeAddr = &net.UDPAddr{
-	IP: net.IPv4(127, 0, 0, 1),
+	IP:   net.IPv4(127, 0, 0, 1),
 	Port: 8181,
 }
 
