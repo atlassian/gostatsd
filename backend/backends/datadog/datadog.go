@@ -113,7 +113,7 @@ func (d *client) SendMetricsAsync(ctx context.Context, metrics *types.MetricMap,
 		cb(nil)
 		return
 	}
-	var counter uint16
+	counter := 0
 	results := make(chan error)
 	d.processMetrics(metrics, func(ts *timeSeries) {
 		go func() {
@@ -128,7 +128,7 @@ func (d *client) SendMetricsAsync(ctx context.Context, metrics *types.MetricMap,
 	go func() {
 		errs := make([]error, 0, counter)
 	loop:
-		for c := counter; c > 0; c-- {
+		for c := 0; c < counter; c++ {
 			select {
 			case <-ctx.Done():
 				errs = append(errs, ctx.Err())
@@ -151,7 +151,7 @@ func (d *client) processMetrics(metrics *types.MetricMap, cb func(*timeSeries)) 
 	metrics.Counters.Each(func(key, tagsKey string, counter types.Counter) {
 		ts.addMetric(key, tagsKey, rate, counter.PerSecond, counter.Flush)
 		ts.addMetric(fmt.Sprintf("%s.count", key), tagsKey, gauge, float64(counter.Value), counter.Flush)
-		d.maybeFlush(ts, cb)
+		d.maybeFlush(&ts, cb)
 	})
 
 	metrics.Timers.Each(func(key, tagsKey string, timer types.Timer) {
@@ -167,17 +167,17 @@ func (d *client) processMetrics(metrics *types.MetricMap, cb func(*timeSeries)) 
 		for _, pct := range timer.Percentiles {
 			ts.addMetric(fmt.Sprintf("%s.%s", key, pct.Str), tagsKey, gauge, pct.Float, timer.Flush)
 		}
-		d.maybeFlush(ts, cb)
+		d.maybeFlush(&ts, cb)
 	})
 
 	metrics.Gauges.Each(func(key, tagsKey string, g types.Gauge) {
 		ts.addMetric(key, tagsKey, gauge, g.Value, g.Flush)
-		d.maybeFlush(ts, cb)
+		d.maybeFlush(&ts, cb)
 	})
 
 	metrics.Sets.Each(func(key, tagsKey string, set types.Set) {
 		ts.addMetric(key, tagsKey, gauge, float64(len(set.Values)), set.Flush)
-		d.maybeFlush(ts, cb)
+		d.maybeFlush(&ts, cb)
 	})
 
 	if len(ts.Series) > 0 {
@@ -185,13 +185,15 @@ func (d *client) processMetrics(metrics *types.MetricMap, cb func(*timeSeries)) 
 	}
 }
 
-func (d *client) maybeFlush(ts *timeSeries, cb func(*timeSeries)) {
-	if uint(len(ts.Series))+20 >= d.metricsPerBatch { // flush before it reaches max size and grows the slice
-		cb(ts)
-		*ts = timeSeries{
+func (d *client) maybeFlush(ts **timeSeries, cb func(*timeSeries)) {
+	t := *ts
+	if uint(len(t.Series))+20 >= d.metricsPerBatch { // flush before it reaches max size and grows the slice
+		cb(t)
+		// We want external ts pointer to point to the new object
+		*ts = &timeSeries{
 			Series:    make([]metric, 0, d.metricsPerBatch),
-			Timestamp: ts.Timestamp,
-			Hostname:  ts.Hostname,
+			Timestamp: t.Timestamp,
+			Hostname:  t.Hostname,
 		}
 	}
 }

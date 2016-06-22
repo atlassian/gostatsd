@@ -9,6 +9,7 @@ BINARY_NAME := gostatsd
 IMAGE_NAME := atlassianlabs/$(BINARY_NAME)
 ARCH ?= darwin
 METALINTER_CONCURRENCY ?= 4
+GOVERSION = 1.6.2
 
 setup: setup-ci
 	go get -v -u github.com/githubnemo/CompileDaemon
@@ -83,20 +84,38 @@ watch:
 git-hook:
 	cp dev/push-hook.sh .git/hooks/pre-push
 
+# Compile a static binary. Cannot be used with -race
 cross:
-	CGO_ENABLED=0 GOOS=linux go build -o build/bin/linux/$(BINARY_NAME) $(GOBUILD_VERSION_ARGS) -a -installsuffix cgo  github.com/atlassian/$(BINARY_NAME)
+	CGO_ENABLED=0 GOOS=linux go build -o build/bin/linux/$(BINARY_NAME) $(GOBUILD_VERSION_ARGS) -a -installsuffix cgo github.com/atlassian/gostatsd
 
 docker: cross
-	cd build && docker build --pull -t $(IMAGE_NAME):$(GIT_HASH) .
+	docker build --pull -t $(IMAGE_NAME):$(GIT_HASH) build
+
+# Compile a binary with -race.
+docker-race:
+	docker run \
+		--rm \
+		-v "$(GOPATH)":/opt/gopath \
+		-w /opt/gopath/src/github.com/atlassian/gostatsd \
+		-e GOPATH=/opt/gopath \
+		golang:$(GOVERSION) \
+		go build -race -o build/bin/linux/$(BINARY_NAME) $(GOBUILD_VERSION_ARGS) -a -installsuffix cgo github.com/atlassian/gostatsd
+	docker build --pull -t $(IMAGE_NAME):$(GIT_HASH)-race -f build/Dockerfile-glibc build
 
 release-hash: check test docker
 	docker push $(IMAGE_NAME):$(GIT_HASH)
 
-release: check test docker release-hash
+release-normal: release-hash
 	docker tag $(IMAGE_NAME):$(GIT_HASH) $(IMAGE_NAME):latest
 	docker push $(IMAGE_NAME):latest
 	docker tag $(IMAGE_NAME):$(GIT_HASH) $(IMAGE_NAME):$(REPO_VERSION)
 	docker push $(IMAGE_NAME):$(REPO_VERSION)
+
+release-race: docker-race
+	docker tag $(IMAGE_NAME):$(GIT_HASH)-race $(IMAGE_NAME):$(REPO_VERSION)-race
+	docker push $(IMAGE_NAME):$(REPO_VERSION)-race
+
+release: release-normal release-race
 
 run: build
 	./build/bin/$(ARCH)/$(BINARY_NAME) --backends=stdout --verbose --flush-interval=1s
