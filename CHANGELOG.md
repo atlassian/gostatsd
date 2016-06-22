@@ -1,3 +1,8 @@
+0.14.3
+------
+- Fix data race in Datadog backend (#44)
+- Minor internals refactoring
+
 0.14.2
 ------
 - Fix batching support in Datadog backend
