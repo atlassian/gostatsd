@@ -25,7 +25,7 @@ func TestReceiveEmptyPacket(t *testing.T) {
 	}
 	for _, inp := range input {
 		ch := &countingHandler{}
-		mr := NewMetricReceiver("", []string{}, ch).(*metricReceiver)
+		mr := NewMetricReceiver("", ch).(*metricReceiver)
 
 		err := mr.handlePacket(context.Background(), fakesocket.FakeAddr, inp)
 		if err != nil {
@@ -75,7 +75,7 @@ func TestReceivePacket(t *testing.T) {
 	}
 	for packet, mAndE := range input {
 		ch := &countingHandler{}
-		mr := NewMetricReceiver("", []string{}, ch).(*metricReceiver)
+		mr := NewMetricReceiver("", ch).(*metricReceiver)
 
 		err := mr.handlePacket(context.Background(), fakesocket.FakeAddr, []byte(packet))
 		if err != nil {

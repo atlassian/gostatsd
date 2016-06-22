@@ -11,7 +11,7 @@ import (
 )
 
 func main() {
-	r := statsd.NewMetricReceiver("stats", nil, handler{})
+	r := statsd.NewMetricReceiver("stats", handler{})
 	c, err := net.ListenPacket("udp", ":8125")
 	if err != nil {
 		log.Fatal(err)

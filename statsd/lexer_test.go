@@ -174,11 +174,11 @@ func BenchmarkParseSet(b *testing.B) {
 	benchmarkLexer(&metricReceiver{}, "uniq.usr:joe|s", b)
 }
 func BenchmarkParseCounterWithDefaultTags(b *testing.B) {
-	benchmarkLexer(&metricReceiver{tags: []string{"env:foo", "foo:bar"}}, "foo.bar.baz:2|c", b)
+	benchmarkLexer(&metricReceiver{}, "foo.bar.baz:2|c", b)
 }
 func BenchmarkParseCounterWithDefaultTagsAndTags(b *testing.B) {
-	benchmarkLexer(&metricReceiver{tags: []string{"env:foo", "foo:bar"}}, "foo.bar.baz:2|c|#foo:bar,baz", b)
+	benchmarkLexer(&metricReceiver{}, "foo.bar.baz:2|c|#foo:bar,baz", b)
 }
 func BenchmarkParseCounterWithDefaultTagsAndTagsAndNameSpace(b *testing.B) {
-	benchmarkLexer(&metricReceiver{namespace: "stats", tags: []string{"env:foo", "foo:bar"}}, "foo.bar.baz:2|c|#foo:bar,baz", b)
+	benchmarkLexer(&metricReceiver{namespace: "stats"}, "foo.bar.baz:2|c|#foo:bar,baz", b)
 }

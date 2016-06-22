@@ -62,7 +62,7 @@ check:
 	go install
 	go install ./tester
 	gometalinter --concurrency=$(METALINTER_CONCURRENCY) --deadline=600s ./... --vendor --linter='errcheck:errcheck:-ignore=net:Close' --cyclo-over=20 \
-		--linter='vet:go tool vet -composites=false {paths}:PATH:LINE:MESSAGE' --disable=interfacer --dupl-threshold=200
+		--linter='vet:go tool vet -composites=false {paths}:PATH:LINE:MESSAGE' --disable=interfacer --disable=golint --dupl-threshold=200
 
 check-all:
 	go install

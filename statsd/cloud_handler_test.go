@@ -58,8 +58,8 @@ func testExpire(t *testing.T, expectedIps []types.IP, f func(Handler) error) {
 	if !reflect.DeepEqual(fp.ips, expectedIps) {
 		t.Errorf("%+v is not equal to the expected ips %+v", fp.ips, expectedIps)
 	}
-	if len(ch.(*cloudHandler).cache) > 0 {
-		t.Errorf("cache should be empty %s", ch.(*cloudHandler).cache)
+	if len(ch.cache) > 0 {
+		t.Errorf("cache should be empty %s", ch.cache)
 	}
 }
 

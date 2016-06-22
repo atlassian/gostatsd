@@ -3,6 +3,7 @@ package statsd
 import (
 	"fmt"
 	"net"
+	"os"
 	"runtime"
 	"strconv"
 	"strings"
@@ -11,6 +12,7 @@ import (
 
 	backendTypes "github.com/atlassian/gostatsd/backend/types"
 	cloudTypes "github.com/atlassian/gostatsd/cloudprovider/types"
+	"github.com/atlassian/gostatsd/types"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/spf13/pflag"
@@ -176,7 +178,9 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 	}()
 
 	// 2. Start handlers
-	handler := NewDispatchingHandler(dispatcher, s.Backends)
+	var handler Handler
+	dispHandler := NewDispatchingHandler(dispatcher, s.Backends, s.DefaultTags)
+	handler = dispHandler
 	if s.CloudProvider != nil {
 		ch := NewCloudHandler(s.CloudProvider, handler, s.Limiter, nil)
 		handler = ch
@@ -209,7 +213,7 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 		}
 	}()
 
-	receiver := NewMetricReceiver(s.Namespace, s.DefaultTags, handler)
+	receiver := NewMetricReceiver(s.Namespace, handler)
 	wgReceiver.Add(s.MaxReaders)
 	for r := 0; r < s.MaxReaders; r++ {
 		go func() {
@@ -242,9 +246,51 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 	//	go console.ListenAndServe()
 	//}
 
-	// 6. Listen until done
+	// 6. Send events on start and on stop
+	defer sendStopEvent(dispHandler)
+	sendStartEvent(ctx, dispHandler)
+
+	// 7. Listen until done
 	<-ctx.Done()
 	return ctx.Err()
+}
+
+func sendStartEvent(ctx context.Context, dispHandler *dispatchingHandler) {
+	err := dispHandler.DispatchEvent(ctx, &types.Event{
+		Title:        "Gostatsd started",
+		Text:         "Gostatsd started",
+		DateHappened: time.Now().Unix(),
+		Hostname:     getHost(),
+		Priority:     types.PriLow,
+	})
+	if err != nil {
+		log.Warnf("Failed to send start event: %v", err)
+	}
+}
+
+func sendStopEvent(dispHandler *dispatchingHandler) {
+	ctx, cancelFunc := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancelFunc()
+	err := dispHandler.DispatchEvent(ctx, &types.Event{
+		Title:        "Gostatsd stopped",
+		Text:         "Gostatsd stopped",
+		DateHappened: time.Now().Unix(),
+		Hostname:     getHost(),
+		Priority:     types.PriLow,
+	})
+	if err != nil {
+		log.Warnf("Failed to send stop event: %v", err)
+	}
+	dispHandler.WaitForEvents()
+}
+
+func getHost() string {
+	host, err := os.Hostname()
+	if err != nil {
+		log.Warnf("Cannot get hostname: %v", err)
+		return ""
+	}
+	return host
 }
 
 type agrFactory struct {
