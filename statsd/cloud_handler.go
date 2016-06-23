@@ -67,7 +67,7 @@ type cloudHandler struct {
 
 // NewCloudHandler initialises a new cloud handler.
 // If cacheOptions is nil default cache configuration is used.
-func NewCloudHandler(cloud cloudTypes.Interface, next Handler, limiter *rate.Limiter, cacheOptions *CacheOptions) RunableHandler {
+func NewCloudHandler(cloud cloudTypes.Interface, next Handler, limiter *rate.Limiter, cacheOptions *CacheOptions) *cloudHandler {
 	if cacheOptions == nil {
 		cacheOptions = &CacheOptions{
 			CacheRefreshPeriod:        DefaultCacheRefreshPeriod,

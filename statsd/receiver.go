@@ -23,13 +23,6 @@ type Handler interface {
 	DispatchEvent(context.Context, *types.Event) error
 }
 
-// RunableHandler extends Handler interface to add the Run method that needs to be executed in a separate
-// goroutine to make the handler work.
-type RunableHandler interface {
-	Handler
-	Run(context.Context) error
-}
-
 // Receiver receives data on its PacketConn and converts lines into Metrics.
 // For each types.Metric it calls Handler.HandleMetric()
 type Receiver interface {
@@ -55,17 +48,15 @@ type metricReceiver struct {
 	packetsReceived uint64
 	metricsReceived uint64
 	eventsReceived  uint64
-	handler         Handler    // handler to invoke
-	namespace       string     // Namespace to prefix all metrics
-	tags            types.Tags // Tags to add to all metrics
+	handler         Handler // handler to invoke
+	namespace       string  // Namespace to prefix all metrics
 }
 
 // NewMetricReceiver initialises a new Receiver.
-func NewMetricReceiver(ns string, tags []string, handler Handler) Receiver {
+func NewMetricReceiver(ns string, handler Handler) Receiver {
 	return &metricReceiver{
 		handler:   handler,
 		namespace: ns,
-		tags:      tags,
 	}
 }
 
@@ -141,12 +132,10 @@ func (mr *metricReceiver) handlePacket(ctx context.Context, addr net.Addr, msg [
 		}
 		if metric != nil {
 			numMetrics++
-			metric.Tags = append(metric.Tags, mr.tags...)
 			metric.SourceIP = ip
 			err = mr.handler.DispatchMetric(ctx, metric)
 		} else if event != nil {
 			numEvents++
-			event.Tags = append(event.Tags, mr.tags...)
 			event.SourceIP = ip
 			if event.DateHappened == 0 {
 				event.DateHappened = time.Now().Unix()
