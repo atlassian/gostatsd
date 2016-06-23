@@ -1,3 +1,8 @@
+0.14.4
+------
+- Send start and stop events (#21)
+- Linux binary is now built inside of Docker container rather than on the host
+
 0.14.3
 ------
 - Fix data race in Datadog backend (#44)
