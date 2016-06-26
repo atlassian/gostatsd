@@ -16,14 +16,17 @@ type dispatchingHandler struct {
 	dispatcher Dispatcher
 	backends   []backendTypes.Backend
 	tags       types.Tags // Tags to add to all metrics and events
+
+	limiter *dispatchLimiter // Limit # of goroutines for dispatching events
 }
 
 // NewDispatchingHandler initialises a new dispatching handler.
-func NewDispatchingHandler(dispatcher Dispatcher, backends []backendTypes.Backend, tags types.Tags) *dispatchingHandler {
+func NewDispatchingHandler(dispatcher Dispatcher, backends []backendTypes.Backend, tags types.Tags, maxConcurrency uint) *dispatchingHandler {
 	return &dispatchingHandler{
 		dispatcher: dispatcher,
 		backends:   backends,
 		tags:       tags,
+		limiter:    newDispatchLimiter(maxConcurrency),
 	}
 }
 
@@ -42,8 +45,12 @@ func (dh *dispatchingHandler) DispatchEvent(ctx context.Context, e *types.Event)
 	e.Tags = append(e.Tags, dh.tags...)
 	dh.wg.Add(len(dh.backends))
 	for _, backend := range dh.backends {
+		dh.limiter.acquire()
+
 		go func(b backendTypes.Backend) {
+			defer dh.limiter.release()
 			defer dh.wg.Done()
+
 			if err := b.SendEvent(ctx, e); err != nil {
 				log.Errorf("Sending event to backend failed: %v", err)
 			}
@@ -55,4 +62,28 @@ func (dh *dispatchingHandler) DispatchEvent(ctx context.Context, e *types.Event)
 // Wait waits for all event-dispatching goroutines to finish.
 func (dh *dispatchingHandler) WaitForEvents() {
 	dh.wg.Wait()
+}
+
+type dispatchLimiter struct {
+	sem chan struct{}
+}
+
+func newDispatchLimiter(n uint) *dispatchLimiter {
+	return &dispatchLimiter{
+		sem: make(chan struct{}, n),
+	}
+}
+
+func (d *dispatchLimiter) acquire() {
+	if d.sem == nil {
+		return
+	}
+	d.sem <- struct{}{}
+}
+
+func (d *dispatchLimiter) release() {
+	if d.sem == nil {
+		return
+	}
+	<-d.sem
 }
