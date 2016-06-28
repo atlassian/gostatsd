@@ -89,7 +89,7 @@ func (ts *timeSeries) addMetric(name, stags, metricType string, value float64, i
 		Interval: interval.Seconds(),
 		Metric:   name,
 		Points:   [1]point{{float64(ts.Timestamp), value}},
-		Tags:     tags.Normalise(),
+		Tags:     tags,
 		Type:     metricType,
 	})
 }
