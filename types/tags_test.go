@@ -47,9 +47,7 @@ func TestExtractSourceFromTags(t *testing.T) {
 }
 
 func BenchmarkExtractSourceFromTags(b *testing.B) {
-	stags := "foo,statsd_source_id:1.2.3.4,baz"
-	b.ResetTimer()
 	for n := 0; n < b.N; n++ {
-		ExtractSourceFromTags(stags)
+		ExtractSourceFromTags("foo,statsd_source_id:1.2.3.4,baz")
 	}
 }

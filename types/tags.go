@@ -17,8 +17,9 @@ func (tags Tags) String() string {
 
 // IndexOfKey returns the index and the element starting with the string key.
 func (tags Tags) IndexOfKey(key string) (int, string) {
+	key = key + ":"
 	for i, v := range tags {
-		if strings.HasPrefix(v, key+":") {
+		if strings.HasPrefix(v, key) {
 			return i, v
 		}
 	}
