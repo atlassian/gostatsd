@@ -204,7 +204,7 @@ func (d *client) postMetrics(ts *timeSeries) error {
 
 // SendEvent sends an event to Datadog.
 func (d *client) SendEvent(ctx context.Context, e *types.Event) error {
-	return d.post("/api/v1/events", "events", event{
+	return d.post("/api/v1/events", "events", &event{
 		Title:          e.Title,
 		Text:           e.Text,
 		DateHappened:   e.DateHappened,
