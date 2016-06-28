@@ -3,6 +3,7 @@ package statsd
 import (
 	"errors"
 	"reflect"
+	"sort"
 	"sync"
 	"testing"
 	"time"
@@ -168,6 +169,8 @@ func doCheck(t *testing.T, cloud cloudTypes.Interface, counting *countingHandler
 	cancelFunc()
 	wg.Wait()
 
+	l := ipList(*ips)
+	sort.Sort(&l)
 	if !reflect.DeepEqual(*ips, expectedIps) {
 		t.Errorf("%+v is not equal to the expected ips %+v", *ips, expectedIps)
 	}
@@ -177,6 +180,22 @@ func doCheck(t *testing.T, cloud cloudTypes.Interface, counting *countingHandler
 	if !reflect.DeepEqual(counting.events, expectedE) {
 		t.Errorf("%+v is not equal to the expected events %+v", counting.events, expectedE)
 	}
+}
+
+type ipList []types.IP
+
+func (l *ipList) Len() int {
+	return len(*l)
+}
+
+func (l *ipList) Less(i, j int) bool {
+	return (*l)[i] < (*l)[j]
+}
+
+func (l *ipList) Swap(i, j int) {
+	x := (*l)[i]
+	(*l)[i] = (*l)[j]
+	(*l)[j] = x
 }
 
 func sm1() types.Metric {
