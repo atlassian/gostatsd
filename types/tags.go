@@ -15,19 +15,6 @@ func (tags Tags) String() string {
 	return strings.Join(tags, ",")
 }
 
-// Map returns a map of the tags.
-func (tags Tags) Map() map[string]string {
-	tagMap := make(map[string]string, len(tags))
-	for _, tag := range tags {
-		s := strings.Split(tag, ":")
-		tagMap[s[0]] = ""
-		if len(s) > 1 {
-			tagMap[s[0]] = s[1]
-		}
-	}
-	return tagMap
-}
-
 // IndexOfKey returns the index and the element starting with the string key.
 func (tags Tags) IndexOfKey(key string) (int, string) {
 	for i, v := range tags {
