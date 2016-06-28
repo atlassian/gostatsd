@@ -179,7 +179,7 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 
 	// 2. Start handlers
 	var handler Handler
-	dispHandler := NewDispatchingHandler(dispatcher, s.Backends, s.DefaultTags)
+	dispHandler := NewDispatchingHandler(dispatcher, s.Backends, s.DefaultTags, 0)
 	handler = dispHandler
 	if s.CloudProvider != nil {
 		ch := NewCloudHandler(s.CloudProvider, handler, s.Limiter, nil)
