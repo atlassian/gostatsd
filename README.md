@@ -17,7 +17,7 @@ based on original code from [@kisielk](https://github.com/kisielk/).
 The project provides both a server called "gostatsd" which works much like
 Etsy's version, but also provides a library for developing customized servers.
 
-Backends are pluggable and only need to support the [backend interface](backend/backend.go).
+Backends are pluggable and only need to support the [backend interface](backend/types/types.go).
 
 Being written in Go, it is able to use all cores which makes it easy to scale up the
 server based on load. The server can also be run HA and be scaled out, see
