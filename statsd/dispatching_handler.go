@@ -44,7 +44,7 @@ func (dh *dispatchingHandler) DispatchEvent(ctx context.Context, e *types.Event)
 	for _, backend := range dh.backends {
 		go func(b backendTypes.Backend) {
 			defer dh.wg.Done()
-			if err := b.SendEvent(ctx, e); err != nil {
+			if err := b.SendEvent(ctx, e); err != nil && err != context.Canceled && err != context.DeadlineExceeded {
 				log.Errorf("Sending event to backend failed: %v", err)
 			}
 		}(backend)
