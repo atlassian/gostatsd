@@ -11,6 +11,8 @@ import (
 type Factory func(*viper.Viper) (Backend, error)
 
 // SendCallback is called by Backend.SendMetricsAsync() to notify about the result of operation.
+// A list of errors is passed to the callback. It may be empty or contain nil values. Every non-nil value is an error
+// that happened while sending metrics.
 type SendCallback func([]error)
 
 // Backend represents a backend.
