@@ -52,7 +52,7 @@ func (dh *dispatchingHandler) DispatchEvent(ctx context.Context, e *types.Event)
 	return nil
 }
 
-// Wait waits for all event-dispatching goroutines to finish.
+// WaitForEvents waits for all event-dispatching goroutines to finish.
 func (dh *dispatchingHandler) WaitForEvents() {
 	dh.wg.Wait()
 }
