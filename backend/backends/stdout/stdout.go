@@ -35,10 +35,15 @@ func composeMetricName(key string, tagsKey string) string {
 	tags := strings.Split(tagsKey, ",")
 	for _, tag := range tags {
 		if tag != "" {
-			key += "." + types.TagToMetricName(tag)
+			key += "." + tagToMetricName(tag)
 		}
 	}
 	return key
+}
+
+// tagToMetricName transforms tags into metric names.
+func tagToMetricName(tag string) string {
+	return strings.Replace(tag, ":", ".", -1)
 }
 
 // SampleConfig returns the sample config for the stdout backend.

@@ -299,6 +299,8 @@ func lexAssert(nextByte byte, next stateFn) stateFn {
 	}
 }
 
+// lexUntil invokes handler with all bytes up to the stop byte or an eof.
+// The stop byte is not consumed.
 func lexUntil(stop byte, handler func(*lexer, []byte) stateFn) stateFn {
 	return func(l *lexer) stateFn {
 		start := l.pos
@@ -432,34 +434,14 @@ func lexSampleRate(l *lexer) stateFn {
 
 // lex the tags.
 func lexTags(l *lexer) stateFn {
-	l.start = l.pos
-	for {
-		switch b := l.next(); b {
-		case ',':
-			l.tags = append(l.tags, string(l.input[l.start:l.pos-1]))
-			l.start = l.pos
-		case eof:
-			l.pos++
-			l.tags = append(l.tags, string(l.input[l.start:l.pos-1]))
-			return nil
-		case '.', ':', '-', '_':
-			continue
-		case '/':
-			l.input[l.pos-1] = '-'
-		case ' ', '\t':
-			l.input[l.pos-1] = '_'
-		default:
-			r := rune(b)
-			if (97 <= r && 122 >= r) || (48 <= r && 57 >= r) {
-				continue
-			}
-			if 65 <= r && 90 >= r {
-				l.input[l.pos-1] = byte(r + 32)
-				continue
-			}
-			l.input = append(l.input[0:l.pos-1], l.input[l.pos:]...)
-			l.len--
-			l.pos--
+	return lexUntil(',', func(l *lexer, data []byte) stateFn {
+		if len(data) > 0 {
+			l.tags = append(l.tags, string(data))
 		}
-	}
+		if l.pos == l.len { // eof
+			return nil
+		}
+		l.pos++ // consume comma
+		return lexTags
+	})
 }

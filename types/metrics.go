@@ -3,7 +3,6 @@ package types
 import (
 	"bytes"
 	"fmt"
-	"regexp"
 	"time"
 )
 
@@ -30,12 +29,6 @@ const (
 	GAUGE
 	// SET is statsd set type
 	SET
-)
-
-// Regular expressions used for metric name normalization.
-var (
-	regDot       = regexp.MustCompile(`\.`)
-	regSemiColon = regexp.MustCompile(`:`)
 )
 
 func (m MetricType) String() string {
