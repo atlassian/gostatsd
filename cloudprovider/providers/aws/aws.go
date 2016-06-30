@@ -126,7 +126,7 @@ func (p *provider) Instance(IP types.IP) (*cloudTypes.Instance, error) {
 		return nil, err
 	}
 	if len(instances) == 0 {
-		return nil, fmt.Errorf("no instances returned")
+		return nil, errors.New("no instances returned")
 	}
 
 	i := instances[0]
@@ -134,14 +134,16 @@ func (p *provider) Instance(IP types.IP) (*cloudTypes.Instance, error) {
 	if err != nil {
 		log.Errorf("Error getting instance region: %v", err)
 	}
+	tags := make(types.Tags, len(i.Tags))
+	for idx, tag := range i.Tags {
+		tags[idx] = fmt.Sprintf("%s:%s",
+			types.NormalizeTagKey(aws.StringValue(tag.Key)),
+			types.NormalizeTagValue(aws.StringValue(tag.Value)))
+	}
 	instance := &cloudTypes.Instance{
 		ID:     aws.StringValue(i.InstanceId),
 		Region: region,
-		Tags:   make(types.Tags, len(i.Tags)),
-	}
-	for idx, tag := range i.Tags {
-		instance.Tags[idx] = fmt.Sprintf("%s:%s",
-			types.NormalizeTagElement(aws.StringValue(tag.Key)), types.NormalizeTagElement(aws.StringValue(tag.Value)))
+		Tags:   tags,
 	}
 	return instance, nil
 }

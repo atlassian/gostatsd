@@ -8,6 +8,8 @@ import (
 // Tags represents a list of tags.
 type Tags []string
 
+var tagKeysReplacer = strings.NewReplacer(":", "_", ",", "_")
+
 // String sorts the tags alphabetically and returns
 // a comma-separated string representation of the tags.
 func (tags Tags) String() string {
@@ -26,16 +28,14 @@ func (tags Tags) IndexOfKey(key string) (int, string) {
 	return -1, ""
 }
 
-// TagToMetricName transforms tags into metric names.
-func TagToMetricName(tag string) string {
-	return regSemiColon.ReplaceAllString(tag, ".")
+// NormalizeTagKey cleans up the key of a tag.
+func NormalizeTagKey(key string) string {
+	return tagKeysReplacer.Replace(key)
 }
 
-// NormalizeTagElement cleans up the key or the value of a tag.
-func NormalizeTagElement(name string) string {
-	element := regSemiColon.ReplaceAllString(name, "_")
-	element = regDot.ReplaceAllString(element, "_")
-	return strings.ToLower(element)
+// NormalizeTagValue cleans up the value of a tag.
+func NormalizeTagValue(value string) string {
+	return strings.Replace(value, ",", "_", -1)
 }
 
 // ExtractSourceFromTags returns the source from the tags
