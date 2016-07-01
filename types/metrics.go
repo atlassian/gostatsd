@@ -16,9 +16,6 @@ type IP string
 // UnknownIP is an IP of an unknown source.
 const UnknownIP IP = ""
 
-// StatsdSourceID stores the key used to tag metrics with the origin IP address.
-const StatsdSourceID = "statsd_source_id"
-
 const (
 	_ = iota
 	// COUNTER is statsd counter type

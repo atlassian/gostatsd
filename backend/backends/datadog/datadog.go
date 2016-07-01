@@ -79,8 +79,7 @@ type metric struct {
 type point [2]float64
 
 // AddMetric adds a metric to the series.
-func (ts *timeSeries) addMetric(name, stags, metricType string, value float64, interval time.Duration) {
-	hostname, tags := types.ExtractSourceFromTags(stags)
+func (ts *timeSeries) addMetric(name, metricType, hostname string, value float64, tags types.Tags, interval time.Duration) {
 	if hostname == "" {
 		hostname = ts.Hostname
 	}
@@ -149,34 +148,34 @@ func (d *client) processMetrics(metrics *types.MetricMap, cb func(*timeSeries)) 
 	}
 
 	metrics.Counters.Each(func(key, tagsKey string, counter types.Counter) {
-		ts.addMetric(key, tagsKey, rate, counter.PerSecond, counter.Flush)
-		ts.addMetric(fmt.Sprintf("%s.count", key), tagsKey, gauge, float64(counter.Value), counter.Flush)
+		ts.addMetric(key, rate, counter.Hostname, counter.PerSecond, counter.Tags, counter.Flush)
+		ts.addMetric(fmt.Sprintf("%s.count", key), counter.Hostname, gauge, float64(counter.Value), counter.Tags, counter.Flush)
 		d.maybeFlush(&ts, cb)
 	})
 
 	metrics.Timers.Each(func(key, tagsKey string, timer types.Timer) {
-		ts.addMetric(fmt.Sprintf("%s.lower", key), tagsKey, gauge, timer.Min, timer.Flush)
-		ts.addMetric(fmt.Sprintf("%s.upper", key), tagsKey, gauge, timer.Max, timer.Flush)
-		ts.addMetric(fmt.Sprintf("%s.count", key), tagsKey, gauge, float64(timer.Count), timer.Flush)
-		ts.addMetric(fmt.Sprintf("%s.count_ps", key), tagsKey, rate, timer.PerSecond, timer.Flush)
-		ts.addMetric(fmt.Sprintf("%s.mean", key), tagsKey, gauge, timer.Mean, timer.Flush)
-		ts.addMetric(fmt.Sprintf("%s.median", key), tagsKey, gauge, timer.Median, timer.Flush)
-		ts.addMetric(fmt.Sprintf("%s.std", key), tagsKey, gauge, timer.StdDev, timer.Flush)
-		ts.addMetric(fmt.Sprintf("%s.sum", key), tagsKey, gauge, timer.Sum, timer.Flush)
-		ts.addMetric(fmt.Sprintf("%s.sum_squares", key), tagsKey, gauge, timer.SumSquares, timer.Flush)
+		ts.addMetric(fmt.Sprintf("%s.lower", key), timer.Hostname, gauge, timer.Min, timer.Tags, timer.Flush)
+		ts.addMetric(fmt.Sprintf("%s.upper", key), timer.Hostname, gauge, timer.Max, timer.Tags, timer.Flush)
+		ts.addMetric(fmt.Sprintf("%s.count", key), timer.Hostname, gauge, float64(timer.Count), timer.Tags, timer.Flush)
+		ts.addMetric(fmt.Sprintf("%s.count_ps", key), timer.Hostname, rate, timer.PerSecond, timer.Tags, timer.Flush)
+		ts.addMetric(fmt.Sprintf("%s.mean", key), timer.Hostname, gauge, timer.Mean, timer.Tags, timer.Flush)
+		ts.addMetric(fmt.Sprintf("%s.median", key), timer.Hostname, gauge, timer.Median, timer.Tags, timer.Flush)
+		ts.addMetric(fmt.Sprintf("%s.std", key), timer.Hostname, gauge, timer.StdDev, timer.Tags, timer.Flush)
+		ts.addMetric(fmt.Sprintf("%s.sum", key), timer.Hostname, gauge, timer.Sum, timer.Tags, timer.Flush)
+		ts.addMetric(fmt.Sprintf("%s.sum_squares", key), timer.Hostname, gauge, timer.SumSquares, timer.Tags, timer.Flush)
 		for _, pct := range timer.Percentiles {
-			ts.addMetric(fmt.Sprintf("%s.%s", key, pct.Str), tagsKey, gauge, pct.Float, timer.Flush)
+			ts.addMetric(fmt.Sprintf("%s.%s", key, pct.Str), timer.Hostname, gauge, pct.Float, timer.Tags, timer.Flush)
 		}
 		d.maybeFlush(&ts, cb)
 	})
 
 	metrics.Gauges.Each(func(key, tagsKey string, g types.Gauge) {
-		ts.addMetric(key, tagsKey, gauge, g.Value, g.Flush)
+		ts.addMetric(key, g.Hostname, gauge, g.Value, g.Tags, g.Flush)
 		d.maybeFlush(&ts, cb)
 	})
 
 	metrics.Sets.Each(func(key, tagsKey string, set types.Set) {
-		ts.addMetric(key, tagsKey, gauge, float64(len(set.Values)), set.Flush)
+		ts.addMetric(key, set.Hostname, gauge, float64(len(set.Values)), set.Tags, set.Flush)
 		d.maybeFlush(&ts, cb)
 	})
 

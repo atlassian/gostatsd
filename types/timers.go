@@ -16,11 +16,13 @@ type Timer struct {
 	Values      []float64   // The numeric value of the metric
 	Percentiles Percentiles // The percentile aggregations of the metric
 	Interval                // The flush and expiration interval information
+	Hostname    string      // Hostname of the source of the metric
+	Tags        Tags        // The tags for the timer
 }
 
 // NewTimer initialises a new timer.
-func NewTimer(timestamp time.Time, flushInterval time.Duration, values []float64) Timer {
-	return Timer{Values: values, Interval: Interval{Timestamp: timestamp, Flush: flushInterval}}
+func NewTimer(timestamp time.Time, flushInterval time.Duration, values []float64, hostname string, tags Tags) Timer {
+	return Timer{Values: values, Interval: Interval{Timestamp: timestamp, Flush: flushInterval}, Hostname: hostname, Tags: tags}
 }
 
 // Timers stores a map of timers by tags.

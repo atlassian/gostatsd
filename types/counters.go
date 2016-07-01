@@ -7,11 +7,13 @@ type Counter struct {
 	PerSecond float64 // The calculated per second rate
 	Value     int64   // The numeric value of the metric
 	Interval          // The flush and expiration interval information
+	Hostname  string  // Hostname of the source of the metric
+	Tags      Tags    // The tags for the counter
 }
 
 // NewCounter initialises a new counter.
-func NewCounter(timestamp time.Time, flushInterval time.Duration, value int64) Counter {
-	return Counter{Value: value, Interval: Interval{Timestamp: timestamp, Flush: flushInterval}}
+func NewCounter(timestamp time.Time, flushInterval time.Duration, value int64, hostname string, tags Tags) Counter {
+	return Counter{Value: value, Interval: Interval{Timestamp: timestamp, Flush: flushInterval}, Hostname: hostname, Tags: tags}
 }
 
 // Counters stores a map of counters by tags.

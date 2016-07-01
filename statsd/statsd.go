@@ -34,7 +34,7 @@ var DefaultMaxWorkers = runtime.NumCPU()
 var DefaultPercentThreshold = []float64{90}
 
 // DefaultTags is the default list of additional tags.
-var DefaultTags = []string{}
+var DefaultTags = types.Tags{}
 
 const (
 	// DefaultMaxCloudRequests is the maximum number of cloud provider requests per second.
@@ -91,7 +91,7 @@ type Server struct {
 	ConsoleAddr      string
 	CloudProvider    cloudTypes.Interface
 	Limiter          *rate.Limiter
-	DefaultTags      []string
+	DefaultTags      types.Tags
 	ExpiryInterval   time.Duration
 	FlushInterval    time.Duration
 	MaxReaders       int
@@ -297,12 +297,12 @@ type agrFactory struct {
 	percentThresholds []float64
 	flushInterval     time.Duration
 	expiryInterval    time.Duration
-	defaultTags       []string
+	defaultTags       types.Tags
 	workerNumber      uint16
 }
 
 func (af *agrFactory) Create() Aggregator {
-	tags := make([]string, 0, len(af.defaultTags)+1)
+	tags := make(types.Tags, 0, len(af.defaultTags)+1)
 	tags = append(tags, af.defaultTags...)
 	tags = append(tags, fmt.Sprintf("aggregator_%d", af.workerNumber))
 	af.workerNumber++

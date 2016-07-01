@@ -39,12 +39,13 @@ type aggregator struct {
 	expiryInterval    time.Duration // How often to expire metrics
 	lastFlush         time.Time     // Last time the metrics where aggregated
 	percentThresholds map[float64]percentStruct
-	defaultTags       string // Tags to add to system metrics
+	aggregatorTags    types.Tags // Tags for system metrics
+	aggregatorTagsStr string     // Tags for system metrics (as string)
 	types.MetricMap
 }
 
 // NewAggregator creates a new Aggregator object.
-func NewAggregator(percentThresholds []float64, flushInterval, expiryInterval time.Duration, defaultTags []string) Aggregator {
+func NewAggregator(percentThresholds []float64, flushInterval, expiryInterval time.Duration, aggregatorTags types.Tags) Aggregator {
 	a := aggregator{}
 	a.FlushInterval = flushInterval
 	a.lastFlush = time.Now()
@@ -53,7 +54,8 @@ func NewAggregator(percentThresholds []float64, flushInterval, expiryInterval ti
 	a.Timers = types.Timers{}
 	a.Gauges = types.Gauges{}
 	a.Sets = types.Sets{}
-	a.defaultTags = types.Tags(defaultTags).String()
+	a.aggregatorTags = aggregatorTags
+	a.aggregatorTagsStr = aggregatorTags.SortedString()
 	a.percentThresholds = make(map[float64]percentStruct, len(percentThresholds))
 	for _, pct := range percentThresholds {
 		sPct := strconv.Itoa(int(pct))
@@ -82,7 +84,12 @@ func (a *aggregator) Flush(now func() time.Time) {
 	flushInSeconds := float64(flushInterval.Nanoseconds()) / float64(time.Second.Nanoseconds())
 
 	statName := internalStatName("aggregator_num_stats")
-	a.receiveCounter(statName, a.defaultTags, int64(a.NumStats), startTime)
+	a.receiveCounter(&types.Metric{
+		Name:  statName,
+		Value: float64(a.NumStats),
+		Tags:  a.aggregatorTags,
+		Type:  types.COUNTER,
+	}, a.aggregatorTagsStr, startTime)
 
 	a.Counters.Each(func(key, tagsKey string, counter types.Counter) {
 		counter.PerSecond = float64(counter.Value) / flushInSeconds
@@ -175,7 +182,12 @@ func (a *aggregator) Flush(now func() time.Time) {
 	a.ProcessingTime = flushTime.Sub(startTime)
 
 	statName = internalStatName("processing_time")
-	a.receiveGauge(statName, a.defaultTags, float64(a.ProcessingTime)/float64(time.Millisecond), flushTime)
+	a.receiveGauge(&types.Metric{
+		Name:  statName,
+		Value: float64(a.ProcessingTime) / float64(time.Millisecond),
+		Tags:  a.aggregatorTags,
+		Type:  types.GAUGE,
+	}, a.aggregatorTagsStr, flushTime)
 
 	a.lastFlush = flushTime
 }
@@ -203,8 +215,11 @@ func (a *aggregator) Reset(now time.Time) {
 		if a.isExpired(now, counter.Timestamp) {
 			deleteMetric(key, tagsKey, a.Counters)
 		} else {
-			interval := counter.Interval
-			a.Counters[key][tagsKey] = types.Counter{Interval: interval}
+			a.Counters[key][tagsKey] = types.Counter{
+				Interval: counter.Interval,
+				Hostname: counter.Hostname,
+				Tags:     counter.Tags,
+			}
 		}
 	})
 
@@ -212,8 +227,11 @@ func (a *aggregator) Reset(now time.Time) {
 		if a.isExpired(now, timer.Timestamp) {
 			deleteMetric(key, tagsKey, a.Timers)
 		} else {
-			interval := timer.Interval
-			a.Timers[key][tagsKey] = types.Timer{Interval: interval}
+			a.Timers[key][tagsKey] = types.Timer{
+				Interval: timer.Interval,
+				Hostname: timer.Hostname,
+				Tags:     timer.Tags,
+			}
 		}
 	})
 
@@ -228,84 +246,86 @@ func (a *aggregator) Reset(now time.Time) {
 		if a.isExpired(now, set.Timestamp) {
 			deleteMetric(key, tagsKey, a.Sets)
 		} else {
-			a.Sets[key][tagsKey] = types.Set{Interval: set.Interval, Values: make(map[string]struct{})}
+			a.Sets[key][tagsKey] = types.Set{
+				Values:   make(map[string]struct{}),
+				Interval: set.Interval,
+				Hostname: set.Hostname,
+				Tags:     set.Tags,
+			}
 		}
 	})
 }
 
-func (a *aggregator) receiveCounter(name, tags string, value int64, now time.Time) {
-	v, ok := a.Counters[name]
+func (a *aggregator) receiveCounter(m *types.Metric, tagsKey string, now time.Time) {
+	value := int64(m.Value)
+	v, ok := a.Counters[m.Name]
 	if ok {
-		c, ok := v[tags]
+		c, ok := v[tagsKey]
 		if ok {
 			c.Value += value
 			c.Timestamp = now
 		} else {
-			c = types.NewCounter(now, a.FlushInterval, value)
+			c = types.NewCounter(now, a.FlushInterval, value, m.Hostname, m.Tags)
 		}
-		v[tags] = c
+		v[tagsKey] = c
 	} else {
-		a.Counters[name] = map[string]types.Counter{
-			tags: types.NewCounter(now, a.FlushInterval, value),
+		a.Counters[m.Name] = map[string]types.Counter{
+			tagsKey: types.NewCounter(now, a.FlushInterval, value, m.Hostname, m.Tags),
 		}
 	}
 }
 
-func (a *aggregator) receiveGauge(name, tags string, value float64, now time.Time) {
+func (a *aggregator) receiveGauge(m *types.Metric, tagsKey string, now time.Time) {
 	// TODO: handle +/-
-	v, ok := a.Gauges[name]
+	v, ok := a.Gauges[m.Name]
 	if ok {
-		g, ok := v[tags]
+		g, ok := v[tagsKey]
 		if ok {
-			g.Value = value
+			g.Value = m.Value
 			g.Timestamp = now
 		} else {
-			g = types.NewGauge(now, a.FlushInterval, value)
+			g = types.NewGauge(now, a.FlushInterval, m.Value, m.Hostname, m.Tags)
 		}
-		v[tags] = g
+		v[tagsKey] = g
 	} else {
-		a.Gauges[name] = map[string]types.Gauge{
-			tags: types.NewGauge(now, a.FlushInterval, value),
+		a.Gauges[m.Name] = map[string]types.Gauge{
+			tagsKey: types.NewGauge(now, a.FlushInterval, m.Value, m.Hostname, m.Tags),
 		}
 	}
 }
 
-func (a *aggregator) receiveTimer(name, tags string, value float64, now time.Time) {
-	v, ok := a.Timers[name]
+func (a *aggregator) receiveTimer(m *types.Metric, tagsKey string, now time.Time) {
+	v, ok := a.Timers[m.Name]
 	if ok {
-		t, ok := v[tags]
+		t, ok := v[tagsKey]
 		if ok {
-			t.Values = append(t.Values, value)
+			t.Values = append(t.Values, m.Value)
 			t.Timestamp = now
 		} else {
-			t = types.NewTimer(now, a.FlushInterval, []float64{value})
+			t = types.NewTimer(now, a.FlushInterval, []float64{m.Value}, m.Hostname, m.Tags)
 		}
-		v[tags] = t
+		v[tagsKey] = t
 	} else {
-		a.Timers[name] = map[string]types.Timer{
-			tags: types.NewTimer(now, a.FlushInterval, []float64{value}),
+		a.Timers[m.Name] = map[string]types.Timer{
+			tagsKey: types.NewTimer(now, a.FlushInterval, []float64{m.Value}, m.Hostname, m.Tags),
 		}
 	}
 }
 
-func (a *aggregator) receiveSet(name, tags string, value string, now time.Time) {
-	v, ok := a.Sets[name]
+func (a *aggregator) receiveSet(m *types.Metric, tagsKey string, now time.Time) {
+	v, ok := a.Sets[m.Name]
 	if ok {
-		s, ok := v[tags]
+		s, ok := v[tagsKey]
 		if ok {
-			s.Values[value] = struct{}{}
+			s.Values[m.StringValue] = struct{}{}
 			s.Timestamp = now
 		} else {
-			s = types.NewSet(now, a.FlushInterval, map[string]struct{}{
-				value: {},
-			})
+			s = types.NewSet(now, a.FlushInterval, map[string]struct{}{m.StringValue: {}}, m.Hostname, m.Tags)
 		}
-		v[tags] = s
+		v[tagsKey] = s
 	} else {
-		a.Sets[name] = map[string]types.Set{
-			tags: types.NewSet(now, a.FlushInterval, map[string]struct{}{
-				value: {},
-			}),
+		a.Sets[m.Name] = map[string]types.Set{
+			tagsKey: types.NewSet(now, a.FlushInterval, map[string]struct{}{m.StringValue: {}}, m.Hostname, m.Tags),
 		}
 	}
 }
@@ -313,25 +333,26 @@ func (a *aggregator) receiveSet(name, tags string, value string, now time.Time) 
 // Receive aggregates an incoming metric.
 func (a *aggregator) Receive(m *types.Metric, now time.Time) {
 	a.NumStats++
-	tagsKey := addInstanceIDTag(m.Tags, m.Hostname).String()
+	tagsKey := formatTagsKey(m.Tags, m.Hostname)
 
 	switch m.Type {
 	case types.COUNTER:
-		a.receiveCounter(m.Name, tagsKey, int64(m.Value), now)
+		a.receiveCounter(m, tagsKey, now)
 	case types.GAUGE:
-		a.receiveGauge(m.Name, tagsKey, m.Value, now)
+		a.receiveGauge(m, tagsKey, now)
 	case types.TIMER:
-		a.receiveTimer(m.Name, tagsKey, m.Value, now)
+		a.receiveTimer(m, tagsKey, now)
 	case types.SET:
-		a.receiveSet(m.Name, tagsKey, m.StringValue, now)
+		a.receiveSet(m, tagsKey, now)
 	default:
 		log.Errorf("Unknow metric type %s for %s", m.Type, m.Name)
 	}
 }
 
-func addInstanceIDTag(tags types.Tags, hostname string) types.Tags {
+func formatTagsKey(tags types.Tags, hostname string) string {
+	t := tags.SortedString()
 	if hostname == "" {
-		return tags
+		return t
 	}
-	return append(tags, types.StatsdSourceID+":"+hostname)
+	return t + "," + types.StatsdSourceID + ":" + hostname
 }

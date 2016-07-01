@@ -11,10 +11,10 @@ import (
 
 func newFakeAggregator() *aggregator {
 	return NewAggregator(
-		[]float64{float64(90)},
-		time.Duration(10)*time.Second,
-		time.Duration(5)*time.Minute,
-		[]string{},
+		[]float64{90},
+		10*time.Second,
+		5*time.Minute,
+		types.Tags{"aggrDefault"},
 	).(*aggregator)
 }
 
@@ -60,9 +60,10 @@ func TestFlush(t *testing.T) {
 	expected.Counters["some"]["thing"] = types.Counter{Value: 100, PerSecond: 10}
 	expected.Counters["some"]["other:thing"] = types.Counter{Value: 150, PerSecond: 15}
 	expected.Counters["statsd.aggregator_num_stats"] = make(map[string]types.Counter)
-	expected.Counters["statsd.aggregator_num_stats"][""] = types.Counter{
+	expected.Counters["statsd.aggregator_num_stats"]["aggrDefault"] = types.Counter{
 		Value: 0, PerSecond: 0,
-		Interval: types.Interval{Timestamp: now, Flush: time.Duration(10) * time.Second},
+		Interval: types.Interval{Timestamp: now, Flush: 10 * time.Second},
+		Tags:     types.Tags{"aggrDefault"},
 	} // count happens in Receive
 
 	ma.Timers["some"] = make(map[string]types.Timer)
@@ -92,9 +93,10 @@ func TestFlush(t *testing.T) {
 	expected.Gauges["some"]["thing"] = types.Gauge{Value: 100}
 	expected.Gauges["some"]["other:thing"] = types.Gauge{Value: 150}
 	expected.Gauges["statsd.processing_time"] = make(map[string]types.Gauge)
-	expected.Gauges["statsd.processing_time"][""] = types.Gauge{
+	expected.Gauges["statsd.processing_time"]["aggrDefault"] = types.Gauge{
 		Value:    0,
-		Interval: types.Interval{Timestamp: now, Flush: time.Duration(10) * time.Second},
+		Interval: types.Interval{Timestamp: now, Flush: 10 * time.Second},
+		Tags:     types.Tags{"aggrDefault"},
 	} // start and end are the same...
 
 	ma.Sets["some"] = make(map[string]types.Set)
@@ -145,56 +147,62 @@ func BenchmarkFlush(b *testing.B) {
 func TestReset(t *testing.T) {
 	assert := assert.New(t)
 	now := time.Now()
+	host := "hostname"
 
 	// non expired
 	actual := newFakeAggregator()
-	actual.Counters["some"] = make(map[string]types.Counter)
-	actual.Counters["some"]["thing"] = types.NewCounter(now, time.Duration(10)*time.Second, int64(50))
-	actual.Counters["some"]["other:thing"] = types.NewCounter(now, time.Duration(10)*time.Second, int64(90))
+	actual.Counters["some"] = map[string]types.Counter{
+		"thing":       types.NewCounter(now, 10*time.Second, 50, host, nil),
+		"other:thing": types.NewCounter(now, 10*time.Second, 90, host, nil),
+	}
 	actual.Reset(now)
 
 	expected := newFakeAggregator()
-	expected.Counters["some"] = make(map[string]types.Counter)
-	expected.Counters["some"]["thing"] = types.NewCounter(now, time.Duration(10)*time.Second, int64(0))
-	expected.Counters["some"]["other:thing"] = types.NewCounter(now, time.Duration(10)*time.Second, int64(0))
+	expected.Counters["some"] = map[string]types.Counter{
+		"thing":       types.NewCounter(now, 10*time.Second, 0, host, nil),
+		"other:thing": types.NewCounter(now, 10*time.Second, 0, host, nil),
+	}
 
 	assert.Equal(expected.Counters, actual.Counters)
 
 	actual = newFakeAggregator()
-	actual.Timers["some"] = make(map[string]types.Timer)
-	actual.Timers["some"]["thing"] = types.NewTimer(now, time.Duration(10)*time.Second, []float64{50})
+	actual.Timers["some"] = map[string]types.Timer{
+		"thing": types.NewTimer(now, 10*time.Second, []float64{50}, host, nil),
+	}
 	actual.Reset(now)
 
 	expected = newFakeAggregator()
-	expected.Timers["some"] = make(map[string]types.Timer)
-	expected.Timers["some"]["thing"] = types.Timer{Interval: types.Interval{Timestamp: now, Flush: time.Duration(10) * time.Second}}
+	expected.Timers["some"] = map[string]types.Timer{
+		"thing": types.NewTimer(now, 10*time.Second, nil, host, nil),
+	}
 
 	assert.Equal(expected.Timers, actual.Timers)
 
 	actual = newFakeAggregator()
-	actual.Gauges["some"] = make(map[string]types.Gauge)
-	actual.Gauges["some"]["thing"] = types.NewGauge(now, time.Duration(10)*time.Second, float64(50))
-	actual.Gauges["some"]["other:thing"] = types.NewGauge(now, time.Duration(10)*time.Second, float64(90))
+	actual.Gauges["some"] = map[string]types.Gauge{
+		"thing":       types.NewGauge(now, 10*time.Second, 50, host, nil),
+		"other:thing": types.NewGauge(now, 10*time.Second, 90, host, nil),
+	}
 	actual.Reset(now)
 
 	expected = newFakeAggregator()
-	expected.Gauges["some"] = make(map[string]types.Gauge)
-	expected.Gauges["some"]["thing"] = types.NewGauge(now, time.Duration(10)*time.Second, float64(50))
-	expected.Gauges["some"]["other:thing"] = types.NewGauge(now, time.Duration(10)*time.Second, float64(90))
+	expected.Gauges["some"] = map[string]types.Gauge{
+		"thing":       types.NewGauge(now, 10*time.Second, 50, host, nil),
+		"other:thing": types.NewGauge(now, 10*time.Second, 90, host, nil),
+	}
 
 	assert.Equal(expected.Gauges, actual.Gauges)
 
 	actual = newFakeAggregator()
-	actual.Sets["some"] = make(map[string]types.Set)
-	unique := map[string]struct{}{
-		"user": {},
+	actual.Sets["some"] = map[string]types.Set{
+		"thing": types.NewSet(now, 10*time.Second, map[string]struct{}{"user": {}}, host, nil),
 	}
-	actual.Sets["some"]["thing"] = types.NewSet(now, time.Duration(10)*time.Second, unique)
 	actual.Reset(now)
 
 	expected = newFakeAggregator()
-	expected.Sets["some"] = make(map[string]types.Set)
-	expected.Sets["some"]["thing"] = types.NewSet(now, time.Duration(10)*time.Second, make(map[string]struct{}))
+	expected.Sets["some"] = map[string]types.Set{
+		"thing": types.NewSet(now, 10*time.Second, make(map[string]struct{}), host, nil),
+	}
 
 	assert.Equal(expected.Sets, actual.Sets)
 
@@ -202,10 +210,11 @@ func TestReset(t *testing.T) {
 	past := now.Add(-30 * time.Second)
 
 	actual = newFakeAggregator()
-	actual.expiryInterval = time.Duration(10) * time.Second
-	actual.Counters["some"] = make(map[string]types.Counter)
-	actual.Counters["some"]["thing"] = types.NewCounter(past, time.Duration(10)*time.Second, int64(50))
-	actual.Counters["some"]["other:thing"] = types.NewCounter(past, time.Duration(10)*time.Second, int64(90))
+	actual.expiryInterval = 10 * time.Second
+	actual.Counters["some"] = map[string]types.Counter{
+		"thing":       types.NewCounter(past, 10*time.Second, 50, host, nil),
+		"other:thing": types.NewCounter(past, 10*time.Second, 90, host, nil),
+	}
 	actual.Reset(now)
 
 	expected = newFakeAggregator()
@@ -213,9 +222,10 @@ func TestReset(t *testing.T) {
 	assert.Equal(expected.Counters, actual.Counters)
 
 	actual = newFakeAggregator()
-	actual.expiryInterval = time.Duration(10) * time.Second
-	actual.Timers["some"] = make(map[string]types.Timer)
-	actual.Timers["some"]["thing"] = types.NewTimer(past, time.Duration(10)*time.Second, []float64{50})
+	actual.expiryInterval = 10 * time.Second
+	actual.Timers["some"] = map[string]types.Timer{
+		"thing": types.NewTimer(past, 10*time.Second, []float64{50}, host, nil),
+	}
 	actual.Reset(now)
 
 	expected = newFakeAggregator()
@@ -223,10 +233,11 @@ func TestReset(t *testing.T) {
 	assert.Equal(expected.Timers, actual.Timers)
 
 	actual = newFakeAggregator()
-	actual.expiryInterval = time.Duration(10) * time.Second
-	actual.Gauges["some"] = make(map[string]types.Gauge)
-	actual.Gauges["some"]["thing"] = types.NewGauge(past, time.Duration(10)*time.Second, float64(50))
-	actual.Gauges["some"]["other:thing"] = types.NewGauge(past, time.Duration(10)*time.Second, float64(90))
+	actual.expiryInterval = 10 * time.Second
+	actual.Gauges["some"] = map[string]types.Gauge{
+		"thing":       types.NewGauge(past, 10*time.Second, 50, host, nil),
+		"other:thing": types.NewGauge(past, 10*time.Second, 90, host, nil),
+	}
 	actual.Reset(now)
 
 	expected = newFakeAggregator()
@@ -234,12 +245,10 @@ func TestReset(t *testing.T) {
 	assert.Equal(expected.Gauges, actual.Gauges)
 
 	actual = newFakeAggregator()
-	actual.expiryInterval = time.Duration(10) * time.Second
-	actual.Sets["some"] = make(map[string]types.Set)
-	unique = map[string]struct{}{
-		"user": {},
+	actual.expiryInterval = 10 * time.Second
+	actual.Sets["some"] = map[string]types.Set{
+		"thing": types.NewSet(past, 10*time.Second, map[string]struct{}{"user": {}}, host, nil),
 	}
-	actual.Sets["some"]["thing"] = types.NewSet(past, time.Duration(10)*time.Second, unique)
 	actual.Reset(now)
 
 	expected = newFakeAggregator()
@@ -252,10 +261,10 @@ func TestIsExpired(t *testing.T) {
 
 	now := time.Now()
 
-	ma := &aggregator{expiryInterval: time.Duration(0)}
+	ma := &aggregator{expiryInterval: 0}
 	assert.Equal(false, ma.isExpired(now, now))
 
-	ma.expiryInterval = time.Duration(10) * time.Second
+	ma.expiryInterval = 10 * time.Second
 
 	ts := time.Now().Add(-30 * time.Second)
 	assert.Equal(true, ma.isExpired(now, ts))
@@ -287,46 +296,59 @@ func TestReceive(t *testing.T) {
 
 	ma := newFakeAggregator()
 	now := time.Now()
-	d := time.Duration(10) * time.Second
-	interval := types.Interval{Timestamp: now, Flush: d}
+	interval := types.Interval{Timestamp: now, Flush: 10 * time.Second}
 
 	tests := metricsFixtures()
 	for _, metric := range tests {
 		ma.Receive(&metric, now)
 	}
 
-	expectedCounters := types.Counters{}
-	expectedCounters["foo.bar.baz"] = make(map[string]types.Counter)
-	expectedCounters["foo.bar.baz"][""] = types.Counter{Value: 2, Interval: interval}
-	expectedCounters["smp.rte"] = make(map[string]types.Counter)
-	expectedCounters["smp.rte"]["baz,foo:bar"] = types.Counter{Value: 55, Interval: interval}
-	expectedCounters["smp.rte"][""] = types.Counter{Value: 50, Interval: interval}
+	expectedCounters := types.Counters{
+		"foo.bar.baz": map[string]types.Counter{
+			"": {Value: 2, Interval: interval},
+		},
+		"smp.rte": map[string]types.Counter{
+			"":            {Value: 50, Interval: interval},
+			"baz,foo:bar": {Value: 55, Interval: interval, Tags: types.Tags{"baz", "foo:bar"}},
+		},
+	}
 	assert.Equal(expectedCounters, ma.Counters)
 
-	expectedGauges := types.Gauges{}
-	expectedGauges["abc.def.g"] = make(map[string]types.Gauge)
-	expectedGauges["abc.def.g"][""] = types.Gauge{Value: 3, Interval: interval}
-	expectedGauges["abc.def.g"]["baz,foo:bar"] = types.Gauge{Value: 8, Interval: interval}
+	expectedGauges := types.Gauges{
+		"abc.def.g": map[string]types.Gauge{
+			"":            {Value: 3, Interval: interval},
+			"baz,foo:bar": {Value: 8, Interval: interval, Tags: types.Tags{"baz", "foo:bar"}},
+		},
+	}
 	assert.Equal(expectedGauges, ma.Gauges)
 
-	expectedTimers := types.Timers{}
-	expectedTimers["def.g"] = make(map[string]types.Timer)
-	expectedTimers["def.g"][""] = types.Timer{Values: []float64{10}, Interval: interval}
-	expectedTimers["def.g"]["baz,foo:bar"] = types.Timer{Values: []float64{1}, Interval: interval}
+	expectedTimers := types.Timers{
+		"def.g": map[string]types.Timer{
+			"":            {Values: []float64{10}, Interval: interval},
+			"baz,foo:bar": {Values: []float64{1}, Interval: interval, Tags: types.Tags{"baz", "foo:bar"}},
+		},
+	}
 	assert.Equal(expectedTimers, ma.Timers)
 
-	expectedSets := types.Sets{}
-	expectedSets["uniq.usr"] = make(map[string]types.Set)
-	sets := map[string]struct{}{
-		"joe":  {},
-		"bob":  {},
-		"john": {},
+	expectedSets := types.Sets{
+		"uniq.usr": map[string]types.Set{
+			"": {
+				Values: map[string]struct{}{
+					"joe":  {},
+					"bob":  {},
+					"john": {},
+				},
+				Interval: interval,
+			},
+			"baz,foo:bar": {
+				Values: map[string]struct{}{
+					"john": {},
+				},
+				Interval: interval,
+				Tags:     types.Tags{"baz", "foo:bar"},
+			},
+		},
 	}
-	sets2 := map[string]struct{}{
-		"john": {},
-	}
-	expectedSets["uniq.usr"][""] = types.Set{Values: sets, Interval: interval}
-	expectedSets["uniq.usr"]["baz,foo:bar"] = types.Set{Values: sets2, Interval: interval}
 	assert.Equal(expectedSets, ma.Sets)
 }
 

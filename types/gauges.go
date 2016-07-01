@@ -6,11 +6,13 @@ import "time"
 type Gauge struct {
 	Value    float64 // The numeric value of the metric
 	Interval         // The flush and expiration interval information
+	Hostname string  // Hostname of the source of the metric
+	Tags     Tags    // The tags for the gauge
 }
 
 // NewGauge initialises a new gauge.
-func NewGauge(timestamp time.Time, flushInterval time.Duration, value float64) Gauge {
-	return Gauge{Value: value, Interval: Interval{Timestamp: timestamp, Flush: flushInterval}}
+func NewGauge(timestamp time.Time, flushInterval time.Duration, value float64, hostname string, tags Tags) Gauge {
+	return Gauge{Value: value, Interval: Interval{Timestamp: timestamp, Flush: flushInterval}, Hostname: hostname, Tags: tags}
 }
 
 // Gauges stores a map of gauges by tags.

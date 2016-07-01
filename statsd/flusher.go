@@ -1,7 +1,6 @@
 package statsd
 
 import (
-	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -32,11 +31,12 @@ type flusher struct {
 	lastFlush      int64 // Last time the metrics where aggregated. Unix timestamp in nsec.
 	lastFlushError int64 // Time of the last flush error. Unix timestamp in nsec.
 
-	flushInterval time.Duration // How often to flush metrics to the sender
-	dispatcher    Dispatcher
-	receiver      Receiver
-	defaultTags   string
-	backends      []backendTypes.Backend
+	flushInterval  time.Duration // How often to flush metrics to the sender
+	dispatcher     Dispatcher
+	receiver       Receiver
+	defaultTags    types.Tags // Tags to add to system metrics
+	defaultTagsStr string     // Tags to add to system metrics (as string)
+	backends       []backendTypes.Backend
 
 	// Sent statistics for Receiver. Keep sent values to calculate diff.
 	sentBadLines        uint64
@@ -45,13 +45,14 @@ type flusher struct {
 }
 
 // NewFlusher creates a new Flusher with provided configuration.
-func NewFlusher(flushInterval time.Duration, dispatcher Dispatcher, receiver Receiver, defaultTags []string, backends []backendTypes.Backend) Flusher {
+func NewFlusher(flushInterval time.Duration, dispatcher Dispatcher, receiver Receiver, defaultTags types.Tags, backends []backendTypes.Backend) Flusher {
 	return &flusher{
-		flushInterval: flushInterval,
-		dispatcher:    dispatcher,
-		receiver:      receiver,
-		defaultTags:   strings.Join(defaultTags, ","),
-		backends:      backends,
+		flushInterval:  flushInterval,
+		dispatcher:     dispatcher,
+		receiver:       receiver,
+		defaultTags:    defaultTags,
+		defaultTagsStr: defaultTags.SortedString(),
+		backends:       backends,
 	}
 }
 
@@ -141,10 +142,10 @@ func (f *flusher) internalStats(totalStats uint32) *types.MetricMap {
 }
 
 func (f *flusher) addCounter(c types.Counters, name string, timestamp time.Time, value int64) {
-	counter := types.NewCounter(timestamp, f.flushInterval, value)
+	counter := types.NewCounter(timestamp, f.flushInterval, value, "", f.defaultTags)
 	counter.PerSecond = float64(counter.Value) / (float64(f.flushInterval) / float64(time.Second))
 
 	c[internalStatName(name)] = map[string]types.Counter{
-		f.defaultTags: counter,
+		f.defaultTagsStr: counter,
 	}
 }
