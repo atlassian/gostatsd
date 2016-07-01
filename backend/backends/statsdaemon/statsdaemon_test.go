@@ -15,7 +15,7 @@ var m = types.MetricMap{
 	NumStats: 1,
 	Counters: types.Counters{
 		longName: map[string]types.Counter{
-			"tag1": types.NewCounter(time.Now(), 1*time.Second, 5),
+			"tag1": types.NewCounter(time.Now(), 1*time.Second, 5, "", nil),
 		},
 	},
 }

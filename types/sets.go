@@ -5,12 +5,14 @@ import "time"
 // Set is used for storing aggregated values for sets.
 type Set struct {
 	Values   map[string]struct{}
-	Interval // The flush and expiration interval information
+	Interval        // The flush and expiration interval information
+	Hostname string // Hostname of the source of the metric
+	Tags     Tags   // The tags for the set
 }
 
 // NewSet initialises a new set.
-func NewSet(timestamp time.Time, flushInterval time.Duration, values map[string]struct{}) Set {
-	return Set{Values: values, Interval: Interval{Timestamp: timestamp, Flush: flushInterval}}
+func NewSet(timestamp time.Time, flushInterval time.Duration, values map[string]struct{}, hostname string, tags Tags) Set {
+	return Set{Values: values, Interval: Interval{Timestamp: timestamp, Flush: flushInterval}, Hostname: hostname, Tags: tags}
 }
 
 // Sets stores a map of sets by tags.
