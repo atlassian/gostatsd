@@ -5,14 +5,17 @@ import (
 	"strings"
 )
 
-// Tags represents a list of tags.
+// Tags represents a list of tags. Tags can be of two forms:
+// 1. "key:value". "value" may contain column(s) as well.
+// 2. "tag". No column.
+// Each tag's key and/or value may contain characters invalid for a particular backend.
+// Backends are expected to handle them appropriately. Different backends may have different sets of valid
+// characters so it is undesirable to have restrictions on the input side.
 type Tags []string
 
 // StatsdSourceID stores the key used to tag metrics with the origin IP address.
 // Should be short to avoid extra hashing and memory overhead for map operations.
 const StatsdSourceID = "s"
-
-var tagKeysReplacer = strings.NewReplacer(":", "_", ",", "_")
 
 // String returns a comma-separated string representation of the tags.
 func (tags Tags) String() string {
@@ -21,6 +24,7 @@ func (tags Tags) String() string {
 
 // SortedString sorts the tags alphabetically and returns
 // a comma-separated string representation of the tags.
+// Note that this method may mutate the original object.
 func (tags Tags) SortedString() string {
 	sort.Strings(tags)
 	return strings.Join(tags, ",")
@@ -28,10 +32,5 @@ func (tags Tags) SortedString() string {
 
 // NormalizeTagKey cleans up the key of a tag.
 func NormalizeTagKey(key string) string {
-	return tagKeysReplacer.Replace(key)
-}
-
-// NormalizeTagValue cleans up the value of a tag.
-func NormalizeTagValue(value string) string {
-	return strings.Replace(value, ",", "_", -1)
+	return strings.Replace(key, ":", "_", -1)
 }

@@ -138,7 +138,7 @@ func (p *provider) Instance(IP types.IP) (*cloudTypes.Instance, error) {
 	for idx, tag := range i.Tags {
 		tags[idx] = fmt.Sprintf("%s:%s",
 			types.NormalizeTagKey(aws.StringValue(tag.Key)),
-			types.NormalizeTagValue(aws.StringValue(tag.Value)))
+			aws.StringValue(tag.Value))
 	}
 	instance := &cloudTypes.Instance{
 		ID:     aws.StringValue(i.InstanceId),
