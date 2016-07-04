@@ -83,13 +83,12 @@ func (a *aggregator) Flush(now func() time.Time) {
 	flushInterval := startTime.Sub(a.lastFlush)
 	flushInSeconds := float64(flushInterval.Nanoseconds()) / float64(time.Second.Nanoseconds())
 
-	statName := internalStatName("aggregator_num_stats")
 	a.receiveCounter(&types.Metric{
-		Name:  statName,
+		Name:  internalStatName("aggregator_num_stats"),
 		Value: float64(a.NumStats),
 		Tags:  a.aggregatorTags,
 		Type:  types.COUNTER,
-	}, a.aggregatorTagsStr, startTime)
+	}, a.aggregatorTagsStr, types.Nanotime(startTime.UnixNano()))
 
 	a.Counters.Each(func(key, tagsKey string, counter types.Counter) {
 		counter.PerSecond = float64(counter.Value) / flushInSeconds
@@ -181,13 +180,12 @@ func (a *aggregator) Flush(now func() time.Time) {
 
 	a.ProcessingTime = flushTime.Sub(startTime)
 
-	statName = internalStatName("processing_time")
 	a.receiveGauge(&types.Metric{
-		Name:  statName,
+		Name:  internalStatName("processing_time"),
 		Value: float64(a.ProcessingTime) / float64(time.Millisecond),
 		Tags:  a.aggregatorTags,
 		Type:  types.GAUGE,
-	}, a.aggregatorTagsStr, flushTime)
+	}, a.aggregatorTagsStr, types.Nanotime(flushTime.UnixNano()))
 
 	a.lastFlush = flushTime
 }
@@ -196,8 +194,8 @@ func (a *aggregator) Process(f ProcessFunc) {
 	f(&a.MetricMap)
 }
 
-func (a *aggregator) isExpired(now, ts time.Time) bool {
-	return a.expiryInterval != 0 && now.Sub(ts) > a.expiryInterval
+func (a *aggregator) isExpired(now, ts types.Nanotime) bool {
+	return a.expiryInterval != 0 && time.Duration(now-ts) > a.expiryInterval
 }
 
 func deleteMetric(key, tagsKey string, metrics types.AggregatedMetrics) {
@@ -210,53 +208,54 @@ func deleteMetric(key, tagsKey string, metrics types.AggregatedMetrics) {
 // Reset clears the contents of an Aggregator.
 func (a *aggregator) Reset(now time.Time) {
 	a.NumStats = 0
+	nowNano := types.Nanotime(now.UnixNano())
 
 	a.Counters.Each(func(key, tagsKey string, counter types.Counter) {
-		if a.isExpired(now, counter.Timestamp) {
+		if a.isExpired(nowNano, counter.Timestamp) {
 			deleteMetric(key, tagsKey, a.Counters)
 		} else {
 			a.Counters[key][tagsKey] = types.Counter{
-				Interval: counter.Interval,
-				Hostname: counter.Hostname,
-				Tags:     counter.Tags,
+				Timestamp: counter.Timestamp,
+				Hostname:  counter.Hostname,
+				Tags:      counter.Tags,
 			}
 		}
 	})
 
 	a.Timers.Each(func(key, tagsKey string, timer types.Timer) {
-		if a.isExpired(now, timer.Timestamp) {
+		if a.isExpired(nowNano, timer.Timestamp) {
 			deleteMetric(key, tagsKey, a.Timers)
 		} else {
 			a.Timers[key][tagsKey] = types.Timer{
-				Interval: timer.Interval,
-				Hostname: timer.Hostname,
-				Tags:     timer.Tags,
+				Timestamp: timer.Timestamp,
+				Hostname:  timer.Hostname,
+				Tags:      timer.Tags,
 			}
 		}
 	})
 
 	a.Gauges.Each(func(key, tagsKey string, gauge types.Gauge) {
-		if a.isExpired(now, gauge.Timestamp) {
+		if a.isExpired(nowNano, gauge.Timestamp) {
 			deleteMetric(key, tagsKey, a.Gauges)
 		}
 		// No reset for gauges, they keep the last value until expiration
 	})
 
 	a.Sets.Each(func(key, tagsKey string, set types.Set) {
-		if a.isExpired(now, set.Timestamp) {
+		if a.isExpired(nowNano, set.Timestamp) {
 			deleteMetric(key, tagsKey, a.Sets)
 		} else {
 			a.Sets[key][tagsKey] = types.Set{
-				Values:   make(map[string]struct{}),
-				Interval: set.Interval,
-				Hostname: set.Hostname,
-				Tags:     set.Tags,
+				Values:    make(map[string]struct{}),
+				Timestamp: set.Timestamp,
+				Hostname:  set.Hostname,
+				Tags:      set.Tags,
 			}
 		}
 	})
 }
 
-func (a *aggregator) receiveCounter(m *types.Metric, tagsKey string, now time.Time) {
+func (a *aggregator) receiveCounter(m *types.Metric, tagsKey string, now types.Nanotime) {
 	value := int64(m.Value)
 	v, ok := a.Counters[m.Name]
 	if ok {
@@ -265,17 +264,17 @@ func (a *aggregator) receiveCounter(m *types.Metric, tagsKey string, now time.Ti
 			c.Value += value
 			c.Timestamp = now
 		} else {
-			c = types.NewCounter(now, a.FlushInterval, value, m.Hostname, m.Tags)
+			c = types.NewCounter(now, value, m.Hostname, m.Tags)
 		}
 		v[tagsKey] = c
 	} else {
 		a.Counters[m.Name] = map[string]types.Counter{
-			tagsKey: types.NewCounter(now, a.FlushInterval, value, m.Hostname, m.Tags),
+			tagsKey: types.NewCounter(now, value, m.Hostname, m.Tags),
 		}
 	}
 }
 
-func (a *aggregator) receiveGauge(m *types.Metric, tagsKey string, now time.Time) {
+func (a *aggregator) receiveGauge(m *types.Metric, tagsKey string, now types.Nanotime) {
 	// TODO: handle +/-
 	v, ok := a.Gauges[m.Name]
 	if ok {
@@ -284,17 +283,17 @@ func (a *aggregator) receiveGauge(m *types.Metric, tagsKey string, now time.Time
 			g.Value = m.Value
 			g.Timestamp = now
 		} else {
-			g = types.NewGauge(now, a.FlushInterval, m.Value, m.Hostname, m.Tags)
+			g = types.NewGauge(now, m.Value, m.Hostname, m.Tags)
 		}
 		v[tagsKey] = g
 	} else {
 		a.Gauges[m.Name] = map[string]types.Gauge{
-			tagsKey: types.NewGauge(now, a.FlushInterval, m.Value, m.Hostname, m.Tags),
+			tagsKey: types.NewGauge(now, m.Value, m.Hostname, m.Tags),
 		}
 	}
 }
 
-func (a *aggregator) receiveTimer(m *types.Metric, tagsKey string, now time.Time) {
+func (a *aggregator) receiveTimer(m *types.Metric, tagsKey string, now types.Nanotime) {
 	v, ok := a.Timers[m.Name]
 	if ok {
 		t, ok := v[tagsKey]
@@ -302,17 +301,17 @@ func (a *aggregator) receiveTimer(m *types.Metric, tagsKey string, now time.Time
 			t.Values = append(t.Values, m.Value)
 			t.Timestamp = now
 		} else {
-			t = types.NewTimer(now, a.FlushInterval, []float64{m.Value}, m.Hostname, m.Tags)
+			t = types.NewTimer(now, []float64{m.Value}, m.Hostname, m.Tags)
 		}
 		v[tagsKey] = t
 	} else {
 		a.Timers[m.Name] = map[string]types.Timer{
-			tagsKey: types.NewTimer(now, a.FlushInterval, []float64{m.Value}, m.Hostname, m.Tags),
+			tagsKey: types.NewTimer(now, []float64{m.Value}, m.Hostname, m.Tags),
 		}
 	}
 }
 
-func (a *aggregator) receiveSet(m *types.Metric, tagsKey string, now time.Time) {
+func (a *aggregator) receiveSet(m *types.Metric, tagsKey string, now types.Nanotime) {
 	v, ok := a.Sets[m.Name]
 	if ok {
 		s, ok := v[tagsKey]
@@ -320,12 +319,12 @@ func (a *aggregator) receiveSet(m *types.Metric, tagsKey string, now time.Time) 
 			s.Values[m.StringValue] = struct{}{}
 			s.Timestamp = now
 		} else {
-			s = types.NewSet(now, a.FlushInterval, map[string]struct{}{m.StringValue: {}}, m.Hostname, m.Tags)
+			s = types.NewSet(now, map[string]struct{}{m.StringValue: {}}, m.Hostname, m.Tags)
 		}
 		v[tagsKey] = s
 	} else {
 		a.Sets[m.Name] = map[string]types.Set{
-			tagsKey: types.NewSet(now, a.FlushInterval, map[string]struct{}{m.StringValue: {}}, m.Hostname, m.Tags),
+			tagsKey: types.NewSet(now, map[string]struct{}{m.StringValue: {}}, m.Hostname, m.Tags),
 		}
 	}
 }
@@ -334,16 +333,17 @@ func (a *aggregator) receiveSet(m *types.Metric, tagsKey string, now time.Time) 
 func (a *aggregator) Receive(m *types.Metric, now time.Time) {
 	a.NumStats++
 	tagsKey := formatTagsKey(m.Tags, m.Hostname)
+	nowNano := types.Nanotime(now.UnixNano())
 
 	switch m.Type {
 	case types.COUNTER:
-		a.receiveCounter(m, tagsKey, now)
+		a.receiveCounter(m, tagsKey, nowNano)
 	case types.GAUGE:
-		a.receiveGauge(m, tagsKey, now)
+		a.receiveGauge(m, tagsKey, nowNano)
 	case types.TIMER:
-		a.receiveTimer(m, tagsKey, now)
+		a.receiveTimer(m, tagsKey, nowNano)
 	case types.SET:
-		a.receiveSet(m, tagsKey, now)
+		a.receiveSet(m, tagsKey, nowNano)
 	default:
 		log.Errorf("Unknow metric type %s for %s", m.Type, m.Name)
 	}
