@@ -1,3 +1,8 @@
+0.14.6
+------
+- Limit max concurrent events (#24)
+- Memory consumption optimizations
+
 0.14.5
 ------
 - Improved and reworked tags support; Unicode characters are preserved now.
