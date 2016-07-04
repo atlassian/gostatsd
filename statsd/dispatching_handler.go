@@ -12,18 +12,20 @@ import (
 
 // dispatchingHandler dispatches events to all configured backends and forwards metrics to a Dispatcher.
 type dispatchingHandler struct {
-	wg         sync.WaitGroup
-	dispatcher Dispatcher
-	backends   []backendTypes.Backend
-	tags       types.Tags // Tags to add to all metrics and events
+	wg               sync.WaitGroup
+	dispatcher       Dispatcher
+	backends         []backendTypes.Backend
+	tags             types.Tags // Tags to add to all metrics and events
+	concurrentEvents chan struct{}
 }
 
 // NewDispatchingHandler initialises a new dispatching handler.
-func NewDispatchingHandler(dispatcher Dispatcher, backends []backendTypes.Backend, tags types.Tags) *dispatchingHandler {
+func NewDispatchingHandler(dispatcher Dispatcher, backends []backendTypes.Backend, tags types.Tags, maxConcurrentEvents uint) *dispatchingHandler {
 	return &dispatchingHandler{
-		dispatcher: dispatcher,
-		backends:   backends,
-		tags:       tags,
+		dispatcher:       dispatcher,
+		backends:         backends,
+		tags:             tags,
+		concurrentEvents: make(chan struct{}, maxConcurrentEvents),
 	}
 }
 
@@ -40,14 +42,18 @@ func (dh *dispatchingHandler) DispatchEvent(ctx context.Context, e *types.Event)
 		e.Hostname = string(e.SourceIP)
 	}
 	e.Tags = append(e.Tags, dh.tags...)
+	eventsDispatched := 0
 	dh.wg.Add(len(dh.backends))
 	for _, backend := range dh.backends {
-		go func(b backendTypes.Backend) {
-			defer dh.wg.Done()
-			if err := b.SendEvent(ctx, e); err != nil && err != context.Canceled && err != context.DeadlineExceeded {
-				log.Errorf("Sending event to backend failed: %v", err)
-			}
-		}(backend)
+		select {
+		case <-ctx.Done():
+			// Not all backends got the event, should decrement the wg counter
+			dh.wg.Add(eventsDispatched - len(dh.backends))
+			return ctx.Err()
+		case dh.concurrentEvents <- struct{}{}:
+			go dh.dispatchEvent(ctx, backend, e)
+			eventsDispatched++
+		}
 	}
 	return nil
 }
@@ -55,4 +61,14 @@ func (dh *dispatchingHandler) DispatchEvent(ctx context.Context, e *types.Event)
 // WaitForEvents waits for all event-dispatching goroutines to finish.
 func (dh *dispatchingHandler) WaitForEvents() {
 	dh.wg.Wait()
+}
+
+func (dh *dispatchingHandler) dispatchEvent(ctx context.Context, backend backendTypes.Backend, e *types.Event) {
+	defer dh.wg.Done()
+	defer func() {
+		<-dh.concurrentEvents
+	}()
+	if err := backend.SendEvent(ctx, e); err != nil && err != context.Canceled && err != context.DeadlineExceeded {
+		log.Errorf("Sending event to backend failed: %v", err)
+	}
 }
