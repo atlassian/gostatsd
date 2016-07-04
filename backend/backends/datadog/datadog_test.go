@@ -104,10 +104,10 @@ func metrics() *types.MetricMap {
 		NumStats: 2,
 		Counters: types.Counters{
 			"stat1": map[string]types.Counter{
-				"tag1": types.NewCounter(time.Now(), 1*time.Second, 5, "", nil),
+				"tag1": types.NewCounter(types.Nanotime(time.Now().UnixNano()), 5, "", nil),
 			},
 			"stat2": map[string]types.Counter{
-				"tag2": types.NewCounter(time.Now(), 2*time.Second, 50, "", nil),
+				"tag2": types.NewCounter(types.Nanotime(time.Now().UnixNano()), 50, "", nil),
 			},
 		},
 	}

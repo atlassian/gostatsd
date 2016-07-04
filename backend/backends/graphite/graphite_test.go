@@ -17,12 +17,12 @@ type testData struct {
 
 func TestPreparePayload(t *testing.T) {
 	assert := assert.New(t)
-	interval := types.Interval{Timestamp: time.Unix(123456, 0), Flush: 1 * time.Second}
+	timestamp := types.Nanotime(time.Unix(123456, 0).UnixNano())
 
 	metrics := &types.MetricMap{
 		Counters: types.Counters{
 			"stat1": map[string]types.Counter{
-				"tag1": {PerSecond: 1.1, Value: 5, Interval: interval},
+				"tag1": {PerSecond: 1.1, Value: 5, Timestamp: timestamp},
 			},
 		},
 		Timers: types.Timers{
@@ -32,13 +32,13 @@ func TestPreparePayload(t *testing.T) {
 					Percentiles: types.Percentiles{
 						types.Percentile{Float: 90, Str: "count_90"},
 					},
-					Interval: interval,
+					Timestamp: timestamp,
 				},
 			},
 		},
 		Gauges: types.Gauges{
 			"g1": map[string]types.Gauge{
-				"baz": {Value: 3, Interval: interval},
+				"baz": {Value: 3, Timestamp: timestamp},
 			},
 		},
 		Sets: types.Sets{
@@ -49,7 +49,7 @@ func TestPreparePayload(t *testing.T) {
 						"bob":  {},
 						"john": {},
 					},
-					Interval: interval,
+					Timestamp: timestamp,
 				},
 			},
 		},

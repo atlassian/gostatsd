@@ -120,7 +120,7 @@ func (f *flusher) handleSendResult(flushResults []error) {
 
 func (f *flusher) internalStats(totalStats uint32) *types.MetricMap {
 	receiverStats := f.receiver.GetStats()
-	now := time.Now()
+	now := types.Nanotime(time.Now().UnixNano())
 	c := make(types.Counters, 4)
 	f.addCounter(c, "bad_lines_seen", now, int64(receiverStats.BadLines-f.sentBadLines))
 	f.addCounter(c, "metrics_received", now, int64(receiverStats.MetricsReceived-f.sentMetricsReceived))
@@ -141,11 +141,13 @@ func (f *flusher) internalStats(totalStats uint32) *types.MetricMap {
 	}
 }
 
-func (f *flusher) addCounter(c types.Counters, name string, timestamp time.Time, value int64) {
-	counter := types.NewCounter(timestamp, f.flushInterval, value, "", f.defaultTags)
-	counter.PerSecond = float64(counter.Value) / (float64(f.flushInterval) / float64(time.Second))
-
+func (f *flusher) addCounter(c types.Counters, name string, timestamp types.Nanotime, value int64) {
 	c[internalStatName(name)] = map[string]types.Counter{
-		f.defaultTagsStr: counter,
+		f.defaultTagsStr: {
+			PerSecond: float64(value) / (float64(f.flushInterval) / float64(time.Second)),
+			Value:     value,
+			Timestamp: timestamp,
+			Tags:      f.defaultTags,
+		},
 	}
 }

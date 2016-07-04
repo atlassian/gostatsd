@@ -310,7 +310,7 @@ func (af *agrFactory) Create() Aggregator {
 }
 
 func internalStatName(name string) string {
-	return fmt.Sprintf("statsd.%s", name)
+	return "statsd." + name
 }
 
 func toStringSlice(fs []float64) []string {
