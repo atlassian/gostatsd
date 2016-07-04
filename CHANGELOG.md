@@ -1,3 +1,8 @@
+0.14.5
+------
+- Improved and reworked tags support; Unicode characters are preserved now.
+- Minor internals refactoring and optimization
+
 0.14.4
 ------
 - Send start and stop events (#21)
