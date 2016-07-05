@@ -306,7 +306,7 @@ type agrFactory struct {
 func (af *agrFactory) Create() Aggregator {
 	tags := make(types.Tags, 0, len(af.defaultTags)+1)
 	tags = append(tags, af.defaultTags...)
-	tags = append(tags, fmt.Sprintf("aggregator_%d", af.workerNumber))
+	tags = append(tags, fmt.Sprintf("aggregator_id:%d", af.workerNumber))
 	af.workerNumber++
 	return NewAggregator(af.percentThresholds, af.flushInterval, af.expiryInterval, tags)
 }
