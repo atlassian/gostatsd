@@ -45,9 +45,8 @@ type aggregator struct {
 }
 
 // NewAggregator creates a new Aggregator object.
-func NewAggregator(percentThresholds []float64, flushInterval, expiryInterval time.Duration, aggregatorTags types.Tags) Aggregator {
+func NewAggregator(percentThresholds []float64, expiryInterval time.Duration, aggregatorTags types.Tags) Aggregator {
 	a := aggregator{}
-	a.FlushInterval = flushInterval
 	a.lastFlush = time.Now()
 	a.expiryInterval = expiryInterval
 	a.Counters = types.Counters{}
@@ -80,8 +79,8 @@ func round(v float64) float64 {
 // Flush prepares the contents of an Aggregator for sending via the Sender.
 func (a *aggregator) Flush(now func() time.Time) {
 	startTime := now()
-	flushInterval := startTime.Sub(a.lastFlush)
-	flushInSeconds := float64(flushInterval.Nanoseconds()) / float64(time.Second.Nanoseconds())
+	a.FlushInterval = startTime.Sub(a.lastFlush)
+	flushInSeconds := float64(a.FlushInterval) / float64(time.Second)
 
 	a.receiveCounter(&types.Metric{
 		Name:  internalStatName("aggregator_num_stats"),

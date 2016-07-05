@@ -12,7 +12,6 @@ import (
 func newFakeAggregator() *aggregator {
 	return NewAggregator(
 		[]float64{90},
-		10*time.Second,
 		5*time.Minute,
 		types.Tags{"aggrDefault"},
 	).(*aggregator)
