@@ -46,16 +46,19 @@ type aggregator struct {
 
 // NewAggregator creates a new Aggregator object.
 func NewAggregator(percentThresholds []float64, expiryInterval time.Duration, aggregatorTags types.Tags) Aggregator {
-	a := aggregator{}
-	a.lastFlush = time.Now()
-	a.expiryInterval = expiryInterval
-	a.Counters = types.Counters{}
-	a.Timers = types.Timers{}
-	a.Gauges = types.Gauges{}
-	a.Sets = types.Sets{}
-	a.aggregatorTags = aggregatorTags
-	a.aggregatorTagsStr = aggregatorTags.SortedString()
-	a.percentThresholds = make(map[float64]percentStruct, len(percentThresholds))
+	a := aggregator{
+		expiryInterval:    expiryInterval,
+		lastFlush:         time.Now(),
+		percentThresholds: make(map[float64]percentStruct, len(percentThresholds)),
+		aggregatorTags:    aggregatorTags,
+		aggregatorTagsStr: aggregatorTags.SortedString(),
+		MetricMap: types.MetricMap{
+			Counters: types.Counters{},
+			Timers:   types.Timers{},
+			Gauges:   types.Gauges{},
+			Sets:     types.Sets{},
+		},
+	}
 	for _, pct := range percentThresholds {
 		sPct := strconv.Itoa(int(pct))
 		a.percentThresholds[pct] = percentStruct{
