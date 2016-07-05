@@ -58,14 +58,14 @@ func NewFlusher(flushInterval time.Duration, dispatcher Dispatcher, receiver Rec
 
 // Run runs the Flusher.
 func (f *flusher) Run(ctx context.Context) error {
-	flushTimer := time.NewTimer(f.flushInterval)
+	flushTicker := time.NewTicker(f.flushInterval)
+	defer flushTicker.Stop()
 	for {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
-		case <-flushTimer.C: // Time to flush to the backends
+		case <-flushTicker.C: // Time to flush to the backends
 			f.flushData(ctx)
-			flushTimer = time.NewTimer(f.flushInterval)
 		}
 	}
 }
