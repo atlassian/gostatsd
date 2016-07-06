@@ -33,10 +33,6 @@ const (
 	defaultMetricsPerBatch = 1000
 	// maxResponseSize is the maximum response size we are willing to read.
 	maxResponseSize = 10 * 1024
-	// gauge is datadog gauge type.
-	gauge = "gauge"
-	// rate is datadog rate type.
-	rate = "rate"
 )
 
 // client represents a Datadog client.
@@ -58,42 +54,6 @@ const sampleConfig = `
 	## Connection timeout.
 	# timeout = "5s"
 `
-
-// timeSeries represents a time series data structure.
-type timeSeries struct {
-	Series           []metric `json:"series"`
-	timestamp        float64
-	hostname         string
-	flushIntervalSec float64
-}
-
-// metric represents a metric data structure for Datadog.
-type metric struct {
-	Host     string   `json:"host,omitempty"`
-	Interval float64  `json:"interval,omitempty"`
-	Metric   string   `json:"metric"`
-	Points   [1]point `json:"points"`
-	Tags     []string `json:"tags,omitempty"`
-	Type     string   `json:"type,omitempty"`
-}
-
-// point is a Datadog data point.
-type point [2]float64
-
-// AddMetric adds a metric to the series.
-func (ts *timeSeries) addMetric(name, metricType string, value float64, hostname string, tags types.Tags) {
-	if hostname == "" {
-		hostname = ts.hostname
-	}
-	ts.Series = append(ts.Series, metric{
-		Host:     hostname,
-		Interval: ts.flushIntervalSec,
-		Metric:   name,
-		Points:   [1]point{{ts.timestamp, value}},
-		Tags:     tags,
-		Type:     metricType,
-	})
-}
 
 // event represents an event data structure for Datadog.
 type event struct {
@@ -143,63 +103,50 @@ func (d *client) SendMetricsAsync(ctx context.Context, metrics *types.MetricMap,
 }
 
 func (d *client) processMetrics(metrics *types.MetricMap, cb func(*timeSeries)) {
-	interval := metrics.FlushInterval
-	ts := &timeSeries{
-		Series:           make([]metric, 0, d.metricsPerBatch),
+	fl := flush{
+		ts: &timeSeries{
+			Series: make([]metric, 0, d.metricsPerBatch),
+		},
 		timestamp:        float64(d.now().Unix()),
 		hostname:         d.hostname,
-		flushIntervalSec: interval.Seconds(),
+		flushIntervalSec: metrics.FlushInterval.Seconds(),
+		metricsPerBatch:  d.metricsPerBatch,
+		cb:               cb,
 	}
 
 	metrics.Counters.Each(func(key, tagsKey string, counter types.Counter) {
-		ts.addMetric(key, rate, counter.PerSecond, counter.Hostname, counter.Tags)
-		ts.addMetric(fmt.Sprintf("%s.count", key), gauge, float64(counter.Value), counter.Hostname, counter.Tags)
-		d.maybeFlush(&ts, cb)
+		fl.addMetric(key, rate, counter.PerSecond, counter.Hostname, counter.Tags)
+		fl.addMetric(fmt.Sprintf("%s.count", key), gauge, float64(counter.Value), counter.Hostname, counter.Tags)
+		fl.maybeFlush()
 	})
 
 	metrics.Timers.Each(func(key, tagsKey string, timer types.Timer) {
-		ts.addMetric(fmt.Sprintf("%s.lower", key), gauge, timer.Min, timer.Hostname, timer.Tags)
-		ts.addMetric(fmt.Sprintf("%s.upper", key), gauge, timer.Max, timer.Hostname, timer.Tags)
-		ts.addMetric(fmt.Sprintf("%s.count", key), gauge, float64(timer.Count), timer.Hostname, timer.Tags)
-		ts.addMetric(fmt.Sprintf("%s.count_ps", key), rate, timer.PerSecond, timer.Hostname, timer.Tags)
-		ts.addMetric(fmt.Sprintf("%s.mean", key), gauge, timer.Mean, timer.Hostname, timer.Tags)
-		ts.addMetric(fmt.Sprintf("%s.median", key), gauge, timer.Median, timer.Hostname, timer.Tags)
-		ts.addMetric(fmt.Sprintf("%s.std", key), gauge, timer.StdDev, timer.Hostname, timer.Tags)
-		ts.addMetric(fmt.Sprintf("%s.sum", key), gauge, timer.Sum, timer.Hostname, timer.Tags)
-		ts.addMetric(fmt.Sprintf("%s.sum_squares", key), gauge, timer.SumSquares, timer.Hostname, timer.Tags)
+		fl.addMetric(fmt.Sprintf("%s.lower", key), gauge, timer.Min, timer.Hostname, timer.Tags)
+		fl.addMetric(fmt.Sprintf("%s.upper", key), gauge, timer.Max, timer.Hostname, timer.Tags)
+		fl.addMetric(fmt.Sprintf("%s.count", key), gauge, float64(timer.Count), timer.Hostname, timer.Tags)
+		fl.addMetric(fmt.Sprintf("%s.count_ps", key), rate, timer.PerSecond, timer.Hostname, timer.Tags)
+		fl.addMetric(fmt.Sprintf("%s.mean", key), gauge, timer.Mean, timer.Hostname, timer.Tags)
+		fl.addMetric(fmt.Sprintf("%s.median", key), gauge, timer.Median, timer.Hostname, timer.Tags)
+		fl.addMetric(fmt.Sprintf("%s.std", key), gauge, timer.StdDev, timer.Hostname, timer.Tags)
+		fl.addMetric(fmt.Sprintf("%s.sum", key), gauge, timer.Sum, timer.Hostname, timer.Tags)
+		fl.addMetric(fmt.Sprintf("%s.sum_squares", key), gauge, timer.SumSquares, timer.Hostname, timer.Tags)
 		for _, pct := range timer.Percentiles {
-			ts.addMetric(fmt.Sprintf("%s.%s", key, pct.Str), gauge, pct.Float, timer.Hostname, timer.Tags)
+			fl.addMetric(fmt.Sprintf("%s.%s", key, pct.Str), gauge, pct.Float, timer.Hostname, timer.Tags)
 		}
-		d.maybeFlush(&ts, cb)
+		fl.maybeFlush()
 	})
 
 	metrics.Gauges.Each(func(key, tagsKey string, g types.Gauge) {
-		ts.addMetric(key, gauge, g.Value, g.Hostname, g.Tags)
-		d.maybeFlush(&ts, cb)
+		fl.addMetric(key, gauge, g.Value, g.Hostname, g.Tags)
+		fl.maybeFlush()
 	})
 
 	metrics.Sets.Each(func(key, tagsKey string, set types.Set) {
-		ts.addMetric(key, gauge, float64(len(set.Values)), set.Hostname, set.Tags)
-		d.maybeFlush(&ts, cb)
+		fl.addMetric(key, gauge, float64(len(set.Values)), set.Hostname, set.Tags)
+		fl.maybeFlush()
 	})
 
-	if len(ts.Series) > 0 {
-		cb(ts)
-	}
-}
-
-func (d *client) maybeFlush(ts **timeSeries, cb func(*timeSeries)) {
-	t := *ts
-	if uint(len(t.Series))+20 >= d.metricsPerBatch { // flush before it reaches max size and grows the slice
-		cb(t)
-		// We want external ts pointer to point to the new object
-		*ts = &timeSeries{
-			Series:           make([]metric, 0, d.metricsPerBatch),
-			timestamp:        t.timestamp,
-			hostname:         t.hostname,
-			flushIntervalSec: t.flushIntervalSec,
-		}
-	}
+	fl.finish()
 }
 
 func (d *client) postMetrics(ts *timeSeries) error {
