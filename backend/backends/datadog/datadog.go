@@ -47,6 +47,7 @@ type client struct {
 	maxRequestElapsedTime time.Duration
 	client                *http.Client
 	metricsPerBatch       uint
+	now                   func() time.Time // Returns current time. Useful for testing.
 }
 
 const sampleConfig = `
@@ -80,7 +81,7 @@ type metric struct {
 type point [2]float64
 
 // AddMetric adds a metric to the series.
-func (ts *timeSeries) addMetric(name, metricType, hostname string, value float64, tags types.Tags) {
+func (ts *timeSeries) addMetric(name, metricType string, value float64, hostname string, tags types.Tags) {
 	if hostname == "" {
 		hostname = ts.hostname
 	}
@@ -145,40 +146,40 @@ func (d *client) processMetrics(metrics *types.MetricMap, cb func(*timeSeries)) 
 	interval := metrics.FlushInterval
 	ts := &timeSeries{
 		Series:           make([]metric, 0, d.metricsPerBatch),
-		timestamp:        float64(time.Now().Unix()),
+		timestamp:        float64(d.now().Unix()),
 		hostname:         d.hostname,
 		flushIntervalSec: interval.Seconds(),
 	}
 
 	metrics.Counters.Each(func(key, tagsKey string, counter types.Counter) {
-		ts.addMetric(key, rate, counter.Hostname, counter.PerSecond, counter.Tags)
-		ts.addMetric(fmt.Sprintf("%s.count", key), counter.Hostname, gauge, float64(counter.Value), counter.Tags)
+		ts.addMetric(key, rate, counter.PerSecond, counter.Hostname, counter.Tags)
+		ts.addMetric(fmt.Sprintf("%s.count", key), gauge, float64(counter.Value), counter.Hostname, counter.Tags)
 		d.maybeFlush(&ts, cb)
 	})
 
 	metrics.Timers.Each(func(key, tagsKey string, timer types.Timer) {
-		ts.addMetric(fmt.Sprintf("%s.lower", key), timer.Hostname, gauge, timer.Min, timer.Tags)
-		ts.addMetric(fmt.Sprintf("%s.upper", key), timer.Hostname, gauge, timer.Max, timer.Tags)
-		ts.addMetric(fmt.Sprintf("%s.count", key), timer.Hostname, gauge, float64(timer.Count), timer.Tags)
-		ts.addMetric(fmt.Sprintf("%s.count_ps", key), timer.Hostname, rate, timer.PerSecond, timer.Tags)
-		ts.addMetric(fmt.Sprintf("%s.mean", key), timer.Hostname, gauge, timer.Mean, timer.Tags)
-		ts.addMetric(fmt.Sprintf("%s.median", key), timer.Hostname, gauge, timer.Median, timer.Tags)
-		ts.addMetric(fmt.Sprintf("%s.std", key), timer.Hostname, gauge, timer.StdDev, timer.Tags)
-		ts.addMetric(fmt.Sprintf("%s.sum", key), timer.Hostname, gauge, timer.Sum, timer.Tags)
-		ts.addMetric(fmt.Sprintf("%s.sum_squares", key), timer.Hostname, gauge, timer.SumSquares, timer.Tags)
+		ts.addMetric(fmt.Sprintf("%s.lower", key), gauge, timer.Min, timer.Hostname, timer.Tags)
+		ts.addMetric(fmt.Sprintf("%s.upper", key), gauge, timer.Max, timer.Hostname, timer.Tags)
+		ts.addMetric(fmt.Sprintf("%s.count", key), gauge, float64(timer.Count), timer.Hostname, timer.Tags)
+		ts.addMetric(fmt.Sprintf("%s.count_ps", key), rate, timer.PerSecond, timer.Hostname, timer.Tags)
+		ts.addMetric(fmt.Sprintf("%s.mean", key), gauge, timer.Mean, timer.Hostname, timer.Tags)
+		ts.addMetric(fmt.Sprintf("%s.median", key), gauge, timer.Median, timer.Hostname, timer.Tags)
+		ts.addMetric(fmt.Sprintf("%s.std", key), gauge, timer.StdDev, timer.Hostname, timer.Tags)
+		ts.addMetric(fmt.Sprintf("%s.sum", key), gauge, timer.Sum, timer.Hostname, timer.Tags)
+		ts.addMetric(fmt.Sprintf("%s.sum_squares", key), gauge, timer.SumSquares, timer.Hostname, timer.Tags)
 		for _, pct := range timer.Percentiles {
-			ts.addMetric(fmt.Sprintf("%s.%s", key, pct.Str), timer.Hostname, gauge, pct.Float, timer.Tags)
+			ts.addMetric(fmt.Sprintf("%s.%s", key, pct.Str), gauge, pct.Float, timer.Hostname, timer.Tags)
 		}
 		d.maybeFlush(&ts, cb)
 	})
 
 	metrics.Gauges.Each(func(key, tagsKey string, g types.Gauge) {
-		ts.addMetric(key, g.Hostname, gauge, g.Value, g.Tags)
+		ts.addMetric(key, gauge, g.Value, g.Hostname, g.Tags)
 		d.maybeFlush(&ts, cb)
 	})
 
 	metrics.Sets.Each(func(key, tagsKey string, set types.Set) {
-		ts.addMetric(key, set.Hostname, gauge, float64(len(set.Values)), set.Tags)
+		ts.addMetric(key, gauge, float64(len(set.Values)), set.Hostname, set.Tags)
 		d.maybeFlush(&ts, cb)
 	})
 
@@ -330,6 +331,7 @@ func NewClient(apiEndpoint, apiKey string, metricsPerBatch uint, clientTimeout, 
 			Timeout: clientTimeout,
 		},
 		metricsPerBatch: metricsPerBatch,
+		now:             time.Now,
 	}, nil
 }
 
