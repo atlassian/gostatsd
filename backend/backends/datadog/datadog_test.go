@@ -15,23 +15,18 @@ import (
 )
 
 func TestRetries(t *testing.T) {
+	assert := assert.New(t)
 	var requestNum uint32
 	mux := http.NewServeMux()
 	mux.HandleFunc("/api/v1/series", func(w http.ResponseWriter, r *http.Request) {
 		defer r.Body.Close()
-		atomic.AddUint32(&requestNum, 1)
+		n := atomic.AddUint32(&requestNum, 1)
 		data, err := ioutil.ReadAll(r.Body)
-		if err != nil {
-			t.Error(err)
+		if !assert.Nil(err) {
 			return
 		}
-		if len(data) == 0 {
-			t.Errorf("empty body")
-		}
-		if r.ContentLength != int64(len(data)) {
-			t.Errorf("unexpected body length: %d. Content-Length is %d", len(data), r.ContentLength)
-		}
-		if requestNum == 1 {
+		assert.NotEmpty(data)
+		if n == 1 {
 			// Return error on first request to trigger a retry
 			w.WriteHeader(http.StatusBadRequest)
 		}
@@ -40,8 +35,8 @@ func TestRetries(t *testing.T) {
 	defer ts.Close()
 
 	client, err := NewClient(ts.URL, "apiKey123", defaultMetricsPerBatch, 1*time.Second, 2*time.Second)
-	if err != nil {
-		t.Fatal(err)
+	if !assert.Nil(err) {
+		return
 	}
 	res := make(chan []error, 1)
 	client.SendMetricsAsync(context.Background(), twoCounters(), func(errs []error) {
@@ -49,41 +44,30 @@ func TestRetries(t *testing.T) {
 	})
 	errs := <-res
 	for _, err := range errs {
-		if err != nil {
-			t.Error(err)
-		}
+		assert.Nil(err)
 	}
-	if requestNum != 2 {
-		t.Errorf("unexpected number of requests: %d", requestNum)
-	}
+	assert.EqualValues(2, requestNum)
 }
 
 func TestSendMetricsInMultipleBatches(t *testing.T) {
+	assert := assert.New(t)
 	var requestNum uint32
 	mux := http.NewServeMux()
 	mux.HandleFunc("/api/v1/series", func(w http.ResponseWriter, r *http.Request) {
 		defer r.Body.Close()
 		atomic.AddUint32(&requestNum, 1)
 		data, err := ioutil.ReadAll(r.Body)
-		if err != nil {
-			t.Error(err)
+		if !assert.Nil(err) {
 			return
 		}
-		if len(data) == 0 {
-			t.Errorf("empty body")
-			w.WriteHeader(http.StatusBadRequest)
-		}
-		if r.ContentLength != int64(len(data)) {
-			t.Errorf("unexpected body length: %d. Content-Length is %d", len(data), r.ContentLength)
-			w.WriteHeader(http.StatusBadRequest)
-		}
+		assert.NotEmpty(data)
 	})
 	ts := httptest.NewServer(mux)
 	defer ts.Close()
 
 	client, err := NewClient(ts.URL, "apiKey123", 1, 1*time.Second, 2*time.Second)
-	if err != nil {
-		t.Fatal(err)
+	if !assert.Nil(err) {
+		return
 	}
 	res := make(chan []error, 1)
 	client.SendMetricsAsync(context.Background(), twoCounters(), func(errs []error) {
@@ -91,13 +75,9 @@ func TestSendMetricsInMultipleBatches(t *testing.T) {
 	})
 	errs := <-res
 	for _, err := range errs {
-		if err != nil {
-			t.Error(err)
-		}
+		assert.Nil(err)
 	}
-	if requestNum != 2 {
-		t.Errorf("unexpected number of requests: %d", requestNum)
-	}
+	assert.EqualValues(2, requestNum)
 }
 
 func TestSendMetrics(t *testing.T) {
@@ -130,8 +110,8 @@ func TestSendMetrics(t *testing.T) {
 	defer ts.Close()
 
 	cli, err := NewClient(ts.URL, "apiKey123", 1000, 1*time.Second, 2*time.Second)
-	if err != nil {
-		t.Fatal(err)
+	if !assert.Nil(err) {
+		return
 	}
 	cli.(*client).now = func() time.Time {
 		return time.Unix(100, 0)
