@@ -1,6 +1,7 @@
 package main
 
 import (
+	_ "expvar"
 	"fmt"
 	"math/rand"
 	"net/http"
