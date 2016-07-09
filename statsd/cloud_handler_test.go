@@ -275,6 +275,10 @@ func (fp *fakeCountingProvider) SampleConfig() string {
 	return ""
 }
 
+func (fp *fakeCountingProvider) SelfIP() (types.IP, error) {
+	return types.UnknownIP, nil
+}
+
 type fakeProviderIP struct {
 	fakeCountingProvider
 	Region string

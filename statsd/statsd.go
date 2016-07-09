@@ -1,7 +1,6 @@
 package statsd
 
 import (
-	"fmt"
 	"net"
 	"os"
 	"runtime"
@@ -162,7 +161,6 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 	factory := agrFactory{
 		percentThresholds: s.PercentThreshold,
 		expiryInterval:    s.ExpiryInterval,
-		defaultTags:       s.DefaultTags,
 	}
 	dispatcher := NewDispatcher(s.MaxWorkers, s.MaxQueueSize, &factory)
 
@@ -226,7 +224,12 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 	}
 
 	// 4. Start the Flusher
-	flusher := NewFlusher(s.FlushInterval, dispatcher, receiver, s.DefaultTags, s.Backends)
+	ip, err := s.CloudProvider.SelfIP()
+	if err != nil {
+		log.Warnf("Failed to get self ip: %v", err)
+		ip = types.UnknownIP
+	}
+	flusher := NewFlusher(s.FlushInterval, dispatcher, receiver, handler, s.Backends, ip)
 	var wgFlusher sync.WaitGroup
 	defer wgFlusher.Wait() // Wait for the Flusher to finish
 	wgFlusher.Add(1)
@@ -297,20 +300,10 @@ func getHost() string {
 type agrFactory struct {
 	percentThresholds []float64
 	expiryInterval    time.Duration
-	defaultTags       types.Tags
-	workerNumber      uint16
 }
 
 func (af *agrFactory) Create() Aggregator {
-	tags := make(types.Tags, 0, len(af.defaultTags)+1)
-	tags = append(tags, af.defaultTags...)
-	tags = append(tags, fmt.Sprintf("aggregator_id:%d", af.workerNumber))
-	af.workerNumber++
-	return NewAggregator(af.percentThresholds, af.expiryInterval, tags)
-}
-
-func internalStatName(name string) string {
-	return "statsd." + name
+	return NewAggregator(af.percentThresholds, af.expiryInterval)
 }
 
 func toStringSlice(fs []float64) []string {

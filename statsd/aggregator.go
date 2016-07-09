@@ -39,19 +39,15 @@ type aggregator struct {
 	expiryInterval    time.Duration // How often to expire metrics
 	lastFlush         time.Time     // Last time the metrics where aggregated
 	percentThresholds map[float64]percentStruct
-	aggregatorTags    types.Tags // Tags for system metrics
-	aggregatorTagsStr string     // Tags for system metrics (as string)
 	types.MetricMap
 }
 
 // NewAggregator creates a new Aggregator object.
-func NewAggregator(percentThresholds []float64, expiryInterval time.Duration, aggregatorTags types.Tags) Aggregator {
+func NewAggregator(percentThresholds []float64, expiryInterval time.Duration) Aggregator {
 	a := aggregator{
 		expiryInterval:    expiryInterval,
 		lastFlush:         time.Now(),
 		percentThresholds: make(map[float64]percentStruct, len(percentThresholds)),
-		aggregatorTags:    aggregatorTags,
-		aggregatorTagsStr: aggregatorTags.SortedString(),
 		MetricMap: types.MetricMap{
 			Counters: types.Counters{},
 			Timers:   types.Timers{},
@@ -84,13 +80,6 @@ func (a *aggregator) Flush(now func() time.Time) {
 	startTime := now()
 	a.FlushInterval = startTime.Sub(a.lastFlush)
 	flushInSeconds := float64(a.FlushInterval) / float64(time.Second)
-
-	a.receiveCounter(&types.Metric{
-		Name:  internalStatName("aggregator_num_stats"),
-		Value: float64(a.NumStats),
-		Tags:  a.aggregatorTags,
-		Type:  types.COUNTER,
-	}, a.aggregatorTagsStr, types.Nanotime(startTime.UnixNano()))
 
 	a.Counters.Each(func(key, tagsKey string, counter types.Counter) {
 		counter.PerSecond = float64(counter.Value) / flushInSeconds
@@ -181,14 +170,6 @@ func (a *aggregator) Flush(now func() time.Time) {
 	flushTime := now()
 
 	a.ProcessingTime = flushTime.Sub(startTime)
-
-	a.receiveGauge(&types.Metric{
-		Name:  internalStatName("processing_time"),
-		Value: float64(a.ProcessingTime) / float64(time.Millisecond),
-		Tags:  a.aggregatorTags,
-		Type:  types.GAUGE,
-	}, a.aggregatorTagsStr, types.Nanotime(flushTime.UnixNano()))
-
 	a.lastFlush = flushTime
 }
 

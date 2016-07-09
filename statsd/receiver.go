@@ -17,12 +17,6 @@ import (
 // In practice it is highly unlikely but still possible to get packets bigger than usual MTU of 1500.
 const packetSizeUDP = 0xffff
 
-// Handler interface can be used to handle metrics and events for a Receiver.
-type Handler interface {
-	DispatchMetric(context.Context, *types.Metric) error
-	DispatchEvent(context.Context, *types.Event) error
-}
-
 // Receiver receives data on its PacketConn and converts lines into Metrics.
 // For each types.Metric it calls Handler.HandleMetric()
 type Receiver interface {

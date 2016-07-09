@@ -128,7 +128,7 @@ func (c *consoleConn) serve(ctx context.Context) {
 
 func (c *consoleConn) delete(ctx context.Context, keys []string, f mapperFunc) uint32 {
 	var counter uint32
-	wg := c.server.Dispatcher.Process(ctx, func(aggr Aggregator) {
+	wg := c.server.Dispatcher.Process(ctx, func(workerId uint16, aggr Aggregator) {
 		aggr.Process(func(m *types.MetricMap) {
 			metrics := f(m)
 			var i uint32
@@ -149,7 +149,7 @@ type mapperFunc func(*types.MetricMap) types.AggregatedMetrics
 func (c *consoleConn) printMetrics(ctx context.Context, f mapperFunc) (string, error) {
 	results := make(chan *bytes.Buffer, 16) // Some space to avoid blocking
 
-	wg := c.server.Dispatcher.Process(ctx, func(aggr Aggregator) {
+	wg := c.server.Dispatcher.Process(ctx, func(workerId uint16, aggr Aggregator) {
 		aggr.Process(func(m *types.MetricMap) {
 			buf := new(bytes.Buffer) // We cannot share a buffer because this function is executed concurrently by workers
 			_, _ = fmt.Fprintln(buf, f(m))
