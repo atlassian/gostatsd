@@ -207,8 +207,8 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 	}
 	defer func() {
 		// This makes receivers error out and stop
-		if err := c.Close(); err != nil {
-			log.Warnf("Error closing socket: %v", err)
+		if e := c.Close(); e != nil {
+			log.Warnf("Error closing socket: %v", e)
 		}
 	}()
 
@@ -217,8 +217,8 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 	for r := 0; r < s.MaxReaders; r++ {
 		go func() {
 			defer wgReceiver.Done()
-			if err := receiver.Receive(ctx, c); err != nil && err != context.Canceled && err != context.DeadlineExceeded {
-				log.Panicf("Receiver quit unexpectedly: %v", err)
+			if e := receiver.Receive(ctx, c); e != nil && e != context.Canceled && e != context.DeadlineExceeded {
+				log.Panicf("Receiver quit unexpectedly: %v", e)
 			}
 		}()
 	}

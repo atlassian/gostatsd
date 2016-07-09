@@ -1,14 +1,13 @@
 package statsd
 
 import (
+	"fmt"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	backendTypes "github.com/atlassian/gostatsd/backend/types"
 	"github.com/atlassian/gostatsd/types"
-
-	"fmt"
 
 	log "github.com/Sirupsen/logrus"
 	"golang.org/x/net/context"
