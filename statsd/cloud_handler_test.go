@@ -260,6 +260,9 @@ func (ch *countingHandler) DispatchEvent(ctx context.Context, e *types.Event) er
 	return nil
 }
 
+func (ch *countingHandler) WaitForEvents() {
+}
+
 type fakeCountingProvider struct {
 	mu  sync.Mutex
 	ips []types.IP

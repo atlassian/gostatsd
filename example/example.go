@@ -17,7 +17,7 @@ func main() {
 		log.Fatal(err)
 	}
 	defer c.Close()
-	r.Receive(context.TODO(), c)
+	log.Fatal(r.Receive(context.TODO(), c))
 }
 
 type handler struct{}
@@ -30,4 +30,7 @@ func (h handler) DispatchMetric(ctx context.Context, m *types.Metric) error {
 func (h handler) DispatchEvent(ctx context.Context, e *types.Event) error {
 	log.Printf("%s", e)
 	return nil
+}
+
+func (h handler) WaitForEvents() {
 }

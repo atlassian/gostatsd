@@ -120,3 +120,6 @@ func (h nopHandler) DispatchMetric(ctx context.Context, m *types.Metric) error {
 func (h nopHandler) DispatchEvent(ctx context.Context, e *types.Event) error {
 	return context.Canceled // Stops receiver after first read is done
 }
+
+func (h nopHandler) WaitForEvents() {
+}

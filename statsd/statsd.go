@@ -171,15 +171,13 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 	wgDispatcher.Add(1)
 	go func() {
 		defer wgDispatcher.Done()
-		if dispErr := dispatcher.Run(ctxDisp); dispErr != nil && dispErr != context.Canceled {
+		if dispErr := dispatcher.Run(ctxDisp); unexpectedErr(dispErr) {
 			log.Panicf("Dispatcher quit unexpectedly: %v", dispErr)
 		}
 	}()
 
 	// 2. Start handlers
-	var handler Handler
-	dispHandler := NewDispatchingHandler(dispatcher, s.Backends, s.DefaultTags, maxConcurrentEvents)
-	handler = dispHandler
+	handler := NewDispatchingHandler(dispatcher, s.Backends, s.DefaultTags, maxConcurrentEvents)
 	if s.CloudProvider != nil {
 		ch := NewCloudHandler(s.CloudProvider, handler, s.Limiter, nil)
 		handler = ch
@@ -190,7 +188,7 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 		wgCloudHandler.Add(1)
 		go func() {
 			defer wgCloudHandler.Done()
-			if handlerErr := ch.Run(ctxHandler); handlerErr != nil && handlerErr != context.Canceled {
+			if handlerErr := ch.Run(ctxHandler); unexpectedErr(handlerErr) {
 				log.Panicf("Cloud handler quit unexpectedly: %v", handlerErr)
 			}
 		}()
@@ -217,7 +215,7 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 	for r := 0; r < s.MaxReaders; r++ {
 		go func() {
 			defer wgReceiver.Done()
-			if e := receiver.Receive(ctx, c); e != nil && e != context.Canceled && e != context.DeadlineExceeded {
+			if e := receiver.Receive(ctx, c); unexpectedErr(e) {
 				log.Panicf("Receiver quit unexpectedly: %v", e)
 			}
 		}()
@@ -229,13 +227,14 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 		log.Warnf("Failed to get self ip: %v", err)
 		ip = types.UnknownIP
 	}
-	flusher := NewFlusher(s.FlushInterval, dispatcher, receiver, handler, s.Backends, ip)
+	hostname := getHost()
+	flusher := NewFlusher(s.FlushInterval, dispatcher, receiver, handler, s.Backends, ip, hostname)
 	var wgFlusher sync.WaitGroup
 	defer wgFlusher.Wait() // Wait for the Flusher to finish
 	wgFlusher.Add(1)
 	go func() {
 		defer wgFlusher.Done()
-		if err := flusher.Run(ctx); err != nil && err != context.Canceled && err != context.DeadlineExceeded {
+		if err := flusher.Run(ctx); unexpectedErr(err) {
 			log.Panicf("Flusher quit unexpectedly: %v", err)
 		}
 	}()
@@ -251,41 +250,43 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 	//}
 
 	// 6. Send events on start and on stop
-	defer sendStopEvent(dispHandler)
-	sendStartEvent(ctx, dispHandler)
+	defer sendStopEvent(handler, ip, hostname)
+	sendStartEvent(ctx, handler, ip, hostname)
 
 	// 7. Listen until done
 	<-ctx.Done()
 	return ctx.Err()
 }
 
-func sendStartEvent(ctx context.Context, dispHandler *dispatchingHandler) {
-	err := dispHandler.DispatchEvent(ctx, &types.Event{
+func sendStartEvent(ctx context.Context, handler Handler, selfIP types.IP, hostname string) {
+	err := handler.DispatchEvent(ctx, &types.Event{
 		Title:        "Gostatsd started",
 		Text:         "Gostatsd started",
 		DateHappened: time.Now().Unix(),
-		Hostname:     getHost(),
+		Hostname:     hostname,
+		SourceIP:     selfIP,
 		Priority:     types.PriLow,
 	})
-	if err != nil {
+	if unexpectedErr(err) {
 		log.Warnf("Failed to send start event: %v", err)
 	}
 }
 
-func sendStopEvent(dispHandler *dispatchingHandler) {
+func sendStopEvent(handler Handler, selfIP types.IP, hostname string) {
 	ctx, cancelFunc := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancelFunc()
-	err := dispHandler.DispatchEvent(ctx, &types.Event{
+	err := handler.DispatchEvent(ctx, &types.Event{
 		Title:        "Gostatsd stopped",
 		Text:         "Gostatsd stopped",
 		DateHappened: time.Now().Unix(),
-		Hostname:     getHost(),
+		Hostname:     hostname,
+		SourceIP:     selfIP,
 		Priority:     types.PriLow,
 	})
-	if err != nil {
+	if unexpectedErr(err) {
 		log.Warnf("Failed to send stop event: %v", err)
 	}
-	dispHandler.WaitForEvents()
+	handler.WaitForEvents()
 }
 
 func getHost() string {
@@ -312,4 +313,8 @@ func toStringSlice(fs []float64) []string {
 		s[i] = strconv.FormatFloat(f, 'f', -1, 64)
 	}
 	return s
+}
+
+func unexpectedErr(err error) bool {
+	return err != nil && err != context.Canceled && err != context.DeadlineExceeded
 }

@@ -48,6 +48,7 @@ type flusher struct {
 	handler       Handler
 	backends      []backendTypes.Backend
 	selfIP        types.IP
+	hostname      string
 
 	// Sent statistics for Receiver. Keep sent values to calculate diff.
 	sentBadLines        uint64
@@ -56,7 +57,7 @@ type flusher struct {
 }
 
 // NewFlusher creates a new Flusher with provided configuration.
-func NewFlusher(flushInterval time.Duration, dispatcher Dispatcher, receiver Receiver, handler Handler, backends []backendTypes.Backend, selfIP types.IP) Flusher {
+func NewFlusher(flushInterval time.Duration, dispatcher Dispatcher, receiver Receiver, handler Handler, backends []backendTypes.Backend, selfIP types.IP, hostname string) Flusher {
 	return &flusher{
 		flushInterval: flushInterval,
 		dispatcher:    dispatcher,
@@ -64,6 +65,7 @@ func NewFlusher(flushInterval time.Duration, dispatcher Dispatcher, receiver Rec
 		handler:       handler,
 		backends:      backends,
 		selfIP:        selfIP,
+		hostname:      hostname,
 	}
 }
 
@@ -183,6 +185,7 @@ func (f *flusher) dispatchInternalStats(ctx context.Context, dispatcherStats map
 	for _, metric := range metrics {
 		m := metric // Copy into a new variable
 		m.SourceIP = f.selfIP
+		m.Hostname = f.hostname
 		if err := f.handler.DispatchMetric(ctx, &m); err != nil {
 			if err == context.Canceled || err == context.DeadlineExceeded {
 				return
