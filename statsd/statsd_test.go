@@ -106,3 +106,7 @@ func (fp *fakeProvider) SampleConfig() string {
 func (fp *fakeProvider) Instance(IP types.IP) (*cloudTypes.Instance, error) {
 	return fp.instance, nil
 }
+
+func (fp *fakeProvider) SelfIP() (types.IP, error) {
+	return types.UnknownIP, nil
+}

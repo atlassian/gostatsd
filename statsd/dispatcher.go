@@ -12,7 +12,7 @@ import (
 )
 
 // DispatcherProcessFunc is a function that gets executed by Dispatcher for each Aggregator, passing it into the function.
-type DispatcherProcessFunc func(Aggregator)
+type DispatcherProcessFunc func(uint16, Aggregator)
 
 // Dispatcher is responsible for managing Aggregators' lifecycle and dispatching metrics among them.
 type Dispatcher interface {
@@ -44,6 +44,7 @@ type worker struct {
 	aggr         Aggregator
 	metricsQueue chan *types.Metric
 	processChan  chan *processCommand
+	id           uint16
 }
 
 type dispatcher struct {
@@ -62,6 +63,7 @@ func NewDispatcher(numWorkers int, perWorkerBufferSize int, af AggregatorFactory
 			aggr:         af.Create(),
 			metricsQueue: make(chan *types.Metric, perWorkerBufferSize),
 			processChan:  make(chan *processCommand),
+			id:           i,
 		}
 	}
 	return &dispatcher{
@@ -144,5 +146,5 @@ func (w *worker) work(wg *sync.WaitGroup) {
 
 func (w *worker) executeProcess(cmd *processCommand) {
 	defer cmd.wg.Done() // Done with the process command
-	cmd.f(w.aggr)
+	cmd.f(w.id, w.aggr)
 }

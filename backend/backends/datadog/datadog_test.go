@@ -129,7 +129,9 @@ func TestSendMetrics(t *testing.T) {
 // twoCounters returns two counters.
 func twoCounters() *types.MetricMap {
 	return &types.MetricMap{
-		NumStats: 2,
+		MetricStats: types.MetricStats{
+			NumStats: 2,
+		},
 		Counters: types.Counters{
 			"stat1": map[string]types.Counter{
 				"tag1": types.NewCounter(types.Nanotime(time.Now().UnixNano()), 5, "", nil),
@@ -143,9 +145,11 @@ func twoCounters() *types.MetricMap {
 
 func metricsOneOfEach() *types.MetricMap {
 	return &types.MetricMap{
-		NumStats:       4,
-		ProcessingTime: 10 * time.Millisecond,
-		FlushInterval:  1100 * time.Millisecond,
+		MetricStats: types.MetricStats{
+			NumStats:       4,
+			ProcessingTime: 10 * time.Millisecond,
+		},
+		FlushInterval: 1100 * time.Millisecond,
 		Counters: types.Counters{
 			"c1": map[string]types.Counter{
 				"tag1": {PerSecond: 1.1, Value: 5, Timestamp: types.Nanotime(100), Hostname: "h1", Tags: types.Tags{"tag1"}},

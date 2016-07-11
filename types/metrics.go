@@ -79,16 +79,21 @@ type AggregatedMetrics interface {
 	HasChildren(string) bool
 }
 
+// MetricStats holds stats of an Aggregator.
+type MetricStats struct {
+	ProcessingTime time.Duration
+	NumStats       uint32
+}
+
 // MetricMap is used for storing aggregated Metric values.
 // The keys of each map are metric names.
 type MetricMap struct {
-	NumStats       uint32
-	ProcessingTime time.Duration
-	FlushInterval  time.Duration
-	Counters       Counters
-	Timers         Timers
-	Gauges         Gauges
-	Sets           Sets
+	MetricStats
+	FlushInterval time.Duration
+	Counters      Counters
+	Timers        Timers
+	Gauges        Gauges
+	Sets          Sets
 }
 
 func (m *MetricMap) String() string {

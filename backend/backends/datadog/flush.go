@@ -17,7 +17,6 @@ const (
 type flush struct {
 	ts               *timeSeries
 	timestamp        float64
-	hostname         string
 	flushIntervalSec float64
 	metricsPerBatch  uint
 	cb               func(*timeSeries)
@@ -43,9 +42,6 @@ type point [2]float64
 
 // AddMetric adds a metric to the series.
 func (f *flush) addMetric(name string, metricType metricType, value float64, hostname string, tags types.Tags) {
-	if hostname == "" {
-		hostname = f.hostname
-	}
 	f.ts.Series = append(f.ts.Series, metric{
 		Host:     hostname,
 		Interval: f.flushIntervalSec,

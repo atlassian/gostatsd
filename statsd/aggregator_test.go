@@ -13,7 +13,6 @@ func newFakeAggregator() *aggregator {
 	return NewAggregator(
 		[]float64{90},
 		5*time.Minute,
-		types.Tags{"aggrDefault"},
 	).(*aggregator)
 }
 
@@ -43,7 +42,6 @@ func TestFlush(t *testing.T) {
 	assert := assert.New(t)
 
 	now := time.Now()
-	nowNano := types.Nanotime(now.UnixNano())
 	nowFn := func() time.Time { return now }
 	ma := newFakeAggregator()
 	expected := newFakeAggregator()
@@ -59,13 +57,6 @@ func TestFlush(t *testing.T) {
 	expected.Counters["some"][""] = types.Counter{Value: 50, PerSecond: 5}
 	expected.Counters["some"]["thing"] = types.Counter{Value: 100, PerSecond: 10}
 	expected.Counters["some"]["other:thing"] = types.Counter{Value: 150, PerSecond: 15}
-	expected.Counters["statsd.aggregator_num_stats"] = make(map[string]types.Counter)
-	expected.Counters["statsd.aggregator_num_stats"]["aggrDefault"] = types.Counter{
-		Value:     0,
-		PerSecond: 0,
-		Timestamp: nowNano,
-		Tags:      types.Tags{"aggrDefault"},
-	} // count happens in Receive
 
 	ma.Timers["some"] = make(map[string]types.Timer)
 	ma.Timers["some"]["thing"] = types.Timer{Values: []float64{2, 4, 12}}
@@ -93,12 +84,6 @@ func TestFlush(t *testing.T) {
 	expected.Gauges["some"][""] = types.Gauge{Value: 50}
 	expected.Gauges["some"]["thing"] = types.Gauge{Value: 100}
 	expected.Gauges["some"]["other:thing"] = types.Gauge{Value: 150}
-	expected.Gauges["statsd.processing_time"] = make(map[string]types.Gauge)
-	expected.Gauges["statsd.processing_time"]["aggrDefault"] = types.Gauge{
-		Value:     0,
-		Timestamp: nowNano,
-		Tags:      types.Tags{"aggrDefault"},
-	} // start and end are the same...
 
 	ma.Sets["some"] = make(map[string]types.Set)
 	unique := map[string]struct{}{

@@ -260,6 +260,9 @@ func (ch *countingHandler) DispatchEvent(ctx context.Context, e *types.Event) er
 	return nil
 }
 
+func (ch *countingHandler) WaitForEvents() {
+}
+
 type fakeCountingProvider struct {
 	mu  sync.Mutex
 	ips []types.IP
@@ -273,6 +276,10 @@ func (fp *fakeCountingProvider) count(ip types.IP) {
 
 func (fp *fakeCountingProvider) SampleConfig() string {
 	return ""
+}
+
+func (fp *fakeCountingProvider) SelfIP() (types.IP, error) {
+	return types.UnknownIP, nil
 }
 
 type fakeProviderIP struct {

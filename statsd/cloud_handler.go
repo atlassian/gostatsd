@@ -60,6 +60,7 @@ type cloudHandler struct {
 	limiter      *rate.Limiter
 	metricSource chan *types.Metric
 	eventSource  chan *types.Event
+	wg           sync.WaitGroup
 
 	rw    sync.RWMutex // Protects cache
 	cache map[types.IP]*instanceHolder
@@ -103,12 +104,20 @@ func (ch *cloudHandler) DispatchEvent(ctx context.Context, e *types.Event) error
 	if ch.updateTagsAndHostname(e.SourceIP, &e.Tags, &e.Hostname) {
 		return ch.next.DispatchEvent(ctx, e)
 	}
+	ch.wg.Add(1) // Increment before sending to the channel
 	select {
 	case <-ctx.Done():
+		ch.wg.Done()
 		return ctx.Err()
 	case ch.eventSource <- e:
 		return nil
 	}
+}
+
+// WaitForEvents waits for all event-dispatching goroutines to finish.
+func (ch *cloudHandler) WaitForEvents() {
+	ch.wg.Wait()
+	ch.next.WaitForEvents()
 }
 
 func (ch *cloudHandler) Run(ctx context.Context) error {
@@ -257,8 +266,13 @@ func (ch *cloudHandler) handleEvent(ctx context.Context, toLookup chan<- types.I
 }
 
 func (ch *cloudHandler) updateAndDispatchEvents(ctx context.Context, instance *cloudTypes.Instance, events ...*types.Event) {
+	var dispatched int
+	defer func() {
+		ch.wg.Add(-dispatched)
+	}()
 	for _, e := range events {
 		updateInplace(&e.Tags, &e.Hostname, instance)
+		dispatched++
 		if err := ch.next.DispatchEvent(ctx, e); err != nil {
 			if err == context.Canceled || err == context.DeadlineExceeded {
 				return

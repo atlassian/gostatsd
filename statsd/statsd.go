@@ -1,7 +1,6 @@
 package statsd
 
 import (
-	"fmt"
 	"net"
 	"os"
 	"runtime"
@@ -162,7 +161,6 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 	factory := agrFactory{
 		percentThresholds: s.PercentThreshold,
 		expiryInterval:    s.ExpiryInterval,
-		defaultTags:       s.DefaultTags,
 	}
 	dispatcher := NewDispatcher(s.MaxWorkers, s.MaxQueueSize, &factory)
 
@@ -173,15 +171,13 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 	wgDispatcher.Add(1)
 	go func() {
 		defer wgDispatcher.Done()
-		if dispErr := dispatcher.Run(ctxDisp); dispErr != nil && dispErr != context.Canceled {
+		if dispErr := dispatcher.Run(ctxDisp); unexpectedErr(dispErr) {
 			log.Panicf("Dispatcher quit unexpectedly: %v", dispErr)
 		}
 	}()
 
 	// 2. Start handlers
-	var handler Handler
-	dispHandler := NewDispatchingHandler(dispatcher, s.Backends, s.DefaultTags, maxConcurrentEvents)
-	handler = dispHandler
+	handler := NewDispatchingHandler(dispatcher, s.Backends, s.DefaultTags, maxConcurrentEvents)
 	if s.CloudProvider != nil {
 		ch := NewCloudHandler(s.CloudProvider, handler, s.Limiter, nil)
 		handler = ch
@@ -192,7 +188,7 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 		wgCloudHandler.Add(1)
 		go func() {
 			defer wgCloudHandler.Done()
-			if handlerErr := ch.Run(ctxHandler); handlerErr != nil && handlerErr != context.Canceled {
+			if handlerErr := ch.Run(ctxHandler); unexpectedErr(handlerErr) {
 				log.Panicf("Cloud handler quit unexpectedly: %v", handlerErr)
 			}
 		}()
@@ -209,8 +205,8 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 	}
 	defer func() {
 		// This makes receivers error out and stop
-		if err := c.Close(); err != nil {
-			log.Warnf("Error closing socket: %v", err)
+		if e := c.Close(); e != nil {
+			log.Warnf("Error closing socket: %v", e)
 		}
 	}()
 
@@ -219,20 +215,26 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 	for r := 0; r < s.MaxReaders; r++ {
 		go func() {
 			defer wgReceiver.Done()
-			if err := receiver.Receive(ctx, c); err != nil && err != context.Canceled && err != context.DeadlineExceeded {
-				log.Panicf("Receiver quit unexpectedly: %v", err)
+			if e := receiver.Receive(ctx, c); unexpectedErr(e) {
+				log.Panicf("Receiver quit unexpectedly: %v", e)
 			}
 		}()
 	}
 
 	// 4. Start the Flusher
-	flusher := NewFlusher(s.FlushInterval, dispatcher, receiver, s.DefaultTags, s.Backends)
+	ip, err := s.CloudProvider.SelfIP()
+	if err != nil {
+		log.Warnf("Failed to get self ip: %v", err)
+		ip = types.UnknownIP
+	}
+	hostname := getHost()
+	flusher := NewFlusher(s.FlushInterval, dispatcher, receiver, handler, s.Backends, ip, hostname)
 	var wgFlusher sync.WaitGroup
 	defer wgFlusher.Wait() // Wait for the Flusher to finish
 	wgFlusher.Add(1)
 	go func() {
 		defer wgFlusher.Done()
-		if err := flusher.Run(ctx); err != nil && err != context.Canceled && err != context.DeadlineExceeded {
+		if err := flusher.Run(ctx); unexpectedErr(err) {
 			log.Panicf("Flusher quit unexpectedly: %v", err)
 		}
 	}()
@@ -248,41 +250,43 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 	//}
 
 	// 6. Send events on start and on stop
-	defer sendStopEvent(dispHandler)
-	sendStartEvent(ctx, dispHandler)
+	defer sendStopEvent(handler, ip, hostname)
+	sendStartEvent(ctx, handler, ip, hostname)
 
 	// 7. Listen until done
 	<-ctx.Done()
 	return ctx.Err()
 }
 
-func sendStartEvent(ctx context.Context, dispHandler *dispatchingHandler) {
-	err := dispHandler.DispatchEvent(ctx, &types.Event{
+func sendStartEvent(ctx context.Context, handler Handler, selfIP types.IP, hostname string) {
+	err := handler.DispatchEvent(ctx, &types.Event{
 		Title:        "Gostatsd started",
 		Text:         "Gostatsd started",
 		DateHappened: time.Now().Unix(),
-		Hostname:     getHost(),
+		Hostname:     hostname,
+		SourceIP:     selfIP,
 		Priority:     types.PriLow,
 	})
-	if err != nil {
+	if unexpectedErr(err) {
 		log.Warnf("Failed to send start event: %v", err)
 	}
 }
 
-func sendStopEvent(dispHandler *dispatchingHandler) {
+func sendStopEvent(handler Handler, selfIP types.IP, hostname string) {
 	ctx, cancelFunc := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancelFunc()
-	err := dispHandler.DispatchEvent(ctx, &types.Event{
+	err := handler.DispatchEvent(ctx, &types.Event{
 		Title:        "Gostatsd stopped",
 		Text:         "Gostatsd stopped",
 		DateHappened: time.Now().Unix(),
-		Hostname:     getHost(),
+		Hostname:     hostname,
+		SourceIP:     selfIP,
 		Priority:     types.PriLow,
 	})
-	if err != nil {
+	if unexpectedErr(err) {
 		log.Warnf("Failed to send stop event: %v", err)
 	}
-	dispHandler.WaitForEvents()
+	handler.WaitForEvents()
 }
 
 func getHost() string {
@@ -297,20 +301,10 @@ func getHost() string {
 type agrFactory struct {
 	percentThresholds []float64
 	expiryInterval    time.Duration
-	defaultTags       types.Tags
-	workerNumber      uint16
 }
 
 func (af *agrFactory) Create() Aggregator {
-	tags := make(types.Tags, 0, len(af.defaultTags)+1)
-	tags = append(tags, af.defaultTags...)
-	tags = append(tags, fmt.Sprintf("aggregator_id:%d", af.workerNumber))
-	af.workerNumber++
-	return NewAggregator(af.percentThresholds, af.expiryInterval, tags)
-}
-
-func internalStatName(name string) string {
-	return "statsd." + name
+	return NewAggregator(af.percentThresholds, af.expiryInterval)
 }
 
 func toStringSlice(fs []float64) []string {
@@ -319,4 +313,8 @@ func toStringSlice(fs []float64) []string {
 		s[i] = strconv.FormatFloat(f, 'f', -1, 64)
 	}
 	return s
+}
+
+func unexpectedErr(err error) bool {
+	return err != nil && err != context.Canceled && err != context.DeadlineExceeded
 }

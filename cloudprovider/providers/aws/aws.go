@@ -158,10 +158,16 @@ func (p *provider) SampleConfig() string {
 	return sampleConfig
 }
 
+// SelfIP returns host's IPv4 address.
+func (p *provider) SelfIP() (types.IP, error) {
+	ip, err := p.metadata.GetMetadata("local-ipv4")
+	return types.IP(ip), err
+}
+
 // Compute is an implementation of ec2 Compute.
 func (p *awsSDKProvider) Compute(regionName string) (EC2, error) {
 	service := ec2.New(session.New(p.config.Copy(&aws.Config{
-		Region: &regionName,
+		Region: aws.String(regionName),
 	})))
 
 	ec2 := &awsSdkEC2{

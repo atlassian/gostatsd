@@ -8,7 +8,6 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
-	"os"
 	"strings"
 	"time"
 
@@ -39,7 +38,6 @@ const (
 type client struct {
 	apiKey                string
 	apiEndpoint           string
-	hostname              string
 	maxRequestElapsedTime time.Duration
 	client                *http.Client
 	metricsPerBatch       uint
@@ -108,7 +106,6 @@ func (d *client) processMetrics(metrics *types.MetricMap, cb func(*timeSeries)) 
 			Series: make([]metric, 0, d.metricsPerBatch),
 		},
 		timestamp:        float64(d.now().Unix()),
-		hostname:         d.hostname,
 		flushIntervalSec: metrics.FlushInterval.Seconds(),
 		metricsPerBatch:  d.metricsPerBatch,
 		cb:               cb,
@@ -264,15 +261,10 @@ func NewClient(apiEndpoint, apiKey string, metricsPerBatch uint, clientTimeout, 
 	if maxRequestElapsedTime <= 0 {
 		return nil, fmt.Errorf("[%s] maxRequestElapsedTime must be positive", BackendName)
 	}
-	hostname, err := os.Hostname()
-	if err != nil {
-		return nil, fmt.Errorf("[%s] cannot get hostname: %v", BackendName, err)
-	}
 	log.Infof("[%s] maxRequestElapsedTime=%s clientTimeout=%s metricsPerBatch=%d", BackendName, maxRequestElapsedTime, clientTimeout, metricsPerBatch)
 	return &client{
 		apiKey:                apiKey,
 		apiEndpoint:           apiEndpoint,
-		hostname:              hostname,
 		maxRequestElapsedTime: maxRequestElapsedTime,
 		client: &http.Client{
 			Timeout: clientTimeout,

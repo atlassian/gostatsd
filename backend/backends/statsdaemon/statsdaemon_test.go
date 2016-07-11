@@ -12,7 +12,9 @@ import (
 
 var longName = strings.Repeat("t", maxUDPPacketSize-5)
 var m = types.MetricMap{
-	NumStats: 1,
+	MetricStats: types.MetricStats{
+		NumStats: 1,
+	},
 	Counters: types.Counters{
 		longName: map[string]types.Counter{
 			"tag1": types.NewCounter(types.Nanotime(time.Now().UnixNano()), 5, "", nil),

@@ -24,4 +24,6 @@ type Interface interface {
 	SampleConfig() string
 	// Instance returns the instance details from the cloud provider.
 	Instance(types.IP) (*Instance, error)
+	// SelfIP returns host's IPv4 address.
+	SelfIP() (types.IP, error)
 }

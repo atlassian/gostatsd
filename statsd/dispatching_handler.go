@@ -20,7 +20,7 @@ type dispatchingHandler struct {
 }
 
 // NewDispatchingHandler initialises a new dispatching handler.
-func NewDispatchingHandler(dispatcher Dispatcher, backends []backendTypes.Backend, tags types.Tags, maxConcurrentEvents uint) *dispatchingHandler {
+func NewDispatchingHandler(dispatcher Dispatcher, backends []backendTypes.Backend, tags types.Tags, maxConcurrentEvents uint) Handler {
 	return &dispatchingHandler{
 		dispatcher:       dispatcher,
 		backends:         backends,
