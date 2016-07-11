@@ -1,3 +1,10 @@
+0.14.7
+------
+- Fix bug introduced in 0.14.6 in Datadog backend when invalid hostname was sent for metrics
+- Set tags for own metrics (#55)
+- Add [expvar](https://golang.org/pkg/expvar/) support
+- Minor internals refactoring and optimization
+
 0.14.6
 ------
 - Limit max concurrent events (#24)
