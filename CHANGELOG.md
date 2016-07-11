@@ -1,3 +1,7 @@
+0.14.8
+------
+- Fix bug in rate calculation for Datadog
+
 0.14.7
 ------
 - Fix bug introduced in 0.14.6 in Datadog backend when invalid hostname was sent for metrics
