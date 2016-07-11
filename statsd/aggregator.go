@@ -20,7 +20,7 @@ type ProcessFunc func(*types.MetricMap)
 // Incoming metrics should be passed via Receive function.
 type Aggregator interface {
 	Receive(*types.Metric, time.Time)
-	Flush(func() time.Time)
+	Flush(interval time.Duration)
 	Process(ProcessFunc)
 	Reset(time.Time)
 }
@@ -37,8 +37,8 @@ type percentStruct struct {
 
 type aggregator struct {
 	expiryInterval    time.Duration // How often to expire metrics
-	lastFlush         time.Time     // Last time the metrics where aggregated
 	percentThresholds map[float64]percentStruct
+	now               func() time.Time // Returns current time. Useful for testing.
 	types.MetricMap
 }
 
@@ -46,8 +46,8 @@ type aggregator struct {
 func NewAggregator(percentThresholds []float64, expiryInterval time.Duration) Aggregator {
 	a := aggregator{
 		expiryInterval:    expiryInterval,
-		lastFlush:         time.Now(),
 		percentThresholds: make(map[float64]percentStruct, len(percentThresholds)),
+		now:               time.Now,
 		MetricMap: types.MetricMap{
 			Counters: types.Counters{},
 			Timers:   types.Timers{},
@@ -76,10 +76,10 @@ func round(v float64) float64 {
 }
 
 // Flush prepares the contents of an Aggregator for sending via the Sender.
-func (a *aggregator) Flush(now func() time.Time) {
-	startTime := now()
-	a.FlushInterval = startTime.Sub(a.lastFlush)
-	flushInSeconds := float64(a.FlushInterval) / float64(time.Second)
+func (a *aggregator) Flush(flushInterval time.Duration) {
+	startTime := a.now()
+	a.FlushInterval = flushInterval
+	flushInSeconds := float64(flushInterval) / float64(time.Second)
 
 	a.Counters.Each(func(key, tagsKey string, counter types.Counter) {
 		counter.PerSecond = float64(counter.Value) / flushInSeconds
@@ -167,10 +167,7 @@ func (a *aggregator) Flush(now func() time.Time) {
 		}
 	})
 
-	flushTime := now()
-
-	a.ProcessingTime = flushTime.Sub(startTime)
-	a.lastFlush = flushTime
+	a.ProcessingTime = a.now().Sub(startTime)
 }
 
 func (a *aggregator) Process(f ProcessFunc) {

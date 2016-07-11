@@ -25,7 +25,7 @@ func (a *testAggregator) Receive(m *types.Metric, t time.Time) {
 	a.af.Mutex.Unlock()
 }
 
-func (a *testAggregator) Flush(f func() time.Time) {
+func (a *testAggregator) Flush(interval time.Duration) {
 	a.af.Mutex.Lock()
 	a.af.flushInvocations[a.agrNumber]++
 	a.af.Mutex.Unlock()
