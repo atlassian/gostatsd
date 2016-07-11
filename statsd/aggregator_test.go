@@ -44,9 +44,9 @@ func TestFlush(t *testing.T) {
 	now := time.Now()
 	nowFn := func() time.Time { return now }
 	ma := newFakeAggregator()
+	ma.now = nowFn
 	expected := newFakeAggregator()
-	ma.lastFlush = now.Add(-10 * time.Second)
-	expected.lastFlush = now.Add(-10 * time.Second)
+	expected.now = nowFn
 
 	ma.Counters["some"] = make(map[string]types.Counter)
 	ma.Counters["some"][""] = types.Counter{Value: 50}
@@ -94,7 +94,7 @@ func TestFlush(t *testing.T) {
 	expected.Sets["some"] = make(map[string]types.Set)
 	expected.Sets["some"]["thing"] = types.Set{Values: unique}
 
-	ma.Flush(nowFn)
+	ma.Flush(10 * time.Second)
 	assert.Equal(expected.Counters, ma.Counters)
 	assert.Equal(expected.Timers, ma.Timers)
 	assert.Equal(expected.Gauges, ma.Gauges)
@@ -126,7 +126,7 @@ func BenchmarkFlush(b *testing.B) {
 	b.ResetTimer()
 
 	for n := 0; n < b.N; n++ {
-		ma.Flush(time.Now)
+		ma.Flush(1 * time.Second)
 	}
 }
 

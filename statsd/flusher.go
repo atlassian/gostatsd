@@ -71,15 +71,16 @@ func NewFlusher(flushInterval time.Duration, dispatcher Dispatcher, receiver Rec
 
 // Run runs the Flusher.
 func (f *flusher) Run(ctx context.Context) error {
-	flushTicker := time.NewTicker(f.flushInterval)
-	defer flushTicker.Stop()
+	flushTimer := time.NewTimer(f.flushInterval) // Must be Timer, not Ticker to match Datadog's dd-agent behaviour
 	for {
 		select {
 		case <-ctx.Done():
+			flushTimer.Stop()
 			return ctx.Err()
-		case <-flushTicker.C: // Time to flush to the backends
+		case <-flushTimer.C: // Time to flush to the backends
 			dispatcherStats := f.flushData(ctx)
 			f.dispatchInternalStats(ctx, dispatcherStats)
+			flushTimer = time.NewTimer(f.flushInterval)
 		}
 	}
 }
@@ -97,7 +98,7 @@ func (f *flusher) flushData(ctx context.Context) map[uint16]types.MetricStats {
 	dispatcherStats := make(map[uint16]types.MetricStats)
 	var sendWg sync.WaitGroup
 	processWg := f.dispatcher.Process(ctx, func(workerId uint16, aggr Aggregator) {
-		aggr.Flush(time.Now)
+		aggr.Flush(f.flushInterval)
 		aggr.Process(func(m *types.MetricMap) {
 			f.sendMetricsAsync(ctx, &sendWg, m)
 			lock.Lock()
