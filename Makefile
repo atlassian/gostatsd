@@ -108,7 +108,7 @@ docker-race:
 		go build -race -o build/bin/linux/$(BINARY_NAME) $(GOBUILD_VERSION_ARGS) -a -installsuffix cgo github.com/atlassian/gostatsd
 	docker build --pull -t $(IMAGE_NAME):$(GIT_HASH)-race -f build/Dockerfile-glibc build
 
-release-hash: check test docker
+release-hash: docker
 	docker push $(IMAGE_NAME):$(GIT_HASH)
 
 release-normal: release-hash
@@ -117,7 +117,7 @@ release-normal: release-hash
 	docker tag $(IMAGE_NAME):$(GIT_HASH) $(IMAGE_NAME):$(REPO_VERSION)
 	docker push $(IMAGE_NAME):$(REPO_VERSION)
 
-release-hash-race: check test docker-race
+release-hash-race: docker-race
 	docker push $(IMAGE_NAME):$(GIT_HASH)-race
 
 release-race: docker-race
