@@ -27,7 +27,7 @@ func (tags Tags) String() string {
 // Note that this method may mutate the original object.
 func (tags Tags) SortedString() string {
 	sort.Strings(tags)
-	return strings.Join(tags, ",")
+	return tags.String()
 }
 
 // NormalizeTagKey cleans up the key of a tag.
