@@ -71,16 +71,15 @@ func NewFlusher(flushInterval time.Duration, dispatcher Dispatcher, receiver Rec
 
 // Run runs the Flusher.
 func (f *flusher) Run(ctx context.Context) error {
-	flushTimer := time.NewTimer(f.flushInterval) // Must be Timer, not Ticker to match Datadog's dd-agent behaviour
+	flushTicker := time.NewTicker(f.flushInterval)
+	defer flushTicker.Stop()
 	for {
 		select {
 		case <-ctx.Done():
-			flushTimer.Stop()
 			return ctx.Err()
-		case <-flushTimer.C: // Time to flush to the backends
+		case <-flushTicker.C: // Time to flush to the backends
 			dispatcherStats := f.flushData(ctx)
 			f.dispatchInternalStats(ctx, dispatcherStats)
-			flushTimer = time.NewTimer(f.flushInterval)
 		}
 	}
 }
