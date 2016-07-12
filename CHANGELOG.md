@@ -1,3 +1,8 @@
+0.14.9
+------
+- Some additional tweaks to flushing code
+- Minor refactorings
+
 0.14.8
 ------
 - Fix bug in rate calculation for Datadog
