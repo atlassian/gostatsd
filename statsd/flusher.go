@@ -136,6 +136,7 @@ func (f *flusher) handleSendResult(flushResults []error) {
 
 func (f *flusher) dispatchInternalStats(ctx context.Context, dispatcherStats map[uint16]types.MetricStats) {
 	receiverStats := f.receiver.GetStats()
+	packetsReceivedValue := receiverStats.PacketsReceived - f.sentPacketsReceived
 	metrics := make([]types.Metric, 0, 4+2*len(dispatcherStats))
 	metrics = append(metrics,
 		types.Metric{
@@ -150,7 +151,7 @@ func (f *flusher) dispatchInternalStats(ctx context.Context, dispatcherStats map
 		},
 		types.Metric{
 			Name:  packetsReceived,
-			Value: float64(receiverStats.PacketsReceived - f.sentPacketsReceived),
+			Value: float64(packetsReceivedValue),
 			Type:  types.COUNTER,
 		})
 	var totalStats uint32
@@ -176,7 +177,7 @@ func (f *flusher) dispatchInternalStats(ctx context.Context, dispatcherStats map
 		Value: float64(totalStats),
 		Type:  types.COUNTER,
 	})
-	log.Debugf("numStats: %d", totalStats)
+	log.Debugf("numStats: %d packetsReceived: %d", totalStats, packetsReceivedValue)
 
 	f.sentBadLines = receiverStats.BadLines
 	f.sentMetricsReceived = receiverStats.MetricsReceived
