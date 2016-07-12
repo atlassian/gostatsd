@@ -134,6 +134,7 @@ func TestReset(t *testing.T) {
 	assert := assert.New(t)
 	now := time.Now()
 	nowNano := types.Nanotime(now.UnixNano())
+	nowFn := func() time.Time { return now }
 	host := "hostname"
 
 	// non expired
@@ -142,13 +143,15 @@ func TestReset(t *testing.T) {
 		"thing":       types.NewCounter(nowNano, 50, host, nil),
 		"other:thing": types.NewCounter(nowNano, 90, host, nil),
 	}
-	actual.Reset(now)
+	actual.now = nowFn
+	actual.Reset()
 
 	expected := newFakeAggregator()
 	expected.Counters["some"] = map[string]types.Counter{
 		"thing":       types.NewCounter(nowNano, 0, host, nil),
 		"other:thing": types.NewCounter(nowNano, 0, host, nil),
 	}
+	expected.now = nowFn
 
 	assert.Equal(expected.Counters, actual.Counters)
 
@@ -156,12 +159,14 @@ func TestReset(t *testing.T) {
 	actual.Timers["some"] = map[string]types.Timer{
 		"thing": types.NewTimer(nowNano, []float64{50}, host, nil),
 	}
-	actual.Reset(now)
+	actual.now = nowFn
+	actual.Reset()
 
 	expected = newFakeAggregator()
 	expected.Timers["some"] = map[string]types.Timer{
 		"thing": types.NewTimer(nowNano, nil, host, nil),
 	}
+	expected.now = nowFn
 
 	assert.Equal(expected.Timers, actual.Timers)
 
@@ -170,13 +175,15 @@ func TestReset(t *testing.T) {
 		"thing":       types.NewGauge(nowNano, 50, host, nil),
 		"other:thing": types.NewGauge(nowNano, 90, host, nil),
 	}
-	actual.Reset(now)
+	actual.now = nowFn
+	actual.Reset()
 
 	expected = newFakeAggregator()
 	expected.Gauges["some"] = map[string]types.Gauge{
 		"thing":       types.NewGauge(nowNano, 50, host, nil),
 		"other:thing": types.NewGauge(nowNano, 90, host, nil),
 	}
+	expected.now = nowFn
 
 	assert.Equal(expected.Gauges, actual.Gauges)
 
@@ -184,12 +191,14 @@ func TestReset(t *testing.T) {
 	actual.Sets["some"] = map[string]types.Set{
 		"thing": types.NewSet(nowNano, map[string]struct{}{"user": {}}, host, nil),
 	}
-	actual.Reset(now)
+	actual.now = nowFn
+	actual.Reset()
 
 	expected = newFakeAggregator()
 	expected.Sets["some"] = map[string]types.Set{
 		"thing": types.NewSet(nowNano, make(map[string]struct{}), host, nil),
 	}
+	expected.now = nowFn
 
 	assert.Equal(expected.Sets, actual.Sets)
 
@@ -202,9 +211,11 @@ func TestReset(t *testing.T) {
 		"thing":       types.NewCounter(pastNano, 50, host, nil),
 		"other:thing": types.NewCounter(pastNano, 90, host, nil),
 	}
-	actual.Reset(now)
+	actual.now = nowFn
+	actual.Reset()
 
 	expected = newFakeAggregator()
+	expected.now = nowFn
 
 	assert.Equal(expected.Counters, actual.Counters)
 
@@ -213,9 +224,11 @@ func TestReset(t *testing.T) {
 	actual.Timers["some"] = map[string]types.Timer{
 		"thing": types.NewTimer(pastNano, []float64{50}, host, nil),
 	}
-	actual.Reset(now)
+	actual.now = nowFn
+	actual.Reset()
 
 	expected = newFakeAggregator()
+	expected.now = nowFn
 
 	assert.Equal(expected.Timers, actual.Timers)
 
@@ -225,9 +238,11 @@ func TestReset(t *testing.T) {
 		"thing":       types.NewGauge(pastNano, 50, host, nil),
 		"other:thing": types.NewGauge(pastNano, 90, host, nil),
 	}
-	actual.Reset(now)
+	actual.now = nowFn
+	actual.Reset()
 
 	expected = newFakeAggregator()
+	expected.now = nowFn
 
 	assert.Equal(expected.Gauges, actual.Gauges)
 
@@ -236,9 +251,11 @@ func TestReset(t *testing.T) {
 	actual.Sets["some"] = map[string]types.Set{
 		"thing": types.NewSet(pastNano, map[string]struct{}{"user": {}}, host, nil),
 	}
-	actual.Reset(now)
+	actual.now = nowFn
+	actual.Reset()
 
 	expected = newFakeAggregator()
+	expected.now = nowFn
 
 	assert.Equal(expected.Sets, actual.Sets)
 }

@@ -22,7 +22,7 @@ type Aggregator interface {
 	Receive(*types.Metric, time.Time)
 	Flush(interval time.Duration)
 	Process(ProcessFunc)
-	Reset(time.Time)
+	Reset()
 }
 
 // percentStruct is a cache of percentile names to avoid creating them for each timer.
@@ -186,9 +186,9 @@ func deleteMetric(key, tagsKey string, metrics types.AggregatedMetrics) {
 }
 
 // Reset clears the contents of an Aggregator.
-func (a *aggregator) Reset(now time.Time) {
+func (a *aggregator) Reset() {
 	a.NumStats = 0
-	nowNano := types.Nanotime(now.UnixNano())
+	nowNano := types.Nanotime(a.now().UnixNano())
 
 	a.Counters.Each(func(key, tagsKey string, counter types.Counter) {
 		if a.isExpired(nowNano, counter.Timestamp) {

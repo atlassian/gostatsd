@@ -104,7 +104,7 @@ func (f *flusher) flushData(ctx context.Context) map[uint16]types.MetricStats {
 			defer lock.Unlock()
 			dispatcherStats[workerId] = m.MetricStats
 		})
-		aggr.Reset(time.Now())
+		aggr.Reset()
 	})
 	processWg.Wait() // Wait for all workers to execute function
 	sendWg.Wait()    // Wait for all backends to finish sending

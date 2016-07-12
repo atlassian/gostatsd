@@ -38,7 +38,7 @@ func (a *testAggregator) Process(f ProcessFunc) {
 	f(&a.MetricMap)
 }
 
-func (a *testAggregator) Reset(t time.Time) {
+func (a *testAggregator) Reset() {
 	a.af.Mutex.Lock()
 	a.af.resetInvocations[a.agrNumber]++
 	a.af.Mutex.Unlock()
