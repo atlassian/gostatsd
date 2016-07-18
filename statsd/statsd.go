@@ -177,6 +177,8 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 	}()
 
 	// 2. Start handlers
+	ip := types.UnknownIP
+
 	handler := NewDispatchingHandler(dispatcher, s.Backends, s.DefaultTags, maxConcurrentEvents)
 	if s.CloudProvider != nil {
 		ch := NewCloudHandler(s.CloudProvider, handler, s.Limiter, nil)
@@ -192,6 +194,12 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 				log.Panicf("Cloud handler quit unexpectedly: %v", handlerErr)
 			}
 		}()
+		selfIp, err := s.CloudProvider.SelfIP()
+		if err != nil {
+			log.Warnf("Failed to get self ip: %v", err)
+		} else {
+			ip = selfIp
+		}
 	}
 
 	// 3. Start the Receiver
@@ -222,11 +230,6 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 	}
 
 	// 4. Start the Flusher
-	ip, err := s.CloudProvider.SelfIP()
-	if err != nil {
-		log.Warnf("Failed to get self ip: %v", err)
-		ip = types.UnknownIP
-	}
 	hostname := getHost()
 	flusher := NewFlusher(s.FlushInterval, dispatcher, receiver, handler, s.Backends, ip, hostname)
 	var wgFlusher sync.WaitGroup
