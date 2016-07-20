@@ -9,7 +9,7 @@ BINARY_NAME := gostatsd
 IMAGE_NAME := atlassianlabs/$(BINARY_NAME)
 ARCH ?= darwin
 METALINTER_CONCURRENCY ?= 4
-GOVERSION := 1.6.2
+GOVERSION := 1.6.3
 GP := /gopath
 
 setup: setup-ci
