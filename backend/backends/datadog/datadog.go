@@ -197,7 +197,7 @@ func (d *client) post(path, typeOfPost string, data interface{}) error {
 func (d *client) doPost(path string, body []byte) backoff.Operation {
 	authenticatedURL := d.authenticatedURL(path)
 	return func() error {
-		req, err := http.NewRequest("POST", authenticatedURL, bytes.NewBuffer(body))
+		req, err := http.NewRequest("POST", authenticatedURL, bytes.NewReader(body))
 		if err != nil {
 			return fmt.Errorf("unable to create http.Request: %v", err)
 		}
