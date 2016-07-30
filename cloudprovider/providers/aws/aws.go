@@ -74,15 +74,10 @@ type awsSDKProvider struct {
 	ec2Metadata *ec2metadata.EC2Metadata
 }
 
-func isNilOrEmpty(s *string) bool {
-	return s == nil || *s == ""
-}
-
 // DescribeInstances is an implementation of EC2.Instances.
 func (s *awsSdkEC2) DescribeInstances(request *ec2.DescribeInstancesInput) ([]*ec2.Instance, error) {
 	// Instances are paged
 	results := []*ec2.Instance{}
-	var nextToken *string
 
 	for {
 		response, err := s.ec2.DescribeInstances(request)
@@ -94,11 +89,10 @@ func (s *awsSdkEC2) DescribeInstances(request *ec2.DescribeInstancesInput) ([]*e
 			results = append(results, reservation.Instances...)
 		}
 
-		nextToken = response.NextToken
-		if isNilOrEmpty(nextToken) {
+		if response.NextToken == nil {
 			break
 		}
-		request.NextToken = nextToken
+		request.NextToken = response.NextToken
 	}
 
 	return results, nil

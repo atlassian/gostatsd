@@ -194,11 +194,11 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 				log.Panicf("Cloud handler quit unexpectedly: %v", handlerErr)
 			}
 		}()
-		selfIp, err := s.CloudProvider.SelfIP()
+		selfIP, err := s.CloudProvider.SelfIP()
 		if err != nil {
 			log.Warnf("Failed to get self ip: %v", err)
 		} else {
-			ip = selfIp
+			ip = selfIP
 		}
 	}
 

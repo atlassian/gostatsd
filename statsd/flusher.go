@@ -155,9 +155,9 @@ func (f *flusher) dispatchInternalStats(ctx context.Context, dispatcherStats map
 			Type:  types.COUNTER,
 		})
 	var totalStats uint32
-	for workerId, stat := range dispatcherStats {
+	for workerID, stat := range dispatcherStats {
 		totalStats += stat.NumStats
-		tag := fmt.Sprintf("aggregator_id:%d", workerId)
+		tag := fmt.Sprintf("aggregator_id:%d", workerID)
 		metrics = append(metrics,
 			types.Metric{
 				Name:  aggregatorNumStats,
