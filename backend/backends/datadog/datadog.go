@@ -39,7 +39,7 @@ type client struct {
 	apiKey                string
 	apiEndpoint           string
 	maxRequestElapsedTime time.Duration
-	client                *http.Client
+	client                http.Client
 	metricsPerBatch       uint
 	now                   func() time.Time // Returns current time. Useful for testing.
 }
@@ -266,7 +266,7 @@ func NewClient(apiEndpoint, apiKey string, metricsPerBatch uint, clientTimeout, 
 		apiKey:                apiKey,
 		apiEndpoint:           apiEndpoint,
 		maxRequestElapsedTime: maxRequestElapsedTime,
-		client: &http.Client{
+		client: http.Client{
 			Timeout: clientTimeout,
 		},
 		metricsPerBatch: metricsPerBatch,
