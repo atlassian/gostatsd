@@ -211,7 +211,7 @@ func (d *client) doPost(path string, body []byte) backoff.Operation {
 		}
 		defer resp.Body.Close()
 		body := io.LimitReader(resp.Body, maxResponseSize)
-		if resp.StatusCode < 200 || resp.StatusCode >= 205 {
+		if resp.StatusCode < http.StatusOK || resp.StatusCode > http.StatusNoContent {
 			b, _ := ioutil.ReadAll(body)
 			log.Infof("[%s] failed request status: %d\n%s", BackendName, resp.StatusCode, b)
 			return fmt.Errorf("received bad status code %d", resp.StatusCode)
