@@ -35,7 +35,7 @@ Running the server
 defaults. You can use `make run` to run the server with just the `stdout` backend
 to display info on screen.
 You can also run through `docker` by running `make run-docker` which will use `docker-compose`
-to run `gostatsd` with a graphite backend.
+to run `gostatsd` with a graphite backend and a grafana dashboard. 
 
 Configuring the backends
 ------------------------
