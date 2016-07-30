@@ -129,7 +129,7 @@ release: release-normal release-race
 run: build
 	./build/bin/$(ARCH)/$(BINARY_NAME) --backends=stdout --verbose --flush-interval=1s
 
-run-docker: cross
+run-docker: docker
 	cd build/ && docker-compose rm -f gostatsd
 	docker-compose -f build/docker-compose.yml build
 	docker-compose -f build/docker-compose.yml up -d
