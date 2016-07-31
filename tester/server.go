@@ -126,7 +126,7 @@ func (s *Server) stopHandler(w http.ResponseWriter, r *http.Request) {
 		log.Info("stopping process")
 		s.stop <- true
 		stats := <-s.stats
-		w.Header().Add("Content-Type", "application/json")
+		w.Header().Set("Content-Type", "application/json")
 		bytes, err := json.Marshal(stats)
 		if err != nil {
 			log.Errorf("unable to marshal TimeSeries, %s\n", err.Error())

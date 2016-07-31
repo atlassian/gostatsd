@@ -201,10 +201,10 @@ func (d *client) doPost(path string, body []byte) backoff.Operation {
 		if err != nil {
 			return fmt.Errorf("unable to create http.Request: %v", err)
 		}
-		req.Header.Add("Content-Type", "application/json")
+		req.Header.Set("Content-Type", "application/json")
 		// Mimic dogstatsd code
-		req.Header.Add("DD-Dogstatsd-Version", dogstatsdVersion)
-		req.Header.Add("User-Agent", dogstatsdUserAgent)
+		req.Header.Set("DD-Dogstatsd-Version", dogstatsdVersion)
+		req.Header.Set("User-Agent", dogstatsdUserAgent)
 		resp, err := d.client.Do(req)
 		if err != nil {
 			return fmt.Errorf("error POSTing: %s", strings.Replace(err.Error(), d.apiKey, "*****", -1))
