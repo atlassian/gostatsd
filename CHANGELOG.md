@@ -1,3 +1,8 @@
+0.14.10
+-------
+- Fix NPE if cloud provider is not specified
+- Minor internal cleanups
+
 0.14.9
 ------
 - Some additional tweaks to flushing code
