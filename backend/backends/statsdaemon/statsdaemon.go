@@ -38,6 +38,7 @@ const sendChannelSize = 1000
 type client struct {
 	address     string
 	dialTimeout time.Duration
+	etsyCompatibility bool
 }
 
 // overflowHandler is invoked when accumulated packed size has reached it's limit of maxUDPPacketSize.
@@ -53,9 +54,9 @@ var bufFree = sync.Pool{
 	},
 }
 
-func writeLine(handler overflowHandler, line, buf *bytes.Buffer, format, name, tags string, value interface{}) (*bytes.Buffer, error) {
+func (client *client) writeLine(handler overflowHandler, line, buf *bytes.Buffer, format, name, tags string, value interface{}) (*bytes.Buffer, error) {
 	line.Reset()
-	if tags == "" {
+	if tags == "" || client.etsyCompatibility {
 		format += "\n"
 		fmt.Fprintf(line, format, name, value)
 	} else {
@@ -116,7 +117,7 @@ func (client *client) SendMetricsAsync(ctx context.Context, metrics *types.Metri
 			}
 		}
 	}()
-	err = processMetrics(metrics, func(buf *bytes.Buffer) (*bytes.Buffer, error) {
+	err = client.processMetrics(metrics, func(buf *bytes.Buffer) (*bytes.Buffer, error) {
 		select {
 		case <-localCtx.Done(): // This can happen if 1) parent context is Done or 2) receiver encountered an error
 			return nil, localCtx.Err()
@@ -133,7 +134,7 @@ func (client *client) SendMetricsAsync(ctx context.Context, metrics *types.Metri
 	}
 }
 
-func processMetrics(metrics *types.MetricMap, handler overflowHandler) (retErr error) {
+func (client *client) processMetrics(metrics *types.MetricMap, handler overflowHandler) (retErr error) {
 	type failure struct {
 		err error
 	}
@@ -152,7 +153,7 @@ func processMetrics(metrics *types.MetricMap, handler overflowHandler) (retErr e
 		// do not send statsd stats as they will be recalculated on the master instead
 		if !strings.HasPrefix(key, "statsd.") {
 			var err error
-			if buf, err = writeLine(handler, line, buf, "%s:%d|c", key, tagsKey, counter.Value); err != nil {
+			if buf, err = client.writeLine(handler, line, buf, "%s:%d|c", key, tagsKey, counter.Value); err != nil {
 				panic(failure{err})
 			}
 		}
@@ -160,21 +161,21 @@ func processMetrics(metrics *types.MetricMap, handler overflowHandler) (retErr e
 	metrics.Timers.Each(func(key, tagsKey string, timer types.Timer) {
 		for _, tr := range timer.Values {
 			var err error
-			if buf, err = writeLine(handler, line, buf, "%s:%f|ms", key, tagsKey, tr); err != nil {
+			if buf, err = client.writeLine(handler, line, buf, "%s:%f|ms", key, tagsKey, tr); err != nil {
 				panic(failure{err})
 			}
 		}
 	})
 	metrics.Gauges.Each(func(key, tagsKey string, gauge types.Gauge) {
 		var err error
-		if buf, err = writeLine(handler, line, buf, "%s:%f|g", key, tagsKey, gauge.Value); err != nil {
+		if buf, err = client.writeLine(handler, line, buf, "%s:%f|g", key, tagsKey, gauge.Value); err != nil {
 			panic(failure{err})
 		}
 	})
 	metrics.Sets.Each(func(key, tagsKey string, set types.Set) {
 		for k := range set.Values {
 			var err error
-			if buf, err = writeLine(handler, line, buf, "%s:%s|s", key, tagsKey, k); err != nil {
+			if buf, err = client.writeLine(handler, line, buf, "%s:%s|s", key, tagsKey, k); err != nil {
 				panic(failure{err})
 			}
 		}
@@ -188,18 +189,22 @@ func processMetrics(metrics *types.MetricMap, handler overflowHandler) (retErr e
 
 // SendEvent sends events to the statsd master server.
 func (client *client) SendEvent(ctx context.Context, e *types.Event) error {
+	if client.etsyCompatibility {
+		return nil
+	}
+
 	conn, err := net.DialTimeout("udp", client.address, client.dialTimeout)
 	if err != nil {
 		return fmt.Errorf("error connecting to statsd backend: %s", err)
 	}
 	defer conn.Close()
 
-	_, err = conn.Write(constructEventMessage(e).Bytes())
+	_, err = conn.Write(client.constructEventMessage(e).Bytes())
 
 	return err
 }
 
-func constructEventMessage(e *types.Event) *bytes.Buffer {
+func (client *client) constructEventMessage(e *types.Event) *bytes.Buffer {
 	text := strings.Replace(e.Text, "\n", "\\n", -1)
 
 	var buf bytes.Buffer
@@ -253,7 +258,7 @@ func (client *client) SampleConfig() string {
 }
 
 // NewClient constructs a new statsd backend client.
-func NewClient(address string, dialTimeout time.Duration) (backendTypes.Backend, error) {
+func NewClient(address string, dialTimeout time.Duration, etsyCompatibility bool) (backendTypes.Backend, error) {
 	if address == "" {
 		return nil, fmt.Errorf("[%s] address is required", BackendName)
 	}
@@ -264,6 +269,7 @@ func NewClient(address string, dialTimeout time.Duration) (backendTypes.Backend,
 	return &client{
 		address:     address,
 		dialTimeout: dialTimeout,
+		etsyCompatibility: etsyCompatibility,
 	}, nil
 }
 
@@ -271,9 +277,11 @@ func NewClient(address string, dialTimeout time.Duration) (backendTypes.Backend,
 func NewClientFromViper(v *viper.Viper) (backendTypes.Backend, error) {
 	g := getSubViper(v, "statsdaemon")
 	g.SetDefault("dial_timeout", defaultDialTimeout)
+	g.SetDefault("etsy_compatibility", false)
 	return NewClient(
 		g.GetString("address"),
 		g.GetDuration("dial_timeout"),
+		g.GetBool("etsy_compatibility"),
 	)
 }
 
