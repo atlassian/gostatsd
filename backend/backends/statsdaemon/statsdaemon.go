@@ -53,26 +53,6 @@ var bufFree = sync.Pool{
 	},
 }
 
-func writeLine(handler overflowHandler, line, buf *bytes.Buffer, format, name, tags string, value interface{}) (*bytes.Buffer, error) {
-	line.Reset()
-	if tags == "" {
-		format += "\n"
-		fmt.Fprintf(line, format, name, value)
-	} else {
-		format += "|#%s\n"
-		fmt.Fprintf(line, format, name, value, tags)
-	}
-	// Make sure we don't go over max udp datagram size
-	if buf.Len()+line.Len() > maxUDPPacketSize {
-		var err error
-		if buf, err = handler(buf); err != nil {
-			return nil, err
-		}
-	}
-	fmt.Fprint(buf, line)
-	return buf, nil
-}
-
 // SendMetricsAsync flushes the metrics to the statsd server, preparing payload synchronously but doing the send asynchronously.
 func (client *client) SendMetricsAsync(ctx context.Context, metrics *types.MetricMap, cb backendTypes.SendCallback) {
 	if metrics.NumStats == 0 {
@@ -148,11 +128,30 @@ func processMetrics(metrics *types.MetricMap, handler overflowHandler) (retErr e
 	}()
 	buf := bufFree.Get().(*bytes.Buffer)
 	line := bufFree.Get().(*bytes.Buffer)
+	writeLine := func(format, name, tags string, value interface{}) error {
+		line.Reset()
+		if tags == "" {
+			format += "\n"
+			fmt.Fprintf(line, format, name, value)
+		} else {
+			format += "|#%s\n"
+			fmt.Fprintf(line, format, name, value, tags)
+		}
+		// Make sure we don't go over max udp datagram size
+		if buf.Len()+line.Len() > maxUDPPacketSize {
+			var err error
+			if buf, err = handler(buf); err != nil {
+				return err
+			}
+		}
+		fmt.Fprint(buf, line)
+		return nil
+	}
 	metrics.Counters.Each(func(key, tagsKey string, counter types.Counter) {
 		// do not send statsd stats as they will be recalculated on the master instead
 		if !strings.HasPrefix(key, "statsd.") {
 			var err error
-			if buf, err = writeLine(handler, line, buf, "%s:%d|c", key, tagsKey, counter.Value); err != nil {
+			if err = writeLine("%s:%d|c", key, tagsKey, counter.Value); err != nil {
 				panic(failure{err})
 			}
 		}
@@ -160,21 +159,21 @@ func processMetrics(metrics *types.MetricMap, handler overflowHandler) (retErr e
 	metrics.Timers.Each(func(key, tagsKey string, timer types.Timer) {
 		for _, tr := range timer.Values {
 			var err error
-			if buf, err = writeLine(handler, line, buf, "%s:%f|ms", key, tagsKey, tr); err != nil {
+			if err = writeLine("%s:%f|ms", key, tagsKey, tr); err != nil {
 				panic(failure{err})
 			}
 		}
 	})
 	metrics.Gauges.Each(func(key, tagsKey string, gauge types.Gauge) {
 		var err error
-		if buf, err = writeLine(handler, line, buf, "%s:%f|g", key, tagsKey, gauge.Value); err != nil {
+		if err = writeLine("%s:%f|g", key, tagsKey, gauge.Value); err != nil {
 			panic(failure{err})
 		}
 	})
 	metrics.Sets.Each(func(key, tagsKey string, set types.Set) {
 		for k := range set.Values {
 			var err error
-			if buf, err = writeLine(handler, line, buf, "%s:%s|s", key, tagsKey, k); err != nil {
+			if err = writeLine("%s:%s|s", key, tagsKey, k); err != nil {
 				panic(failure{err})
 			}
 		}
