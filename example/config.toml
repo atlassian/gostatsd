@@ -8,6 +8,7 @@
 [statsdaemon]
 
 	address = "docker.local:8125"
+	disable_tags = false
 
 [aws]
 
