@@ -1,13 +1,13 @@
 package statsd
 
 import (
+	"context"
 	"sync"
 
 	backendTypes "github.com/atlassian/gostatsd/backend/types"
 	"github.com/atlassian/gostatsd/types"
 
 	log "github.com/Sirupsen/logrus"
-	"golang.org/x/net/context"
 )
 
 // dispatchingHandler dispatches events to all configured backends and forwards metrics to a Dispatcher.

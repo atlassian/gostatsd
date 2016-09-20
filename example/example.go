@@ -1,13 +1,12 @@
 package main
 
 import (
+	"context"
 	"log"
 	"net"
 
 	"github.com/atlassian/gostatsd/statsd"
 	"github.com/atlassian/gostatsd/types"
-
-	"golang.org/x/net/context"
 )
 
 func main() {

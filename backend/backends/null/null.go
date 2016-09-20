@@ -1,11 +1,12 @@
 package null
 
 import (
+	"context"
+
 	backendTypes "github.com/atlassian/gostatsd/backend/types"
 	"github.com/atlassian/gostatsd/types"
 
 	"github.com/spf13/viper"
-	"golang.org/x/net/context"
 )
 
 // BackendName is the name of this backend.

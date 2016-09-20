@@ -2,6 +2,7 @@ package statsd
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"net"
 	"sync/atomic"
@@ -10,7 +11,6 @@ import (
 	"github.com/atlassian/gostatsd/types"
 
 	log "github.com/Sirupsen/logrus"
-	"golang.org/x/net/context"
 )
 
 // ip packet size is stored in two bytes and that is how big in theory the packet can be.

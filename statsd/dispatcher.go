@@ -1,6 +1,7 @@
 package statsd
 
 import (
+	"context"
 	"hash/adler32"
 	"sync"
 	"time"
@@ -8,7 +9,6 @@ import (
 	"github.com/atlassian/gostatsd/types"
 
 	log "github.com/Sirupsen/logrus"
-	"golang.org/x/net/context"
 )
 
 // DispatcherProcessFunc is a function that gets executed by Dispatcher for each Aggregator, passing it into the function.

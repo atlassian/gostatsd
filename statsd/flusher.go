@@ -1,6 +1,7 @@
 package statsd
 
 import (
+	"context"
 	"fmt"
 	"sync"
 	"sync/atomic"
@@ -10,7 +11,6 @@ import (
 	"github.com/atlassian/gostatsd/types"
 
 	log "github.com/Sirupsen/logrus"
-	"golang.org/x/net/context"
 )
 
 const (

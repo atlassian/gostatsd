@@ -2,6 +2,7 @@ package statsd
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"net"
@@ -11,7 +12,6 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/kisielk/cmd"
-	"golang.org/x/net/context"
 )
 
 // DefaultConsoleAddr is the default address on which a ConsoleServer will listen.

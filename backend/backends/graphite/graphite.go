@@ -2,6 +2,7 @@ package graphite
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"net"
 	"regexp"
@@ -12,7 +13,6 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/spf13/viper"
-	"golang.org/x/net/context"
 )
 
 const (

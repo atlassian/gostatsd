@@ -1,6 +1,7 @@
 package statsd
 
 import (
+	"context"
 	"fmt"
 	"math/rand"
 	"runtime"
@@ -9,8 +10,6 @@ import (
 	"time"
 
 	"github.com/atlassian/gostatsd/types"
-
-	"golang.org/x/net/context"
 )
 
 type testAggregator struct {

@@ -2,6 +2,7 @@ package statsdaemon
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"net"
 	"strconv"
@@ -14,7 +15,6 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/spf13/viper"
-	"golang.org/x/net/context"
 )
 
 const (

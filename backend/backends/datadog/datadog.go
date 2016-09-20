@@ -2,6 +2,7 @@ package datadog
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -17,7 +18,6 @@ import (
 	log "github.com/Sirupsen/logrus"
 	"github.com/cenkalti/backoff"
 	"github.com/spf13/viper"
-	"golang.org/x/net/context"
 )
 
 const (

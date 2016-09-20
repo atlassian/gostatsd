@@ -1,6 +1,7 @@
 package statsd
 
 import (
+	"context"
 	"errors"
 	"reflect"
 	"sort"
@@ -11,7 +12,6 @@ import (
 	cloudTypes "github.com/atlassian/gostatsd/cloudprovider/types"
 	"github.com/atlassian/gostatsd/types"
 
-	"golang.org/x/net/context"
 	"golang.org/x/time/rate"
 )
 

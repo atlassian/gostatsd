@@ -1,6 +1,7 @@
 package statsd
 
 import (
+	"context"
 	"net"
 	"os"
 	"runtime"
@@ -16,7 +17,6 @@ import (
 	log "github.com/Sirupsen/logrus"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
-	"golang.org/x/net/context"
 	"golang.org/x/time/rate"
 )
 
