@@ -1,13 +1,12 @@
 package statsd
 
 import (
+	"context"
 	"reflect"
 	"testing"
 
 	"github.com/atlassian/gostatsd/tester/fakesocket"
 	"github.com/atlassian/gostatsd/types"
-
-	"golang.org/x/net/context"
 )
 
 type metricAndEvent struct {

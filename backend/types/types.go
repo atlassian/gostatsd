@@ -1,10 +1,11 @@
 package types
 
 import (
+	"context"
+
 	"github.com/atlassian/gostatsd/types"
 
 	"github.com/spf13/viper"
-	"golang.org/x/net/context"
 )
 
 // Factory is a function that returns a Backend.

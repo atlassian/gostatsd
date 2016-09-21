@@ -1,6 +1,7 @@
 package datadog
 
 import (
+	"context"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
@@ -9,9 +10,7 @@ import (
 	"time"
 
 	"github.com/atlassian/gostatsd/types"
-
 	"github.com/stretchr/testify/assert"
-	"golang.org/x/net/context"
 )
 
 func TestRetries(t *testing.T) {

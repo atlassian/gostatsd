@@ -1,9 +1,9 @@
 package statsd
 
 import (
-	"github.com/atlassian/gostatsd/types"
+	"context"
 
-	"golang.org/x/net/context"
+	"github.com/atlassian/gostatsd/types"
 )
 
 // Handler interface can be used to handle metrics and events.

@@ -1,6 +1,7 @@
 package statsd
 
 import (
+	"context"
 	"math/rand"
 	"runtime"
 	"sync/atomic"
@@ -13,7 +14,6 @@ import (
 	"github.com/atlassian/gostatsd/types"
 
 	"github.com/spf13/viper"
-	"golang.org/x/net/context"
 	"golang.org/x/time/rate"
 )
 

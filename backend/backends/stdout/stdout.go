@@ -2,6 +2,7 @@ package stdout
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"strings"
 	"time"
@@ -11,7 +12,6 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/spf13/viper"
-	"golang.org/x/net/context"
 )
 
 // BackendName is the name of this backend.

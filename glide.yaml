@@ -15,9 +15,6 @@ import:
 - package: github.com/stretchr/testify
   subpackages:
   - assert
-- package: golang.org/x/net
-  subpackages:
-  - context
 - package: golang.org/x/time
   subpackages:
   - rate
