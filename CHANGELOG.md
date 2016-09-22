@@ -1,3 +1,8 @@
+0.14.11
+-------
+- Go 1.7
+- Config option to disable sending tags to statsdaemon backend
+
 0.14.10
 -------
 - Fix NPE if cloud provider is not specified
