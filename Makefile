@@ -13,13 +13,14 @@ GOVERSION := 1.7
 GP := /gopath
 
 setup: setup-ci
-	go get -v -u github.com/githubnemo/CompileDaemon
-	go get -v -u github.com/jstemmer/go-junit-report
+	go get -u github.com/githubnemo/CompileDaemon
+	go get -u github.com/jstemmer/go-junit-report
+	go get -u golang.org/x/tools/cmd/goimports
 
 setup-ci:
 	go get -v -u github.com/Masterminds/glide
 	go get -v -u github.com/alecthomas/gometalinter
-	gometalinter --install --update
+	gometalinter --install
 	glide install
 
 build: *.go fmt
