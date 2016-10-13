@@ -21,7 +21,7 @@ setup-ci:
 	go get -v -u github.com/Masterminds/glide
 	go get -v -u github.com/alecthomas/gometalinter
 	gometalinter --install
-	glide install
+	glide install --strip-vendor
 
 build: *.go fmt
 	go build -o build/bin/$(ARCH)/$(BINARY_NAME) $(GOBUILD_VERSION_ARGS) github.com/atlassian/gostatsd
