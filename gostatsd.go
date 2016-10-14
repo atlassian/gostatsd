@@ -63,17 +63,12 @@ func main() {
 		fmt.Printf("Version: %s - Commit: %s - Date: %s\n", Version, GitCommit, BuildDate)
 		return
 	}
-	var exitErr error
-	defer func() {
-		if exitErr != nil {
-			log.Fatalf("%v", exitErr)
-		}
-	}()
+	if err := run(v); err != nil {
+		log.Fatalf("%v", err)
+	}
+}
 
-	ctx, cancelFunc := context.WithCancel(context.Background())
-	defer cancelFunc()
-	cancelOnInterrupt(ctx, cancelFunc)
-
+func run(v *viper.Viper) error {
 	profileAddr := v.GetString(ParamProfile)
 	if profileAddr != "" {
 		go func() {
@@ -84,12 +79,17 @@ func main() {
 	log.Info("Starting server")
 	s, err := constructServer(v)
 	if err != nil {
-		exitErr = err
-		return
+		return err
 	}
+
+	ctx, cancelFunc := context.WithCancel(context.Background())
+	defer cancelFunc()
+	cancelOnInterrupt(ctx, cancelFunc)
+
 	if err := s.Run(ctx); err != nil && err != context.Canceled {
-		exitErr = fmt.Errorf("server error: %v", err)
+		return fmt.Errorf("server error: %v", err)
 	}
+	return nil
 }
 
 func constructServer(v *viper.Viper) (*statsd.Server, error) {
@@ -158,9 +158,9 @@ func cancelOnInterrupt(ctx context.Context, f context.CancelFunc) {
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 	go func() {
 		select {
+		case <-ctx.Done():
 		case <-c:
 			f()
-		case <-ctx.Done():
 		}
 	}()
 }
