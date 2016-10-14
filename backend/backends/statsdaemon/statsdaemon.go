@@ -285,13 +285,8 @@ func (client *client) BackendName() string {
 	return BackendName
 }
 
-// Workaround https://github.com/spf13/viper/pull/165 and https://github.com/spf13/viper/issues/191
 func getSubViper(v *viper.Viper, key string) *viper.Viper {
-	var n *viper.Viper
-	namespace := v.Get(key)
-	if namespace != nil {
-		n = v.Sub(key)
-	}
+	n := v.Sub(key)
 	if n == nil {
 		n = viper.New()
 	}

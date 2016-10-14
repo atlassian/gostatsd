@@ -134,6 +134,7 @@ func constructServer(v *viper.Viper) (*statsd.Server, error) {
 
 func toSlice(s string) []string {
 	//TODO Remove workaround when https://github.com/spf13/viper/issues/112 is fixed
+	// https://github.com/spf13/viper/issues/200
 	if s == "" {
 		return nil
 	}

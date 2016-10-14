@@ -137,6 +137,7 @@ func AddFlags(fs *pflag.FlagSet) {
 	fs.String(ParamNamespace, "", "Namespace all metrics")
 	fs.String(ParamWebAddr, DefaultWebConsoleAddr, "If set, use as the address of the web-based console")
 	//TODO Remove workaround when https://github.com/spf13/viper/issues/112 is fixed
+	// https://github.com/spf13/viper/issues/200
 	fs.String(ParamBackends, strings.Join(DefaultBackends, ","), "Comma-separated list of backends")
 	fs.Uint(ParamMaxCloudRequests, DefaultMaxCloudRequests, "Maximum number of cloud provider requests per second")
 	fs.Uint(ParamBurstCloudRequests, DefaultBurstCloudRequests, "Burst number of cloud provider requests per second")
