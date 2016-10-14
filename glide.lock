@@ -1,5 +1,5 @@
 hash: d3fc6337bf7be2c88ae0597a730608b8413e1a6d05ed3ca7516b494d3c5a84d8
-updated: 2016-10-12T21:09:21.844233194+11:00
+updated: 2016-10-14T21:08:06.912112866+11:00
 imports:
 - name: github.com/aws/aws-sdk-go
   version: 429750244b4773992ab16ab536447e584795b156
@@ -32,7 +32,7 @@ imports:
 - name: github.com/cenkalti/backoff
   version: 8edc80b07f38c27352fb186d971c628a6c32552b
 - name: github.com/fsnotify/fsnotify
-  version: 629574ca2a5df945712d3079857300b5e4da0236
+  version: bd2828f9f176e52d7222e565abb2d338d3f3c103
 - name: github.com/go-ini/ini
   version: 6e4869b434bd001f6983749881c7ead3545887d8
 - name: github.com/hashicorp/hcl
@@ -78,20 +78,20 @@ imports:
 - name: github.com/spf13/pflag
   version: bf8481a6aebc13a8aab52e699ffe2e79771f5a3f
 - name: github.com/spf13/viper
-  version: c14ce6d43cf5e22e2bd44938f3f45a2761c18350
+  version: 50515b700e02658272117a72bd641b6b7f1222e5
 - name: github.com/stretchr/testify
   version: 976c720a22c8eb4eb6a0b4348ad85ad12491a506
   subpackages:
   - assert
 - name: golang.org/x/crypto
-  version: 4cd25d65a015cc83d41bf3454e6e8d6c116d16da
+  version: 5f31782cfb2b6373211f8f9fbf31283fa234b570
   subpackages:
   - curve25519
   - ed25519
   - ed25519/internal/edwards25519
   - ssh
 - name: golang.org/x/net
-  version: cf4effbb9db1f3ef07f7e1891402991b6afbb276
+  version: 8b4af36cd21a1f85a7484b49feb7c79363106d8e
   subpackages:
   - context
 - name: golang.org/x/sys
@@ -99,7 +99,7 @@ imports:
   subpackages:
   - unix
 - name: golang.org/x/text
-  version: afa951a3250e0e2195be7366207189f3184d3fe1
+  version: c745997bb18563e8788428768ce0f034f2b663df
   subpackages:
   - transform
   - unicode/norm
