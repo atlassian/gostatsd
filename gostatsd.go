@@ -115,20 +115,22 @@ func constructServer(v *viper.Viper) (*statsd.Server, error) {
 	}
 	// Create server
 	return &statsd.Server{
-		Backends:         backends,
-		ConsoleAddr:      v.GetString(statsd.ParamConsoleAddr),
-		CloudProvider:    cloud,
-		Limiter:          rate.NewLimiter(rate.Limit(v.GetInt(statsd.ParamMaxCloudRequests)), v.GetInt(statsd.ParamBurstCloudRequests)),
-		DefaultTags:      toSlice(v.GetString(statsd.ParamDefaultTags)),
-		ExpiryInterval:   v.GetDuration(statsd.ParamExpiryInterval),
-		FlushInterval:    v.GetDuration(statsd.ParamFlushInterval),
-		MaxReaders:       v.GetInt(statsd.ParamMaxReaders),
-		MaxWorkers:       v.GetInt(statsd.ParamMaxWorkers),
-		MetricsAddr:      v.GetString(statsd.ParamMetricsAddr),
-		Namespace:        v.GetString(statsd.ParamNamespace),
-		PercentThreshold: pt,
-		WebConsoleAddr:   v.GetString(statsd.ParamWebAddr),
-		Viper:            v,
+		Backends:            backends,
+		ConsoleAddr:         v.GetString(statsd.ParamConsoleAddr),
+		CloudProvider:       cloud,
+		Limiter:             rate.NewLimiter(rate.Limit(v.GetInt(statsd.ParamMaxCloudRequests)), v.GetInt(statsd.ParamBurstCloudRequests)),
+		DefaultTags:         toSlice(v.GetString(statsd.ParamDefaultTags)),
+		ExpiryInterval:      v.GetDuration(statsd.ParamExpiryInterval),
+		FlushInterval:       v.GetDuration(statsd.ParamFlushInterval),
+		MaxReaders:          v.GetInt(statsd.ParamMaxReaders),
+		MaxWorkers:          v.GetInt(statsd.ParamMaxWorkers),
+		MaxQueueSize:        v.GetInt(statsd.ParamMaxQueueSize),
+		MaxConcurrentEvents: v.GetInt(statsd.ParamMaxConcurrentEvents),
+		MetricsAddr:         v.GetString(statsd.ParamMetricsAddr),
+		Namespace:           v.GetString(statsd.ParamNamespace),
+		PercentThreshold:    pt,
+		WebConsoleAddr:      v.GetString(statsd.ParamWebAddr),
+		Viper:               v,
 	}, nil
 }
 
