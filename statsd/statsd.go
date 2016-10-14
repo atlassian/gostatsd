@@ -48,6 +48,8 @@ const (
 	DefaultMetricsAddr = ":8125"
 	// DefaultMaxQueueSize is the default maximum number of buffered metrics per worker.
 	DefaultMaxQueueSize = 10000 // arbitrary
+	// DefaultMaxConcurrentEvents is the default maximum number of events sent concurrently.
+	DefaultMaxConcurrentEvents = 1024 // arbitrary
 )
 
 const (
@@ -73,6 +75,8 @@ const (
 	ParamMaxWorkers = "max-workers"
 	// ParamMaxQueueSize is the name of parameter with maximum number of buffered metrics per worker.
 	ParamMaxQueueSize = "max-queue-size"
+	// ParamMaxConcurrentEvents is the name of parameter with maximum number of events sent concurrently.
+	ParamMaxConcurrentEvents = "max-concurrent-events"
 	// ParamMetricsAddr is the name of parameter with address on which to listen for metrics.
 	ParamMetricsAddr = "metrics-addr"
 	// ParamNamespace is the name of parameter with namespace for all metrics.
@@ -83,44 +87,44 @@ const (
 	ParamWebAddr = "web-addr"
 )
 
-const maxConcurrentEvents = 1024 // Random, should be good enough.
-
 // Server encapsulates all of the parameters necessary for starting up
 // the statsd server. These can either be set via command line or directly.
 type Server struct {
-	Backends         []backendTypes.Backend
-	ConsoleAddr      string
-	CloudProvider    cloudTypes.Interface
-	Limiter          *rate.Limiter
-	DefaultTags      types.Tags
-	ExpiryInterval   time.Duration
-	FlushInterval    time.Duration
-	MaxReaders       int
-	MaxWorkers       int
-	MaxQueueSize     int
-	MaxMessengers    int
-	MetricsAddr      string
-	Namespace        string
-	PercentThreshold []float64
-	WebConsoleAddr   string
-	Viper            *viper.Viper
+	Backends            []backendTypes.Backend
+	ConsoleAddr         string
+	CloudProvider       cloudTypes.Interface
+	Limiter             *rate.Limiter
+	DefaultTags         types.Tags
+	ExpiryInterval      time.Duration
+	FlushInterval       time.Duration
+	MaxReaders          int
+	MaxWorkers          int
+	MaxQueueSize        int
+	MaxConcurrentEvents int
+	MaxEventQueueSize   int
+	MetricsAddr         string
+	Namespace           string
+	PercentThreshold    []float64
+	WebConsoleAddr      string
+	Viper               *viper.Viper
 }
 
 // NewServer will create a new Server with the default configuration.
 func NewServer() *Server {
 	return &Server{
-		ConsoleAddr:      DefaultConsoleAddr,
-		Limiter:          rate.NewLimiter(DefaultMaxCloudRequests, DefaultBurstCloudRequests),
-		DefaultTags:      DefaultTags,
-		ExpiryInterval:   DefaultExpiryInterval,
-		FlushInterval:    DefaultFlushInterval,
-		MaxReaders:       DefaultMaxReaders,
-		MaxWorkers:       DefaultMaxWorkers,
-		MaxQueueSize:     DefaultMaxQueueSize,
-		MetricsAddr:      DefaultMetricsAddr,
-		PercentThreshold: DefaultPercentThreshold,
-		WebConsoleAddr:   DefaultWebConsoleAddr,
-		Viper:            viper.New(),
+		ConsoleAddr:         DefaultConsoleAddr,
+		Limiter:             rate.NewLimiter(DefaultMaxCloudRequests, DefaultBurstCloudRequests),
+		DefaultTags:         DefaultTags,
+		ExpiryInterval:      DefaultExpiryInterval,
+		FlushInterval:       DefaultFlushInterval,
+		MaxReaders:          DefaultMaxReaders,
+		MaxWorkers:          DefaultMaxWorkers,
+		MaxQueueSize:        DefaultMaxQueueSize,
+		MaxConcurrentEvents: DefaultMaxConcurrentEvents,
+		MetricsAddr:         DefaultMetricsAddr,
+		PercentThreshold:    DefaultPercentThreshold,
+		WebConsoleAddr:      DefaultWebConsoleAddr,
+		Viper:               viper.New(),
 	}
 }
 
@@ -133,14 +137,15 @@ func AddFlags(fs *pflag.FlagSet) {
 	fs.Int(ParamMaxReaders, DefaultMaxReaders, "Maximum number of socket readers")
 	fs.Int(ParamMaxWorkers, DefaultMaxWorkers, "Maximum number of workers to process metrics")
 	fs.Int(ParamMaxQueueSize, DefaultMaxQueueSize, "Maximum number of buffered metrics per worker")
+	fs.Int(ParamMaxConcurrentEvents, DefaultMaxConcurrentEvents, "Maximum number of events sent concurrently")
 	fs.String(ParamMetricsAddr, DefaultMetricsAddr, "Address on which to listen for metrics")
 	fs.String(ParamNamespace, "", "Namespace all metrics")
 	fs.String(ParamWebAddr, DefaultWebConsoleAddr, "If set, use as the address of the web-based console")
 	//TODO Remove workaround when https://github.com/spf13/viper/issues/112 is fixed
 	// https://github.com/spf13/viper/issues/200
 	fs.String(ParamBackends, strings.Join(DefaultBackends, ","), "Comma-separated list of backends")
-	fs.Uint(ParamMaxCloudRequests, DefaultMaxCloudRequests, "Maximum number of cloud provider requests per second")
-	fs.Uint(ParamBurstCloudRequests, DefaultBurstCloudRequests, "Burst number of cloud provider requests per second")
+	fs.Int(ParamMaxCloudRequests, DefaultMaxCloudRequests, "Maximum number of cloud provider requests per second")
+	fs.Int(ParamBurstCloudRequests, DefaultBurstCloudRequests, "Burst number of cloud provider requests per second")
 	fs.String(ParamDefaultTags, strings.Join(DefaultTags, ","), "Comma-separated list of tags to add to all metrics")
 	fs.String(ParamPercentThreshold, strings.Join(toStringSlice(DefaultPercentThreshold), ","), "Comma-separated list of percentiles")
 }
@@ -180,7 +185,7 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 	// 2. Start handlers
 	ip := types.UnknownIP
 
-	handler := NewDispatchingHandler(dispatcher, s.Backends, s.DefaultTags, maxConcurrentEvents)
+	handler := NewDispatchingHandler(dispatcher, s.Backends, s.DefaultTags, uint(s.MaxConcurrentEvents))
 	if s.CloudProvider != nil {
 		ch := NewCloudHandler(s.CloudProvider, handler, s.Limiter, nil)
 		handler = ch
