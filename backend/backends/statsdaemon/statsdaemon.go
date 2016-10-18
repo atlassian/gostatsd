@@ -34,11 +34,12 @@ const sampleConfig = `
 // goroutine that writes them to the socket.
 const sendChannelSize = 1000
 
-// client is an object that is used to send messages to a statsd server's UDP interface.
+// client is an object that is used to send messages to a statsd server's UDP or TCP interface.
 type client struct {
-	address     string
-	dialTimeout time.Duration
-	disableTags bool
+	address      string
+	dialTimeout  time.Duration
+	disableTags  bool
+	tcpTransport bool
 }
 
 // overflowHandler is invoked when accumulated packed size has reached it's limit of maxUDPPacketSize.
@@ -60,7 +61,13 @@ func (client *client) SendMetricsAsync(ctx context.Context, metrics *types.Metri
 		cb(nil)
 		return
 	}
-	conn, err := net.DialTimeout("udp", client.address, client.dialTimeout)
+
+	network := "udp"
+	if client.tcpTransport {
+		network = "tcp"
+	}
+
+	conn, err := net.DialTimeout(network, client.address, client.dialTimeout)
 	if err != nil {
 		cb([]error{fmt.Errorf("[%s] error connecting: %v", BackendName, err)})
 		return
@@ -104,7 +111,7 @@ func (client *client) SendMetricsAsync(ctx context.Context, metrics *types.Metri
 		case datagrams <- buf:
 			return bufFree.Get().(*bytes.Buffer), nil
 		}
-	}, client.disableTags)
+	}, client.disableTags, client.tcpTransport)
 	if err == nil {
 		// All metrics sent to the channel and context wasn't cancelled (yet) - consuming goroutine will exit
 		// with success (unless ctx gets a cancel after the close, which is also ok)
@@ -114,7 +121,7 @@ func (client *client) SendMetricsAsync(ctx context.Context, metrics *types.Metri
 	}
 }
 
-func processMetrics(metrics *types.MetricMap, handler overflowHandler, disableTags bool) (retErr error) {
+func processMetrics(metrics *types.MetricMap, handler overflowHandler, disableTags bool, tcpTransport bool) (retErr error) {
 	type failure struct {
 		err error
 	}
@@ -139,7 +146,7 @@ func processMetrics(metrics *types.MetricMap, handler overflowHandler, disableTa
 			fmt.Fprintf(line, format, name, value, tags)
 		}
 		// Make sure we don't go over max udp datagram size
-		if buf.Len()+line.Len() > maxUDPPacketSize {
+		if buf.Len()+line.Len() > maxUDPPacketSize && !tcpTransport {
 			var err error
 			if buf, err = handler(buf); err != nil {
 				return err
@@ -188,7 +195,12 @@ func processMetrics(metrics *types.MetricMap, handler overflowHandler, disableTa
 
 // SendEvent sends events to the statsd master server.
 func (client *client) SendEvent(ctx context.Context, e *types.Event) error {
-	conn, err := net.DialTimeout("udp", client.address, client.dialTimeout)
+	network := "udp"
+	if client.tcpTransport {
+		network = "tcp"
+	}
+
+	conn, err := net.DialTimeout(network, client.address, client.dialTimeout)
 	if err != nil {
 		return fmt.Errorf("error connecting to statsd backend: %s", err)
 	}
@@ -253,7 +265,7 @@ func (client *client) SampleConfig() string {
 }
 
 // NewClient constructs a new statsd backend client.
-func NewClient(address string, dialTimeout time.Duration, disableTags bool) (backendTypes.Backend, error) {
+func NewClient(address string, dialTimeout time.Duration, disableTags bool, tcpTransport bool) (backendTypes.Backend, error) {
 	if address == "" {
 		return nil, fmt.Errorf("[%s] address is required", BackendName)
 	}
@@ -262,9 +274,10 @@ func NewClient(address string, dialTimeout time.Duration, disableTags bool) (bac
 	}
 	log.Infof("[%s] address=%s dialTimeout=%s", BackendName, address, dialTimeout)
 	return &client{
-		address:     address,
-		dialTimeout: dialTimeout,
-		disableTags: disableTags,
+		address:      address,
+		dialTimeout:  dialTimeout,
+		disableTags:  disableTags,
+		tcpTransport: tcpTransport,
 	}, nil
 }
 
@@ -273,10 +286,12 @@ func NewClientFromViper(v *viper.Viper) (backendTypes.Backend, error) {
 	g := getSubViper(v, "statsdaemon")
 	g.SetDefault("dial_timeout", defaultDialTimeout)
 	g.SetDefault("disable_tags", false)
+	g.SetDefault("tcp_transport", false)
 	return NewClient(
 		g.GetString("address"),
 		g.GetDuration("dial_timeout"),
 		g.GetBool("disable_tags"),
+		g.GetBool("tcp_transport"),
 	)
 }
 
