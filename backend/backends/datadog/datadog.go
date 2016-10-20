@@ -76,7 +76,7 @@ func (d *client) SendMetricsAsync(ctx context.Context, metrics *types.MetricMap,
 	results := make(chan error)
 	d.processMetrics(metrics, func(ts *timeSeries) {
 		go func() {
-			err := d.postMetrics(ts)
+			err := d.postMetrics(ctx, ts)
 			select {
 			case <-ctx.Done():
 			case results <- err:
@@ -146,13 +146,13 @@ func (d *client) processMetrics(metrics *types.MetricMap, cb func(*timeSeries)) 
 	fl.finish()
 }
 
-func (d *client) postMetrics(ts *timeSeries) error {
-	return d.post("/api/v1/series", "metrics", ts)
+func (d *client) postMetrics(ctx context.Context, ts *timeSeries) error {
+	return d.post(ctx, "/api/v1/series", "metrics", ts)
 }
 
 // SendEvent sends an event to Datadog.
 func (d *client) SendEvent(ctx context.Context, e *types.Event) error {
-	return d.post("/api/v1/events", "events", &event{
+	return d.post(ctx, "/api/v1/events", "events", &event{
 		Title:          e.Title,
 		Text:           e.Text,
 		DateHappened:   e.DateHappened,
@@ -175,7 +175,7 @@ func (d *client) BackendName() string {
 	return BackendName
 }
 
-func (d *client) post(path, typeOfPost string, data interface{}) error {
+func (d *client) post(ctx context.Context, path, typeOfPost string, data interface{}) error {
 	tsBytes, err := json.Marshal(data)
 	if err != nil {
 		return fmt.Errorf("[%s] unable to marshal %s: %v", BackendName, typeOfPost, err)
@@ -184,7 +184,7 @@ func (d *client) post(path, typeOfPost string, data interface{}) error {
 
 	b := backoff.NewExponentialBackOff()
 	b.MaxElapsedTime = d.maxRequestElapsedTime
-	err = backoff.RetryNotify(d.doPost(path, tsBytes), b, func(err error, d time.Duration) {
+	err = backoff.RetryNotify(d.doPost(ctx, path, tsBytes), b, func(err error, d time.Duration) {
 		log.Warnf("[%s] failed to send %s, sleeping for %s: %v", BackendName, typeOfPost, d, err)
 	})
 	if err != nil {
@@ -194,13 +194,14 @@ func (d *client) post(path, typeOfPost string, data interface{}) error {
 	return nil
 }
 
-func (d *client) doPost(path string, body []byte) backoff.Operation {
+func (d *client) doPost(ctx context.Context, path string, body []byte) backoff.Operation {
 	authenticatedURL := d.authenticatedURL(path)
 	return func() error {
 		req, err := http.NewRequest("POST", authenticatedURL, bytes.NewReader(body))
 		if err != nil {
 			return fmt.Errorf("unable to create http.Request: %v", err)
 		}
+		req = req.WithContext(ctx)
 		req.Header.Set("Content-Type", "application/json")
 		// Mimic dogstatsd code
 		req.Header.Set("DD-Dogstatsd-Version", dogstatsdVersion)
