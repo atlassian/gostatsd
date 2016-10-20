@@ -3,10 +3,12 @@ package datadog
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"net/url"
 	"strings"
@@ -268,6 +270,20 @@ func NewClient(apiEndpoint, apiKey string, metricsPerBatch uint, clientTimeout, 
 		apiEndpoint:           apiEndpoint,
 		maxRequestElapsedTime: maxRequestElapsedTime,
 		client: http.Client{
+			Transport: &http.Transport{
+				Proxy:               http.ProxyFromEnvironment,
+				TLSHandshakeTimeout: 5 * time.Second,
+				TLSClientConfig: &tls.Config{
+					// Can't use SSLv3 because of POODLE and BEAST
+					// Can't use TLSv1.0 because of POODLE and BEAST using CBC cipher
+					// Can't use TLSv1.1 because of RC4 cipher usage
+					MinVersion: tls.VersionTLS12,
+				},
+				DialContext: (&net.Dialer{
+					Timeout:   5 * time.Second,
+					KeepAlive: 30 * time.Second,
+				}).DialContext,
+			},
 			Timeout: clientTimeout,
 		},
 		metricsPerBatch: metricsPerBatch,
