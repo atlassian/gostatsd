@@ -163,6 +163,23 @@ type SocketFactory func() (net.PacketConn, error)
 // RunWithCustomSocket runs the server until context signals done.
 // Listening socket is created using sf.
 func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) error {
+	// 0. Start runnable backends
+	var wgBackends sync.WaitGroup
+	defer wgBackends.Wait()                                         // Wait for backends to shutdown
+	ctxBack, cancelBack := context.WithCancel(context.Background()) // Separate context!
+	defer cancelBack()                                              // Tell backends to shutdown
+	for _, b := range s.Backends {
+		if b, ok := b.(backendTypes.RunnableBackend); ok {
+			wgBackends.Add(1)
+			go func(b backendTypes.RunnableBackend) {
+				defer wgBackends.Done()
+				if err := b.Run(ctxBack); unexpectedErr(err) {
+					log.Panicf("Backend %s quit unexpectedly: %v", b.BackendName(), err)
+				}
+			}(b)
+		}
+	}
+
 	// 1. Start the Dispatcher
 	factory := agrFactory{
 		percentThresholds: s.PercentThreshold,

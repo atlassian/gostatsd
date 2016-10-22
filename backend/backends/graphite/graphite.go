@@ -6,8 +6,10 @@ import (
 	"fmt"
 	"net"
 	"regexp"
+	"sync"
 	"time"
 
+	"github.com/atlassian/gostatsd/backend/backends"
 	backendTypes "github.com/atlassian/gostatsd/backend/types"
 	"github.com/atlassian/gostatsd/types"
 
@@ -40,6 +42,13 @@ const (
 	DefaultLegacyNamespace = true
 )
 
+const (
+	bufSize = 1 * 1024 * 1024
+	// maxConcurrentSends is the number of max concurrent SendMetricsAsync calls that can actually make progress.
+	// More calls will block. The current implementation uses maximum 1 call.
+	maxConcurrentSends = 10
+)
+
 const sampleConfig = `
 [graphite]
 	# graphite host or ip address
@@ -67,9 +76,7 @@ type Config struct {
 
 // client is an object that is used to send messages to a Graphite server's TCP interface.
 type client struct {
-	address          string
-	dialTimeout      time.Duration
-	writeTimeout     time.Duration
+	sender           backends.Sender
 	counterNamespace string
 	timerNamespace   string
 	gaugesNamespace  string
@@ -85,36 +92,20 @@ func (client *client) SendMetricsAsync(ctx context.Context, metrics *types.Metri
 		return
 	}
 	buf := client.preparePayload(metrics, time.Now())
-	go func() {
-		cb([]error{client.doSend(ctx, buf)})
-	}()
-}
-
-func (client *client) doSend(ctx context.Context, buf *bytes.Buffer) (retErr error) {
-	conn, err := net.DialTimeout("tcp", client.address, client.dialTimeout)
-	if err != nil {
-		return fmt.Errorf("[%s] error connecting: %v", BackendName, err)
+	sink := make(chan *bytes.Buffer, 1)
+	sink <- buf
+	close(sink)
+	select {
+	case <-ctx.Done():
+		client.sender.PutBuffer(buf)
+		cb([]error{ctx.Err()})
+		return
+	case client.sender.Sink <- backends.Stream{Cb: cb, Buf: sink}:
 	}
-	defer func() {
-		errClose := conn.Close()
-		if errClose != nil && retErr == nil {
-			retErr = fmt.Errorf("[%s] error sending: %v", BackendName, errClose)
-		}
-	}()
-	if client.writeTimeout > 0 {
-		if err = conn.SetWriteDeadline(time.Now().Add(client.writeTimeout)); err != nil {
-			log.Warnf("[%s] failed to set write deadline: %v", BackendName, err)
-		}
-	}
-	_, err = conn.Write(buf.Bytes())
-	if err != nil {
-		return fmt.Errorf("[%s] error sending: %v", BackendName, err)
-	}
-	return nil
 }
 
 func (client *client) preparePayload(metrics *types.MetricMap, ts time.Time) *bytes.Buffer {
-	buf := new(bytes.Buffer)
+	buf := client.sender.GetBuffer()
 	now := ts.Unix()
 	if client.legacyNamespace {
 		metrics.Counters.Each(func(key, tagsKey string, counter types.Counter) {
@@ -234,9 +225,20 @@ func NewClient(config *Config) (backendTypes.Backend, error) {
 	}
 	log.Infof("[%s] address=%s dialTimeout=%s writeTimeout=%s", BackendName, address, dialTimeout, writeTimeout)
 	return &client{
-		address:          address,
-		dialTimeout:      dialTimeout,
-		writeTimeout:     writeTimeout,
+		sender: backends.Sender{
+			ConnFactory: func() (net.Conn, error) {
+				return net.DialTimeout("tcp", address, dialTimeout)
+			},
+			Sink: make(chan backends.Stream, maxConcurrentSends),
+			BufPool: sync.Pool{
+				New: func() interface{} {
+					buf := new(bytes.Buffer)
+					buf.Grow(bufSize)
+					return buf
+				},
+			},
+			WriteTimeout: writeTimeout,
+		},
 		counterNamespace: counterNamespace,
 		timerNamespace:   timerNamespace,
 		gaugesNamespace:  gaugesNamespace,
