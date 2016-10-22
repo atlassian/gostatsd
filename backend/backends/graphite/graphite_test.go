@@ -7,16 +7,15 @@ import (
 	"github.com/atlassian/gostatsd/types"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
-type testData struct {
-	config  *Config
-	metrics *types.MetricMap
-	result  []byte
-}
-
 func TestPreparePayload(t *testing.T) {
-	assert := assert.New(t)
+	type testData struct {
+		config  *Config
+		metrics *types.MetricMap
+		result  []byte
+	}
 	timestamp := types.Nanotime(time.Unix(123456, 0).UnixNano())
 
 	metrics := &types.MetricMap{
@@ -130,11 +129,9 @@ func TestPreparePayload(t *testing.T) {
 	}
 	for i, td := range input {
 		c, err := NewClient(td.config)
-		if !assert.NoError(err, "test %d", i) {
-			continue
-		}
+		require.NoError(t, err)
 		cl := c.(*client)
-		b := cl.preparePayload(td.metrics, time.Unix(1234, 0)).Bytes()
-		assert.Equal(td.result, b, "test %d", i)
+		b := cl.preparePayload(td.metrics, time.Unix(1234, 0))
+		assert.Equal(t, string(td.result), b.String(), "test %d", i)
 	}
 }

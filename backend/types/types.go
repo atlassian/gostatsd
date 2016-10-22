@@ -28,3 +28,10 @@ type Backend interface {
 	// SendEvent sends event to the backend.
 	SendEvent(context.Context, *types.Event) error
 }
+
+// RunnableBackend represents a backend that needs a Run method to be executed to work.
+type RunnableBackend interface {
+	Backend
+	// Run executes backend send operations. Should be started in a goroutine.
+	Run(context.Context) error
+}

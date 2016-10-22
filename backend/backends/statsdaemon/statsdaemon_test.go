@@ -9,6 +9,7 @@ import (
 
 	"github.com/atlassian/gostatsd/types"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 var longName = strings.Repeat("t", maxUDPPacketSize-5)
@@ -24,29 +25,31 @@ var m = types.MetricMap{
 }
 
 func TestProcessMetricsRecover(t *testing.T) {
+	b, err := NewClient("localhost:8125", 1*time.Second, 1*time.Second, false, false)
+	require.NoError(t, err)
+	c := b.(*client)
 	expectedErr := errors.New("ABC some error")
-	actualErr := processMetrics(&m, func(buf *bytes.Buffer) (*bytes.Buffer, error) {
-		return nil, expectedErr
-	}, false)
-	if expectedErr != actualErr {
-		t.Errorf("expected %v, actual %v", expectedErr, actualErr)
-	}
+	actualErr := c.processMetrics(&m, false, func(buf *bytes.Buffer) (*bytes.Buffer, error) {
+		return buf, expectedErr
+	})
+	assert.Equal(t, expectedErr, actualErr)
 }
 
 func TestProcessMetricsPanic(t *testing.T) {
+	b, err := NewClient("localhost:8125", 1*time.Second, 1*time.Second, false, false)
+	require.NoError(t, err)
+	c := b.(*client)
 	expectedErr := errors.New("ABC some error")
 	defer func() {
 		if r := recover(); r != nil {
-			if r != expectedErr {
-				t.Errorf("expected %v, got %v", expectedErr, r)
-			}
+			assert.Equal(t, expectedErr, r)
 		} else {
 			t.Error("should have panicked")
 		}
 	}()
-	err := processMetrics(&m, func(buf *bytes.Buffer) (*bytes.Buffer, error) {
+	err = c.processMetrics(&m, false, func(buf *bytes.Buffer) (*bytes.Buffer, error) {
 		panic(expectedErr)
-	}, false)
+	})
 	t.Errorf("unreachable %v", err)
 }
 
@@ -62,15 +65,18 @@ var gaugeMetic = types.MetricMap{
 }
 
 func TestProcessMetricsTags(t *testing.T) {
+	b, err := NewClient("localhost:8125", 1*time.Second, 1*time.Second, false, false)
+	require.NoError(t, err)
+	c := b.(*client)
 	expectedValue := "statsd.processing_time:2.000000|g|#tag1\n"
-	assert.NoError(t, processMetrics(&gaugeMetic, func(buf *bytes.Buffer) (*bytes.Buffer, error) {
-		assert.EqualValues(t, expectedValue, buf.String(), "should be equal")
-		return bufFree.Get().(*bytes.Buffer), nil
-	}, false))
+	assert.NoError(t, c.processMetrics(&gaugeMetic, false, func(buf *bytes.Buffer) (*bytes.Buffer, error) {
+		assert.EqualValues(t, expectedValue, buf.String())
+		return new(bytes.Buffer), nil
+	}))
 
 	expectedValue = "statsd.processing_time:2.000000|g\n"
-	assert.NoError(t, processMetrics(&gaugeMetic, func(buf *bytes.Buffer) (*bytes.Buffer, error) {
-		assert.EqualValues(t, expectedValue, buf.String(), "should be equal")
-		return bufFree.Get().(*bytes.Buffer), nil
-	}, true))
+	assert.NoError(t, c.processMetrics(&gaugeMetic, true, func(buf *bytes.Buffer) (*bytes.Buffer, error) {
+		assert.EqualValues(t, expectedValue, buf.String())
+		return new(bytes.Buffer), nil
+	}))
 }
