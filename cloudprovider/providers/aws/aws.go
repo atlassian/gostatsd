@@ -1,6 +1,7 @@
 package aws
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -51,7 +52,7 @@ type Services interface {
 // Note that the DescribeX functions return a list, so callers don't need to deal with paging.
 type EC2 interface {
 	// Query EC2 for instances matching the filter.
-	DescribeInstances(request *ec2.DescribeInstancesInput) ([]*ec2.Instance, error)
+	DescribeInstances(ctx context.Context, request *ec2.DescribeInstancesInput) ([]*ec2.Instance, error)
 }
 
 // EC2Metadata is an abstraction over the AWS metadata service.
@@ -75,12 +76,14 @@ type awsSDKProvider struct {
 }
 
 // DescribeInstances is an implementation of EC2.Instances.
-func (s *awsSdkEC2) DescribeInstances(request *ec2.DescribeInstancesInput) ([]*ec2.Instance, error) {
+func (s *awsSdkEC2) DescribeInstances(ctx context.Context, request *ec2.DescribeInstancesInput) ([]*ec2.Instance, error) {
 	// Instances are paged
 	results := []*ec2.Instance{}
 
 	for {
-		response, err := s.ec2.DescribeInstances(request)
+		req, response := s.ec2.DescribeInstancesRequest(request)
+		req.HTTPRequest = req.HTTPRequest.WithContext(ctx)
+		err := req.Send()
 		if err != nil {
 			return nil, fmt.Errorf("error listing AWS instances: %v", err)
 		}
@@ -109,13 +112,13 @@ func newEc2Filter(name string, value string) *ec2.Filter {
 }
 
 // Instance returns the instance details from aws.
-func (p *provider) Instance(IP types.IP) (*cloudTypes.Instance, error) {
+func (p *provider) Instance(ctx context.Context, IP types.IP) (*cloudTypes.Instance, error) {
 	filters := []*ec2.Filter{newEc2Filter("private-ip-address", string(IP))}
 	request := &ec2.DescribeInstancesInput{
 		Filters: filters,
 	}
 
-	instances, err := p.ec2.DescribeInstances(request)
+	instances, err := p.ec2.DescribeInstances(ctx, request)
 	if err != nil {
 		return nil, err
 	}

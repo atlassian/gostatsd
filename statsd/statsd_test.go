@@ -103,7 +103,7 @@ func (fp *fakeProvider) SampleConfig() string {
 	return ""
 }
 
-func (fp *fakeProvider) Instance(IP types.IP) (*cloudTypes.Instance, error) {
+func (fp *fakeProvider) Instance(ctx context.Context, IP types.IP) (*cloudTypes.Instance, error) {
 	return fp.instance, nil
 }
 

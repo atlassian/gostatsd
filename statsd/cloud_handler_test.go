@@ -292,7 +292,7 @@ func (fp *fakeProviderIP) ProviderName() string {
 	return "fakeProviderIP"
 }
 
-func (fp *fakeProviderIP) Instance(ip types.IP) (*cloudTypes.Instance, error) {
+func (fp *fakeProviderIP) Instance(ctx context.Context, ip types.IP) (*cloudTypes.Instance, error) {
 	fp.count(ip)
 	return &cloudTypes.Instance{
 		ID:     "i-" + string(ip),
@@ -309,7 +309,7 @@ func (fp *fakeProviderNotFound) ProviderName() string {
 	return "fakeProviderNotFound"
 }
 
-func (fp *fakeProviderNotFound) Instance(ip types.IP) (*cloudTypes.Instance, error) {
+func (fp *fakeProviderNotFound) Instance(ctx context.Context, ip types.IP) (*cloudTypes.Instance, error) {
 	fp.count(ip)
 	return nil, nil
 }
@@ -322,7 +322,7 @@ func (fp *fakeFailingProvider) ProviderName() string {
 	return "fakeFailingProvider"
 }
 
-func (fp *fakeFailingProvider) Instance(ip types.IP) (*cloudTypes.Instance, error) {
+func (fp *fakeFailingProvider) Instance(ctx context.Context, ip types.IP) (*cloudTypes.Instance, error) {
 	fp.count(ip)
 	return nil, errors.New("clear skies, no clouds available")
 }
