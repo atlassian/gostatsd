@@ -1,6 +1,8 @@
 package types
 
 import (
+	"context"
+
 	"github.com/atlassian/gostatsd/types"
 
 	"github.com/spf13/viper"
@@ -23,7 +25,7 @@ type Interface interface {
 	// SampleConfig returns the sample config for the cloud provider.
 	SampleConfig() string
 	// Instance returns the instance details from the cloud provider.
-	Instance(types.IP) (*Instance, error)
+	Instance(context.Context, types.IP) (*Instance, error)
 	// SelfIP returns host's IPv4 address.
 	SelfIP() (types.IP, error)
 }

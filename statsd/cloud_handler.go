@@ -305,7 +305,7 @@ func (ch *cloudHandler) lookupDispatcher(ctx context.Context, wg *sync.WaitGroup
 func (ch *cloudHandler) doLookup(ctx context.Context, wg *sync.WaitGroup, ip types.IP, lookupResults chan<- *lookupResult) {
 	defer wg.Done()
 
-	instance, err := ch.cloud.Instance(ip)
+	instance, err := ch.cloud.Instance(ctx, ip)
 	if err != nil {
 		log.Debugf("Error retrieving instance details from cloud provider for %s: %v", ip, err)
 	}
