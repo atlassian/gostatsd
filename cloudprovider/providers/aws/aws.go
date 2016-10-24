@@ -37,32 +37,6 @@ type Provider struct {
 	Ec2      *ec2.EC2
 }
 
-// DescribeInstances is an implementation of EC2.Instances.
-func (p *Provider) describeInstances(ctx context.Context, request *ec2.DescribeInstancesInput) ([]*ec2.Instance, error) {
-	// Instances are paged
-	results := []*ec2.Instance{}
-
-	for {
-		req, response := p.Ec2.DescribeInstancesRequest(request)
-		req.HTTPRequest = req.HTTPRequest.WithContext(ctx)
-		err := req.Send()
-		if err != nil {
-			return nil, fmt.Errorf("error listing AWS instances: %v", err)
-		}
-
-		for _, reservation := range response.Reservations {
-			results = append(results, reservation.Instances...)
-		}
-
-		if response.NextToken == nil {
-			break
-		}
-		request.NextToken = response.NextToken
-	}
-
-	return results, nil
-}
-
 func newEc2Filter(name string, value string) *ec2.Filter {
 	return &ec2.Filter{
 		Name: aws.String(name),
@@ -74,32 +48,40 @@ func newEc2Filter(name string, value string) *ec2.Filter {
 
 // Instance returns the instance details from aws.
 func (p *Provider) Instance(ctx context.Context, IP types.IP) (*cloudTypes.Instance, error) {
-	filters := []*ec2.Filter{newEc2Filter("private-ip-address", string(IP))}
-	request := &ec2.DescribeInstancesInput{
-		Filters: filters,
-	}
-
-	instances, err := p.describeInstances(ctx, request)
+	req, _ := p.Ec2.DescribeInstancesRequest(&ec2.DescribeInstancesInput{
+		Filters: []*ec2.Filter{
+			newEc2Filter("private-ip-address", string(IP)),
+		},
+	})
+	req.HTTPRequest = req.HTTPRequest.WithContext(ctx)
+	var inst *ec2.Instance
+	err := req.EachPage(func(data interface{}, isLastPage bool) bool {
+		for _, reservation := range data.(*ec2.DescribeInstancesOutput).Reservations {
+			for _, instance := range reservation.Instances {
+				inst = instance
+				return false
+			}
+		}
+		return true
+	})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error listing AWS instances: %v", err)
 	}
-	if len(instances) == 0 {
-		return nil, errors.New("no instances returned")
+	if inst == nil {
+		return nil, errors.New("no instances found")
 	}
-
-	i := instances[0]
-	region, err := azToRegion(aws.StringValue(i.Placement.AvailabilityZone))
+	region, err := azToRegion(aws.StringValue(inst.Placement.AvailabilityZone))
 	if err != nil {
 		log.Errorf("Error getting instance region: %v", err)
 	}
-	tags := make(types.Tags, len(i.Tags))
-	for idx, tag := range i.Tags {
+	tags := make(types.Tags, len(inst.Tags))
+	for idx, tag := range inst.Tags {
 		tags[idx] = fmt.Sprintf("%s:%s",
 			types.NormalizeTagKey(aws.StringValue(tag.Key)),
 			aws.StringValue(tag.Value))
 	}
 	instance := &cloudTypes.Instance{
-		ID:     aws.StringValue(i.InstanceId),
+		ID:     aws.StringValue(inst.InstanceId),
 		Region: region,
 		Tags:   tags,
 	}
