@@ -20,6 +20,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/spf13/viper"
+	"golang.org/x/net/http2"
 )
 
 const (
@@ -127,24 +128,28 @@ func NewProviderFromViper(v *viper.Viper) (cloudTypes.Interface, error) {
 	}
 
 	// This is the main config without credentials.
+	transport := &http.Transport{
+		Proxy:               http.ProxyFromEnvironment,
+		TLSHandshakeTimeout: 5 * time.Second,
+		TLSClientConfig: &tls.Config{
+			// Can't use SSLv3 because of POODLE and BEAST
+			// Can't use TLSv1.0 because of POODLE and BEAST using CBC cipher
+			// Can't use TLSv1.1 because of RC4 cipher usage
+			MinVersion: tls.VersionTLS12,
+		},
+		DialContext: (&net.Dialer{
+			Timeout:   5 * time.Second,
+			KeepAlive: 30 * time.Second,
+		}).DialContext,
+	}
+	if err := http2.ConfigureTransport(transport); err != nil {
+		return nil, err
+	}
 	config := &aws.Config{
 		MaxRetries: aws.Int(a.GetInt("max_retries")),
 		HTTPClient: &http.Client{
-			Transport: &http.Transport{
-				Proxy:               http.ProxyFromEnvironment,
-				TLSHandshakeTimeout: 5 * time.Second,
-				TLSClientConfig: &tls.Config{
-					// Can't use SSLv3 because of POODLE and BEAST
-					// Can't use TLSv1.0 because of POODLE and BEAST using CBC cipher
-					// Can't use TLSv1.1 because of RC4 cipher usage
-					MinVersion: tls.VersionTLS12,
-				},
-				DialContext: (&net.Dialer{
-					Timeout:   5 * time.Second,
-					KeepAlive: 30 * time.Second,
-				}).DialContext,
-			},
-			Timeout: httpTimeout,
+			Transport: transport,
+			Timeout:   httpTimeout,
 		},
 	}
 	metadata := ec2metadata.New(session.New(config))

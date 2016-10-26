@@ -20,6 +20,7 @@ import (
 	log "github.com/Sirupsen/logrus"
 	"github.com/cenkalti/backoff"
 	"github.com/spf13/viper"
+	"golang.org/x/net/http2"
 )
 
 const (
@@ -265,26 +266,30 @@ func NewClient(apiEndpoint, apiKey string, metricsPerBatch uint, clientTimeout, 
 		return nil, fmt.Errorf("[%s] maxRequestElapsedTime must be positive", BackendName)
 	}
 	log.Infof("[%s] maxRequestElapsedTime=%s clientTimeout=%s metricsPerBatch=%d", BackendName, maxRequestElapsedTime, clientTimeout, metricsPerBatch)
+	transport := &http.Transport{
+		Proxy:               http.ProxyFromEnvironment,
+		TLSHandshakeTimeout: 5 * time.Second,
+		TLSClientConfig: &tls.Config{
+			// Can't use SSLv3 because of POODLE and BEAST
+			// Can't use TLSv1.0 because of POODLE and BEAST using CBC cipher
+			// Can't use TLSv1.1 because of RC4 cipher usage
+			MinVersion: tls.VersionTLS12,
+		},
+		DialContext: (&net.Dialer{
+			Timeout:   5 * time.Second,
+			KeepAlive: 30 * time.Second,
+		}).DialContext,
+	}
+	if err := http2.ConfigureTransport(transport); err != nil {
+		return nil, err
+	}
 	return &client{
 		apiKey:                apiKey,
 		apiEndpoint:           apiEndpoint,
 		maxRequestElapsedTime: maxRequestElapsedTime,
 		client: http.Client{
-			Transport: &http.Transport{
-				Proxy:               http.ProxyFromEnvironment,
-				TLSHandshakeTimeout: 5 * time.Second,
-				TLSClientConfig: &tls.Config{
-					// Can't use SSLv3 because of POODLE and BEAST
-					// Can't use TLSv1.0 because of POODLE and BEAST using CBC cipher
-					// Can't use TLSv1.1 because of RC4 cipher usage
-					MinVersion: tls.VersionTLS12,
-				},
-				DialContext: (&net.Dialer{
-					Timeout:   5 * time.Second,
-					KeepAlive: 30 * time.Second,
-				}).DialContext,
-			},
-			Timeout: clientTimeout,
+			Transport: transport,
+			Timeout:   clientTimeout,
 		},
 		metricsPerBatch: metricsPerBatch,
 		now:             time.Now,
