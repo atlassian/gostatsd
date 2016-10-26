@@ -1,8 +1,8 @@
-hash: d3fc6337bf7be2c88ae0597a730608b8413e1a6d05ed3ca7516b494d3c5a84d8
-updated: 2016-10-14T21:08:06.912112866+11:00
+hash: 87eaa8d0cd5e876a9575e5175e0bf1d5260a69956cd05dd7a8a5b98fa8c8bbee
+updated: 2016-10-26T20:29:11.550369154+11:00
 imports:
 - name: github.com/aws/aws-sdk-go
-  version: 429750244b4773992ab16ab536447e584795b156
+  version: 6c577e9e7b08a6d10bad1c9703227cd0403a8dd7
   subpackages:
   - aws
   - aws/awserr
@@ -30,13 +30,13 @@ imports:
   - service/ec2
   - service/sts
 - name: github.com/cenkalti/backoff
-  version: 8edc80b07f38c27352fb186d971c628a6c32552b
+  version: b02f2bbce11d7ea6b97f282ef1771b0fe2f65ef3
 - name: github.com/fsnotify/fsnotify
   version: bd2828f9f176e52d7222e565abb2d338d3f3c103
 - name: github.com/go-ini/ini
   version: 6e4869b434bd001f6983749881c7ead3545887d8
 - name: github.com/hashicorp/hcl
-  version: 6f5bfed9a0a22222fbe4e731ae3481730ba41e93
+  version: 99ce73d4fe576449f7a689d4fc2b2ad09a86bdaa
   subpackages:
   - hcl/ast
   - hcl/parser
@@ -55,7 +55,7 @@ imports:
 - name: github.com/magiconair/properties
   version: 0723e352fa358f9322c938cc2dadda874e9151a9
 - name: github.com/mitchellh/mapstructure
-  version: a6ef2f080c66d0a2e94e97cf74f80f772855da63
+  version: f3009df150dadf309fdee4a54ed65c124afad715
 - name: github.com/pelletier/go-buffruneio
   version: df1e16fde7fc330a0ca68167c23bf7ed6ac31d6d
 - name: github.com/pelletier/go-toml
@@ -76,30 +76,35 @@ imports:
 - name: github.com/spf13/jwalterweatherman
   version: 33c24e77fb80341fe7130ee7c594256ff08ccc46
 - name: github.com/spf13/pflag
-  version: bf8481a6aebc13a8aab52e699ffe2e79771f5a3f
+  version: 5ccb023bc27df288a957c5e994cd44fd19619465
 - name: github.com/spf13/viper
-  version: 50515b700e02658272117a72bd641b6b7f1222e5
+  version: 80ab6657f9ec7e5761f6603320d3d58dfe6970f6
 - name: github.com/stretchr/testify
   version: 976c720a22c8eb4eb6a0b4348ad85ad12491a506
   subpackages:
   - assert
+  - require
 - name: golang.org/x/crypto
-  version: 5f31782cfb2b6373211f8f9fbf31283fa234b570
+  version: ca7e7f10cb9fd9c1a6ff7f60436c086d73714180
   subpackages:
   - curve25519
   - ed25519
   - ed25519/internal/edwards25519
   - ssh
 - name: golang.org/x/net
-  version: 8b4af36cd21a1f85a7484b49feb7c79363106d8e
+  version: 65dfc08770ce66f74becfdff5f8ab01caef4e946
   subpackages:
   - context
+  - http2
+  - http2/hpack
+  - idna
+  - lex/httplex
 - name: golang.org/x/sys
-  version: 9bb9f0998d48b31547d975974935ae9b48c7a03c
+  version: c200b10b5d5e122be351b67af224adc6128af5bf
   subpackages:
   - unix
 - name: golang.org/x/text
-  version: c745997bb18563e8788428768ce0f034f2b663df
+  version: 16e1d1f27f7aba51c74c0aeb7a7ee31a75c5c63c
   subpackages:
   - transform
   - unicode/norm
