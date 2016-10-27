@@ -88,6 +88,7 @@ git-hook:
 
 # Compile a static binary. Cannot be used with -race
 docker:
+	docker pull golang:$(GOVERSION)
 	docker run \
 		--rm \
 		-v "$(GOPATH)":"$(GP)" \
@@ -100,6 +101,7 @@ docker:
 
 # Compile a binary with -race. Needs to be run on a glibc-based system.
 docker-race:
+	docker pull golang:$(GOVERSION)
 	docker run \
 		--rm \
 		-v "$(GOPATH)":"$(GP)" \
