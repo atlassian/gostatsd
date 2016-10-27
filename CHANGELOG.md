@@ -1,3 +1,13 @@
+0.15.0
+------
+- Fix bug where max queue size parameter was not applied properly
+- Use [context](https://golang.org/doc/go1.7#context) in more places
+- Stricter TLS configuration
+- Support TCP transport and write timeouts in statsd backend
+- Reuse UDP/TCP sockets to reduce number of DNS lookups in statsd and graphite backends
+- Reuse memory buffers in more cases
+- Update dependencies
+
 0.14.11
 -------
 - Go 1.7
