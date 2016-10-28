@@ -2,6 +2,7 @@ package graphite
 
 import (
 	"context"
+	"io"
 	"net"
 	"strconv"
 	"sync"
@@ -112,6 +113,27 @@ func TestSendMetricsAsync(t *testing.T) {
 		Address: &addr,
 	})
 	require.NoError(t, err)
+
+	var acceptWg sync.WaitGroup
+	acceptWg.Add(1)
+	go func() {
+		defer acceptWg.Done()
+		conn, e := l.Accept()
+		require.NoError(t, e)
+		defer conn.Close()
+		d := make([]byte, 1024)
+		for {
+			assert.NoError(t, conn.SetReadDeadline(time.Now().Add(2*time.Second)))
+			_, e := conn.Read(d)
+			if e == io.EOF {
+				break
+			}
+			require.NoError(t, e)
+		}
+	}()
+	defer acceptWg.Wait()
+	defer l.Close()
+
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 	defer cancel()
 	var wg sync.WaitGroup
@@ -123,10 +145,10 @@ func TestSendMetricsAsync(t *testing.T) {
 		}
 	}()
 	c.SendMetricsAsync(ctx, metrics(), func(errs []error) {
+		defer wg.Done()
 		for i, e := range errs {
 			assert.NoError(t, e, i)
 		}
-		wg.Done()
 	})
 	wg.Wait()
 }
