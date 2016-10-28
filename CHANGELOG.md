@@ -1,3 +1,7 @@
+0.15.1
+------
+- Fix bug in Graphite backend introduced in 0.15.0 (#75)
+
 0.15.0
 ------
 - Fix bug where max queue size parameter was not applied properly
