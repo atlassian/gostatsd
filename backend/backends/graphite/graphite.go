@@ -85,6 +85,10 @@ type client struct {
 	legacyNamespace  bool
 }
 
+func (client *client) Run(ctx context.Context) error {
+	return client.sender.Run(ctx)
+}
+
 // SendMetricsAsync flushes the metrics to the Graphite server, preparing payload synchronously but doing the send asynchronously.
 func (client *client) SendMetricsAsync(ctx context.Context, metrics *types.MetricMap, cb backendTypes.SendCallback) {
 	if metrics.NumStats == 0 {
@@ -99,7 +103,6 @@ func (client *client) SendMetricsAsync(ctx context.Context, metrics *types.Metri
 	case <-ctx.Done():
 		client.sender.PutBuffer(buf)
 		cb([]error{ctx.Err()})
-		return
 	case client.sender.Sink <- backends.Stream{Cb: cb, Buf: sink}:
 	}
 }
