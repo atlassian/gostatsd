@@ -28,7 +28,7 @@ func TestSend(t *testing.T) {
 	}
 	var wg sync.WaitGroup
 	defer wg.Wait()
-	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(10*time.Second))
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	wg.Add(1)
 	go func() {
