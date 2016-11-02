@@ -29,11 +29,9 @@ func TestProcessMetricsRecover(t *testing.T) {
 	b, err := NewClient("localhost:8125", 1*time.Second, 1*time.Second, false, false)
 	require.NoError(t, err)
 	c := b.(*client)
-	expectedErr := errors.New("ABC some error")
-	actualErr := c.processMetrics(&m, func(buf *bytes.Buffer) (*bytes.Buffer, error) {
-		return buf, expectedErr
+	c.processMetrics(&m, func(buf *bytes.Buffer) (*bytes.Buffer, bool) {
+		return nil, true
 	})
-	assert.Equal(t, expectedErr, actualErr)
 }
 
 func TestProcessMetricsPanic(t *testing.T) {
@@ -48,7 +46,7 @@ func TestProcessMetricsPanic(t *testing.T) {
 			t.Error("should have panicked")
 		}
 	}()
-	err = c.processMetrics(&m, func(buf *bytes.Buffer) (*bytes.Buffer, error) {
+	c.processMetrics(&m, func(buf *bytes.Buffer) (*bytes.Buffer, bool) {
 		panic(expectedErr)
 	})
 	t.Errorf("unreachable %v", err)
@@ -84,10 +82,10 @@ func TestProcessMetrics(t *testing.T) {
 			b, err := NewClient("localhost:8125", 1*time.Second, 1*time.Second, val.disableTags, false)
 			require.NoError(t, err)
 			c := b.(*client)
-			assert.NoError(t, c.processMetrics(&gaugeMetic, func(buf *bytes.Buffer) (*bytes.Buffer, error) {
+			c.processMetrics(&gaugeMetic, func(buf *bytes.Buffer) (*bytes.Buffer, bool) {
 				assert.EqualValues(t, val.expectedValue, buf.String())
-				return new(bytes.Buffer), nil
-			}))
+				return new(bytes.Buffer), false
+			})
 		})
 	}
 }

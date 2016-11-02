@@ -51,7 +51,7 @@ type client struct {
 // overflowHandler is invoked when accumulated packed size has reached it's limit.
 // This function should return a new buffer to be used for the rest of the work (may be the same buffer
 // if contents are processed somehow and are no longer needed).
-type overflowHandler func(*bytes.Buffer) (*bytes.Buffer, error)
+type overflowHandler func(*bytes.Buffer) (buf *bytes.Buffer, stop bool)
 
 func (client *client) Run(ctx context.Context) error {
 	return client.sender.Run(ctx)
@@ -72,28 +72,22 @@ func (client *client) SendMetricsAsync(ctx context.Context, metrics *types.Metri
 	case client.sender.Sink <- backends.Stream{Cb: cb, Buf: sink}:
 	}
 	defer close(sink)
-	err := client.processMetrics(metrics, func(buf *bytes.Buffer) (*bytes.Buffer, error) {
+	client.processMetrics(metrics, func(buf *bytes.Buffer) (*bytes.Buffer, bool) {
 		select {
 		case <-ctx.Done():
-			return nil, ctx.Err()
+			return nil, true
 		case sink <- buf:
-			return client.sender.GetBuffer(), nil
+			return client.sender.GetBuffer(), false
 		}
 	})
-	if err != nil && err != context.Canceled && err != context.DeadlineExceeded {
-		panic(fmt.Errorf("Unexpected error: %v", err))
-	}
 }
 
-func (client *client) processMetrics(metrics *types.MetricMap, handler overflowHandler) (retErr error) {
-	type failure struct {
-		err error
+func (client *client) processMetrics(metrics *types.MetricMap, handler overflowHandler) {
+	type stopProcessing struct {
 	}
 	defer func() {
 		if r := recover(); r != nil {
-			if f, ok := r.(failure); ok {
-				retErr = f.err
-			} else {
+			if _, ok := r.(stopProcessing); !ok {
 				panic(r)
 			}
 		}
@@ -115,9 +109,9 @@ func (client *client) processMetrics(metrics *types.MetricMap, handler overflowH
 		}
 		// Make sure we don't go over max udp datagram size
 		if buf.Len()+line.Len() > client.packetSize {
-			b, err := handler(buf)
-			if err != nil {
-				panic(failure{err})
+			b, stop := handler(buf)
+			if stop {
+				panic(stopProcessing{})
 			}
 			buf = b
 		}
@@ -143,13 +137,11 @@ func (client *client) processMetrics(metrics *types.MetricMap, handler overflowH
 		}
 	})
 	if buf.Len() > 0 {
-		b, err := handler(buf) // Process what's left in the buffer
-		if err != nil {
-			return err
+		b, stop := handler(buf) // Process what's left in the buffer
+		if !stop {
+			buf = b
 		}
-		buf = b
 	}
-	return nil
 }
 
 // SendEvent sends events to the statsd master server.
