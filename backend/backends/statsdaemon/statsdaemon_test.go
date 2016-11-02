@@ -3,6 +3,7 @@ package statsdaemon
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -29,7 +30,7 @@ func TestProcessMetricsRecover(t *testing.T) {
 	require.NoError(t, err)
 	c := b.(*client)
 	expectedErr := errors.New("ABC some error")
-	actualErr := c.processMetrics(&m, false, func(buf *bytes.Buffer) (*bytes.Buffer, error) {
+	actualErr := c.processMetrics(&m, func(buf *bytes.Buffer) (*bytes.Buffer, error) {
 		return buf, expectedErr
 	})
 	assert.Equal(t, expectedErr, actualErr)
@@ -47,7 +48,7 @@ func TestProcessMetricsPanic(t *testing.T) {
 			t.Error("should have panicked")
 		}
 	}()
-	err = c.processMetrics(&m, false, func(buf *bytes.Buffer) (*bytes.Buffer, error) {
+	err = c.processMetrics(&m, func(buf *bytes.Buffer) (*bytes.Buffer, error) {
 		panic(expectedErr)
 	})
 	t.Errorf("unreachable %v", err)
@@ -64,19 +65,29 @@ var gaugeMetic = types.MetricMap{
 	},
 }
 
-func TestProcessMetricsTags(t *testing.T) {
-	b, err := NewClient("localhost:8125", 1*time.Second, 1*time.Second, false, false)
-	require.NoError(t, err)
-	c := b.(*client)
-	expectedValue := "statsd.processing_time:2.000000|g|#tag1\n"
-	assert.NoError(t, c.processMetrics(&gaugeMetic, false, func(buf *bytes.Buffer) (*bytes.Buffer, error) {
-		assert.EqualValues(t, expectedValue, buf.String())
-		return new(bytes.Buffer), nil
-	}))
-
-	expectedValue = "statsd.processing_time:2.000000|g\n"
-	assert.NoError(t, c.processMetrics(&gaugeMetic, true, func(buf *bytes.Buffer) (*bytes.Buffer, error) {
-		assert.EqualValues(t, expectedValue, buf.String())
-		return new(bytes.Buffer), nil
-	}))
+func TestProcessMetrics(t *testing.T) {
+	input := []struct {
+		disableTags   bool
+		expectedValue string
+	}{
+		{
+			disableTags:   false,
+			expectedValue: "statsd.processing_time:2.000000|g|#tag1\n",
+		},
+		{
+			disableTags:   true,
+			expectedValue: "statsd.processing_time:2.000000|g\n",
+		},
+	}
+	for _, val := range input {
+		t.Run(fmt.Sprintf("disableTags: %t", val.disableTags), func(t *testing.T) {
+			b, err := NewClient("localhost:8125", 1*time.Second, 1*time.Second, val.disableTags, false)
+			require.NoError(t, err)
+			c := b.(*client)
+			assert.NoError(t, c.processMetrics(&gaugeMetic, func(buf *bytes.Buffer) (*bytes.Buffer, error) {
+				assert.EqualValues(t, val.expectedValue, buf.String())
+				return new(bytes.Buffer), nil
+			}))
+		})
+	}
 }

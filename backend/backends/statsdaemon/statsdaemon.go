@@ -72,7 +72,7 @@ func (client *client) SendMetricsAsync(ctx context.Context, metrics *types.Metri
 	case client.sender.Sink <- backends.Stream{Cb: cb, Buf: sink}:
 	}
 	defer close(sink)
-	err := client.processMetrics(metrics, client.disableTags, func(buf *bytes.Buffer) (*bytes.Buffer, error) {
+	err := client.processMetrics(metrics, func(buf *bytes.Buffer) (*bytes.Buffer, error) {
 		select {
 		case <-ctx.Done():
 			return nil, ctx.Err()
@@ -85,7 +85,7 @@ func (client *client) SendMetricsAsync(ctx context.Context, metrics *types.Metri
 	}
 }
 
-func (client *client) processMetrics(metrics *types.MetricMap, disableTags bool, handler overflowHandler) (retErr error) {
+func (client *client) processMetrics(metrics *types.MetricMap, handler overflowHandler) (retErr error) {
 	type failure struct {
 		err error
 	}
@@ -106,7 +106,7 @@ func (client *client) processMetrics(metrics *types.MetricMap, disableTags bool,
 	line := new(bytes.Buffer)
 	writeLine := func(format, name, tags string, value interface{}) {
 		line.Reset()
-		if tags == "" || disableTags {
+		if tags == "" || client.disableTags {
 			format += "\n"
 			fmt.Fprintf(line, format, name, value)
 		} else {
