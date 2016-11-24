@@ -4,35 +4,35 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/atlassian/gostatsd/types"
+	"github.com/atlassian/gostatsd"
 )
 
 func TestMetricsLexer(t *testing.T) {
-	tests := map[string]types.Metric{
-		"foo.bar.baz:2|c":               {Name: "foo.bar.baz", Value: 2, Type: types.COUNTER},
-		"abc.def.g:3|g":                 {Name: "abc.def.g", Value: 3, Type: types.GAUGE},
-		"def.g:10|ms":                   {Name: "def.g", Value: 10, Type: types.TIMER},
-		"smp.rte:5|c|@0.1":              {Name: "smp.rte", Value: 50, Type: types.COUNTER},
-		"smp.rte:5|c|@0.1|#foo:bar,baz": {Name: "smp.rte", Value: 50, Type: types.COUNTER, Tags: types.Tags{"foo:bar", "baz"}},
-		"smp.rte:5|c|#foo:bar,baz":      {Name: "smp.rte", Value: 5, Type: types.COUNTER, Tags: types.Tags{"foo:bar", "baz"}},
-		"uniq.usr:joe|s":                {Name: "uniq.usr", StringValue: "joe", Type: types.SET},
-		"fooBarBaz:2|c":                 {Name: "fooBarBaz", Value: 2, Type: types.COUNTER},
-		"smp.rte:5|c|#Foo:Bar,baz":      {Name: "smp.rte", Value: 5, Type: types.COUNTER, Tags: types.Tags{"Foo:Bar", "baz"}},
-		"smp.gge:1|g|#Foo:Bar":          {Name: "smp.gge", Value: 1, Type: types.GAUGE, Tags: types.Tags{"Foo:Bar"}},
-		"smp.gge:1|g|#fo_o:ba-r":        {Name: "smp.gge", Value: 1, Type: types.GAUGE, Tags: types.Tags{"fo_o:ba-r"}},
-		"smp gge:1|g":                   {Name: "smp_gge", Value: 1, Type: types.GAUGE},
-		"smp/gge:1|g":                   {Name: "smp-gge", Value: 1, Type: types.GAUGE},
-		"smp,gge$:1|g":                  {Name: "smpgge", Value: 1, Type: types.GAUGE},
-		"un1qu3:john|s":                 {Name: "un1qu3", StringValue: "john", Type: types.SET},
-		"un1qu3:john|s|#some:42":        {Name: "un1qu3", StringValue: "john", Type: types.SET, Tags: types.Tags{"some:42"}},
-		"da-sh:1|s":                     {Name: "da-sh", StringValue: "1", Type: types.SET},
-		"under_score:1|s":               {Name: "under_score", StringValue: "1", Type: types.SET},
-		"a:1|g|#f,,":                    {Name: "a", Value: 1, Type: types.GAUGE, Tags: types.Tags{"f"}},
-		"a:1|g|#,,f":                    {Name: "a", Value: 1, Type: types.GAUGE, Tags: types.Tags{"f"}},
-		"a:1|g|#f,,z":                   {Name: "a", Value: 1, Type: types.GAUGE, Tags: types.Tags{"f", "z"}},
-		"a:1|g|#":                       {Name: "a", Value: 1, Type: types.GAUGE},
-		"a:1|g|#,":                      {Name: "a", Value: 1, Type: types.GAUGE},
-		"a:1|g|#,,":                     {Name: "a", Value: 1, Type: types.GAUGE},
+	tests := map[string]gostatsd.Metric{
+		"foo.bar.baz:2|c":               {Name: "foo.bar.baz", Value: 2, Type: gostatsd.COUNTER},
+		"abc.def.g:3|g":                 {Name: "abc.def.g", Value: 3, Type: gostatsd.GAUGE},
+		"def.g:10|ms":                   {Name: "def.g", Value: 10, Type: gostatsd.TIMER},
+		"smp.rte:5|c|@0.1":              {Name: "smp.rte", Value: 50, Type: gostatsd.COUNTER},
+		"smp.rte:5|c|@0.1|#foo:bar,baz": {Name: "smp.rte", Value: 50, Type: gostatsd.COUNTER, Tags: gostatsd.Tags{"foo:bar", "baz"}},
+		"smp.rte:5|c|#foo:bar,baz":      {Name: "smp.rte", Value: 5, Type: gostatsd.COUNTER, Tags: gostatsd.Tags{"foo:bar", "baz"}},
+		"uniq.usr:joe|s":                {Name: "uniq.usr", StringValue: "joe", Type: gostatsd.SET},
+		"fooBarBaz:2|c":                 {Name: "fooBarBaz", Value: 2, Type: gostatsd.COUNTER},
+		"smp.rte:5|c|#Foo:Bar,baz":      {Name: "smp.rte", Value: 5, Type: gostatsd.COUNTER, Tags: gostatsd.Tags{"Foo:Bar", "baz"}},
+		"smp.gge:1|g|#Foo:Bar":          {Name: "smp.gge", Value: 1, Type: gostatsd.GAUGE, Tags: gostatsd.Tags{"Foo:Bar"}},
+		"smp.gge:1|g|#fo_o:ba-r":        {Name: "smp.gge", Value: 1, Type: gostatsd.GAUGE, Tags: gostatsd.Tags{"fo_o:ba-r"}},
+		"smp gge:1|g":                   {Name: "smp_gge", Value: 1, Type: gostatsd.GAUGE},
+		"smp/gge:1|g":                   {Name: "smp-gge", Value: 1, Type: gostatsd.GAUGE},
+		"smp,gge$:1|g":                  {Name: "smpgge", Value: 1, Type: gostatsd.GAUGE},
+		"un1qu3:john|s":                 {Name: "un1qu3", StringValue: "john", Type: gostatsd.SET},
+		"un1qu3:john|s|#some:42":        {Name: "un1qu3", StringValue: "john", Type: gostatsd.SET, Tags: gostatsd.Tags{"some:42"}},
+		"da-sh:1|s":                     {Name: "da-sh", StringValue: "1", Type: gostatsd.SET},
+		"under_score:1|s":               {Name: "under_score", StringValue: "1", Type: gostatsd.SET},
+		"a:1|g|#f,,":                    {Name: "a", Value: 1, Type: gostatsd.GAUGE, Tags: gostatsd.Tags{"f"}},
+		"a:1|g|#,,f":                    {Name: "a", Value: 1, Type: gostatsd.GAUGE, Tags: gostatsd.Tags{"f"}},
+		"a:1|g|#f,,z":                   {Name: "a", Value: 1, Type: gostatsd.GAUGE, Tags: gostatsd.Tags{"f", "z"}},
+		"a:1|g|#":                       {Name: "a", Value: 1, Type: gostatsd.GAUGE},
+		"a:1|g|#,":                      {Name: "a", Value: 1, Type: gostatsd.GAUGE},
+		"a:1|g|#,,":                     {Name: "a", Value: 1, Type: gostatsd.GAUGE},
 	}
 
 	compareMetric(tests, "", t)
@@ -47,11 +47,11 @@ func TestInvalidMetricsLexer(t *testing.T) {
 		}
 	}
 
-	tests := map[string]types.Metric{
-		"foo.bar.baz:2|c": {Name: "stats.foo.bar.baz", Value: 2, Type: types.COUNTER},
-		"abc.def.g:3|g":   {Name: "stats.abc.def.g", Value: 3, Type: types.GAUGE},
-		"def.g:10|ms":     {Name: "stats.def.g", Value: 10, Type: types.TIMER},
-		"uniq.usr:joe|s":  {Name: "stats.uniq.usr", StringValue: "joe", Type: types.SET},
+	tests := map[string]gostatsd.Metric{
+		"foo.bar.baz:2|c": {Name: "stats.foo.bar.baz", Value: 2, Type: gostatsd.COUNTER},
+		"abc.def.g:3|g":   {Name: "stats.abc.def.g", Value: 3, Type: gostatsd.GAUGE},
+		"def.g:10|ms":     {Name: "stats.def.g", Value: 10, Type: gostatsd.TIMER},
+		"uniq.usr:joe|s":  {Name: "stats.uniq.usr", StringValue: "joe", Type: gostatsd.SET},
 	}
 
 	compareMetric(tests, "stats", t)
@@ -59,21 +59,21 @@ func TestInvalidMetricsLexer(t *testing.T) {
 
 func TestEventsLexer(t *testing.T) {
 	//_e{title.length,text.length}:title|text|d:date_happened|h:hostname|p:priority|t:alert_type|#tag1,tag2
-	tests := map[string]types.Event{
+	tests := map[string]gostatsd.Event{
 		"_e{1,1}:a|b":                                               {Title: "a", Text: "b"},
 		"_e{6,18}:ab|| c|hello,\\nmy friend!":                       {Title: "ab|| c", Text: "hello,\nmy friend!"},
 		"_e{1,1}:a|b|d:123123":                                      {Title: "a", Text: "b", DateHappened: 123123},
 		"_e{1,1}:a|b|d:123123|h:hoost":                              {Title: "a", Text: "b", DateHappened: 123123, Hostname: "hoost"},
-		"_e{1,1}:a|b|d:123123|h:hoost|p:low":                        {Title: "a", Text: "b", DateHappened: 123123, Hostname: "hoost", Priority: types.PriLow},
-		"_e{1,1}:a|b|d:123123|h:hoost|p:low|t:warning":              {Title: "a", Text: "b", DateHappened: 123123, Hostname: "hoost", Priority: types.PriLow, AlertType: types.AlertWarning},
-		"_e{1,1}:a|b|d:123123|h:hoost|p:low|t:warning|#tag1,t:tag2": {Title: "a", Text: "b", DateHappened: 123123, Hostname: "hoost", Priority: types.PriLow, AlertType: types.AlertWarning, Tags: []string{"tag1", "t:tag2"}},
-		"_e{1,1}:a|b|t:warning|d:123123|h:hoost|p:low|#tag1,t:tag2": {Title: "a", Text: "b", DateHappened: 123123, Hostname: "hoost", Priority: types.PriLow, AlertType: types.AlertWarning, Tags: []string{"tag1", "t:tag2"}},
-		"_e{1,1}:a|b|p:low|t:warning|d:123123|h:hoost|#tag1,t:tag2": {Title: "a", Text: "b", DateHappened: 123123, Hostname: "hoost", Priority: types.PriLow, AlertType: types.AlertWarning, Tags: []string{"tag1", "t:tag2"}},
-		"_e{1,1}:a|b|h:hoost|p:low|t:warning|d:123123|#tag1,t:tag2": {Title: "a", Text: "b", DateHappened: 123123, Hostname: "hoost", Priority: types.PriLow, AlertType: types.AlertWarning, Tags: []string{"tag1", "t:tag2"}},
+		"_e{1,1}:a|b|d:123123|h:hoost|p:low":                        {Title: "a", Text: "b", DateHappened: 123123, Hostname: "hoost", Priority: gostatsd.PriLow},
+		"_e{1,1}:a|b|d:123123|h:hoost|p:low|t:warning":              {Title: "a", Text: "b", DateHappened: 123123, Hostname: "hoost", Priority: gostatsd.PriLow, AlertType: gostatsd.AlertWarning},
+		"_e{1,1}:a|b|d:123123|h:hoost|p:low|t:warning|#tag1,t:tag2": {Title: "a", Text: "b", DateHappened: 123123, Hostname: "hoost", Priority: gostatsd.PriLow, AlertType: gostatsd.AlertWarning, Tags: []string{"tag1", "t:tag2"}},
+		"_e{1,1}:a|b|t:warning|d:123123|h:hoost|p:low|#tag1,t:tag2": {Title: "a", Text: "b", DateHappened: 123123, Hostname: "hoost", Priority: gostatsd.PriLow, AlertType: gostatsd.AlertWarning, Tags: []string{"tag1", "t:tag2"}},
+		"_e{1,1}:a|b|p:low|t:warning|d:123123|h:hoost|#tag1,t:tag2": {Title: "a", Text: "b", DateHappened: 123123, Hostname: "hoost", Priority: gostatsd.PriLow, AlertType: gostatsd.AlertWarning, Tags: []string{"tag1", "t:tag2"}},
+		"_e{1,1}:a|b|h:hoost|p:low|t:warning|d:123123|#tag1,t:tag2": {Title: "a", Text: "b", DateHappened: 123123, Hostname: "hoost", Priority: gostatsd.PriLow, AlertType: gostatsd.AlertWarning, Tags: []string{"tag1", "t:tag2"}},
 
 		"_e{1,1}:a|b|h:hoost":      {Title: "a", Text: "b", Hostname: "hoost"},
-		"_e{1,1}:a|b|p:low":        {Title: "a", Text: "b", Priority: types.PriLow},
-		"_e{1,1}:a|b|t:warning":    {Title: "a", Text: "b", AlertType: types.AlertWarning},
+		"_e{1,1}:a|b|p:low":        {Title: "a", Text: "b", Priority: gostatsd.PriLow},
+		"_e{1,1}:a|b|t:warning":    {Title: "a", Text: "b", AlertType: gostatsd.AlertWarning},
 		"_e{1,1}:a|b|#tag1,t:tag2": {Title: "a", Text: "b", Tags: []string{"tag1", "t:tag2"}},
 		"_e{20,34}:Deployment completed|Deployment completed in 7 minutes.|d:1463746133|h:9c00cf070c14|s:Micros Server|t:success|#topic:service.deploy,message_env:pdev,service_id:node-refapp-ci-internal,deployment_id:72e95b0f-37b0-4cf9-8e92-3e47d006b63f": {
 			Title:          "Deployment completed",
@@ -82,7 +82,7 @@ func TestEventsLexer(t *testing.T) {
 			Hostname:       "9c00cf070c14",
 			SourceTypeName: "Micros Server",
 			Tags:           []string{"topic:service.deploy", "message_env:pdev", "service_id:node-refapp-ci-internal", "deployment_id:72e95b0f-37b0-4cf9-8e92-3e47d006b63f"},
-			AlertType:      types.AlertSuccess,
+			AlertType:      gostatsd.AlertSuccess,
 		},
 	}
 
@@ -116,12 +116,12 @@ func TestInvalidEventsLexer(t *testing.T) {
 	}
 }
 
-func parseLine(input []byte, namespace string) (*types.Metric, *types.Event, error) {
+func parseLine(input []byte, namespace string) (*gostatsd.Metric, *gostatsd.Event, error) {
 	l := lexer{}
 	return l.run(input, namespace)
 }
 
-func compareMetric(tests map[string]types.Metric, namespace string, t *testing.T) {
+func compareMetric(tests map[string]gostatsd.Metric, namespace string, t *testing.T) {
 	for input, expected := range tests {
 		result, _, err := parseLine([]byte(input), namespace)
 		if err != nil {
@@ -134,7 +134,7 @@ func compareMetric(tests map[string]types.Metric, namespace string, t *testing.T
 	}
 }
 
-func compareEvent(tests map[string]types.Event, t *testing.T) {
+func compareEvent(tests map[string]gostatsd.Event, t *testing.T) {
 	for input, expected := range tests {
 		_, result, err := parseLine([]byte(input), "")
 		if err != nil {
@@ -147,11 +147,11 @@ func compareEvent(tests map[string]types.Event, t *testing.T) {
 	}
 }
 
-var parselineBlackhole *types.Metric
+var parselineBlackhole *gostatsd.Metric
 
 func benchmarkLexer(mr *metricReceiver, input string, b *testing.B) {
 	slice := []byte(input)
-	var r *types.Metric
+	var r *gostatsd.Metric
 	for n := 0; n < b.N; n++ {
 		r, _, _ = mr.parseLine(slice)
 	}

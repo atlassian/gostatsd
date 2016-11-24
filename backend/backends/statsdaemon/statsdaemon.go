@@ -10,9 +10,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/atlassian/gostatsd"
 	"github.com/atlassian/gostatsd/backend/backends"
 	backendTypes "github.com/atlassian/gostatsd/backend/types"
-	"github.com/atlassian/gostatsd/types"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/spf13/viper"
@@ -58,7 +58,7 @@ func (client *client) Run(ctx context.Context) error {
 }
 
 // SendMetricsAsync flushes the metrics to the statsd server, preparing payload synchronously but doing the send asynchronously.
-func (client *client) SendMetricsAsync(ctx context.Context, metrics *types.MetricMap, cb backendTypes.SendCallback) {
+func (client *client) SendMetricsAsync(ctx context.Context, metrics *gostatsd.MetricMap, cb backendTypes.SendCallback) {
 	if metrics.NumStats == 0 {
 		cb(nil)
 		return
@@ -82,7 +82,7 @@ func (client *client) SendMetricsAsync(ctx context.Context, metrics *types.Metri
 	})
 }
 
-func (client *client) processMetrics(metrics *types.MetricMap, handler overflowHandler) {
+func (client *client) processMetrics(metrics *gostatsd.MetricMap, handler overflowHandler) {
 	type stopProcessing struct {
 	}
 	defer func() {
@@ -117,21 +117,21 @@ func (client *client) processMetrics(metrics *types.MetricMap, handler overflowH
 		}
 		fmt.Fprint(buf, line)
 	}
-	metrics.Counters.Each(func(key, tagsKey string, counter types.Counter) {
+	metrics.Counters.Each(func(key, tagsKey string, counter gostatsd.Counter) {
 		// do not send statsd stats as they will be recalculated on the master instead
 		if !strings.HasPrefix(key, "statsd.") {
 			writeLine("%s:%d|c", key, tagsKey, counter.Value)
 		}
 	})
-	metrics.Timers.Each(func(key, tagsKey string, timer types.Timer) {
+	metrics.Timers.Each(func(key, tagsKey string, timer gostatsd.Timer) {
 		for _, tr := range timer.Values {
 			writeLine("%s:%f|ms", key, tagsKey, tr)
 		}
 	})
-	metrics.Gauges.Each(func(key, tagsKey string, gauge types.Gauge) {
+	metrics.Gauges.Each(func(key, tagsKey string, gauge gostatsd.Gauge) {
 		writeLine("%s:%f|g", key, tagsKey, gauge.Value)
 	})
-	metrics.Sets.Each(func(key, tagsKey string, set types.Set) {
+	metrics.Sets.Each(func(key, tagsKey string, set gostatsd.Set) {
 		for k := range set.Values {
 			writeLine("%s:%s|s", key, tagsKey, k)
 		}
@@ -145,7 +145,7 @@ func (client *client) processMetrics(metrics *types.MetricMap, handler overflowH
 }
 
 // SendEvent sends events to the statsd master server.
-func (client *client) SendEvent(ctx context.Context, e *types.Event) error {
+func (client *client) SendEvent(ctx context.Context, e *gostatsd.Event) error {
 	conn, err := client.sender.ConnFactory()
 	if err != nil {
 		return fmt.Errorf("error connecting to statsd backend: %s", err)
@@ -157,7 +157,7 @@ func (client *client) SendEvent(ctx context.Context, e *types.Event) error {
 	return err
 }
 
-func constructEventMessage(e *types.Event) *bytes.Buffer {
+func constructEventMessage(e *gostatsd.Event) *bytes.Buffer {
 	text := strings.Replace(e.Text, "\n", "\\n", -1)
 
 	var buf bytes.Buffer
@@ -186,11 +186,11 @@ func constructEventMessage(e *types.Event) *bytes.Buffer {
 		buf.WriteString("|s:")
 		buf.WriteString(e.SourceTypeName)
 	}
-	if e.Priority != types.PriNormal {
+	if e.Priority != gostatsd.PriNormal {
 		buf.WriteString("|p:")
 		buf.WriteString(e.Priority.String())
 	}
-	if e.AlertType != types.AlertInfo {
+	if e.AlertType != gostatsd.AlertInfo {
 		buf.WriteString("|t:")
 		buf.WriteString(e.AlertType.String())
 	}

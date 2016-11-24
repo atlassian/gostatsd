@@ -3,7 +3,7 @@ package types
 import (
 	"context"
 
-	"github.com/atlassian/gostatsd/types"
+	"github.com/atlassian/gostatsd"
 
 	"github.com/spf13/viper"
 )
@@ -15,7 +15,7 @@ type Factory func(*viper.Viper) (Interface, error)
 type Instance struct {
 	ID     string
 	Region string
-	Tags   types.Tags
+	Tags   gostatsd.Tags
 }
 
 // Interface represents a cloud provider.
@@ -25,7 +25,7 @@ type Interface interface {
 	// SampleConfig returns the sample config for the cloud provider.
 	SampleConfig() string
 	// Instance returns the instance details from the cloud provider.
-	Instance(context.Context, types.IP) (*Instance, error)
+	Instance(context.Context, gostatsd.IP) (*Instance, error)
 	// SelfIP returns host's IPv4 address.
-	SelfIP() (types.IP, error)
+	SelfIP() (gostatsd.IP, error)
 }

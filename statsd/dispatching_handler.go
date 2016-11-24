@@ -4,8 +4,8 @@ import (
 	"context"
 	"sync"
 
+	"github.com/atlassian/gostatsd"
 	backendTypes "github.com/atlassian/gostatsd/backend/types"
-	"github.com/atlassian/gostatsd/types"
 
 	log "github.com/Sirupsen/logrus"
 )
@@ -15,12 +15,12 @@ type dispatchingHandler struct {
 	wg               sync.WaitGroup
 	dispatcher       Dispatcher
 	backends         []backendTypes.Backend
-	tags             types.Tags // Tags to add to all metrics and events
+	tags             gostatsd.Tags // Tags to add to all metrics and events
 	concurrentEvents chan struct{}
 }
 
 // NewDispatchingHandler initialises a new dispatching handler.
-func NewDispatchingHandler(dispatcher Dispatcher, backends []backendTypes.Backend, tags types.Tags, maxConcurrentEvents uint) Handler {
+func NewDispatchingHandler(dispatcher Dispatcher, backends []backendTypes.Backend, tags gostatsd.Tags, maxConcurrentEvents uint) Handler {
 	return &dispatchingHandler{
 		dispatcher:       dispatcher,
 		backends:         backends,
@@ -29,7 +29,7 @@ func NewDispatchingHandler(dispatcher Dispatcher, backends []backendTypes.Backen
 	}
 }
 
-func (dh *dispatchingHandler) DispatchMetric(ctx context.Context, m *types.Metric) error {
+func (dh *dispatchingHandler) DispatchMetric(ctx context.Context, m *gostatsd.Metric) error {
 	if m.Hostname == "" {
 		m.Hostname = string(m.SourceIP)
 	}
@@ -37,7 +37,7 @@ func (dh *dispatchingHandler) DispatchMetric(ctx context.Context, m *types.Metri
 	return dh.dispatcher.DispatchMetric(ctx, m)
 }
 
-func (dh *dispatchingHandler) DispatchEvent(ctx context.Context, e *types.Event) error {
+func (dh *dispatchingHandler) DispatchEvent(ctx context.Context, e *gostatsd.Event) error {
 	if e.Hostname == "" {
 		e.Hostname = string(e.SourceIP)
 	}
@@ -63,7 +63,7 @@ func (dh *dispatchingHandler) WaitForEvents() {
 	dh.wg.Wait()
 }
 
-func (dh *dispatchingHandler) dispatchEvent(ctx context.Context, backend backendTypes.Backend, e *types.Event) {
+func (dh *dispatchingHandler) dispatchEvent(ctx context.Context, backend backendTypes.Backend, e *gostatsd.Event) {
 	defer dh.wg.Done()
 	defer func() {
 		<-dh.concurrentEvents

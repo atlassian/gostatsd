@@ -10,9 +10,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/atlassian/gostatsd"
 	backendTypes "github.com/atlassian/gostatsd/backend/types"
 	cloudTypes "github.com/atlassian/gostatsd/cloudprovider/types"
-	"github.com/atlassian/gostatsd/types"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/spf13/pflag"
@@ -33,7 +33,7 @@ var DefaultMaxWorkers = runtime.NumCPU()
 var DefaultPercentThreshold = []float64{90}
 
 // DefaultTags is the default list of additional tags.
-var DefaultTags = types.Tags{}
+var DefaultTags = gostatsd.Tags{}
 
 const (
 	// DefaultMaxCloudRequests is the maximum number of cloud provider requests per second.
@@ -94,7 +94,7 @@ type Server struct {
 	ConsoleAddr         string
 	CloudProvider       cloudTypes.Interface
 	Limiter             *rate.Limiter
-	DefaultTags         types.Tags
+	DefaultTags         gostatsd.Tags
 	ExpiryInterval      time.Duration
 	FlushInterval       time.Duration
 	MaxReaders          int
@@ -200,7 +200,7 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 	}()
 
 	// 2. Start handlers
-	ip := types.UnknownIP
+	ip := gostatsd.UnknownIP
 
 	handler := NewDispatchingHandler(dispatcher, s.Backends, s.DefaultTags, uint(s.MaxConcurrentEvents))
 	if s.CloudProvider != nil {
@@ -284,30 +284,30 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 	return ctx.Err()
 }
 
-func sendStartEvent(ctx context.Context, handler Handler, selfIP types.IP, hostname string) {
-	err := handler.DispatchEvent(ctx, &types.Event{
+func sendStartEvent(ctx context.Context, handler Handler, selfIP gostatsd.IP, hostname string) {
+	err := handler.DispatchEvent(ctx, &gostatsd.Event{
 		Title:        "Gostatsd started",
 		Text:         "Gostatsd started",
 		DateHappened: time.Now().Unix(),
 		Hostname:     hostname,
 		SourceIP:     selfIP,
-		Priority:     types.PriLow,
+		Priority:     gostatsd.PriLow,
 	})
 	if unexpectedErr(err) {
 		log.Warnf("Failed to send start event: %v", err)
 	}
 }
 
-func sendStopEvent(handler Handler, selfIP types.IP, hostname string) {
+func sendStopEvent(handler Handler, selfIP gostatsd.IP, hostname string) {
 	ctx, cancelFunc := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancelFunc()
-	err := handler.DispatchEvent(ctx, &types.Event{
+	err := handler.DispatchEvent(ctx, &gostatsd.Event{
 		Title:        "Gostatsd stopped",
 		Text:         "Gostatsd stopped",
 		DateHappened: time.Now().Unix(),
 		Hostname:     hostname,
 		SourceIP:     selfIP,
-		Priority:     types.PriLow,
+		Priority:     gostatsd.PriLow,
 	})
 	if unexpectedErr(err) {
 		log.Warnf("Failed to send stop event: %v", err)

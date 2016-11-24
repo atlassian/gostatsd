@@ -8,7 +8,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/atlassian/gostatsd/types"
+	"github.com/atlassian/gostatsd"
 
 	log "github.com/Sirupsen/logrus"
 )
@@ -153,15 +153,15 @@ func (mr *metricReceiver) handlePacket(ctx context.Context, addr net.Addr, msg [
 }
 
 // parseLine with lexer impl.
-func (mr *metricReceiver) parseLine(line []byte) (*types.Metric, *types.Event, error) {
+func (mr *metricReceiver) parseLine(line []byte) (*gostatsd.Metric, *gostatsd.Event, error) {
 	l := lexer{}
 	return l.run(line, mr.namespace)
 }
 
-func getIP(addr net.Addr) types.IP {
+func getIP(addr net.Addr) gostatsd.IP {
 	if a, ok := addr.(*net.UDPAddr); ok {
-		return types.IP(a.IP.String())
+		return gostatsd.IP(a.IP.String())
 	}
 	log.Errorf("Cannot get source address %q of type %T", addr, addr)
-	return types.UnknownIP
+	return gostatsd.UnknownIP
 }

@@ -8,19 +8,19 @@ import (
 	"testing"
 	"time"
 
-	"github.com/atlassian/gostatsd/types"
+	"github.com/atlassian/gostatsd"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 var longName = strings.Repeat("t", maxUDPPacketSize-5)
-var m = types.MetricMap{
-	MetricStats: types.MetricStats{
+var m = gostatsd.MetricMap{
+	MetricStats: gostatsd.MetricStats{
 		NumStats: 1,
 	},
-	Counters: types.Counters{
-		longName: map[string]types.Counter{
-			"tag1": types.NewCounter(types.Nanotime(time.Now().UnixNano()), 5, "", nil),
+	Counters: gostatsd.Counters{
+		longName: map[string]gostatsd.Counter{
+			"tag1": gostatsd.NewCounter(gostatsd.Nanotime(time.Now().UnixNano()), 5, "", nil),
 		},
 	},
 }
@@ -52,13 +52,13 @@ func TestProcessMetricsPanic(t *testing.T) {
 	t.Errorf("unreachable %v", err)
 }
 
-var gaugeMetic = types.MetricMap{
-	MetricStats: types.MetricStats{
+var gaugeMetic = gostatsd.MetricMap{
+	MetricStats: gostatsd.MetricStats{
 		NumStats: 1,
 	},
-	Gauges: types.Gauges{
-		"statsd.processing_time": map[string]types.Gauge{
-			"tag1": types.NewGauge(types.Nanotime(time.Now().UnixNano()), 2, "", nil),
+	Gauges: gostatsd.Gauges{
+		"statsd.processing_time": map[string]gostatsd.Gauge{
+			"tag1": gostatsd.NewGauge(gostatsd.Nanotime(time.Now().UnixNano()), 2, "", nil),
 		},
 	},
 }

@@ -4,7 +4,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/atlassian/gostatsd/types"
+	"github.com/atlassian/gostatsd"
 )
 
 func TestFlusherHandleSendResultNoErrors(t *testing.T) {
@@ -14,7 +14,7 @@ func TestFlusherHandleSendResultNoErrors(t *testing.T) {
 		{nil},
 	}
 	for pos, errs := range input {
-		fl := NewFlusher(0, nil, nil, nil, nil, types.UnknownIP, "host").(*flusher)
+		fl := NewFlusher(0, nil, nil, nil, nil, gostatsd.UnknownIP, "host").(*flusher)
 		fl.handleSendResult(errs)
 
 		if fl.lastFlush == 0 || fl.lastFlushError != 0 {
@@ -32,7 +32,7 @@ func TestFlusherHandleSendResultError(t *testing.T) {
 		{errors.New("boom"), errors.New("boom")},
 	}
 	for pos, errs := range input {
-		fl := NewFlusher(0, nil, nil, nil, nil, types.UnknownIP, "host").(*flusher)
+		fl := NewFlusher(0, nil, nil, nil, nil, gostatsd.UnknownIP, "host").(*flusher)
 		fl.handleSendResult(errs)
 
 		if fl.lastFlushError == 0 || fl.lastFlush != 0 {

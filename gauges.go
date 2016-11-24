@@ -1,4 +1,4 @@
-package types
+package gostatsd
 
 // Gauge is used for storing aggregated values for gauges.
 type Gauge struct {

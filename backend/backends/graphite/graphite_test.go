@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/atlassian/gostatsd"
 	backendTypes "github.com/atlassian/gostatsd/backend/types"
-	"github.com/atlassian/gostatsd/types"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -153,36 +153,36 @@ func TestSendMetricsAsync(t *testing.T) {
 	wg.Wait()
 }
 
-func metrics() *types.MetricMap {
-	timestamp := types.Nanotime(time.Unix(123456, 0).UnixNano())
+func metrics() *gostatsd.MetricMap {
+	timestamp := gostatsd.Nanotime(time.Unix(123456, 0).UnixNano())
 
-	return &types.MetricMap{
-		MetricStats: types.MetricStats{
+	return &gostatsd.MetricMap{
+		MetricStats: gostatsd.MetricStats{
 			NumStats: 10,
 		},
-		Counters: types.Counters{
-			"stat1": map[string]types.Counter{
+		Counters: gostatsd.Counters{
+			"stat1": map[string]gostatsd.Counter{
 				"tag1": {PerSecond: 1.1, Value: 5, Timestamp: timestamp},
 			},
 		},
-		Timers: types.Timers{
-			"t1": map[string]types.Timer{
+		Timers: gostatsd.Timers{
+			"t1": map[string]gostatsd.Timer{
 				"baz": {
 					Values: []float64{10},
-					Percentiles: types.Percentiles{
-						types.Percentile{Float: 90, Str: "count_90"},
+					Percentiles: gostatsd.Percentiles{
+						gostatsd.Percentile{Float: 90, Str: "count_90"},
 					},
 					Timestamp: timestamp,
 				},
 			},
 		},
-		Gauges: types.Gauges{
-			"g1": map[string]types.Gauge{
+		Gauges: gostatsd.Gauges{
+			"g1": map[string]gostatsd.Gauge{
 				"baz": {Value: 3, Timestamp: timestamp},
 			},
 		},
-		Sets: types.Sets{
-			"users": map[string]types.Set{
+		Sets: gostatsd.Sets{
+			"users": map[string]gostatsd.Set{
 				"baz": {
 					Values: map[string]struct{}{
 						"joe":  {},

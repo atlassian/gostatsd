@@ -9,9 +9,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/atlassian/gostatsd"
 	"github.com/atlassian/gostatsd/backend/backends"
 	backendTypes "github.com/atlassian/gostatsd/backend/types"
-	"github.com/atlassian/gostatsd/types"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/spf13/viper"
@@ -90,7 +90,7 @@ func (client *client) Run(ctx context.Context) error {
 }
 
 // SendMetricsAsync flushes the metrics to the Graphite server, preparing payload synchronously but doing the send asynchronously.
-func (client *client) SendMetricsAsync(ctx context.Context, metrics *types.MetricMap, cb backendTypes.SendCallback) {
+func (client *client) SendMetricsAsync(ctx context.Context, metrics *gostatsd.MetricMap, cb backendTypes.SendCallback) {
 	if metrics.NumStats == 0 {
 		cb(nil)
 		return
@@ -107,23 +107,23 @@ func (client *client) SendMetricsAsync(ctx context.Context, metrics *types.Metri
 	}
 }
 
-func (client *client) preparePayload(metrics *types.MetricMap, ts time.Time) *bytes.Buffer {
+func (client *client) preparePayload(metrics *gostatsd.MetricMap, ts time.Time) *bytes.Buffer {
 	buf := client.sender.GetBuffer()
 	now := ts.Unix()
 	if client.legacyNamespace {
-		metrics.Counters.Each(func(key, tagsKey string, counter types.Counter) {
+		metrics.Counters.Each(func(key, tagsKey string, counter gostatsd.Counter) {
 			k := sk(key)
 			fmt.Fprintf(buf, "stats_counts.%s%s %d %d\n", k, client.globalSuffix, counter.Value, now)
 			fmt.Fprintf(buf, "%s%s%s %f %d\n", client.counterNamespace, k, client.globalSuffix, counter.PerSecond, now)
 		})
 	} else {
-		metrics.Counters.Each(func(key, tagsKey string, counter types.Counter) {
+		metrics.Counters.Each(func(key, tagsKey string, counter gostatsd.Counter) {
 			k := sk(key)
 			fmt.Fprintf(buf, "%s%s.count%s %d %d\n", client.counterNamespace, k, client.globalSuffix, counter.Value, now)
 			fmt.Fprintf(buf, "%s%s.rate%s %f %d\n", client.counterNamespace, k, client.globalSuffix, counter.PerSecond, now)
 		})
 	}
-	metrics.Timers.Each(func(key, tagsKey string, timer types.Timer) {
+	metrics.Timers.Each(func(key, tagsKey string, timer gostatsd.Timer) {
 		k := sk(key)
 		fmt.Fprintf(buf, "%s%s.lower%s %f %d\n", client.timerNamespace, k, client.globalSuffix, timer.Min, now)
 		fmt.Fprintf(buf, "%s%s.upper%s %f %d\n", client.timerNamespace, k, client.globalSuffix, timer.Max, now)
@@ -138,17 +138,17 @@ func (client *client) preparePayload(metrics *types.MetricMap, ts time.Time) *by
 			fmt.Fprintf(buf, "%s%s.%s%s %f %d\n", client.timerNamespace, k, pct.Str, client.globalSuffix, pct.Float, now)
 		}
 	})
-	metrics.Gauges.Each(func(key, tagsKey string, gauge types.Gauge) {
+	metrics.Gauges.Each(func(key, tagsKey string, gauge gostatsd.Gauge) {
 		fmt.Fprintf(buf, "%s%s%s %f %d\n", client.gaugesNamespace, sk(key), client.globalSuffix, gauge.Value, now)
 	})
-	metrics.Sets.Each(func(key, tagsKey string, set types.Set) {
+	metrics.Sets.Each(func(key, tagsKey string, set gostatsd.Set) {
 		fmt.Fprintf(buf, "%s%s%s %d %d\n", client.setsNamespace, sk(key), client.globalSuffix, len(set.Values), now)
 	})
 	return buf
 }
 
 // SendEvent discards events.
-func (client *client) SendEvent(ctx context.Context, e *types.Event) error {
+func (client *client) SendEvent(ctx context.Context, e *gostatsd.Event) error {
 	return nil
 }
 

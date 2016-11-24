@@ -8,30 +8,30 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/atlassian/gostatsd/types"
+	"github.com/atlassian/gostatsd"
 
 	log "github.com/Sirupsen/logrus"
 )
 
 // Metrics store the metrics to send.
-type Metrics []*types.Metric
+type Metrics []*gostatsd.Metric
 
 var metrics = &Metrics{
 	{
 		Name: "statsd.tester.counter",
-		Type: types.COUNTER,
+		Type: gostatsd.COUNTER,
 	},
 	{
 		Name: "statsd.tester.gauge",
-		Type: types.GAUGE,
+		Type: gostatsd.GAUGE,
 	},
 	{
 		Name: "statsd.tester.timer",
-		Type: types.TIMER,
+		Type: gostatsd.TIMER,
 	},
 	{
 		Name: "statsd.tester.set",
-		Type: types.SET,
+		Type: gostatsd.SET,
 	},
 }
 
@@ -58,19 +58,19 @@ func (s *Server) writeLines(conn net.Conn, buf *bytes.Buffer) {
 	for _, metric := range *metrics {
 		num := rand.Intn(10000) // Randomize metric name
 		switch metric.Type {
-		case types.COUNTER:
+		case gostatsd.COUNTER:
 			value := rand.Float64() * 100
 			s.writeLine(conn, buf, "%s%s_%d:%f|c\n", s.Namespace, metric.Name, num, value)
-		case types.TIMER:
+		case gostatsd.TIMER:
 			n := rand.Intn(9) + 1
 			for i := 0; i < n; i++ {
 				value := rand.Float64() * 100
 				s.writeLine(conn, buf, "%s%s_%d:%f|ms\n", s.Namespace, metric.Name, num, value)
 			}
-		case types.GAUGE:
+		case gostatsd.GAUGE:
 			value := rand.Float64() * 100
 			s.writeLine(conn, buf, "%s%s_%d:%f|g\n", s.Namespace, metric.Name, num, value)
-		case types.SET:
+		case gostatsd.SET:
 			for i := 0; i < 100; i++ {
 				value := rand.Intn(9) + 1
 				s.writeLine(conn, buf, "%s%s_%d:%d|s\n", s.Namespace, metric.Name, num, value)

@@ -1,4 +1,4 @@
-package types
+package gostatsd
 
 // Set is used for storing aggregated values for sets.
 type Set struct {

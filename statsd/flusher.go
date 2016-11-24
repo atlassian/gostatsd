@@ -7,8 +7,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/atlassian/gostatsd"
 	backendTypes "github.com/atlassian/gostatsd/backend/types"
-	"github.com/atlassian/gostatsd/types"
 
 	log "github.com/Sirupsen/logrus"
 )
@@ -47,7 +47,7 @@ type flusher struct {
 	receiver      Receiver
 	handler       Handler
 	backends      []backendTypes.Backend
-	selfIP        types.IP
+	selfIP        gostatsd.IP
 	hostname      string
 
 	// Sent statistics for Receiver. Keep sent values to calculate diff.
@@ -57,7 +57,7 @@ type flusher struct {
 }
 
 // NewFlusher creates a new Flusher with provided configuration.
-func NewFlusher(flushInterval time.Duration, dispatcher Dispatcher, receiver Receiver, handler Handler, backends []backendTypes.Backend, selfIP types.IP, hostname string) Flusher {
+func NewFlusher(flushInterval time.Duration, dispatcher Dispatcher, receiver Receiver, handler Handler, backends []backendTypes.Backend, selfIP gostatsd.IP, hostname string) Flusher {
 	return &flusher{
 		flushInterval: flushInterval,
 		dispatcher:    dispatcher,
@@ -92,13 +92,13 @@ func (f *flusher) GetStats() FlusherStats {
 	}
 }
 
-func (f *flusher) flushData(ctx context.Context) map[uint16]types.MetricStats {
+func (f *flusher) flushData(ctx context.Context) map[uint16]gostatsd.MetricStats {
 	var lock sync.Mutex
-	dispatcherStats := make(map[uint16]types.MetricStats)
+	dispatcherStats := make(map[uint16]gostatsd.MetricStats)
 	var sendWg sync.WaitGroup
 	processWg := f.dispatcher.Process(ctx, func(workerId uint16, aggr Aggregator) {
 		aggr.Flush(f.flushInterval)
-		aggr.Process(func(m *types.MetricMap) {
+		aggr.Process(func(m *gostatsd.MetricMap) {
 			f.sendMetricsAsync(ctx, &sendWg, m)
 			lock.Lock()
 			defer lock.Unlock()
@@ -112,7 +112,7 @@ func (f *flusher) flushData(ctx context.Context) map[uint16]types.MetricStats {
 	return dispatcherStats
 }
 
-func (f *flusher) sendMetricsAsync(ctx context.Context, wg *sync.WaitGroup, m *types.MetricMap) {
+func (f *flusher) sendMetricsAsync(ctx context.Context, wg *sync.WaitGroup, m *gostatsd.MetricMap) {
 	wg.Add(len(f.backends))
 	for _, backend := range f.backends {
 		log.Debugf("Sending %d metrics to backend %s", m.NumStats, backend.BackendName())
@@ -134,48 +134,48 @@ func (f *flusher) handleSendResult(flushResults []error) {
 	atomic.StoreInt64(timestampPointer, time.Now().UnixNano())
 }
 
-func (f *flusher) dispatchInternalStats(ctx context.Context, dispatcherStats map[uint16]types.MetricStats) {
+func (f *flusher) dispatchInternalStats(ctx context.Context, dispatcherStats map[uint16]gostatsd.MetricStats) {
 	receiverStats := f.receiver.GetStats()
 	packetsReceivedValue := receiverStats.PacketsReceived - f.sentPacketsReceived
-	metrics := make([]types.Metric, 0, 4+2*len(dispatcherStats))
+	metrics := make([]gostatsd.Metric, 0, 4+2*len(dispatcherStats))
 	metrics = append(metrics,
-		types.Metric{
+		gostatsd.Metric{
 			Name:  badLinesSeen,
 			Value: float64(receiverStats.BadLines - f.sentBadLines),
-			Type:  types.COUNTER,
+			Type:  gostatsd.COUNTER,
 		},
-		types.Metric{
+		gostatsd.Metric{
 			Name:  metricsReceived,
 			Value: float64(receiverStats.MetricsReceived - f.sentMetricsReceived),
-			Type:  types.COUNTER,
+			Type:  gostatsd.COUNTER,
 		},
-		types.Metric{
+		gostatsd.Metric{
 			Name:  packetsReceived,
 			Value: float64(packetsReceivedValue),
-			Type:  types.COUNTER,
+			Type:  gostatsd.COUNTER,
 		})
 	var totalStats uint32
 	for workerID, stat := range dispatcherStats {
 		totalStats += stat.NumStats
 		tag := fmt.Sprintf("aggregator_id:%d", workerID)
 		metrics = append(metrics,
-			types.Metric{
+			gostatsd.Metric{
 				Name:  aggregatorNumStats,
 				Value: float64(stat.NumStats),
-				Tags:  types.Tags{tag},
-				Type:  types.COUNTER,
+				Tags:  gostatsd.Tags{tag},
+				Type:  gostatsd.COUNTER,
 			},
-			types.Metric{
+			gostatsd.Metric{
 				Name:  processingTime,
 				Value: float64(stat.ProcessingTime) / float64(time.Millisecond),
-				Tags:  types.Tags{tag},
-				Type:  types.GAUGE,
+				Tags:  gostatsd.Tags{tag},
+				Type:  gostatsd.GAUGE,
 			})
 	}
-	metrics = append(metrics, types.Metric{
+	metrics = append(metrics, gostatsd.Metric{
 		Name:  numStats,
 		Value: float64(totalStats),
-		Type:  types.COUNTER,
+		Type:  gostatsd.COUNTER,
 	})
 	log.Debugf("numStats: %d packetsReceived: %d", totalStats, packetsReceivedValue)
 

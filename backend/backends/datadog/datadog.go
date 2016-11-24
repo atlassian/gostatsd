@@ -14,8 +14,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/atlassian/gostatsd"
 	backendTypes "github.com/atlassian/gostatsd/backend/types"
-	"github.com/atlassian/gostatsd/types"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/cenkalti/backoff"
@@ -70,7 +70,7 @@ type event struct {
 }
 
 // SendMetricsAsync flushes the metrics to Datadog, preparing payload synchronously but doing the send asynchronously.
-func (d *client) SendMetricsAsync(ctx context.Context, metrics *types.MetricMap, cb backendTypes.SendCallback) {
+func (d *client) SendMetricsAsync(ctx context.Context, metrics *gostatsd.MetricMap, cb backendTypes.SendCallback) {
 	if metrics.NumStats == 0 {
 		cb(nil)
 		return
@@ -103,7 +103,7 @@ func (d *client) SendMetricsAsync(ctx context.Context, metrics *types.MetricMap,
 	}()
 }
 
-func (d *client) processMetrics(metrics *types.MetricMap, cb func(*timeSeries)) {
+func (d *client) processMetrics(metrics *gostatsd.MetricMap, cb func(*timeSeries)) {
 	fl := flush{
 		ts: &timeSeries{
 			Series: make([]metric, 0, d.metricsPerBatch),
@@ -114,13 +114,13 @@ func (d *client) processMetrics(metrics *types.MetricMap, cb func(*timeSeries)) 
 		cb:               cb,
 	}
 
-	metrics.Counters.Each(func(key, tagsKey string, counter types.Counter) {
+	metrics.Counters.Each(func(key, tagsKey string, counter gostatsd.Counter) {
 		fl.addMetric(key, rate, counter.PerSecond, counter.Hostname, counter.Tags)
 		fl.addMetric(fmt.Sprintf("%s.count", key), gauge, float64(counter.Value), counter.Hostname, counter.Tags)
 		fl.maybeFlush()
 	})
 
-	metrics.Timers.Each(func(key, tagsKey string, timer types.Timer) {
+	metrics.Timers.Each(func(key, tagsKey string, timer gostatsd.Timer) {
 		fl.addMetric(fmt.Sprintf("%s.lower", key), gauge, timer.Min, timer.Hostname, timer.Tags)
 		fl.addMetric(fmt.Sprintf("%s.upper", key), gauge, timer.Max, timer.Hostname, timer.Tags)
 		fl.addMetric(fmt.Sprintf("%s.count", key), gauge, float64(timer.Count), timer.Hostname, timer.Tags)
@@ -136,12 +136,12 @@ func (d *client) processMetrics(metrics *types.MetricMap, cb func(*timeSeries)) 
 		fl.maybeFlush()
 	})
 
-	metrics.Gauges.Each(func(key, tagsKey string, g types.Gauge) {
+	metrics.Gauges.Each(func(key, tagsKey string, g gostatsd.Gauge) {
 		fl.addMetric(key, gauge, g.Value, g.Hostname, g.Tags)
 		fl.maybeFlush()
 	})
 
-	metrics.Sets.Each(func(key, tagsKey string, set types.Set) {
+	metrics.Sets.Each(func(key, tagsKey string, set gostatsd.Set) {
 		fl.addMetric(key, gauge, float64(len(set.Values)), set.Hostname, set.Tags)
 		fl.maybeFlush()
 	})
@@ -154,7 +154,7 @@ func (d *client) postMetrics(ctx context.Context, ts *timeSeries) error {
 }
 
 // SendEvent sends an event to Datadog.
-func (d *client) SendEvent(ctx context.Context, e *types.Event) error {
+func (d *client) SendEvent(ctx context.Context, e *gostatsd.Event) error {
 	return d.post(ctx, "/api/v1/events", "events", &event{
 		Title:          e.Title,
 		Text:           e.Text,

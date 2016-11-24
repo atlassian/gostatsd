@@ -1,4 +1,4 @@
-package types
+package gostatsd
 
 // Priority of an event.
 type Priority byte

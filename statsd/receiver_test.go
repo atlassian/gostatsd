@@ -5,13 +5,13 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/atlassian/gostatsd"
 	"github.com/atlassian/gostatsd/pkg/fakesocket"
-	"github.com/atlassian/gostatsd/types"
 )
 
 type metricAndEvent struct {
-	metrics []types.Metric
-	events  types.Events
+	metrics []gostatsd.Metric
+	events  gostatsd.Events
 }
 
 var receiveBlackhole error
@@ -42,33 +42,33 @@ func TestReceiveEmptyPacket(t *testing.T) {
 func TestReceivePacket(t *testing.T) {
 	input := map[string]metricAndEvent{
 		"f:2|c": {
-			metrics: []types.Metric{
-				{Name: "f", Value: 2, SourceIP: "127.0.0.1", Type: types.COUNTER},
+			metrics: []gostatsd.Metric{
+				{Name: "f", Value: 2, SourceIP: "127.0.0.1", Type: gostatsd.COUNTER},
 			},
 		},
 		"f:2|c\n": {
-			metrics: []types.Metric{
-				{Name: "f", Value: 2, SourceIP: "127.0.0.1", Type: types.COUNTER},
+			metrics: []gostatsd.Metric{
+				{Name: "f", Value: 2, SourceIP: "127.0.0.1", Type: gostatsd.COUNTER},
 			},
 		},
 		"f:2|c\nx:3|c": {
-			metrics: []types.Metric{
-				{Name: "f", Value: 2, SourceIP: "127.0.0.1", Type: types.COUNTER},
-				{Name: "x", Value: 3, SourceIP: "127.0.0.1", Type: types.COUNTER},
+			metrics: []gostatsd.Metric{
+				{Name: "f", Value: 2, SourceIP: "127.0.0.1", Type: gostatsd.COUNTER},
+				{Name: "x", Value: 3, SourceIP: "127.0.0.1", Type: gostatsd.COUNTER},
 			},
 		},
 		"f:2|c\nx:3|c\n": {
-			metrics: []types.Metric{
-				{Name: "f", Value: 2, SourceIP: "127.0.0.1", Type: types.COUNTER},
-				{Name: "x", Value: 3, SourceIP: "127.0.0.1", Type: types.COUNTER},
+			metrics: []gostatsd.Metric{
+				{Name: "f", Value: 2, SourceIP: "127.0.0.1", Type: gostatsd.COUNTER},
+				{Name: "x", Value: 3, SourceIP: "127.0.0.1", Type: gostatsd.COUNTER},
 			},
 		},
 		"_e{1,1}:a|b\nf:6|c": {
-			metrics: []types.Metric{
-				{Name: "f", Value: 6, SourceIP: "127.0.0.1", Type: types.COUNTER},
+			metrics: []gostatsd.Metric{
+				{Name: "f", Value: 6, SourceIP: "127.0.0.1", Type: gostatsd.COUNTER},
 			},
-			events: types.Events{
-				types.Event{Title: "a", Text: "b", SourceIP: "127.0.0.1"},
+			events: gostatsd.Events{
+				gostatsd.Event{Title: "a", Text: "b", SourceIP: "127.0.0.1"},
 			},
 		},
 	}
@@ -112,11 +112,11 @@ func BenchmarkReceive(b *testing.B) {
 
 type nopHandler struct{}
 
-func (h nopHandler) DispatchMetric(ctx context.Context, m *types.Metric) error {
+func (h nopHandler) DispatchMetric(ctx context.Context, m *gostatsd.Metric) error {
 	return context.Canceled // Stops receiver after first read is done
 }
 
-func (h nopHandler) DispatchEvent(ctx context.Context, e *types.Event) error {
+func (h nopHandler) DispatchEvent(ctx context.Context, e *gostatsd.Event) error {
 	return context.Canceled // Stops receiver after first read is done
 }
 

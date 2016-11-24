@@ -8,10 +8,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/atlassian/gostatsd"
 	backendTypes "github.com/atlassian/gostatsd/backend/types"
 	cloudTypes "github.com/atlassian/gostatsd/cloudprovider/types"
 	"github.com/atlassian/gostatsd/pkg/fakesocket"
-	"github.com/atlassian/gostatsd/types"
 
 	"github.com/spf13/viper"
 	"golang.org/x/time/rate"
@@ -30,7 +30,7 @@ func TestStatsdThroughput(t *testing.T) {
 			instance: &cloudTypes.Instance{
 				ID:     "i-13123123",
 				Region: "us-west-3",
-				Tags:   types.Tags{"tag1", "tag2:234"},
+				Tags:   gostatsd.Tags{"tag1", "tag2:234"},
 			},
 		},
 		Limiter:          rate.NewLimiter(DefaultMaxCloudRequests, DefaultBurstCloudRequests),
@@ -81,12 +81,12 @@ func (cb *countingBackend) SampleConfig() string {
 	return ""
 }
 
-func (cb *countingBackend) SendMetricsAsync(ctx context.Context, m *types.MetricMap, callback backendTypes.SendCallback) {
+func (cb *countingBackend) SendMetricsAsync(ctx context.Context, m *gostatsd.MetricMap, callback backendTypes.SendCallback) {
 	atomic.AddUint64(&cb.metrics, uint64(m.NumStats))
 	callback(nil)
 }
 
-func (cb *countingBackend) SendEvent(ctx context.Context, e *types.Event) error {
+func (cb *countingBackend) SendEvent(ctx context.Context, e *gostatsd.Event) error {
 	atomic.AddUint64(&cb.events, 1)
 	return nil
 }
@@ -103,10 +103,10 @@ func (fp *fakeProvider) SampleConfig() string {
 	return ""
 }
 
-func (fp *fakeProvider) Instance(ctx context.Context, IP types.IP) (*cloudTypes.Instance, error) {
+func (fp *fakeProvider) Instance(ctx context.Context, IP gostatsd.IP) (*cloudTypes.Instance, error) {
 	return fp.instance, nil
 }
 
-func (fp *fakeProvider) SelfIP() (types.IP, error) {
-	return types.UnknownIP, nil
+func (fp *fakeProvider) SelfIP() (gostatsd.IP, error) {
+	return gostatsd.UnknownIP, nil
 }

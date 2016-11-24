@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/atlassian/gostatsd/types"
+	"github.com/atlassian/gostatsd"
 
 	log "github.com/Sirupsen/logrus"
 )
@@ -17,7 +17,7 @@ type DispatcherProcessFunc func(uint16, Aggregator)
 // Dispatcher is responsible for managing Aggregators' lifecycle and dispatching metrics among them.
 type Dispatcher interface {
 	Run(context.Context) error
-	DispatchMetric(context.Context, *types.Metric) error
+	DispatchMetric(context.Context, *gostatsd.Metric) error
 	Process(context.Context, DispatcherProcessFunc) *sync.WaitGroup
 }
 
@@ -42,7 +42,7 @@ type processCommand struct {
 
 type worker struct {
 	aggr         Aggregator
-	metricsQueue chan *types.Metric
+	metricsQueue chan *gostatsd.Metric
 	processChan  chan *processCommand
 	id           uint16
 }
@@ -61,7 +61,7 @@ func NewDispatcher(numWorkers int, perWorkerBufferSize int, af AggregatorFactory
 	for i := uint16(0); i < n; i++ {
 		workers[i] = worker{
 			aggr:         af.Create(),
-			metricsQueue: make(chan *types.Metric, perWorkerBufferSize),
+			metricsQueue: make(chan *gostatsd.Metric, perWorkerBufferSize),
 			processChan:  make(chan *processCommand),
 			id:           i,
 		}
@@ -93,7 +93,7 @@ func (d *dispatcher) Run(ctx context.Context) error {
 }
 
 // DispatchMetric dispatches metric to a corresponding Aggregator.
-func (d *dispatcher) DispatchMetric(ctx context.Context, m *types.Metric) error {
+func (d *dispatcher) DispatchMetric(ctx context.Context, m *gostatsd.Metric) error {
 	hash := adler32.Checksum([]byte(m.Name))
 	w := d.workers[uint16(hash%uint32(d.numWorkers))]
 	select {

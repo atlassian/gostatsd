@@ -3,8 +3,8 @@ package null
 import (
 	"context"
 
+	"github.com/atlassian/gostatsd"
 	backendTypes "github.com/atlassian/gostatsd/backend/types"
-	"github.com/atlassian/gostatsd/types"
 
 	"github.com/spf13/viper"
 )
@@ -31,12 +31,12 @@ func (client client) SampleConfig() string {
 }
 
 // SendMetricsAsync discards the metrics in a MetricsMap.
-func (client client) SendMetricsAsync(ctx context.Context, metrics *types.MetricMap, cb backendTypes.SendCallback) {
+func (client client) SendMetricsAsync(ctx context.Context, metrics *gostatsd.MetricMap, cb backendTypes.SendCallback) {
 	cb(nil)
 }
 
 // SendEvent discards events.
-func (client client) SendEvent(ctx context.Context, e *types.Event) error {
+func (client client) SendEvent(ctx context.Context, e *gostatsd.Event) error {
 	return nil
 }
 

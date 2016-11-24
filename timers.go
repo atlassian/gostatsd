@@ -1,4 +1,4 @@
-package types
+package gostatsd
 
 // Timer is used for storing aggregated values for timers.
 type Timer struct {

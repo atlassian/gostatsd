@@ -6,7 +6,7 @@ import (
 	"math"
 	"strconv"
 
-	"github.com/atlassian/gostatsd/types"
+	"github.com/atlassian/gostatsd"
 )
 
 type lexer struct {
@@ -16,9 +16,9 @@ type lexer struct {
 	pos           uint32
 	eventTitleLen uint32
 	eventTextLen  uint32
-	m             *types.Metric
-	e             *types.Event
-	tags          types.Tags
+	m             *gostatsd.Metric
+	e             *gostatsd.Event
+	tags          gostatsd.Tags
 	namespace     string
 	err           error
 	sampling      float64
@@ -60,7 +60,7 @@ func (l *lexer) next() byte {
 	return b
 }
 
-func (l *lexer) run(input []byte, namespace string) (*types.Metric, *types.Event, error) {
+func (l *lexer) run(input []byte, namespace string) (*gostatsd.Metric, *gostatsd.Event, error) {
 	l.input = input
 	l.namespace = namespace
 	l.len = uint32(len(l.input))
@@ -73,7 +73,7 @@ func (l *lexer) run(input []byte, namespace string) (*types.Metric, *types.Event
 		return nil, nil, l.err
 	}
 	if l.m != nil {
-		if l.m.Type != types.SET {
+		if l.m.Type != gostatsd.SET {
 			v, err := strconv.ParseFloat(l.m.StringValue, 64)
 			if err != nil {
 				return nil, nil, err
@@ -84,7 +84,7 @@ func (l *lexer) run(input []byte, namespace string) (*types.Metric, *types.Event
 			l.m.Value = v
 			l.m.StringValue = ""
 		}
-		if l.m.Type == types.COUNTER {
+		if l.m.Type == gostatsd.COUNTER {
 			l.m.Value = l.m.Value / l.sampling
 		}
 		l.m.Tags = l.tags
@@ -106,7 +106,7 @@ func lexSpecial(l *lexer) stateFn {
 		return nil
 	default:
 		l.pos--
-		l.m = new(types.Metric)
+		l.m = new(gostatsd.Metric)
 		return lexKeySep
 	}
 }
@@ -143,7 +143,7 @@ func lexDatadogSpecial(l *lexer) stateFn {
 	switch b := l.next(); b {
 	// _e{title.length,text.length}:title|text|d:date_happened|h:hostname|p:priority|t:alert_type|#tag1,tag2
 	case 'e':
-		l.e = new(types.Event)
+		l.e = new(gostatsd.Event)
 		return lexAssert('{',
 			lexUint32(&l.eventTitleLen,
 				lexAssert(',',
@@ -207,7 +207,7 @@ func lexEventAttribute(l *lexer) stateFn {
 	case 'p':
 		return lexAssert(':', lexUntil('|', func(l *lexer, data []byte) stateFn {
 			if bytes.Equal(data, priorityLow) {
-				l.e.Priority = types.PriLow
+				l.e.Priority = gostatsd.PriLow
 			} else if bytes.Equal(data, priorityNormal) {
 				// Normal is default
 			} else {
@@ -224,11 +224,11 @@ func lexEventAttribute(l *lexer) stateFn {
 	case 't':
 		return lexAssert(':', lexUntil('|', func(l *lexer, data []byte) stateFn {
 			if bytes.Equal(data, alertError) {
-				l.e.AlertType = types.AlertError
+				l.e.AlertType = gostatsd.AlertError
 			} else if bytes.Equal(data, alertWarning) {
-				l.e.AlertType = types.AlertWarning
+				l.e.AlertType = gostatsd.AlertWarning
 			} else if bytes.Equal(data, alertSuccess) {
-				l.e.AlertType = types.AlertSuccess
+				l.e.AlertType = gostatsd.AlertSuccess
 			} else if bytes.Equal(data, alertInfo) {
 				// Info is default
 			} else {
@@ -355,11 +355,11 @@ func lexType(l *lexer) stateFn {
 	b := l.next()
 	switch b {
 	case 'c':
-		l.m.Type = types.COUNTER
+		l.m.Type = gostatsd.COUNTER
 		l.start = l.pos
 		return lexTypeSep
 	case 'g':
-		l.m.Type = types.GAUGE
+		l.m.Type = gostatsd.GAUGE
 		l.start = l.pos
 		return lexTypeSep
 	case 'm':
@@ -368,10 +368,10 @@ func lexType(l *lexer) stateFn {
 			return nil
 		}
 		l.start = l.pos
-		l.m.Type = types.TIMER
+		l.m.Type = gostatsd.TIMER
 		return lexTypeSep
 	case 's':
-		l.m.Type = types.SET
+		l.m.Type = gostatsd.SET
 		l.start = l.pos
 		return lexTypeSep
 	default:

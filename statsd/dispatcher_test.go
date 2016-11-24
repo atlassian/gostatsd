@@ -9,16 +9,16 @@ import (
 	"testing"
 	"time"
 
-	"github.com/atlassian/gostatsd/types"
+	"github.com/atlassian/gostatsd"
 )
 
 type testAggregator struct {
 	agrNumber int
 	af        *testAggregatorFactory
-	types.MetricMap
+	gostatsd.MetricMap
 }
 
-func (a *testAggregator) Receive(m *types.Metric, t time.Time) {
+func (a *testAggregator) Receive(m *gostatsd.Metric, t time.Time) {
 	a.af.Mutex.Lock()
 	a.af.receiveInvocations[a.agrNumber]++
 	a.af.Mutex.Unlock()
@@ -64,10 +64,10 @@ func (af *testAggregatorFactory) Create() Aggregator {
 		agrNumber: agrNumber,
 		af:        af,
 	}
-	agr.Counters = types.Counters{}
-	agr.Timers = types.Timers{}
-	agr.Gauges = types.Gauges{}
-	agr.Sets = types.Sets{}
+	agr.Counters = gostatsd.Counters{}
+	agr.Timers = gostatsd.Timers{}
+	agr.Gauges = gostatsd.Gauges{}
+	agr.Sets = gostatsd.Sets{}
 
 	return &agr
 }
@@ -124,8 +124,8 @@ func TestDispatchMetricShouldDistributeMetrics(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(numMetrics)
 	for i := 0; i < numMetrics; i++ {
-		m := &types.Metric{
-			Type:  types.COUNTER,
+		m := &gostatsd.Metric{
+			Type:  gostatsd.COUNTER,
 			Name:  fmt.Sprintf("counter.metric.%d", r.Int63()),
 			Tags:  nil,
 			Value: r.Float64(),
@@ -180,8 +180,8 @@ func BenchmarkDispatcher(b *testing.B) {
 	b.ResetTimer()
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
-			m := &types.Metric{
-				Type:  types.COUNTER,
+			m := &gostatsd.Metric{
+				Type:  gostatsd.COUNTER,
 				Name:  fmt.Sprintf("counter.metric.%d", rand.Int63()),
 				Tags:  nil,
 				Value: rand.Float64(),

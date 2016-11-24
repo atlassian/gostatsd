@@ -9,8 +9,8 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/atlassian/gostatsd"
 	cloudTypes "github.com/atlassian/gostatsd/cloudprovider/types"
-	"github.com/atlassian/gostatsd/types"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/aws/aws-sdk-go/aws"
@@ -50,7 +50,7 @@ func newEc2Filter(name string, value string) *ec2.Filter {
 }
 
 // Instance returns the instance details from aws.
-func (p *Provider) Instance(ctx context.Context, IP types.IP) (*cloudTypes.Instance, error) {
+func (p *Provider) Instance(ctx context.Context, IP gostatsd.IP) (*cloudTypes.Instance, error) {
 	req, _ := p.Ec2.DescribeInstancesRequest(&ec2.DescribeInstancesInput{
 		Filters: []*ec2.Filter{
 			newEc2Filter("private-ip-address", string(IP)),
@@ -77,10 +77,10 @@ func (p *Provider) Instance(ctx context.Context, IP types.IP) (*cloudTypes.Insta
 	if err != nil {
 		log.Errorf("Error getting instance region: %v", err)
 	}
-	tags := make(types.Tags, len(inst.Tags))
+	tags := make(gostatsd.Tags, len(inst.Tags))
 	for idx, tag := range inst.Tags {
 		tags[idx] = fmt.Sprintf("%s:%s",
-			types.NormalizeTagKey(aws.StringValue(tag.Key)),
+			gostatsd.NormalizeTagKey(aws.StringValue(tag.Key)),
 			aws.StringValue(tag.Value))
 	}
 	instance := &cloudTypes.Instance{
@@ -102,9 +102,9 @@ func (p *Provider) SampleConfig() string {
 }
 
 // SelfIP returns host's IPv4 address.
-func (p *Provider) SelfIP() (types.IP, error) {
+func (p *Provider) SelfIP() (gostatsd.IP, error) {
 	ip, err := p.Metadata.GetMetadata("local-ipv4")
-	return types.IP(ip), err
+	return gostatsd.IP(ip), err
 }
 
 // Derives the region from a valid az name.

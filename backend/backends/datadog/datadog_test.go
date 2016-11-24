@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/atlassian/gostatsd/types"
+	"github.com/atlassian/gostatsd"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -126,36 +126,36 @@ func TestSendMetrics(t *testing.T) {
 }
 
 // twoCounters returns two counters.
-func twoCounters() *types.MetricMap {
-	return &types.MetricMap{
-		MetricStats: types.MetricStats{
+func twoCounters() *gostatsd.MetricMap {
+	return &gostatsd.MetricMap{
+		MetricStats: gostatsd.MetricStats{
 			NumStats: 2,
 		},
-		Counters: types.Counters{
-			"stat1": map[string]types.Counter{
-				"tag1": types.NewCounter(types.Nanotime(time.Now().UnixNano()), 5, "", nil),
+		Counters: gostatsd.Counters{
+			"stat1": map[string]gostatsd.Counter{
+				"tag1": gostatsd.NewCounter(gostatsd.Nanotime(time.Now().UnixNano()), 5, "", nil),
 			},
-			"stat2": map[string]types.Counter{
-				"tag2": types.NewCounter(types.Nanotime(time.Now().UnixNano()), 50, "", nil),
+			"stat2": map[string]gostatsd.Counter{
+				"tag2": gostatsd.NewCounter(gostatsd.Nanotime(time.Now().UnixNano()), 50, "", nil),
 			},
 		},
 	}
 }
 
-func metricsOneOfEach() *types.MetricMap {
-	return &types.MetricMap{
-		MetricStats: types.MetricStats{
+func metricsOneOfEach() *gostatsd.MetricMap {
+	return &gostatsd.MetricMap{
+		MetricStats: gostatsd.MetricStats{
 			NumStats:       4,
 			ProcessingTime: 10 * time.Millisecond,
 		},
 		FlushInterval: 1100 * time.Millisecond,
-		Counters: types.Counters{
-			"c1": map[string]types.Counter{
-				"tag1": {PerSecond: 1.1, Value: 5, Timestamp: types.Nanotime(100), Hostname: "h1", Tags: types.Tags{"tag1"}},
+		Counters: gostatsd.Counters{
+			"c1": map[string]gostatsd.Counter{
+				"tag1": {PerSecond: 1.1, Value: 5, Timestamp: gostatsd.Nanotime(100), Hostname: "h1", Tags: gostatsd.Tags{"tag1"}},
 			},
 		},
-		Timers: types.Timers{
-			"t1": map[string]types.Timer{
+		Timers: gostatsd.Timers{
+			"t1": map[string]gostatsd.Timer{
 				"tag2": {
 					Count:      1,
 					PerSecond:  1.1,
@@ -167,31 +167,31 @@ func metricsOneOfEach() *types.MetricMap {
 					Sum:        1,
 					SumSquares: 1,
 					Values:     []float64{0, 1},
-					Percentiles: types.Percentiles{
-						types.Percentile{Float: 0.1, Str: "count_90"},
+					Percentiles: gostatsd.Percentiles{
+						gostatsd.Percentile{Float: 0.1, Str: "count_90"},
 					},
-					Timestamp: types.Nanotime(200),
+					Timestamp: gostatsd.Nanotime(200),
 					Hostname:  "h2",
-					Tags:      types.Tags{"tag2"},
+					Tags:      gostatsd.Tags{"tag2"},
 				},
 			},
 		},
-		Gauges: types.Gauges{
-			"g1": map[string]types.Gauge{
-				"tag3": {Value: 3, Timestamp: types.Nanotime(300), Hostname: "h3", Tags: types.Tags{"tag3"}},
+		Gauges: gostatsd.Gauges{
+			"g1": map[string]gostatsd.Gauge{
+				"tag3": {Value: 3, Timestamp: gostatsd.Nanotime(300), Hostname: "h3", Tags: gostatsd.Tags{"tag3"}},
 			},
 		},
-		Sets: types.Sets{
-			"users": map[string]types.Set{
+		Sets: gostatsd.Sets{
+			"users": map[string]gostatsd.Set{
 				"tag4": {
 					Values: map[string]struct{}{
 						"joe":  {},
 						"bob":  {},
 						"john": {},
 					},
-					Timestamp: types.Nanotime(400),
+					Timestamp: gostatsd.Nanotime(400),
 					Hostname:  "h4",
-					Tags:      types.Tags{"tag4"},
+					Tags:      gostatsd.Tags{"tag4"},
 				},
 			},
 		},

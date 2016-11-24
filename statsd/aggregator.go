@@ -6,20 +6,20 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/atlassian/gostatsd/types"
+	"github.com/atlassian/gostatsd"
 
 	log "github.com/Sirupsen/logrus"
 )
 
 // ProcessFunc is a function that gets executed by Aggregator with its state passed into the function.
-type ProcessFunc func(*types.MetricMap)
+type ProcessFunc func(*gostatsd.MetricMap)
 
 // Aggregator is an object that aggregates statsd metrics.
 // The function NewAggregator should be used to create the objects.
 //
 // Incoming metrics should be passed via Receive function.
 type Aggregator interface {
-	Receive(*types.Metric, time.Time)
+	Receive(*gostatsd.Metric, time.Time)
 	Flush(interval time.Duration)
 	Process(ProcessFunc)
 	Reset()
@@ -39,7 +39,7 @@ type aggregator struct {
 	expiryInterval    time.Duration // How often to expire metrics
 	percentThresholds map[float64]percentStruct
 	now               func() time.Time // Returns current time. Useful for testing.
-	types.MetricMap
+	gostatsd.MetricMap
 }
 
 // NewAggregator creates a new Aggregator object.
@@ -48,11 +48,11 @@ func NewAggregator(percentThresholds []float64, expiryInterval time.Duration) Ag
 		expiryInterval:    expiryInterval,
 		percentThresholds: make(map[float64]percentStruct, len(percentThresholds)),
 		now:               time.Now,
-		MetricMap: types.MetricMap{
-			Counters: types.Counters{},
-			Timers:   types.Timers{},
-			Gauges:   types.Gauges{},
-			Sets:     types.Sets{},
+		MetricMap: gostatsd.MetricMap{
+			Counters: gostatsd.Counters{},
+			Timers:   gostatsd.Timers{},
+			Gauges:   gostatsd.Gauges{},
+			Sets:     gostatsd.Sets{},
 		},
 	}
 	for _, pct := range percentThresholds {
@@ -81,12 +81,12 @@ func (a *aggregator) Flush(flushInterval time.Duration) {
 	a.FlushInterval = flushInterval
 	flushInSeconds := float64(flushInterval) / float64(time.Second)
 
-	a.Counters.Each(func(key, tagsKey string, counter types.Counter) {
+	a.Counters.Each(func(key, tagsKey string, counter gostatsd.Counter) {
 		counter.PerSecond = float64(counter.Value) / flushInSeconds
 		a.Counters[key][tagsKey] = counter
 	})
 
-	a.Timers.Each(func(key, tagsKey string, timer types.Timer) {
+	a.Timers.Each(func(key, tagsKey string, timer gostatsd.Timer) {
 		if count := len(timer.Values); count > 0 {
 			sort.Float64s(timer.Values)
 			timer.Min = timer.Values[0]
@@ -174,11 +174,11 @@ func (a *aggregator) Process(f ProcessFunc) {
 	f(&a.MetricMap)
 }
 
-func (a *aggregator) isExpired(now, ts types.Nanotime) bool {
+func (a *aggregator) isExpired(now, ts gostatsd.Nanotime) bool {
 	return a.expiryInterval != 0 && time.Duration(now-ts) > a.expiryInterval
 }
 
-func deleteMetric(key, tagsKey string, metrics types.AggregatedMetrics) {
+func deleteMetric(key, tagsKey string, metrics gostatsd.AggregatedMetrics) {
 	metrics.DeleteChild(key, tagsKey)
 	if !metrics.HasChildren(key) {
 		metrics.Delete(key)
@@ -188,13 +188,13 @@ func deleteMetric(key, tagsKey string, metrics types.AggregatedMetrics) {
 // Reset clears the contents of an Aggregator.
 func (a *aggregator) Reset() {
 	a.NumStats = 0
-	nowNano := types.Nanotime(a.now().UnixNano())
+	nowNano := gostatsd.Nanotime(a.now().UnixNano())
 
-	a.Counters.Each(func(key, tagsKey string, counter types.Counter) {
+	a.Counters.Each(func(key, tagsKey string, counter gostatsd.Counter) {
 		if a.isExpired(nowNano, counter.Timestamp) {
 			deleteMetric(key, tagsKey, a.Counters)
 		} else {
-			a.Counters[key][tagsKey] = types.Counter{
+			a.Counters[key][tagsKey] = gostatsd.Counter{
 				Timestamp: counter.Timestamp,
 				Hostname:  counter.Hostname,
 				Tags:      counter.Tags,
@@ -202,11 +202,11 @@ func (a *aggregator) Reset() {
 		}
 	})
 
-	a.Timers.Each(func(key, tagsKey string, timer types.Timer) {
+	a.Timers.Each(func(key, tagsKey string, timer gostatsd.Timer) {
 		if a.isExpired(nowNano, timer.Timestamp) {
 			deleteMetric(key, tagsKey, a.Timers)
 		} else {
-			a.Timers[key][tagsKey] = types.Timer{
+			a.Timers[key][tagsKey] = gostatsd.Timer{
 				Timestamp: timer.Timestamp,
 				Hostname:  timer.Hostname,
 				Tags:      timer.Tags,
@@ -214,18 +214,18 @@ func (a *aggregator) Reset() {
 		}
 	})
 
-	a.Gauges.Each(func(key, tagsKey string, gauge types.Gauge) {
+	a.Gauges.Each(func(key, tagsKey string, gauge gostatsd.Gauge) {
 		if a.isExpired(nowNano, gauge.Timestamp) {
 			deleteMetric(key, tagsKey, a.Gauges)
 		}
 		// No reset for gauges, they keep the last value until expiration
 	})
 
-	a.Sets.Each(func(key, tagsKey string, set types.Set) {
+	a.Sets.Each(func(key, tagsKey string, set gostatsd.Set) {
 		if a.isExpired(nowNano, set.Timestamp) {
 			deleteMetric(key, tagsKey, a.Sets)
 		} else {
-			a.Sets[key][tagsKey] = types.Set{
+			a.Sets[key][tagsKey] = gostatsd.Set{
 				Values:    make(map[string]struct{}),
 				Timestamp: set.Timestamp,
 				Hostname:  set.Hostname,
@@ -235,7 +235,7 @@ func (a *aggregator) Reset() {
 	})
 }
 
-func (a *aggregator) receiveCounter(m *types.Metric, tagsKey string, now types.Nanotime) {
+func (a *aggregator) receiveCounter(m *gostatsd.Metric, tagsKey string, now gostatsd.Nanotime) {
 	value := int64(m.Value)
 	v, ok := a.Counters[m.Name]
 	if ok {
@@ -244,17 +244,17 @@ func (a *aggregator) receiveCounter(m *types.Metric, tagsKey string, now types.N
 			c.Value += value
 			c.Timestamp = now
 		} else {
-			c = types.NewCounter(now, value, m.Hostname, m.Tags)
+			c = gostatsd.NewCounter(now, value, m.Hostname, m.Tags)
 		}
 		v[tagsKey] = c
 	} else {
-		a.Counters[m.Name] = map[string]types.Counter{
-			tagsKey: types.NewCounter(now, value, m.Hostname, m.Tags),
+		a.Counters[m.Name] = map[string]gostatsd.Counter{
+			tagsKey: gostatsd.NewCounter(now, value, m.Hostname, m.Tags),
 		}
 	}
 }
 
-func (a *aggregator) receiveGauge(m *types.Metric, tagsKey string, now types.Nanotime) {
+func (a *aggregator) receiveGauge(m *gostatsd.Metric, tagsKey string, now gostatsd.Nanotime) {
 	// TODO: handle +/-
 	v, ok := a.Gauges[m.Name]
 	if ok {
@@ -263,17 +263,17 @@ func (a *aggregator) receiveGauge(m *types.Metric, tagsKey string, now types.Nan
 			g.Value = m.Value
 			g.Timestamp = now
 		} else {
-			g = types.NewGauge(now, m.Value, m.Hostname, m.Tags)
+			g = gostatsd.NewGauge(now, m.Value, m.Hostname, m.Tags)
 		}
 		v[tagsKey] = g
 	} else {
-		a.Gauges[m.Name] = map[string]types.Gauge{
-			tagsKey: types.NewGauge(now, m.Value, m.Hostname, m.Tags),
+		a.Gauges[m.Name] = map[string]gostatsd.Gauge{
+			tagsKey: gostatsd.NewGauge(now, m.Value, m.Hostname, m.Tags),
 		}
 	}
 }
 
-func (a *aggregator) receiveTimer(m *types.Metric, tagsKey string, now types.Nanotime) {
+func (a *aggregator) receiveTimer(m *gostatsd.Metric, tagsKey string, now gostatsd.Nanotime) {
 	v, ok := a.Timers[m.Name]
 	if ok {
 		t, ok := v[tagsKey]
@@ -281,17 +281,17 @@ func (a *aggregator) receiveTimer(m *types.Metric, tagsKey string, now types.Nan
 			t.Values = append(t.Values, m.Value)
 			t.Timestamp = now
 		} else {
-			t = types.NewTimer(now, []float64{m.Value}, m.Hostname, m.Tags)
+			t = gostatsd.NewTimer(now, []float64{m.Value}, m.Hostname, m.Tags)
 		}
 		v[tagsKey] = t
 	} else {
-		a.Timers[m.Name] = map[string]types.Timer{
-			tagsKey: types.NewTimer(now, []float64{m.Value}, m.Hostname, m.Tags),
+		a.Timers[m.Name] = map[string]gostatsd.Timer{
+			tagsKey: gostatsd.NewTimer(now, []float64{m.Value}, m.Hostname, m.Tags),
 		}
 	}
 }
 
-func (a *aggregator) receiveSet(m *types.Metric, tagsKey string, now types.Nanotime) {
+func (a *aggregator) receiveSet(m *gostatsd.Metric, tagsKey string, now gostatsd.Nanotime) {
 	v, ok := a.Sets[m.Name]
 	if ok {
 		s, ok := v[tagsKey]
@@ -299,40 +299,40 @@ func (a *aggregator) receiveSet(m *types.Metric, tagsKey string, now types.Nanot
 			s.Values[m.StringValue] = struct{}{}
 			s.Timestamp = now
 		} else {
-			s = types.NewSet(now, map[string]struct{}{m.StringValue: {}}, m.Hostname, m.Tags)
+			s = gostatsd.NewSet(now, map[string]struct{}{m.StringValue: {}}, m.Hostname, m.Tags)
 		}
 		v[tagsKey] = s
 	} else {
-		a.Sets[m.Name] = map[string]types.Set{
-			tagsKey: types.NewSet(now, map[string]struct{}{m.StringValue: {}}, m.Hostname, m.Tags),
+		a.Sets[m.Name] = map[string]gostatsd.Set{
+			tagsKey: gostatsd.NewSet(now, map[string]struct{}{m.StringValue: {}}, m.Hostname, m.Tags),
 		}
 	}
 }
 
 // Receive aggregates an incoming metric.
-func (a *aggregator) Receive(m *types.Metric, now time.Time) {
+func (a *aggregator) Receive(m *gostatsd.Metric, now time.Time) {
 	a.NumStats++
 	tagsKey := formatTagsKey(m.Tags, m.Hostname)
-	nowNano := types.Nanotime(now.UnixNano())
+	nowNano := gostatsd.Nanotime(now.UnixNano())
 
 	switch m.Type {
-	case types.COUNTER:
+	case gostatsd.COUNTER:
 		a.receiveCounter(m, tagsKey, nowNano)
-	case types.GAUGE:
+	case gostatsd.GAUGE:
 		a.receiveGauge(m, tagsKey, nowNano)
-	case types.TIMER:
+	case gostatsd.TIMER:
 		a.receiveTimer(m, tagsKey, nowNano)
-	case types.SET:
+	case gostatsd.SET:
 		a.receiveSet(m, tagsKey, nowNano)
 	default:
 		log.Errorf("Unknow metric type %s for %s", m.Type, m.Name)
 	}
 }
 
-func formatTagsKey(tags types.Tags, hostname string) string {
+func formatTagsKey(tags gostatsd.Tags, hostname string) string {
 	t := tags.SortedString()
 	if hostname == "" {
 		return t
 	}
-	return t + "," + types.StatsdSourceID + ":" + hostname
+	return t + "," + gostatsd.StatsdSourceID + ":" + hostname
 }

@@ -8,7 +8,7 @@ import (
 	"net"
 	"sync/atomic"
 
-	"github.com/atlassian/gostatsd/types"
+	"github.com/atlassian/gostatsd"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/kisielk/cmd"
@@ -129,7 +129,7 @@ func (c *consoleConn) serve(ctx context.Context) {
 func (c *consoleConn) delete(ctx context.Context, keys []string, f mapperFunc) uint32 {
 	var counter uint32
 	wg := c.server.Dispatcher.Process(ctx, func(workerId uint16, aggr Aggregator) {
-		aggr.Process(func(m *types.MetricMap) {
+		aggr.Process(func(m *gostatsd.MetricMap) {
 			metrics := f(m)
 			var i uint32
 			for _, k := range keys {
@@ -144,13 +144,13 @@ func (c *consoleConn) delete(ctx context.Context, keys []string, f mapperFunc) u
 	return counter
 }
 
-type mapperFunc func(*types.MetricMap) types.AggregatedMetrics
+type mapperFunc func(*gostatsd.MetricMap) gostatsd.AggregatedMetrics
 
 func (c *consoleConn) printMetrics(ctx context.Context, f mapperFunc) (string, error) {
 	results := make(chan *bytes.Buffer, 16) // Some space to avoid blocking
 
 	wg := c.server.Dispatcher.Process(ctx, func(workerId uint16, aggr Aggregator) {
-		aggr.Process(func(m *types.MetricMap) {
+		aggr.Process(func(m *gostatsd.MetricMap) {
 			buf := new(bytes.Buffer) // We cannot share a buffer because this function is executed concurrently by workers
 			_, _ = fmt.Fprintln(buf, f(m))
 			select {
@@ -170,18 +170,18 @@ func (c *consoleConn) printMetrics(ctx context.Context, f mapperFunc) (string, e
 	return buf.String(), nil
 }
 
-func getCounters(m *types.MetricMap) types.AggregatedMetrics {
+func getCounters(m *gostatsd.MetricMap) gostatsd.AggregatedMetrics {
 	return m.Counters
 }
 
-func getSets(m *types.MetricMap) types.AggregatedMetrics {
+func getSets(m *gostatsd.MetricMap) gostatsd.AggregatedMetrics {
 	return m.Sets
 }
 
-func getGauges(m *types.MetricMap) types.AggregatedMetrics {
+func getGauges(m *gostatsd.MetricMap) gostatsd.AggregatedMetrics {
 	return m.Gauges
 }
 
-func getTimers(m *types.MetricMap) types.AggregatedMetrics {
+func getTimers(m *gostatsd.MetricMap) gostatsd.AggregatedMetrics {
 	return m.Timers
 }

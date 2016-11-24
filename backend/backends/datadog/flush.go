@@ -1,7 +1,7 @@
 package datadog
 
 import (
-	"github.com/atlassian/gostatsd/types"
+	"github.com/atlassian/gostatsd"
 )
 
 type metricType string
@@ -41,7 +41,7 @@ type metric struct {
 type point [2]float64
 
 // AddMetric adds a metric to the series.
-func (f *flush) addMetric(name string, metricType metricType, value float64, hostname string, tags types.Tags) {
+func (f *flush) addMetric(name string, metricType metricType, value float64, hostname string, tags gostatsd.Tags) {
 	f.ts.Series = append(f.ts.Series, metric{
 		Host:     hostname,
 		Interval: f.flushIntervalSec,

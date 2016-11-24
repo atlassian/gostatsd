@@ -3,7 +3,7 @@ package types
 import (
 	"context"
 
-	"github.com/atlassian/gostatsd/types"
+	"github.com/atlassian/gostatsd"
 
 	"github.com/spf13/viper"
 )
@@ -24,9 +24,9 @@ type Backend interface {
 	SampleConfig() string
 	// SendMetricsAsync flushes the metrics to the backend, preparing payload synchronously but doing the send asynchronously.
 	// Must not read/write MetricMap asynchronously.
-	SendMetricsAsync(context.Context, *types.MetricMap, SendCallback)
+	SendMetricsAsync(context.Context, *gostatsd.MetricMap, SendCallback)
 	// SendEvent sends event to the backend.
-	SendEvent(context.Context, *types.Event) error
+	SendEvent(context.Context, *gostatsd.Event) error
 }
 
 // RunnableBackend represents a backend that needs a Run method to be executed to work.

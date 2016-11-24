@@ -1,4 +1,4 @@
-package types
+package gostatsd
 
 // Counter is used for storing aggregated values for counters.
 type Counter struct {
