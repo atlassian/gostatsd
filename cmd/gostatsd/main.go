@@ -17,7 +17,7 @@ import (
 	"github.com/atlassian/gostatsd"
 	"github.com/atlassian/gostatsd/pkg/backends"
 	"github.com/atlassian/gostatsd/pkg/cloudproviders"
-	"github.com/atlassian/gostatsd/statsd"
+	"github.com/atlassian/gostatsd/pkg/statsd"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/spf13/pflag"
