@@ -11,6 +11,7 @@ ARCH ?= darwin
 METALINTER_CONCURRENCY ?= 4
 GOVERSION := 1.7
 GP := /gopath
+MAIN_PKG := github.com/atlassian/gostatsd/cmd/gostatsd
 
 setup: setup-ci
 	go get -u github.com/githubnemo/CompileDaemon
@@ -23,11 +24,11 @@ setup-ci:
 	gometalinter --install
 	glide install --strip-vendor
 
-build: *.go fmt
-	go build -o build/bin/$(ARCH)/$(BINARY_NAME) $(GOBUILD_VERSION_ARGS) github.com/atlassian/gostatsd
+build: fmt
+	go build -o build/bin/$(ARCH)/$(BINARY_NAME) $(GOBUILD_VERSION_ARGS) $(MAIN_PKG)
 
-build-race: *.go fmt
-	go build -race -o build/bin/$(ARCH)/$(BINARY_NAME) $(GOBUILD_VERSION_ARGS) github.com/atlassian/gostatsd
+build-race: fmt
+	go build -race -o build/bin/$(ARCH)/$(BINARY_NAME) $(GOBUILD_VERSION_ARGS) $(MAIN_PKG)
 
 build-all:
 	go build $$(glide nv)
@@ -96,7 +97,7 @@ docker:
 		-e GOPATH="$(GP)" \
 		-e CGO_ENABLED=0 \
 		golang:$(GOVERSION) \
-		go build -o build/bin/linux/$(BINARY_NAME) $(GOBUILD_VERSION_ARGS) -a -installsuffix cgo github.com/atlassian/gostatsd
+		go build -o build/bin/linux/$(BINARY_NAME) $(GOBUILD_VERSION_ARGS) -a -installsuffix cgo $(MAIN_PKG)
 	docker build --pull -t $(IMAGE_NAME):$(GIT_HASH) build
 
 # Compile a binary with -race. Needs to be run on a glibc-based system.
@@ -108,7 +109,7 @@ docker-race:
 		-w "$(GP)/src/github.com/atlassian/gostatsd" \
 		-e GOPATH="$(GP)" \
 		golang:$(GOVERSION) \
-		go build -race -o build/bin/linux/$(BINARY_NAME) $(GOBUILD_VERSION_ARGS) -a -installsuffix cgo github.com/atlassian/gostatsd
+		go build -race -o build/bin/linux/$(BINARY_NAME) $(GOBUILD_VERSION_ARGS) -a -installsuffix cgo $(MAIN_PKG)
 	docker build --pull -t $(IMAGE_NAME):$(GIT_HASH)-race -f build/Dockerfile-glibc build
 
 release-hash: docker
