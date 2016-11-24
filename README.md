@@ -95,10 +95,10 @@ Using the library
 -----------------
 In your source code:
 
-    import "github.com/atlassian/gostatsd/statsd"
+    import "github.com/atlassian/gostatsd/pkg/statsd"
 
-Documentation can be found via `go doc github.com/atlassian/gostatsd/statsd` or at
-https://godoc.org/github.com/atlassian/gostatsd/statsd
+Documentation can be found via `go doc github.com/atlassian/gostatsd/pkg/statsd` or at
+https://godoc.org/github.com/atlassian/gostatsd/pkg/statsd
 
 Contributors
 ------------

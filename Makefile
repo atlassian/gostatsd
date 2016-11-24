@@ -78,7 +78,7 @@ fuzz-setup:
 	go get -v -u github.com/dvyukov/go-fuzz/go-fuzz-build
 
 fuzz:
-	go-fuzz-build github.com/atlassian/gostatsd/statsd
+	go-fuzz-build github.com/atlassian/gostatsd/pkg/statsd
 	go-fuzz -bin=./statsd-fuzz.zip -workdir=test_fixtures/lexer_fuzz
 
 watch:
