@@ -11,11 +11,13 @@ echo "mode: count" > coverage.out
 # Initialize error tracking
 ERROR=""
 
-declare -a packages=('backend' 'backend/types' \
-    'backend/backends/datadog' 'backend/backends/graphite' 'backend/backends/null' \
-    'backend/backends/statsdaemon' 'backend/backends/stdout' \
-    'cloudprovider' 'cloudprovider/providers/aws' 'cloudprovider/types' \
-    'statsd' 'types');
+declare -a packages=('' \
+    'cmd/gostatsd' 'cmd/tester'
+    'pkg/backends' 'pkg/backends/sender'
+    'pkg/backends/datadog' 'pkg/backends/graphite' 'pkg/backends/null' \
+    'pkg/backends/statsdaemon' 'pkg/backends/stdout' \
+    'pkg/cloudproviders' 'pkg/cloudproviders//aws' \
+    'pkg/fakesocket' 'pkg/statsd');
 
 # Test each package and append coverage profile info to coverage.out
 for pkg in "${packages[@]}"
