@@ -19,8 +19,8 @@ setup: setup-ci
 	go get -u golang.org/x/tools/cmd/goimports
 
 setup-ci:
-	go get -v -u github.com/Masterminds/glide
-	go get -v -u github.com/alecthomas/gometalinter
+	go get -u github.com/Masterminds/glide
+	go get -u github.com/alecthomas/gometalinter
 	gometalinter --install
 	glide install --strip-vendor
 
@@ -62,14 +62,14 @@ junit-test: build
 	go test -v $$(glide nv) | go-junit-report > test-report.xml
 
 check:
-	go install
-	go install ./tester
+	go install ./cmd/gostatsd
+	go install ./cmd/tester
 	gometalinter --concurrency=$(METALINTER_CONCURRENCY) --deadline=600s ./... --vendor --linter='errcheck:errcheck:-ignore=net:Close' --cyclo-over=20 \
 		--linter='vet:go tool vet -composites=false {paths}:PATH:LINE:MESSAGE' --disable=interfacer --disable=golint --dupl-threshold=200
 
 check-all:
-	go install
-	go install ./tester
+	go install ./cmd/gostatsd
+	go install ./cmd/tester
 	gometalinter --concurrency=$(METALINTER_CONCURRENCY) --deadline=600s ./... --vendor --cyclo-over=20 \
 		--linter='vet:go tool vet {paths}:PATH:LINE:MESSAGE' --dupl-threshold=65
 
