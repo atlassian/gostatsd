@@ -46,16 +46,6 @@ type Metric struct {
 	Type        MetricType // The type of metric
 }
 
-// NewMetric creates a metric with tags.
-func NewMetric(name string, value float64, mtype MetricType, tags Tags) *Metric {
-	return &Metric{
-		Type:  mtype,
-		Name:  name,
-		Tags:  tags,
-		Value: value,
-	}
-}
-
 func (m *Metric) String() string {
 	return fmt.Sprintf("{%s, %s, %f, %s, %v}", m.Type, m.Name, m.Value, m.StringValue, m.Tags)
 }
