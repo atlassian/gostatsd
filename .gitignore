@@ -2,6 +2,6 @@
 /vendor/
 /coverage.out
 /profile.out
-/tester/statsd-tester*
+/cmd/tester/statsd-tester*
 /test-report.xml
 build/dev/data/

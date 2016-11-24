@@ -8,25 +8,26 @@ GOBUILD_VERSION_ARGS := -ldflags "-s -X $(VERSION_VAR)=$(REPO_VERSION) -X $(GIT_
 BINARY_NAME := statsd-tester
 IMAGE_NAME := atlassianlabs/$(BINARY_NAME)
 ARCH ?= darwin
+MAIN_PKG := github.com/atlassian/gostatsd/cmd/tester
 
 setup:
-	go get -v -u github.com/githubnemo/CompileDaemon
-	go get -v -u github.com/alecthomas/gometalinter
+	go get -u github.com/githubnemo/CompileDaemon
+	go get -u github.com/alecthomas/gometalinter
 	gometalinter --install --update
-	GO15VENDOREXPERIMENT=1 glide install
+	glide install
 
-build: *.go fmt
-	go build -o $(BINARY_NAME) $(GOBUILD_VERSION_ARGS) github.com/atlassian/gostatsd/tester
+build: fmt
+	go build -o $(BINARY_NAME) $(GOBUILD_VERSION_ARGS) $(MAIN_PKG)
 
 fmt:
 	gofmt -w=true -s $(shell find . -type f -name '*.go' -not -path "./vendor/*")
 	goimports -w=true -d $(shell find . -type f -name '*.go' -not -path "./vendor/*")
 
 test:
-	GO15VENDOREXPERIMENT=1 go test $(shell GO15VENDOREXPERIMENT=1 go list ./... | grep -v /vendor/)
+	go test $(shell go list ./... | grep -v /vendor/)
 
 cover:
-	GO15VENDOREXPERIMENT=1 go test -covermode=count -coverprofile=coverage.out $(shell GO15VENDOREXPERIMENT=1 go list ./... | grep -v /vendor/)
+	go test -covermode=count -coverprofile=coverage.out $(shell go list ./... | grep -v /vendor/)
 	go tool cover -func=coverage.out
 	go tool cover -html=coverage.out
 
@@ -45,7 +46,7 @@ commit-hook:
 	cp dev/commit-hook.sh .git/hooks/pre-commit
 
 cross: fmt
-	CGO_ENABLED=0 GOOS=linux go build -o $(BINARY_NAME)-linux $(GOBUILD_VERSION_ARGS) -a -installsuffix cgo  github.com/atlassian/gostatsd/tester
+	CGO_ENABLED=0 GOOS=linux go build -o $(BINARY_NAME)-linux $(GOBUILD_VERSION_ARGS) -a -installsuffix cgo $(MAIN_PKG)
 
 docker: cross
 	docker build -t $(IMAGE_NAME):$(GIT_HASH) .
