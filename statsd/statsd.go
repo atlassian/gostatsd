@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/atlassian/gostatsd"
-	cloudTypes "github.com/atlassian/gostatsd/cloudprovider/types"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/spf13/pflag"
@@ -91,7 +90,7 @@ const (
 type Server struct {
 	Backends            []gostatsd.Backend
 	ConsoleAddr         string
-	CloudProvider       cloudTypes.Interface
+	CloudProvider       gostatsd.CloudProvider
 	Limiter             *rate.Limiter
 	DefaultTags         gostatsd.Tags
 	ExpiryInterval      time.Duration

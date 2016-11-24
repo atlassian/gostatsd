@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/atlassian/gostatsd"
-	cloudTypes "github.com/atlassian/gostatsd/cloudprovider/types"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/aws/aws-sdk-go/aws"
@@ -50,7 +49,7 @@ func newEc2Filter(name string, value string) *ec2.Filter {
 }
 
 // Instance returns the instance details from aws.
-func (p *Provider) Instance(ctx context.Context, IP gostatsd.IP) (*cloudTypes.Instance, error) {
+func (p *Provider) Instance(ctx context.Context, IP gostatsd.IP) (*gostatsd.Instance, error) {
 	req, _ := p.Ec2.DescribeInstancesRequest(&ec2.DescribeInstancesInput{
 		Filters: []*ec2.Filter{
 			newEc2Filter("private-ip-address", string(IP)),
@@ -83,7 +82,7 @@ func (p *Provider) Instance(ctx context.Context, IP gostatsd.IP) (*cloudTypes.In
 			gostatsd.NormalizeTagKey(aws.StringValue(tag.Key)),
 			aws.StringValue(tag.Value))
 	}
-	instance := &cloudTypes.Instance{
+	instance := &gostatsd.Instance{
 		ID:     aws.StringValue(inst.InstanceId),
 		Region: region,
 		Tags:   tags,
@@ -92,7 +91,7 @@ func (p *Provider) Instance(ctx context.Context, IP gostatsd.IP) (*cloudTypes.In
 }
 
 // ProviderName returns the name of the provider.
-func (p *Provider) ProviderName() string {
+func (p *Provider) Name() string {
 	return ProviderName
 }
 
@@ -118,7 +117,7 @@ func azToRegion(az string) (string, error) {
 }
 
 // NewProviderFromViper returns a new aws provider.
-func NewProviderFromViper(v *viper.Viper) (cloudTypes.Interface, error) {
+func NewProviderFromViper(v *viper.Viper) (gostatsd.CloudProvider, error) {
 	a := getSubViper(v, "aws")
 	a.SetDefault("max_retries", 3)
 	a.SetDefault("http_timeout", 3*time.Second)

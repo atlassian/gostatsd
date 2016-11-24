@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/atlassian/gostatsd"
-	cloudTypes "github.com/atlassian/gostatsd/cloudprovider/types"
 	"github.com/atlassian/gostatsd/pkg/fakesocket"
 
 	"github.com/spf13/viper"
@@ -26,7 +25,7 @@ func TestStatsdThroughput(t *testing.T) {
 	s := Server{
 		Backends: []gostatsd.Backend{backend},
 		CloudProvider: &fakeProvider{
-			instance: &cloudTypes.Instance{
+			instance: &gostatsd.Instance{
 				ID:     "i-13123123",
 				Region: "us-west-3",
 				Tags:   gostatsd.Tags{"tag1", "tag2:234"},
@@ -91,10 +90,10 @@ func (cb *countingBackend) SendEvent(ctx context.Context, e *gostatsd.Event) err
 }
 
 type fakeProvider struct {
-	instance *cloudTypes.Instance
+	instance *gostatsd.Instance
 }
 
-func (fp *fakeProvider) ProviderName() string {
+func (fp *fakeProvider) Name() string {
 	return "fakeProvider"
 }
 
@@ -102,7 +101,7 @@ func (fp *fakeProvider) SampleConfig() string {
 	return ""
 }
 
-func (fp *fakeProvider) Instance(ctx context.Context, IP gostatsd.IP) (*cloudTypes.Instance, error) {
+func (fp *fakeProvider) Instance(ctx context.Context, IP gostatsd.IP) (*gostatsd.Instance, error) {
 	return fp.instance, nil
 }
 

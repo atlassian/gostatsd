@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/atlassian/gostatsd"
-	cloudTypes "github.com/atlassian/gostatsd/cloudprovider/types"
 
 	log "github.com/Sirupsen/logrus"
 	"golang.org/x/time/rate"
@@ -27,13 +26,13 @@ const (
 
 type lookupResult struct {
 	ip       gostatsd.IP
-	instance *cloudTypes.Instance // Can be nil if lookup failed
+	instance *gostatsd.Instance // Can be nil if lookup failed
 }
 
 type instanceHolder struct {
 	lastAccessNano int64
-	expires        time.Time            // When this record expires.
-	instance       *cloudTypes.Instance // Can be nil if the lookup resulted in an error (instance not found/etc)
+	expires        time.Time          // When this record expires.
+	instance       *gostatsd.Instance // Can be nil if the lookup resulted in an error (instance not found/etc)
 }
 
 func (ih *instanceHolder) updateAccess() {
@@ -55,7 +54,7 @@ type CacheOptions struct {
 // cloudHandler enriches metrics and events with additional information fetched from cloud provider.
 type cloudHandler struct {
 	cacheOpts    CacheOptions
-	cloud        cloudTypes.Interface // Cloud provider interface
+	cloud        gostatsd.CloudProvider // Cloud provider interface
 	next         Handler
 	limiter      *rate.Limiter
 	metricSource chan *gostatsd.Metric
@@ -68,7 +67,7 @@ type cloudHandler struct {
 
 // NewCloudHandler initialises a new cloud handler.
 // If cacheOptions is nil default cache configuration is used.
-func NewCloudHandler(cloud cloudTypes.Interface, next Handler, limiter *rate.Limiter, cacheOptions *CacheOptions) *cloudHandler {
+func NewCloudHandler(cloud gostatsd.CloudProvider, next Handler, limiter *rate.Limiter, cacheOptions *CacheOptions) *cloudHandler {
 	if cacheOptions == nil {
 		cacheOptions = &CacheOptions{
 			CacheRefreshPeriod:        DefaultCacheRefreshPeriod,
@@ -233,7 +232,7 @@ func (ch *cloudHandler) handleMetric(ctx context.Context, toLookup chan<- gostat
 	}
 }
 
-func (ch *cloudHandler) updateAndDispatchMetrics(ctx context.Context, instance *cloudTypes.Instance, metrics ...*gostatsd.Metric) {
+func (ch *cloudHandler) updateAndDispatchMetrics(ctx context.Context, instance *gostatsd.Instance, metrics ...*gostatsd.Metric) {
 	for _, m := range metrics {
 		updateInplace(&m.Tags, &m.Hostname, instance)
 		if err := ch.next.DispatchMetric(ctx, m); err != nil {
@@ -265,7 +264,7 @@ func (ch *cloudHandler) handleEvent(ctx context.Context, toLookup chan<- gostats
 	}
 }
 
-func (ch *cloudHandler) updateAndDispatchEvents(ctx context.Context, instance *cloudTypes.Instance, events ...*gostatsd.Event) {
+func (ch *cloudHandler) updateAndDispatchEvents(ctx context.Context, instance *gostatsd.Instance, events ...*gostatsd.Event) {
 	var dispatched int
 	defer func() {
 		ch.wg.Add(-dispatched)
@@ -327,7 +326,7 @@ func (ch *cloudHandler) updateTagsAndHostname(ip gostatsd.IP, tags *gostatsd.Tag
 	return ok
 }
 
-func (ch *cloudHandler) getInstance(ip gostatsd.IP) (*cloudTypes.Instance, bool) {
+func (ch *cloudHandler) getInstance(ip gostatsd.IP) (*gostatsd.Instance, bool) {
 	if ip == gostatsd.UnknownIP {
 		return nil, true
 	}
@@ -341,7 +340,7 @@ func (ch *cloudHandler) getInstance(ip gostatsd.IP) (*cloudTypes.Instance, bool)
 	return nil, false
 }
 
-func updateInplace(tags *gostatsd.Tags, hostname *string, instance *cloudTypes.Instance) {
+func updateInplace(tags *gostatsd.Tags, hostname *string, instance *gostatsd.Instance) {
 	if instance != nil { // It was a positive cache hit (successful lookup cache, not failed lookup cache)
 		// Update hostname inplace
 		*hostname = instance.ID

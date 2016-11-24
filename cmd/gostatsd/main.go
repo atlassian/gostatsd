@@ -15,8 +15,8 @@ import (
 	"time"
 
 	"github.com/atlassian/gostatsd"
-	"github.com/atlassian/gostatsd/cloudprovider"
 	"github.com/atlassian/gostatsd/pkg/backends"
+	"github.com/atlassian/gostatsd/pkg/cloudproviders"
 	"github.com/atlassian/gostatsd/statsd"
 
 	log "github.com/Sirupsen/logrus"
@@ -85,7 +85,7 @@ func run(v *viper.Viper) error {
 
 func constructServer(v *viper.Viper) (*statsd.Server, error) {
 	// Cloud provider
-	cloud, err := cloudprovider.InitCloudProvider(v.GetString(statsd.ParamCloudProvider), v)
+	cloud, err := cloudproviders.Init(v.GetString(statsd.ParamCloudProvider), v)
 	if err != nil {
 		return nil, err
 	}

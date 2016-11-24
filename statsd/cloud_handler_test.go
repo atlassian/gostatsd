@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/atlassian/gostatsd"
-	cloudTypes "github.com/atlassian/gostatsd/cloudprovider/types"
 
 	"golang.org/x/time/rate"
 )
@@ -139,7 +138,7 @@ func TestCloudHandlerFailingProvider(t *testing.T) {
 	doCheck(t, fp, counting, sm1(), se1(), sm2(), se2(), &fp.ips, expectedIps, expectedMetrics, expectedEvents)
 }
 
-func doCheck(t *testing.T, cloud cloudTypes.Interface, counting *countingHandler, m1 gostatsd.Metric, e1 gostatsd.Event, m2 gostatsd.Metric, e2 gostatsd.Event, ips *[]gostatsd.IP, expectedIps []gostatsd.IP, expectedM []gostatsd.Metric, expectedE gostatsd.Events) {
+func doCheck(t *testing.T, cloud gostatsd.CloudProvider, counting *countingHandler, m1 gostatsd.Metric, e1 gostatsd.Event, m2 gostatsd.Metric, e2 gostatsd.Event, ips *[]gostatsd.IP, expectedIps []gostatsd.IP, expectedM []gostatsd.Metric, expectedE gostatsd.Events) {
 	ch := NewCloudHandler(cloud, counting, rate.NewLimiter(100, 120), nil)
 	var wg sync.WaitGroup
 	defer wg.Wait()
@@ -288,13 +287,13 @@ type fakeProviderIP struct {
 	Tags   gostatsd.Tags
 }
 
-func (fp *fakeProviderIP) ProviderName() string {
+func (fp *fakeProviderIP) Name() string {
 	return "fakeProviderIP"
 }
 
-func (fp *fakeProviderIP) Instance(ctx context.Context, ip gostatsd.IP) (*cloudTypes.Instance, error) {
+func (fp *fakeProviderIP) Instance(ctx context.Context, ip gostatsd.IP) (*gostatsd.Instance, error) {
 	fp.count(ip)
-	return &cloudTypes.Instance{
+	return &gostatsd.Instance{
 		ID:     "i-" + string(ip),
 		Region: fp.Region,
 		Tags:   fp.Tags,
@@ -305,11 +304,11 @@ type fakeProviderNotFound struct {
 	fakeCountingProvider
 }
 
-func (fp *fakeProviderNotFound) ProviderName() string {
+func (fp *fakeProviderNotFound) Name() string {
 	return "fakeProviderNotFound"
 }
 
-func (fp *fakeProviderNotFound) Instance(ctx context.Context, ip gostatsd.IP) (*cloudTypes.Instance, error) {
+func (fp *fakeProviderNotFound) Instance(ctx context.Context, ip gostatsd.IP) (*gostatsd.Instance, error) {
 	fp.count(ip)
 	return nil, nil
 }
@@ -318,11 +317,11 @@ type fakeFailingProvider struct {
 	fakeCountingProvider
 }
 
-func (fp *fakeFailingProvider) ProviderName() string {
+func (fp *fakeFailingProvider) Name() string {
 	return "fakeFailingProvider"
 }
 
-func (fp *fakeFailingProvider) Instance(ctx context.Context, ip gostatsd.IP) (*cloudTypes.Instance, error) {
+func (fp *fakeFailingProvider) Instance(ctx context.Context, ip gostatsd.IP) (*gostatsd.Instance, error) {
 	fp.count(ip)
 	return nil, errors.New("clear skies, no clouds available")
 }
