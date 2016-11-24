@@ -12,7 +12,6 @@ import (
 
 	"github.com/atlassian/gostatsd"
 	"github.com/atlassian/gostatsd/backend/backends"
-	backendTypes "github.com/atlassian/gostatsd/backend/types"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/spf13/viper"
@@ -58,7 +57,7 @@ func (client *client) Run(ctx context.Context) error {
 }
 
 // SendMetricsAsync flushes the metrics to the statsd server, preparing payload synchronously but doing the send asynchronously.
-func (client *client) SendMetricsAsync(ctx context.Context, metrics *gostatsd.MetricMap, cb backendTypes.SendCallback) {
+func (client *client) SendMetricsAsync(ctx context.Context, metrics *gostatsd.MetricMap, cb gostatsd.SendCallback) {
 	if metrics.NumStats == 0 {
 		cb(nil)
 		return
@@ -211,7 +210,7 @@ func (client *client) SampleConfig() string {
 }
 
 // NewClient constructs a new statsd backend client.
-func NewClient(address string, dialTimeout, writeTimeout time.Duration, disableTags, tcpTransport bool) (backendTypes.Backend, error) {
+func NewClient(address string, dialTimeout, writeTimeout time.Duration, disableTags, tcpTransport bool) (gostatsd.Backend, error) {
 	if address == "" {
 		return nil, fmt.Errorf("[%s] address is required", BackendName)
 	}
@@ -252,7 +251,7 @@ func NewClient(address string, dialTimeout, writeTimeout time.Duration, disableT
 }
 
 // NewClientFromViper constructs a statsd client by connecting to an address.
-func NewClientFromViper(v *viper.Viper) (backendTypes.Backend, error) {
+func NewClientFromViper(v *viper.Viper) (gostatsd.Backend, error) {
 	g := getSubViper(v, "statsdaemon")
 	g.SetDefault("dial_timeout", DefaultDialTimeout)
 	g.SetDefault("write_timeout", DefaultWriteTimeout)

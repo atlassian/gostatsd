@@ -11,7 +11,6 @@ import (
 
 	"github.com/atlassian/gostatsd"
 	"github.com/atlassian/gostatsd/backend/backends"
-	backendTypes "github.com/atlassian/gostatsd/backend/types"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/spf13/viper"
@@ -90,7 +89,7 @@ func (client *client) Run(ctx context.Context) error {
 }
 
 // SendMetricsAsync flushes the metrics to the Graphite server, preparing payload synchronously but doing the send asynchronously.
-func (client *client) SendMetricsAsync(ctx context.Context, metrics *gostatsd.MetricMap, cb backendTypes.SendCallback) {
+func (client *client) SendMetricsAsync(ctx context.Context, metrics *gostatsd.MetricMap, cb gostatsd.SendCallback) {
 	if metrics.NumStats == 0 {
 		cb(nil)
 		return
@@ -163,7 +162,7 @@ func (client *client) BackendName() string {
 }
 
 // NewClientFromViper constructs a GraphiteClient object by connecting to an address.
-func NewClientFromViper(v *viper.Viper) (backendTypes.Backend, error) {
+func NewClientFromViper(v *viper.Viper) (gostatsd.Backend, error) {
 	g := getSubViper(v, "graphite")
 	g.SetDefault("address", DefaultAddress)
 	g.SetDefault("dial_timeout", DefaultDialTimeout)
@@ -190,7 +189,7 @@ func NewClientFromViper(v *viper.Viper) (backendTypes.Backend, error) {
 }
 
 // NewClient constructs a Graphite backend object.
-func NewClient(config *Config) (backendTypes.Backend, error) {
+func NewClient(config *Config) (gostatsd.Backend, error) {
 	address := getOrDefaultStr(config.Address, DefaultAddress)
 	if address == "" {
 		return nil, fmt.Errorf("[%s] address is required", BackendName)

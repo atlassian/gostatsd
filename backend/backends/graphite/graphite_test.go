@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/atlassian/gostatsd"
-	backendTypes "github.com/atlassian/gostatsd/backend/types"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -140,7 +139,7 @@ func TestSendMetricsAsync(t *testing.T) {
 	wg.Add(2)
 	go func() {
 		defer wg.Done()
-		if e := c.(backendTypes.RunnableBackend).Run(ctx); e != nil && err != context.Canceled && e != context.DeadlineExceeded {
+		if e := c.(gostatsd.RunnableBackend).Run(ctx); e != nil && err != context.Canceled && e != context.DeadlineExceeded {
 			assert.NoError(t, e, "unexpected error")
 		}
 	}()

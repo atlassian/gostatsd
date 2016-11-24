@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/atlassian/gostatsd"
-	backendTypes "github.com/atlassian/gostatsd/backend/types"
 	cloudTypes "github.com/atlassian/gostatsd/cloudprovider/types"
 
 	log "github.com/Sirupsen/logrus"
@@ -90,7 +89,7 @@ const (
 // Server encapsulates all of the parameters necessary for starting up
 // the statsd server. These can either be set via command line or directly.
 type Server struct {
-	Backends            []backendTypes.Backend
+	Backends            []gostatsd.Backend
 	ConsoleAddr         string
 	CloudProvider       cloudTypes.Interface
 	Limiter             *rate.Limiter
@@ -169,12 +168,12 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 	ctxBack, cancelBack := context.WithCancel(context.Background()) // Separate context!
 	defer cancelBack()                                              // Tell backends to shutdown
 	for _, b := range s.Backends {
-		if b, ok := b.(backendTypes.RunnableBackend); ok {
+		if b, ok := b.(gostatsd.RunnableBackend); ok {
 			wgBackends.Add(1)
-			go func(b backendTypes.RunnableBackend) {
+			go func(b gostatsd.RunnableBackend) {
 				defer wgBackends.Done()
 				if err := b.Run(ctxBack); unexpectedErr(err) {
-					log.Panicf("Backend %s quit unexpectedly: %v", b.BackendName(), err)
+					log.Panicf("Backend %s quit unexpectedly: %v", b.Name(), err)
 				}
 			}(b)
 		}

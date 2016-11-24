@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/atlassian/gostatsd"
-	backendTypes "github.com/atlassian/gostatsd/backend/types"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/spf13/viper"
@@ -21,12 +20,12 @@ const BackendName = "stdout"
 type client struct{}
 
 // NewClientFromViper constructs a stdout backend.
-func NewClientFromViper(v *viper.Viper) (backendTypes.Backend, error) {
+func NewClientFromViper(v *viper.Viper) (gostatsd.Backend, error) {
 	return NewClient()
 }
 
 // NewClient constructs a stdout backend.
-func NewClient() (backendTypes.Backend, error) {
+func NewClient() (gostatsd.Backend, error) {
 	return &client{}, nil
 }
 
@@ -52,7 +51,7 @@ func (client client) SampleConfig() string {
 }
 
 // SendMetricsAsync prints the metrics in a MetricsMap to the stdout, preparing payload synchronously but doing the send asynchronously.
-func (client client) SendMetricsAsync(ctx context.Context, metrics *gostatsd.MetricMap, cb backendTypes.SendCallback) {
+func (client client) SendMetricsAsync(ctx context.Context, metrics *gostatsd.MetricMap, cb gostatsd.SendCallback) {
 	buf := preparePayload(metrics)
 	go func() {
 		cb([]error{writePayload(buf)})

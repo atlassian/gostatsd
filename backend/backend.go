@@ -3,19 +3,19 @@ package backend
 import (
 	"fmt"
 
+	"github.com/atlassian/gostatsd"
 	"github.com/atlassian/gostatsd/backend/backends/datadog"
 	"github.com/atlassian/gostatsd/backend/backends/graphite"
 	"github.com/atlassian/gostatsd/backend/backends/null"
 	"github.com/atlassian/gostatsd/backend/backends/statsdaemon"
 	"github.com/atlassian/gostatsd/backend/backends/stdout"
-	backendTypes "github.com/atlassian/gostatsd/backend/types"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/spf13/viper"
 )
 
 // All known backends.
-var backends = map[string]backendTypes.Factory{
+var backends = map[string]gostatsd.BackendFactory{
 	datadog.BackendName:     datadog.NewClientFromViper,
 	graphite.BackendName:    graphite.NewClientFromViper,
 	null.BackendName:        null.NewClientFromViper,
@@ -26,7 +26,7 @@ var backends = map[string]backendTypes.Factory{
 // GetBackend creates an instance of the named backend, or nil if
 // the name is not known. The error return is only used if the named backend
 // was known but failed to initialize.
-func GetBackend(name string, v *viper.Viper) (backendTypes.Backend, error) {
+func GetBackend(name string, v *viper.Viper) (gostatsd.Backend, error) {
 	f, found := backends[name]
 	if !found {
 		return nil, nil
@@ -35,7 +35,7 @@ func GetBackend(name string, v *viper.Viper) (backendTypes.Backend, error) {
 }
 
 // InitBackend creates an instance of the named backend.
-func InitBackend(name string, v *viper.Viper) (backendTypes.Backend, error) {
+func InitBackend(name string, v *viper.Viper) (gostatsd.Backend, error) {
 	if name == "" {
 		log.Info("No backend specified")
 		return nil, nil

@@ -14,8 +14,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/atlassian/gostatsd"
 	"github.com/atlassian/gostatsd/backend"
-	backendTypes "github.com/atlassian/gostatsd/backend/types"
 	"github.com/atlassian/gostatsd/cloudprovider"
 	"github.com/atlassian/gostatsd/statsd"
 
@@ -91,7 +91,7 @@ func constructServer(v *viper.Viper) (*statsd.Server, error) {
 	}
 	// Backends
 	backendNames := toSlice(v.GetString(statsd.ParamBackends))
-	backends := make([]backendTypes.Backend, len(backendNames))
+	backends := make([]gostatsd.Backend, len(backendNames))
 	for i, backendName := range backendNames {
 		backend, errBackend := backend.InitBackend(backendName, v)
 		if errBackend != nil {

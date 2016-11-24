@@ -5,7 +5,6 @@ import (
 	"sync"
 
 	"github.com/atlassian/gostatsd"
-	backendTypes "github.com/atlassian/gostatsd/backend/types"
 
 	log "github.com/Sirupsen/logrus"
 )
@@ -14,13 +13,13 @@ import (
 type dispatchingHandler struct {
 	wg               sync.WaitGroup
 	dispatcher       Dispatcher
-	backends         []backendTypes.Backend
+	backends         []gostatsd.Backend
 	tags             gostatsd.Tags // Tags to add to all metrics and events
 	concurrentEvents chan struct{}
 }
 
 // NewDispatchingHandler initialises a new dispatching handler.
-func NewDispatchingHandler(dispatcher Dispatcher, backends []backendTypes.Backend, tags gostatsd.Tags, maxConcurrentEvents uint) Handler {
+func NewDispatchingHandler(dispatcher Dispatcher, backends []gostatsd.Backend, tags gostatsd.Tags, maxConcurrentEvents uint) Handler {
 	return &dispatchingHandler{
 		dispatcher:       dispatcher,
 		backends:         backends,
@@ -63,7 +62,7 @@ func (dh *dispatchingHandler) WaitForEvents() {
 	dh.wg.Wait()
 }
 
-func (dh *dispatchingHandler) dispatchEvent(ctx context.Context, backend backendTypes.Backend, e *gostatsd.Event) {
+func (dh *dispatchingHandler) dispatchEvent(ctx context.Context, backend gostatsd.Backend, e *gostatsd.Event) {
 	defer dh.wg.Done()
 	defer func() {
 		<-dh.concurrentEvents

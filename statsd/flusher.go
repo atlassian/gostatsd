@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/atlassian/gostatsd"
-	backendTypes "github.com/atlassian/gostatsd/backend/types"
 
 	log "github.com/Sirupsen/logrus"
 )
@@ -46,7 +45,7 @@ type flusher struct {
 	dispatcher    Dispatcher
 	receiver      Receiver
 	handler       Handler
-	backends      []backendTypes.Backend
+	backends      []gostatsd.Backend
 	selfIP        gostatsd.IP
 	hostname      string
 
@@ -57,7 +56,7 @@ type flusher struct {
 }
 
 // NewFlusher creates a new Flusher with provided configuration.
-func NewFlusher(flushInterval time.Duration, dispatcher Dispatcher, receiver Receiver, handler Handler, backends []backendTypes.Backend, selfIP gostatsd.IP, hostname string) Flusher {
+func NewFlusher(flushInterval time.Duration, dispatcher Dispatcher, receiver Receiver, handler Handler, backends []gostatsd.Backend, selfIP gostatsd.IP, hostname string) Flusher {
 	return &flusher{
 		flushInterval: flushInterval,
 		dispatcher:    dispatcher,
@@ -115,7 +114,7 @@ func (f *flusher) flushData(ctx context.Context) map[uint16]gostatsd.MetricStats
 func (f *flusher) sendMetricsAsync(ctx context.Context, wg *sync.WaitGroup, m *gostatsd.MetricMap) {
 	wg.Add(len(f.backends))
 	for _, backend := range f.backends {
-		log.Debugf("Sending %d metrics to backend %s", m.NumStats, backend.BackendName())
+		log.Debugf("Sending %d metrics to backend %s", m.NumStats, backend.Name())
 		backend.SendMetricsAsync(ctx, m, func(errs []error) {
 			defer wg.Done()
 			f.handleSendResult(errs)

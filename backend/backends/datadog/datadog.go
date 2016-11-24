@@ -15,7 +15,6 @@ import (
 	"time"
 
 	"github.com/atlassian/gostatsd"
-	backendTypes "github.com/atlassian/gostatsd/backend/types"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/cenkalti/backoff"
@@ -70,7 +69,7 @@ type event struct {
 }
 
 // SendMetricsAsync flushes the metrics to Datadog, preparing payload synchronously but doing the send asynchronously.
-func (d *client) SendMetricsAsync(ctx context.Context, metrics *gostatsd.MetricMap, cb backendTypes.SendCallback) {
+func (d *client) SendMetricsAsync(ctx context.Context, metrics *gostatsd.MetricMap, cb gostatsd.SendCallback) {
 	if metrics.NumStats == 0 {
 		cb(nil)
 		return
@@ -233,7 +232,7 @@ func (d *client) authenticatedURL(path string) string {
 }
 
 // NewClientFromViper returns a new Datadog API client.
-func NewClientFromViper(v *viper.Viper) (backendTypes.Backend, error) {
+func NewClientFromViper(v *viper.Viper) (gostatsd.Backend, error) {
 	dd := getSubViper(v, "datadog")
 	dd.SetDefault("api_endpoint", apiURL)
 	dd.SetDefault("metrics_per_batch", defaultMetricsPerBatch)
@@ -249,7 +248,7 @@ func NewClientFromViper(v *viper.Viper) (backendTypes.Backend, error) {
 }
 
 // NewClient returns a new Datadog API client.
-func NewClient(apiEndpoint, apiKey string, metricsPerBatch uint, clientTimeout, maxRequestElapsedTime time.Duration) (backendTypes.Backend, error) {
+func NewClient(apiEndpoint, apiKey string, metricsPerBatch uint, clientTimeout, maxRequestElapsedTime time.Duration) (gostatsd.Backend, error) {
 	if apiEndpoint == "" {
 		return nil, fmt.Errorf("[%s] apiEndpoint is required", BackendName)
 	}

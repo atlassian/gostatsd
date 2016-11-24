@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/atlassian/gostatsd"
+
 	"github.com/stretchr/testify/assert"
 )
 

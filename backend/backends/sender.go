@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	backendTypes "github.com/atlassian/gostatsd/backend/types"
+	"github.com/atlassian/gostatsd"
 
 	log "github.com/Sirupsen/logrus"
 )
@@ -17,7 +17,7 @@ const maxStreamsPerConnection = 100
 type ConnFactory func() (net.Conn, error)
 
 type Stream struct {
-	Cb  backendTypes.SendCallback
+	Cb  gostatsd.SendCallback
 	Buf chan *bytes.Buffer
 }
 

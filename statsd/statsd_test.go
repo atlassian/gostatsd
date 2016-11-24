@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/atlassian/gostatsd"
-	backendTypes "github.com/atlassian/gostatsd/backend/types"
 	cloudTypes "github.com/atlassian/gostatsd/cloudprovider/types"
 	"github.com/atlassian/gostatsd/pkg/fakesocket"
 
@@ -25,7 +24,7 @@ func TestStatsdThroughput(t *testing.T) {
 	runtime.ReadMemStats(&memStatsStart)
 	backend := &countingBackend{}
 	s := Server{
-		Backends: []backendTypes.Backend{backend},
+		Backends: []gostatsd.Backend{backend},
 		CloudProvider: &fakeProvider{
 			instance: &cloudTypes.Instance{
 				ID:     "i-13123123",
@@ -81,7 +80,7 @@ func (cb *countingBackend) SampleConfig() string {
 	return ""
 }
 
-func (cb *countingBackend) SendMetricsAsync(ctx context.Context, m *gostatsd.MetricMap, callback backendTypes.SendCallback) {
+func (cb *countingBackend) SendMetricsAsync(ctx context.Context, m *gostatsd.MetricMap, callback gostatsd.SendCallback) {
 	atomic.AddUint64(&cb.metrics, uint64(m.NumStats))
 	callback(nil)
 }
