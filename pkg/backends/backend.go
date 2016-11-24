@@ -1,14 +1,14 @@
-package backend
+package backends
 
 import (
 	"fmt"
 
 	"github.com/atlassian/gostatsd"
-	"github.com/atlassian/gostatsd/backend/backends/datadog"
-	"github.com/atlassian/gostatsd/backend/backends/graphite"
-	"github.com/atlassian/gostatsd/backend/backends/null"
-	"github.com/atlassian/gostatsd/backend/backends/statsdaemon"
-	"github.com/atlassian/gostatsd/backend/backends/stdout"
+	"github.com/atlassian/gostatsd/pkg/backends/datadog"
+	"github.com/atlassian/gostatsd/pkg/backends/graphite"
+	"github.com/atlassian/gostatsd/pkg/backends/null"
+	"github.com/atlassian/gostatsd/pkg/backends/statsdaemon"
+	"github.com/atlassian/gostatsd/pkg/backends/stdout"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/spf13/viper"

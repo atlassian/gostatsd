@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/atlassian/gostatsd"
-	"github.com/atlassian/gostatsd/backend/backends"
+	"github.com/atlassian/gostatsd/pkg/backends/sender"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/spf13/viper"
@@ -75,7 +75,7 @@ type Config struct {
 
 // client is an object that is used to send messages to a Graphite server's TCP interface.
 type client struct {
-	sender           backends.Sender
+	sender           sender.Sender
 	counterNamespace string
 	timerNamespace   string
 	gaugesNamespace  string
@@ -102,7 +102,7 @@ func (client *client) SendMetricsAsync(ctx context.Context, metrics *gostatsd.Me
 	case <-ctx.Done():
 		client.sender.PutBuffer(buf)
 		cb([]error{ctx.Err()})
-	case client.sender.Sink <- backends.Stream{Cb: cb, Buf: sink}:
+	case client.sender.Sink <- sender.Stream{Cb: cb, Buf: sink}:
 	}
 }
 
@@ -157,7 +157,7 @@ func (client *client) SampleConfig() string {
 }
 
 // BackendName returns the name of the backend.
-func (client *client) BackendName() string {
+func (client *client) Name() string {
 	return BackendName
 }
 
@@ -227,11 +227,11 @@ func NewClient(config *Config) (gostatsd.Backend, error) {
 	}
 	log.Infof("[%s] address=%s dialTimeout=%s writeTimeout=%s", BackendName, address, dialTimeout, writeTimeout)
 	return &client{
-		sender: backends.Sender{
+		sender: sender.Sender{
 			ConnFactory: func() (net.Conn, error) {
 				return net.DialTimeout("tcp", address, dialTimeout)
 			},
-			Sink: make(chan backends.Stream, maxConcurrentSends),
+			Sink: make(chan sender.Stream, maxConcurrentSends),
 			BufPool: sync.Pool{
 				New: func() interface{} {
 					buf := new(bytes.Buffer)

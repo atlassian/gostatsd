@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/atlassian/gostatsd"
-	"github.com/atlassian/gostatsd/backend/backends"
+	"github.com/atlassian/gostatsd/pkg/backends/sender"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/spf13/viper"
@@ -44,7 +44,7 @@ const sampleConfig = `
 type client struct {
 	packetSize  int
 	disableTags bool
-	sender      backends.Sender
+	sender      sender.Sender
 }
 
 // overflowHandler is invoked when accumulated packed size has reached it's limit.
@@ -68,7 +68,7 @@ func (client *client) SendMetricsAsync(ctx context.Context, metrics *gostatsd.Me
 	case <-ctx.Done():
 		cb([]error{ctx.Err()})
 		return
-	case client.sender.Sink <- backends.Stream{Cb: cb, Buf: sink}:
+	case client.sender.Sink <- sender.Stream{Cb: cb, Buf: sink}:
 	}
 	defer close(sink)
 	client.processMetrics(metrics, func(buf *bytes.Buffer) (*bytes.Buffer, bool) {
@@ -233,11 +233,11 @@ func NewClient(address string, dialTimeout, writeTimeout time.Duration, disableT
 	return &client{
 		packetSize:  packetSize,
 		disableTags: disableTags,
-		sender: backends.Sender{
+		sender: sender.Sender{
 			ConnFactory: func() (net.Conn, error) {
 				return net.DialTimeout(transport, address, dialTimeout)
 			},
-			Sink: make(chan backends.Stream, maxConcurrentSends),
+			Sink: make(chan sender.Stream, maxConcurrentSends),
 			BufPool: sync.Pool{
 				New: func() interface{} {
 					buf := new(bytes.Buffer)
@@ -267,7 +267,7 @@ func NewClientFromViper(v *viper.Viper) (gostatsd.Backend, error) {
 }
 
 // BackendName returns the name of the backend.
-func (client *client) BackendName() string {
+func (client *client) Name() string {
 	return BackendName
 }
 

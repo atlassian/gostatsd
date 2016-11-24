@@ -72,7 +72,7 @@ type countingBackend struct {
 	events  uint64
 }
 
-func (cb *countingBackend) BackendName() string {
+func (cb *countingBackend) Name() string {
 	return "countingBackend"
 }
 

@@ -15,8 +15,8 @@ import (
 	"time"
 
 	"github.com/atlassian/gostatsd"
-	"github.com/atlassian/gostatsd/backend"
 	"github.com/atlassian/gostatsd/cloudprovider"
+	"github.com/atlassian/gostatsd/pkg/backends"
 	"github.com/atlassian/gostatsd/statsd"
 
 	log "github.com/Sirupsen/logrus"
@@ -91,13 +91,13 @@ func constructServer(v *viper.Viper) (*statsd.Server, error) {
 	}
 	// Backends
 	backendNames := toSlice(v.GetString(statsd.ParamBackends))
-	backends := make([]gostatsd.Backend, len(backendNames))
+	backendsList := make([]gostatsd.Backend, len(backendNames))
 	for i, backendName := range backendNames {
-		backend, errBackend := backend.InitBackend(backendName, v)
+		backend, errBackend := backends.InitBackend(backendName, v)
 		if errBackend != nil {
 			return nil, errBackend
 		}
-		backends[i] = backend
+		backendsList[i] = backend
 	}
 	// Percentiles
 	pt, err := getPercentiles(toSlice(v.GetString(statsd.ParamPercentThreshold)))
@@ -106,7 +106,7 @@ func constructServer(v *viper.Viper) (*statsd.Server, error) {
 	}
 	// Create server
 	return &statsd.Server{
-		Backends:            backends,
+		Backends:            backendsList,
 		ConsoleAddr:         v.GetString(statsd.ParamConsoleAddr),
 		CloudProvider:       cloud,
 		Limiter:             rate.NewLimiter(rate.Limit(v.GetInt(statsd.ParamMaxCloudRequests)), v.GetInt(statsd.ParamBurstCloudRequests)),
