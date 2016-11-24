@@ -8,8 +8,8 @@ import (
 	"runtime/pprof"
 	"time"
 
+	"github.com/atlassian/gostatsd/pkg/fakesocket"
 	"github.com/atlassian/gostatsd/statsd"
-	"github.com/atlassian/gostatsd/tester/fakesocket"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/spf13/pflag"

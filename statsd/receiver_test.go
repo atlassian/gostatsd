@@ -5,7 +5,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/atlassian/gostatsd/tester/fakesocket"
+	"github.com/atlassian/gostatsd/pkg/fakesocket"
 	"github.com/atlassian/gostatsd/types"
 )
 

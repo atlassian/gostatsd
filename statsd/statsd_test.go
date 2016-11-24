@@ -10,7 +10,7 @@ import (
 
 	backendTypes "github.com/atlassian/gostatsd/backend/types"
 	cloudTypes "github.com/atlassian/gostatsd/cloudprovider/types"
-	"github.com/atlassian/gostatsd/tester/fakesocket"
+	"github.com/atlassian/gostatsd/pkg/fakesocket"
 	"github.com/atlassian/gostatsd/types"
 
 	"github.com/spf13/viper"
