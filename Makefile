@@ -11,6 +11,7 @@ ARCH ?= darwin
 METALINTER_CONCURRENCY ?= 4
 GOVERSION := 1.7
 GP := /gopath
+MAIN_PKG := github.com/atlassian/gostatsd/cmd/gostatsd
 
 setup: setup-ci
 	go get -u github.com/githubnemo/CompileDaemon
@@ -18,16 +19,16 @@ setup: setup-ci
 	go get -u golang.org/x/tools/cmd/goimports
 
 setup-ci:
-	go get -v -u github.com/Masterminds/glide
-	go get -v -u github.com/alecthomas/gometalinter
+	go get -u github.com/Masterminds/glide
+	go get -u github.com/alecthomas/gometalinter
 	gometalinter --install
 	glide install --strip-vendor
 
-build: *.go fmt
-	go build -o build/bin/$(ARCH)/$(BINARY_NAME) $(GOBUILD_VERSION_ARGS) github.com/atlassian/gostatsd
+build: fmt
+	go build -o build/bin/$(ARCH)/$(BINARY_NAME) $(GOBUILD_VERSION_ARGS) $(MAIN_PKG)
 
-build-race: *.go fmt
-	go build -race -o build/bin/$(ARCH)/$(BINARY_NAME) $(GOBUILD_VERSION_ARGS) github.com/atlassian/gostatsd
+build-race: fmt
+	go build -race -o build/bin/$(ARCH)/$(BINARY_NAME) $(GOBUILD_VERSION_ARGS) $(MAIN_PKG)
 
 build-all:
 	go build $$(glide nv)
@@ -61,14 +62,14 @@ junit-test: build
 	go test -v $$(glide nv) | go-junit-report > test-report.xml
 
 check:
-	go install
-	go install ./tester
+	go install ./cmd/gostatsd
+	go install ./cmd/tester
 	gometalinter --concurrency=$(METALINTER_CONCURRENCY) --deadline=600s ./... --vendor --linter='errcheck:errcheck:-ignore=net:Close' --cyclo-over=20 \
 		--linter='vet:go tool vet -composites=false {paths}:PATH:LINE:MESSAGE' --disable=interfacer --disable=golint --dupl-threshold=200
 
 check-all:
-	go install
-	go install ./tester
+	go install ./cmd/gostatsd
+	go install ./cmd/tester
 	gometalinter --concurrency=$(METALINTER_CONCURRENCY) --deadline=600s ./... --vendor --cyclo-over=20 \
 		--linter='vet:go tool vet {paths}:PATH:LINE:MESSAGE' --dupl-threshold=65
 
@@ -77,7 +78,7 @@ fuzz-setup:
 	go get -v -u github.com/dvyukov/go-fuzz/go-fuzz-build
 
 fuzz:
-	go-fuzz-build github.com/atlassian/gostatsd/statsd
+	go-fuzz-build github.com/atlassian/gostatsd/pkg/statsd
 	go-fuzz -bin=./statsd-fuzz.zip -workdir=test_fixtures/lexer_fuzz
 
 watch:
@@ -96,7 +97,7 @@ docker:
 		-e GOPATH="$(GP)" \
 		-e CGO_ENABLED=0 \
 		golang:$(GOVERSION) \
-		go build -o build/bin/linux/$(BINARY_NAME) $(GOBUILD_VERSION_ARGS) -a -installsuffix cgo github.com/atlassian/gostatsd
+		go build -o build/bin/linux/$(BINARY_NAME) $(GOBUILD_VERSION_ARGS) -a -installsuffix cgo $(MAIN_PKG)
 	docker build --pull -t $(IMAGE_NAME):$(GIT_HASH) build
 
 # Compile a binary with -race. Needs to be run on a glibc-based system.
@@ -108,7 +109,7 @@ docker-race:
 		-w "$(GP)/src/github.com/atlassian/gostatsd" \
 		-e GOPATH="$(GP)" \
 		golang:$(GOVERSION) \
-		go build -race -o build/bin/linux/$(BINARY_NAME) $(GOBUILD_VERSION_ARGS) -a -installsuffix cgo github.com/atlassian/gostatsd
+		go build -race -o build/bin/linux/$(BINARY_NAME) $(GOBUILD_VERSION_ARGS) -a -installsuffix cgo $(MAIN_PKG)
 	docker build --pull -t $(IMAGE_NAME):$(GIT_HASH)-race -f build/Dockerfile-glibc build
 
 release-hash: docker
