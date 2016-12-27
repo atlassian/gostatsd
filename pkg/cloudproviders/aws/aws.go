@@ -90,7 +90,7 @@ func (p *Provider) Instance(ctx context.Context, IP gostatsd.IP) (*gostatsd.Inst
 	return instance, nil
 }
 
-// ProviderName returns the name of the provider.
+// Name returns the name of the provider.
 func (p *Provider) Name() string {
 	return ProviderName
 }
