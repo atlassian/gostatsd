@@ -9,8 +9,8 @@ import (
 	log "github.com/Sirupsen/logrus"
 )
 
-// dispatchingHandler dispatches events to all configured backends and forwards metrics to a Dispatcher.
-type dispatchingHandler struct {
+// DispatchingHandler dispatches events to all configured backends and forwards metrics to a Dispatcher.
+type DispatchingHandler struct {
 	wg               sync.WaitGroup
 	dispatcher       Dispatcher
 	backends         []gostatsd.Backend
@@ -19,8 +19,8 @@ type dispatchingHandler struct {
 }
 
 // NewDispatchingHandler initialises a new dispatching handler.
-func NewDispatchingHandler(dispatcher Dispatcher, backends []gostatsd.Backend, tags gostatsd.Tags, maxConcurrentEvents uint) Handler {
-	return &dispatchingHandler{
+func NewDispatchingHandler(dispatcher Dispatcher, backends []gostatsd.Backend, tags gostatsd.Tags, maxConcurrentEvents uint) *DispatchingHandler {
+	return &DispatchingHandler{
 		dispatcher:       dispatcher,
 		backends:         backends,
 		tags:             tags,
@@ -28,7 +28,7 @@ func NewDispatchingHandler(dispatcher Dispatcher, backends []gostatsd.Backend, t
 	}
 }
 
-func (dh *dispatchingHandler) DispatchMetric(ctx context.Context, m *gostatsd.Metric) error {
+func (dh *DispatchingHandler) DispatchMetric(ctx context.Context, m *gostatsd.Metric) error {
 	if m.Hostname == "" {
 		m.Hostname = string(m.SourceIP)
 	}
@@ -36,7 +36,7 @@ func (dh *dispatchingHandler) DispatchMetric(ctx context.Context, m *gostatsd.Me
 	return dh.dispatcher.DispatchMetric(ctx, m)
 }
 
-func (dh *dispatchingHandler) DispatchEvent(ctx context.Context, e *gostatsd.Event) error {
+func (dh *DispatchingHandler) DispatchEvent(ctx context.Context, e *gostatsd.Event) error {
 	if e.Hostname == "" {
 		e.Hostname = string(e.SourceIP)
 	}
@@ -58,11 +58,11 @@ func (dh *dispatchingHandler) DispatchEvent(ctx context.Context, e *gostatsd.Eve
 }
 
 // WaitForEvents waits for all event-dispatching goroutines to finish.
-func (dh *dispatchingHandler) WaitForEvents() {
+func (dh *DispatchingHandler) WaitForEvents() {
 	dh.wg.Wait()
 }
 
-func (dh *dispatchingHandler) dispatchEvent(ctx context.Context, backend gostatsd.Backend, e *gostatsd.Event) {
+func (dh *DispatchingHandler) dispatchEvent(ctx context.Context, backend gostatsd.Backend, e *gostatsd.Event) {
 	defer dh.wg.Done()
 	defer func() {
 		<-dh.concurrentEvents

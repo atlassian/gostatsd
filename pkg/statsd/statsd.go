@@ -200,7 +200,8 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 	// 2. Start handlers
 	ip := gostatsd.UnknownIP
 
-	handler := NewDispatchingHandler(dispatcher, s.Backends, s.DefaultTags, uint(s.MaxConcurrentEvents))
+	var handler Handler
+	handler = NewDispatchingHandler(dispatcher, s.Backends, s.DefaultTags, uint(s.MaxConcurrentEvents))
 	if s.CloudProvider != nil {
 		ch := NewCloudHandler(s.CloudProvider, handler, s.Limiter, nil)
 		handler = ch
