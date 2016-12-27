@@ -62,7 +62,7 @@ func round(v float64) float64 {
 	return math.Floor(v + 0.5)
 }
 
-// Flush prepares the contents of an Aggregator for sending via the Sender.
+// Flush prepares the contents of a MetricAggregator for sending via the Sender.
 func (a *MetricAggregator) Flush(flushInterval time.Duration) {
 	startTime := a.now()
 	a.FlushInterval = flushInterval
@@ -172,7 +172,7 @@ func deleteMetric(key, tagsKey string, metrics gostatsd.AggregatedMetrics) {
 	}
 }
 
-// Reset clears the contents of an Aggregator.
+// Reset clears the contents of an MetricAggregator.
 func (a *MetricAggregator) Reset() {
 	a.NumStats = 0
 	nowNano := gostatsd.Nanotime(a.now().UnixNano())

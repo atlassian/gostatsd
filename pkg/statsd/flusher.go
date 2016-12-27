@@ -44,7 +44,7 @@ type MetricFlusher struct {
 	sentMetricsReceived uint64
 }
 
-// NewFlusher creates a new Flusher with provided configuration.
+// NewMetricFlusher creates a new MetricFlusher with provided configuration.
 func NewMetricFlusher(flushInterval time.Duration, dispatcher Dispatcher, receiver Receiver, handler Handler, backends []gostatsd.Backend, selfIP gostatsd.IP, hostname string) *MetricFlusher {
 	return &MetricFlusher{
 		flushInterval: flushInterval,
@@ -72,7 +72,7 @@ func (f *MetricFlusher) Run(ctx context.Context) error {
 	}
 }
 
-// GetStats returns Flusher statistics.
+// GetStats returns MetricFlusher statistics.
 func (f *MetricFlusher) GetStats() FlusherStats {
 	return FlusherStats{
 		time.Unix(0, atomic.LoadInt64(&f.lastFlush)),
