@@ -11,20 +11,6 @@ import (
 	log "github.com/Sirupsen/logrus"
 )
 
-// ProcessFunc is a function that gets executed by Aggregator with its state passed into the function.
-type ProcessFunc func(*gostatsd.MetricMap)
-
-// Aggregator is an object that aggregates statsd metrics.
-// The function NewAggregator should be used to create the objects.
-//
-// Incoming metrics should be passed via Receive function.
-type Aggregator interface {
-	Receive(*gostatsd.Metric, time.Time)
-	Flush(interval time.Duration)
-	Process(ProcessFunc)
-	Reset()
-}
-
 // percentStruct is a cache of percentile names to avoid creating them for each timer.
 type percentStruct struct {
 	count      string
@@ -35,16 +21,17 @@ type percentStruct struct {
 	lower      string
 }
 
-type aggregator struct {
+// MetricAggregator aggregates metrics.
+type MetricAggregator struct {
 	expiryInterval    time.Duration // How often to expire metrics
 	percentThresholds map[float64]percentStruct
 	now               func() time.Time // Returns current time. Useful for testing.
 	gostatsd.MetricMap
 }
 
-// NewAggregator creates a new Aggregator object.
-func NewAggregator(percentThresholds []float64, expiryInterval time.Duration) Aggregator {
-	a := aggregator{
+// NewMetricAggregator creates a new MetricAggregator object.
+func NewMetricAggregator(percentThresholds []float64, expiryInterval time.Duration) *MetricAggregator {
+	a := MetricAggregator{
 		expiryInterval:    expiryInterval,
 		percentThresholds: make(map[float64]percentStruct, len(percentThresholds)),
 		now:               time.Now,
@@ -75,8 +62,8 @@ func round(v float64) float64 {
 	return math.Floor(v + 0.5)
 }
 
-// Flush prepares the contents of an Aggregator for sending via the Sender.
-func (a *aggregator) Flush(flushInterval time.Duration) {
+// Flush prepares the contents of a MetricAggregator for sending via the Sender.
+func (a *MetricAggregator) Flush(flushInterval time.Duration) {
 	startTime := a.now()
 	a.FlushInterval = flushInterval
 	flushInSeconds := float64(flushInterval) / float64(time.Second)
@@ -170,11 +157,11 @@ func (a *aggregator) Flush(flushInterval time.Duration) {
 	a.ProcessingTime = a.now().Sub(startTime)
 }
 
-func (a *aggregator) Process(f ProcessFunc) {
+func (a *MetricAggregator) Process(f ProcessFunc) {
 	f(&a.MetricMap)
 }
 
-func (a *aggregator) isExpired(now, ts gostatsd.Nanotime) bool {
+func (a *MetricAggregator) isExpired(now, ts gostatsd.Nanotime) bool {
 	return a.expiryInterval != 0 && time.Duration(now-ts) > a.expiryInterval
 }
 
@@ -185,8 +172,8 @@ func deleteMetric(key, tagsKey string, metrics gostatsd.AggregatedMetrics) {
 	}
 }
 
-// Reset clears the contents of an Aggregator.
-func (a *aggregator) Reset() {
+// Reset clears the contents of an MetricAggregator.
+func (a *MetricAggregator) Reset() {
 	a.NumStats = 0
 	nowNano := gostatsd.Nanotime(a.now().UnixNano())
 
@@ -235,7 +222,7 @@ func (a *aggregator) Reset() {
 	})
 }
 
-func (a *aggregator) receiveCounter(m *gostatsd.Metric, tagsKey string, now gostatsd.Nanotime) {
+func (a *MetricAggregator) receiveCounter(m *gostatsd.Metric, tagsKey string, now gostatsd.Nanotime) {
 	value := int64(m.Value)
 	v, ok := a.Counters[m.Name]
 	if ok {
@@ -254,7 +241,7 @@ func (a *aggregator) receiveCounter(m *gostatsd.Metric, tagsKey string, now gost
 	}
 }
 
-func (a *aggregator) receiveGauge(m *gostatsd.Metric, tagsKey string, now gostatsd.Nanotime) {
+func (a *MetricAggregator) receiveGauge(m *gostatsd.Metric, tagsKey string, now gostatsd.Nanotime) {
 	// TODO: handle +/-
 	v, ok := a.Gauges[m.Name]
 	if ok {
@@ -273,7 +260,7 @@ func (a *aggregator) receiveGauge(m *gostatsd.Metric, tagsKey string, now gostat
 	}
 }
 
-func (a *aggregator) receiveTimer(m *gostatsd.Metric, tagsKey string, now gostatsd.Nanotime) {
+func (a *MetricAggregator) receiveTimer(m *gostatsd.Metric, tagsKey string, now gostatsd.Nanotime) {
 	v, ok := a.Timers[m.Name]
 	if ok {
 		t, ok := v[tagsKey]
@@ -291,7 +278,7 @@ func (a *aggregator) receiveTimer(m *gostatsd.Metric, tagsKey string, now gostat
 	}
 }
 
-func (a *aggregator) receiveSet(m *gostatsd.Metric, tagsKey string, now gostatsd.Nanotime) {
+func (a *MetricAggregator) receiveSet(m *gostatsd.Metric, tagsKey string, now gostatsd.Nanotime) {
 	v, ok := a.Sets[m.Name]
 	if ok {
 		s, ok := v[tagsKey]
@@ -310,7 +297,7 @@ func (a *aggregator) receiveSet(m *gostatsd.Metric, tagsKey string, now gostatsd
 }
 
 // Receive aggregates an incoming metric.
-func (a *aggregator) Receive(m *gostatsd.Metric, now time.Time) {
+func (a *MetricAggregator) Receive(m *gostatsd.Metric, now time.Time) {
 	a.NumStats++
 	tagsKey := formatTagsKey(m.Tags, m.Hostname)
 	nowNano := gostatsd.Nanotime(now.UnixNano())

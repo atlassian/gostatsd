@@ -17,23 +17,9 @@ import (
 // In practice it is highly unlikely but still possible to get packets bigger than usual MTU of 1500.
 const packetSizeUDP = 0xffff
 
-// Receiver receives data on its PacketConn and converts lines into Metrics.
+// MetricReceiver receives data on its PacketConn and converts lines into Metrics.
 // For each types.Metric it calls Handler.HandleMetric()
-type Receiver interface {
-	Receive(context.Context, net.PacketConn) error
-	GetStats() ReceiverStats
-}
-
-// ReceiverStats holds statistics for a Receiver.
-type ReceiverStats struct {
-	LastPacket      time.Time
-	BadLines        uint64
-	PacketsReceived uint64
-	MetricsReceived uint64
-	EventsReceived  uint64
-}
-
-type metricReceiver struct {
+type MetricReceiver struct {
 	// Counter fields below must be read/written only using atomic instructions.
 	// 64-bit fields must be the first fields in the struct to guarantee proper memory alignment.
 	// See https://golang.org/pkg/sync/atomic/#pkg-note-BUG
@@ -46,16 +32,16 @@ type metricReceiver struct {
 	namespace       string  // Namespace to prefix all metrics
 }
 
-// NewMetricReceiver initialises a new Receiver.
-func NewMetricReceiver(ns string, handler Handler) Receiver {
-	return &metricReceiver{
+// NewMetricReceiver initialises a new MetricReceiver.
+func NewMetricReceiver(ns string, handler Handler) *MetricReceiver {
+	return &MetricReceiver{
 		handler:   handler,
 		namespace: ns,
 	}
 }
 
-// GetStats returns current Receiver stats. Safe for concurrent use.
-func (mr *metricReceiver) GetStats() ReceiverStats {
+// GetStats returns current MetricReceiver stats. Safe for concurrent use.
+func (mr *MetricReceiver) GetStats() ReceiverStats {
 	return ReceiverStats{
 		LastPacket:      time.Unix(0, atomic.LoadInt64(&mr.lastPacket)),
 		BadLines:        atomic.LoadUint64(&mr.badLines),
@@ -67,7 +53,7 @@ func (mr *metricReceiver) GetStats() ReceiverStats {
 
 // Receive accepts incoming datagrams on c, parses them and calls Handler.DispatchMetric() for each metric
 // and Handler.DispatchEvent() for each event.
-func (mr *metricReceiver) Receive(ctx context.Context, c net.PacketConn) error {
+func (mr *MetricReceiver) Receive(ctx context.Context, c net.PacketConn) error {
 	buf := make([]byte, packetSizeUDP)
 	for {
 		// This will error out when the socket is closed.
@@ -98,7 +84,7 @@ func (mr *metricReceiver) Receive(ctx context.Context, c net.PacketConn) error {
 
 // handlePacket handles the contents of a datagram and calls Handler.DispatchMetric()
 // for each line that successfully parses into a types.Metric and Handler.DispatchEvent() for each event.
-func (mr *metricReceiver) handlePacket(ctx context.Context, addr net.Addr, msg []byte) error {
+func (mr *MetricReceiver) handlePacket(ctx context.Context, addr net.Addr, msg []byte) error {
 	var numMetrics, numEvents uint16
 	var exitError error
 	ip := getIP(addr)
@@ -153,7 +139,7 @@ func (mr *metricReceiver) handlePacket(ctx context.Context, addr net.Addr, msg [
 }
 
 // parseLine with lexer impl.
-func (mr *metricReceiver) parseLine(line []byte) (*gostatsd.Metric, *gostatsd.Event, error) {
+func (mr *MetricReceiver) parseLine(line []byte) (*gostatsd.Metric, *gostatsd.Event, error) {
 	l := lexer{}
 	return l.run(line, mr.namespace)
 }

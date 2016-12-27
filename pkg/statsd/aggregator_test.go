@@ -9,11 +9,11 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func newFakeAggregator() *aggregator {
-	return NewAggregator(
+func newFakeAggregator() *MetricAggregator {
+	return NewMetricAggregator(
 		[]float64{90},
 		5*time.Minute,
-	).(*aggregator)
+	)
 }
 
 func TestNewAggregator(t *testing.T) {
@@ -265,7 +265,7 @@ func TestIsExpired(t *testing.T) {
 
 	now := gostatsd.Nanotime(time.Now().UnixNano())
 
-	ma := &aggregator{expiryInterval: 0}
+	ma := &MetricAggregator{expiryInterval: 0}
 	assert.Equal(false, ma.isExpired(now, now))
 
 	ma.expiryInterval = 10 * time.Second

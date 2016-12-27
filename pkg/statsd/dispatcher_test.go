@@ -85,7 +85,7 @@ func TestNewDispatcherShouldCreateCorrectNumberOfWorkers(t *testing.T) {
 	r := rand.New(rand.NewSource(time.Now().UnixNano()))
 	n := r.Intn(5) + 1
 	factory := newTestFactory()
-	d := NewDispatcher(n, 1, factory).(*dispatcher)
+	d := NewMetricDispatcher(n, 1, factory)
 	if len(d.workers) != n {
 		t.Errorf("workers: expected %d, got %d", n, len(d.workers))
 	}
@@ -95,7 +95,7 @@ func TestNewDispatcherShouldCreateCorrectNumberOfWorkers(t *testing.T) {
 }
 
 func TestRunShouldReturnWhenContextCancelled(t *testing.T) {
-	d := NewDispatcher(5, 1, newTestFactory())
+	d := NewMetricDispatcher(5, 1, newTestFactory())
 	ctx, cancelFunc := context.WithTimeout(context.Background(), 1*time.Second)
 	defer cancelFunc()
 
@@ -109,7 +109,7 @@ func TestDispatchMetricShouldDistributeMetrics(t *testing.T) {
 	r := rand.New(rand.NewSource(time.Now().UnixNano()))
 	n := r.Intn(5) + 1
 	factory := newTestFactory()
-	d := NewDispatcher(n, 10, factory).(*dispatcher)
+	d := NewMetricDispatcher(n, 10, factory)
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	defer cancelFunc()
 	var wgFinish sync.WaitGroup
@@ -165,7 +165,7 @@ func getTotalInvocations(inv map[int]int) int {
 func BenchmarkDispatcher(b *testing.B) {
 	rand.Seed(time.Now().UnixNano())
 	factory := newTestFactory()
-	d := NewDispatcher(runtime.NumCPU(), 10, factory).(*dispatcher)
+	d := NewMetricDispatcher(runtime.NumCPU(), 10, factory)
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	defer cancelFunc()
 	var wgFinish sync.WaitGroup

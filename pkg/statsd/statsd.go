@@ -183,7 +183,7 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 		percentThresholds: s.PercentThreshold,
 		expiryInterval:    s.ExpiryInterval,
 	}
-	dispatcher := NewDispatcher(s.MaxWorkers, s.MaxQueueSize, &factory)
+	dispatcher := NewMetricDispatcher(s.MaxWorkers, s.MaxQueueSize, &factory)
 
 	var wgDispatcher sync.WaitGroup
 	defer wgDispatcher.Wait()                                       // Wait for dispatcher to shutdown
@@ -200,7 +200,8 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 	// 2. Start handlers
 	ip := gostatsd.UnknownIP
 
-	handler := NewDispatchingHandler(dispatcher, s.Backends, s.DefaultTags, uint(s.MaxConcurrentEvents))
+	var handler Handler
+	handler = NewDispatchingHandler(dispatcher, s.Backends, s.DefaultTags, uint(s.MaxConcurrentEvents))
 	if s.CloudProvider != nil {
 		ch := NewCloudHandler(s.CloudProvider, handler, s.Limiter, nil)
 		handler = ch
@@ -252,7 +253,7 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 
 	// 4. Start the Flusher
 	hostname := getHost()
-	flusher := NewFlusher(s.FlushInterval, dispatcher, receiver, handler, s.Backends, ip, hostname)
+	flusher := NewMetricFlusher(s.FlushInterval, dispatcher, receiver, handler, s.Backends, ip, hostname)
 	var wgFlusher sync.WaitGroup
 	defer wgFlusher.Wait() // Wait for the Flusher to finish
 	wgFlusher.Add(1)
@@ -328,7 +329,7 @@ type agrFactory struct {
 }
 
 func (af *agrFactory) Create() Aggregator {
-	return NewAggregator(af.percentThresholds, af.expiryInterval)
+	return NewMetricAggregator(af.percentThresholds, af.expiryInterval)
 }
 
 func toStringSlice(fs []float64) []string {
