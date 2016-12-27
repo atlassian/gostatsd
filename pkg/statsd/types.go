@@ -44,3 +44,14 @@ type Dispatcher interface {
 	// less than numWorkers times if the context signals "done".
 	Process(context.Context, DispatcherProcessFunc) *sync.WaitGroup
 }
+
+// FlusherStats holds statistics about a Flusher.
+type FlusherStats struct {
+	LastFlush      time.Time // Last time the metrics where aggregated
+	LastFlushError time.Time // Time of the last flush error
+}
+
+// Flusher periodically flushes metrics from all Aggregators to Senders.
+type Flusher interface {
+	GetStats() FlusherStats
+}

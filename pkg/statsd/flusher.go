@@ -22,19 +22,8 @@ const (
 	processingTime     = internalMetric + "processing_time"
 )
 
-// FlusherStats holds statistics about a Flusher.
-type FlusherStats struct {
-	LastFlush      time.Time // Last time the metrics where aggregated
-	LastFlushError time.Time // Time of the last flush error
-}
-
-// Flusher periodically flushes metrics from all Aggregators to Senders.
-type Flusher interface {
-	Run(context.Context) error
-	GetStats() FlusherStats
-}
-
-type flusher struct {
+// MetricFlusher periodically flushes metrics from all Aggregators to Senders.
+type MetricFlusher struct {
 	// Counter fields below must be read/written only using atomic instructions.
 	// 64-bit fields must be the first fields in the struct to guarantee proper memory alignment.
 	// See https://golang.org/pkg/sync/atomic/#pkg-note-BUG
@@ -56,8 +45,8 @@ type flusher struct {
 }
 
 // NewFlusher creates a new Flusher with provided configuration.
-func NewFlusher(flushInterval time.Duration, dispatcher Dispatcher, receiver Receiver, handler Handler, backends []gostatsd.Backend, selfIP gostatsd.IP, hostname string) Flusher {
-	return &flusher{
+func NewMetricFlusher(flushInterval time.Duration, dispatcher Dispatcher, receiver Receiver, handler Handler, backends []gostatsd.Backend, selfIP gostatsd.IP, hostname string) *MetricFlusher {
+	return &MetricFlusher{
 		flushInterval: flushInterval,
 		dispatcher:    dispatcher,
 		receiver:      receiver,
@@ -68,8 +57,8 @@ func NewFlusher(flushInterval time.Duration, dispatcher Dispatcher, receiver Rec
 	}
 }
 
-// Run runs the Flusher.
-func (f *flusher) Run(ctx context.Context) error {
+// Run runs the MetricFlusher.
+func (f *MetricFlusher) Run(ctx context.Context) error {
 	flushTicker := time.NewTicker(f.flushInterval)
 	defer flushTicker.Stop()
 	for {
@@ -84,14 +73,14 @@ func (f *flusher) Run(ctx context.Context) error {
 }
 
 // GetStats returns Flusher statistics.
-func (f *flusher) GetStats() FlusherStats {
+func (f *MetricFlusher) GetStats() FlusherStats {
 	return FlusherStats{
 		time.Unix(0, atomic.LoadInt64(&f.lastFlush)),
 		time.Unix(0, atomic.LoadInt64(&f.lastFlushError)),
 	}
 }
 
-func (f *flusher) flushData(ctx context.Context) map[uint16]gostatsd.MetricStats {
+func (f *MetricFlusher) flushData(ctx context.Context) map[uint16]gostatsd.MetricStats {
 	var lock sync.Mutex
 	dispatcherStats := make(map[uint16]gostatsd.MetricStats)
 	var sendWg sync.WaitGroup
@@ -111,7 +100,7 @@ func (f *flusher) flushData(ctx context.Context) map[uint16]gostatsd.MetricStats
 	return dispatcherStats
 }
 
-func (f *flusher) sendMetricsAsync(ctx context.Context, wg *sync.WaitGroup, m *gostatsd.MetricMap) {
+func (f *MetricFlusher) sendMetricsAsync(ctx context.Context, wg *sync.WaitGroup, m *gostatsd.MetricMap) {
 	wg.Add(len(f.backends))
 	for _, backend := range f.backends {
 		log.Debugf("Sending %d metrics to backend %s", m.NumStats, backend.Name())
@@ -122,7 +111,7 @@ func (f *flusher) sendMetricsAsync(ctx context.Context, wg *sync.WaitGroup, m *g
 	}
 }
 
-func (f *flusher) handleSendResult(flushResults []error) {
+func (f *MetricFlusher) handleSendResult(flushResults []error) {
 	timestampPointer := &f.lastFlush
 	for _, err := range flushResults {
 		if err != nil {
@@ -133,7 +122,7 @@ func (f *flusher) handleSendResult(flushResults []error) {
 	atomic.StoreInt64(timestampPointer, time.Now().UnixNano())
 }
 
-func (f *flusher) dispatchInternalStats(ctx context.Context, dispatcherStats map[uint16]gostatsd.MetricStats) {
+func (f *MetricFlusher) dispatchInternalStats(ctx context.Context, dispatcherStats map[uint16]gostatsd.MetricStats) {
 	receiverStats := f.receiver.GetStats()
 	packetsReceivedValue := receiverStats.PacketsReceived - f.sentPacketsReceived
 	metrics := make([]gostatsd.Metric, 0, 4+2*len(dispatcherStats))

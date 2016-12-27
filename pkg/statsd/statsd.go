@@ -253,7 +253,7 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 
 	// 4. Start the Flusher
 	hostname := getHost()
-	flusher := NewFlusher(s.FlushInterval, dispatcher, receiver, handler, s.Backends, ip, hostname)
+	flusher := NewMetricFlusher(s.FlushInterval, dispatcher, receiver, handler, s.Backends, ip, hostname)
 	var wgFlusher sync.WaitGroup
 	defer wgFlusher.Wait() // Wait for the Flusher to finish
 	wgFlusher.Add(1)
