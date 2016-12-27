@@ -273,10 +273,6 @@ func (fp *fakeCountingProvider) count(ip gostatsd.IP) {
 	fp.ips = append(fp.ips, ip)
 }
 
-func (fp *fakeCountingProvider) SampleConfig() string {
-	return ""
-}
-
 func (fp *fakeCountingProvider) SelfIP() (gostatsd.IP, error) {
 	return gostatsd.UnknownIP, nil
 }

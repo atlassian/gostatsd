@@ -45,11 +45,6 @@ func tagToMetricName(tag string) string {
 	return strings.Replace(tag, ":", ".", -1)
 }
 
-// SampleConfig returns the sample config for the stdout backend.
-func (client client) SampleConfig() string {
-	return ""
-}
-
 // SendMetricsAsync prints the metrics in a MetricsMap to the stdout, preparing payload synchronously but doing the send asynchronously.
 func (client client) SendMetricsAsync(ctx context.Context, metrics *gostatsd.MetricMap, cb gostatsd.SendCallback) {
 	buf := preparePayload(metrics)

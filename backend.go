@@ -18,8 +18,6 @@ type SendCallback func([]error)
 type Backend interface {
 	// Name returns the name of the backend.
 	Name() string
-	// SampleConfig returns the sample config for the backend.
-	SampleConfig() string
 	// SendMetricsAsync flushes the metrics to the backend, preparing payload synchronously but doing the send asynchronously.
 	// Must not read/write MetricMap asynchronously.
 	SendMetricsAsync(context.Context, *MetricMap, SendCallback)

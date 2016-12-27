@@ -27,12 +27,6 @@ const (
 	ProviderName = "aws"
 )
 
-const sampleConfig = `
-[aws]
-	# maximum number of retries in case of retriable errors
-	max_retries = 5 # optional, default to 3
-`
-
 // Provider represents an AWS provider.
 type Provider struct {
 	Metadata *ec2metadata.EC2Metadata
@@ -93,11 +87,6 @@ func (p *Provider) Instance(ctx context.Context, IP gostatsd.IP) (*gostatsd.Inst
 // Name returns the name of the provider.
 func (p *Provider) Name() string {
 	return ProviderName
-}
-
-// SampleConfig returns the sample config for the datadog backend.
-func (p *Provider) SampleConfig() string {
-	return sampleConfig
 }
 
 // SelfIP returns host's IPv4 address.

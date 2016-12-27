@@ -20,8 +20,6 @@ type Instance struct {
 type CloudProvider interface {
 	// Name returns the name of the cloud provider.
 	Name() string
-	// SampleConfig returns the sample config for the cloud provider.
-	SampleConfig() string
 	// Instance returns the instance details from the cloud provider.
 	Instance(context.Context, IP) (*Instance, error)
 	// SelfIP returns host's IPv4 address.

@@ -46,15 +46,6 @@ type client struct {
 	now                   func() time.Time // Returns current time. Useful for testing.
 }
 
-const sampleConfig = `
-[datadog]
-	## Datadog API key
-	api_key = "my-secret-key" # required.
-
-	## Connection timeout.
-	# timeout = "5s"
-`
-
 // event represents an event data structure for Datadog.
 type event struct {
 	Title          string   `json:"title"`
@@ -165,11 +156,6 @@ func (d *client) SendEvent(ctx context.Context, e *gostatsd.Event) error {
 		Priority:       e.Priority.StringWithEmptyDefault(),
 		AlertType:      e.AlertType.StringWithEmptyDefault(),
 	})
-}
-
-// SampleConfig returns the sample config for the datadog backend.
-func (d *client) SampleConfig() string {
-	return sampleConfig
 }
 
 // BackendName returns the name of the backend.
