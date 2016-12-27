@@ -51,8 +51,8 @@ type CacheOptions struct {
 	CacheNegativeTTL          time.Duration
 }
 
-// cloudHandler enriches metrics and events with additional information fetched from cloud provider.
-type cloudHandler struct {
+// CloudHandler enriches metrics and events with additional information fetched from cloud provider.
+type CloudHandler struct {
 	cacheOpts    CacheOptions
 	cloud        gostatsd.CloudProvider // Cloud provider interface
 	next         Handler
@@ -67,7 +67,7 @@ type cloudHandler struct {
 
 // NewCloudHandler initialises a new cloud handler.
 // If cacheOptions is nil default cache configuration is used.
-func NewCloudHandler(cloud gostatsd.CloudProvider, next Handler, limiter *rate.Limiter, cacheOptions *CacheOptions) *cloudHandler {
+func NewCloudHandler(cloud gostatsd.CloudProvider, next Handler, limiter *rate.Limiter, cacheOptions *CacheOptions) *CloudHandler {
 	if cacheOptions == nil {
 		cacheOptions = &CacheOptions{
 			CacheRefreshPeriod:        DefaultCacheRefreshPeriod,
@@ -76,7 +76,7 @@ func NewCloudHandler(cloud gostatsd.CloudProvider, next Handler, limiter *rate.L
 			CacheNegativeTTL:          DefaultCacheNegativeTTL,
 		}
 	}
-	return &cloudHandler{
+	return &CloudHandler{
 		cacheOpts:    *cacheOptions,
 		cloud:        cloud,
 		next:         next,
@@ -87,7 +87,7 @@ func NewCloudHandler(cloud gostatsd.CloudProvider, next Handler, limiter *rate.L
 	}
 }
 
-func (ch *cloudHandler) DispatchMetric(ctx context.Context, m *gostatsd.Metric) error {
+func (ch *CloudHandler) DispatchMetric(ctx context.Context, m *gostatsd.Metric) error {
 	if ch.updateTagsAndHostname(m.SourceIP, &m.Tags, &m.Hostname) {
 		return ch.next.DispatchMetric(ctx, m)
 	}
@@ -99,7 +99,7 @@ func (ch *cloudHandler) DispatchMetric(ctx context.Context, m *gostatsd.Metric) 
 	}
 }
 
-func (ch *cloudHandler) DispatchEvent(ctx context.Context, e *gostatsd.Event) error {
+func (ch *CloudHandler) DispatchEvent(ctx context.Context, e *gostatsd.Event) error {
 	if ch.updateTagsAndHostname(e.SourceIP, &e.Tags, &e.Hostname) {
 		return ch.next.DispatchEvent(ctx, e)
 	}
@@ -114,12 +114,12 @@ func (ch *cloudHandler) DispatchEvent(ctx context.Context, e *gostatsd.Event) er
 }
 
 // WaitForEvents waits for all event-dispatching goroutines to finish.
-func (ch *cloudHandler) WaitForEvents() {
+func (ch *CloudHandler) WaitForEvents() {
 	ch.wg.Wait()
 	ch.next.WaitForEvents()
 }
 
-func (ch *cloudHandler) Run(ctx context.Context) error {
+func (ch *CloudHandler) Run(ctx context.Context) error {
 	toLookup := make(chan gostatsd.IP, lookupChannelSize) // IPs to lookup
 	lookupResults := make(chan *lookupResult)
 	awaitingEvents := make(map[gostatsd.IP][]*gostatsd.Event)
@@ -153,7 +153,7 @@ func (ch *cloudHandler) Run(ctx context.Context) error {
 	}
 }
 
-func (ch *cloudHandler) doRefresh(ctx context.Context, toLookup chan<- gostatsd.IP, t time.Time) {
+func (ch *CloudHandler) doRefresh(ctx context.Context, toLookup chan<- gostatsd.IP, t time.Time) {
 	var toDelete []gostatsd.IP
 	now := t.UnixNano()
 	idleNano := ch.cacheOpts.CacheEvictAfterIdlePeriod.Nanoseconds()
@@ -179,7 +179,7 @@ func (ch *cloudHandler) doRefresh(ctx context.Context, toLookup chan<- gostatsd.
 	}
 }
 
-func (ch *cloudHandler) handleLookupResult(ctx context.Context, lr *lookupResult, awaitingMetrics map[gostatsd.IP][]*gostatsd.Metric, awaitingEvents map[gostatsd.IP][]*gostatsd.Event) {
+func (ch *CloudHandler) handleLookupResult(ctx context.Context, lr *lookupResult, awaitingMetrics map[gostatsd.IP][]*gostatsd.Metric, awaitingEvents map[gostatsd.IP][]*gostatsd.Event) {
 	var ttl time.Duration
 	if lr.instance == nil {
 		ttl = ch.cacheOpts.CacheNegativeTTL
@@ -212,7 +212,7 @@ func (ch *cloudHandler) handleLookupResult(ctx context.Context, lr *lookupResult
 	}
 }
 
-func (ch *cloudHandler) handleMetric(ctx context.Context, toLookup chan<- gostatsd.IP, m *gostatsd.Metric, awaitingMetrics map[gostatsd.IP][]*gostatsd.Metric) {
+func (ch *CloudHandler) handleMetric(ctx context.Context, toLookup chan<- gostatsd.IP, m *gostatsd.Metric, awaitingMetrics map[gostatsd.IP][]*gostatsd.Metric) {
 	holder, ok := ch.cache[m.SourceIP]
 	if ok {
 		// While metric was in the queue the cache was primed. Use the value.
@@ -232,7 +232,7 @@ func (ch *cloudHandler) handleMetric(ctx context.Context, toLookup chan<- gostat
 	}
 }
 
-func (ch *cloudHandler) updateAndDispatchMetrics(ctx context.Context, instance *gostatsd.Instance, metrics ...*gostatsd.Metric) {
+func (ch *CloudHandler) updateAndDispatchMetrics(ctx context.Context, instance *gostatsd.Instance, metrics ...*gostatsd.Metric) {
 	for _, m := range metrics {
 		updateInplace(&m.Tags, &m.Hostname, instance)
 		if err := ch.next.DispatchMetric(ctx, m); err != nil {
@@ -244,7 +244,7 @@ func (ch *cloudHandler) updateAndDispatchMetrics(ctx context.Context, instance *
 	}
 }
 
-func (ch *cloudHandler) handleEvent(ctx context.Context, toLookup chan<- gostatsd.IP, e *gostatsd.Event, awaitingEvents map[gostatsd.IP][]*gostatsd.Event) {
+func (ch *CloudHandler) handleEvent(ctx context.Context, toLookup chan<- gostatsd.IP, e *gostatsd.Event, awaitingEvents map[gostatsd.IP][]*gostatsd.Event) {
 	holder, ok := ch.cache[e.SourceIP]
 	if ok {
 		// While event was in the queue the cache was primed. Use the value.
@@ -264,7 +264,7 @@ func (ch *cloudHandler) handleEvent(ctx context.Context, toLookup chan<- gostats
 	}
 }
 
-func (ch *cloudHandler) updateAndDispatchEvents(ctx context.Context, instance *gostatsd.Instance, events ...*gostatsd.Event) {
+func (ch *CloudHandler) updateAndDispatchEvents(ctx context.Context, instance *gostatsd.Instance, events ...*gostatsd.Event) {
 	var dispatched int
 	defer func() {
 		ch.wg.Add(-dispatched)
@@ -281,7 +281,7 @@ func (ch *cloudHandler) updateAndDispatchEvents(ctx context.Context, instance *g
 	}
 }
 
-func (ch *cloudHandler) lookupDispatcher(ctx context.Context, wg *sync.WaitGroup, toLookup <-chan gostatsd.IP, lookupResults chan<- *lookupResult) {
+func (ch *CloudHandler) lookupDispatcher(ctx context.Context, wg *sync.WaitGroup, toLookup <-chan gostatsd.IP, lookupResults chan<- *lookupResult) {
 	defer wg.Done()
 	defer log.Info("Cloud lookup dispatcher stopped")
 
@@ -301,7 +301,7 @@ func (ch *cloudHandler) lookupDispatcher(ctx context.Context, wg *sync.WaitGroup
 	}
 }
 
-func (ch *cloudHandler) doLookup(ctx context.Context, wg *sync.WaitGroup, ip gostatsd.IP, lookupResults chan<- *lookupResult) {
+func (ch *CloudHandler) doLookup(ctx context.Context, wg *sync.WaitGroup, ip gostatsd.IP, lookupResults chan<- *lookupResult) {
 	defer wg.Done()
 
 	instance, err := ch.cloud.Instance(ctx, ip)
@@ -318,7 +318,7 @@ func (ch *cloudHandler) doLookup(ctx context.Context, wg *sync.WaitGroup, ip gos
 	}
 }
 
-func (ch *cloudHandler) updateTagsAndHostname(ip gostatsd.IP, tags *gostatsd.Tags, hostname *string) bool {
+func (ch *CloudHandler) updateTagsAndHostname(ip gostatsd.IP, tags *gostatsd.Tags, hostname *string) bool {
 	instance, ok := ch.getInstance(ip)
 	if ok {
 		updateInplace(tags, hostname, instance)
@@ -326,7 +326,7 @@ func (ch *cloudHandler) updateTagsAndHostname(ip gostatsd.IP, tags *gostatsd.Tag
 	return ok
 }
 
-func (ch *cloudHandler) getInstance(ip gostatsd.IP) (*gostatsd.Instance, bool) {
+func (ch *CloudHandler) getInstance(ip gostatsd.IP) (*gostatsd.Instance, bool) {
 	if ip == gostatsd.UnknownIP {
 		return nil, true
 	}
