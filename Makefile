@@ -64,14 +64,15 @@ junit-test: build
 check:
 	go install ./cmd/gostatsd
 	go install ./cmd/tester
-	gometalinter --concurrency=$(METALINTER_CONCURRENCY) --deadline=600s ./... --vendor --linter='errcheck:errcheck:-ignore=net:Close' --cyclo-over=20 \
-		--linter='vet:go tool vet -composites=false {paths}:PATH:LINE:MESSAGE' --disable=interfacer --disable=golint --dupl-threshold=200
+	gometalinter --concurrency=$(METALINTER_CONCURRENCY) --deadline=600s ./... --vendor \
+		--linter='errcheck:errcheck:-ignore=net:Close' --cyclo-over=20 \
+		--disable=interfacer --disable=golint --dupl-threshold=200
 
 check-all:
 	go install ./cmd/gostatsd
 	go install ./cmd/tester
 	gometalinter --concurrency=$(METALINTER_CONCURRENCY) --deadline=600s ./... --vendor --cyclo-over=20 \
-		--linter='vet:go tool vet {paths}:PATH:LINE:MESSAGE' --dupl-threshold=65
+		--dupl-threshold=65
 
 fuzz-setup:
 	go get -v -u github.com/dvyukov/go-fuzz/go-fuzz

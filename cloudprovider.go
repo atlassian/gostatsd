@@ -18,7 +18,7 @@ type Instance struct {
 
 // CloudProvider represents a cloud provider.
 type CloudProvider interface {
-	// ProviderName returns the name of the cloud provider.
+	// Name returns the name of the cloud provider.
 	Name() string
 	// SampleConfig returns the sample config for the cloud provider.
 	SampleConfig() string

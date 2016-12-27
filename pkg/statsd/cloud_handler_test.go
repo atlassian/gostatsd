@@ -59,7 +59,7 @@ func testExpire(t *testing.T, expectedIps []gostatsd.IP, f func(Handler) error) 
 		t.Errorf("%+v is not equal to the expected ips %+v", fp.ips, expectedIps)
 	}
 	if len(ch.cache) > 0 {
-		t.Errorf("cache should be empty %s", ch.cache)
+		t.Errorf("cache should be empty %v", ch.cache)
 	}
 }
 

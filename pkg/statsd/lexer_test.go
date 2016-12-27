@@ -129,7 +129,7 @@ func compareMetric(tests map[string]gostatsd.Metric, namespace string, t *testin
 			continue
 		}
 		if !reflect.DeepEqual(result, &expected) {
-			t.Errorf("test %s: expected %s, got %s", input, expected, result)
+			t.Errorf("test %s: expected %v, got %v", input, expected, result)
 		}
 	}
 }
@@ -142,7 +142,7 @@ func compareEvent(tests map[string]gostatsd.Event, t *testing.T) {
 			continue
 		}
 		if !reflect.DeepEqual(result, &expected) {
-			t.Errorf("test %s: expected %s, got %s", input, expected, result)
+			t.Errorf("test %s: expected %v, got %v", input, expected, result)
 		}
 	}
 }

@@ -28,13 +28,13 @@ func TestReceiveEmptyPacket(t *testing.T) {
 
 		err := mr.handlePacket(context.Background(), fakesocket.FakeAddr, inp)
 		if err != nil {
-			t.Errorf("%q: unexpected error: %v", err)
+			t.Errorf("%q: unexpected error: %v", inp, err)
 		}
 		if len(ch.events) > 0 {
-			t.Errorf("%q: expected no events: %s", inp, ch.events)
+			t.Errorf("%q: expected no events: %v", inp, ch.events)
 		}
 		if len(ch.metrics) > 0 {
-			t.Errorf("%q: expected no metrics: %s", inp, ch.metrics)
+			t.Errorf("%q: expected no metrics: %v", inp, ch.metrics)
 		}
 	}
 }
@@ -78,7 +78,7 @@ func TestReceivePacket(t *testing.T) {
 
 		err := mr.handlePacket(context.Background(), fakesocket.FakeAddr, []byte(packet))
 		if err != nil {
-			t.Errorf("%q: unexpected error: %v", err)
+			t.Errorf("%q: unexpected error: %v", packet, err)
 		}
 		for i, e := range ch.events {
 			if e.DateHappened <= 0 {
@@ -87,10 +87,10 @@ func TestReceivePacket(t *testing.T) {
 			ch.events[i].DateHappened = 0
 		}
 		if !reflect.DeepEqual(ch.events, mAndE.events) {
-			t.Errorf("%q: expected to be equal:\n%s\n%s", packet, ch.events, mAndE.events)
+			t.Errorf("%q: expected to be equal:\n%v\n%v", packet, ch.events, mAndE.events)
 		}
 		if !reflect.DeepEqual(ch.metrics, mAndE.metrics) {
-			t.Errorf("%q: expected to be equal:\n%s\n%s", packet, ch.metrics, mAndE.metrics)
+			t.Errorf("%q: expected to be equal:\n%v\n%v", packet, ch.metrics, mAndE.metrics)
 		}
 	}
 }
