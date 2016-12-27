@@ -2,6 +2,7 @@ package statsd
 
 import (
 	"context"
+	"net"
 	"sync"
 	"time"
 
@@ -53,5 +54,25 @@ type FlusherStats struct {
 
 // Flusher periodically flushes metrics from all Aggregators to Senders.
 type Flusher interface {
+	// GetStats returns Flusher statistics.
 	GetStats() FlusherStats
+}
+
+// Receiver receives data on its PacketConn.
+type Receiver interface {
+	// Receive accepts incoming datagrams on packet connection.
+	// Safe for concurrent use.
+	Receive(context.Context, net.PacketConn) error
+	// GetStats returns current Receiver stats.
+	// Safe for concurrent use.
+	GetStats() ReceiverStats
+}
+
+// ReceiverStats holds statistics for a Receiver.
+type ReceiverStats struct {
+	LastPacket      time.Time
+	BadLines        uint64
+	PacketsReceived uint64
+	MetricsReceived uint64
+	EventsReceived  uint64
 }
