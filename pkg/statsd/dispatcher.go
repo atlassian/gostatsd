@@ -11,16 +11,6 @@ import (
 	log "github.com/Sirupsen/logrus"
 )
 
-// DispatcherProcessFunc is a function that gets executed by Dispatcher for each Aggregator, passing it into the function.
-type DispatcherProcessFunc func(uint16, Aggregator)
-
-// Dispatcher is responsible for managing Aggregators' lifecycle and dispatching metrics among them.
-type Dispatcher interface {
-	Run(context.Context) error
-	DispatchMetric(context.Context, *gostatsd.Metric) error
-	Process(context.Context, DispatcherProcessFunc) *sync.WaitGroup
-}
-
 // AggregatorFactory creates Aggregator objects.
 type AggregatorFactory interface {
 	// Create creates Aggregator objects.
@@ -47,13 +37,14 @@ type worker struct {
 	id           uint16
 }
 
-type dispatcher struct {
+// MetricDispatcher dispatches incoming metrics to corresponding aggregators.
+type MetricDispatcher struct {
 	numWorkers int
 	workers    map[uint16]worker
 }
 
-// NewDispatcher creates a new Dispatcher with provided configuration.
-func NewDispatcher(numWorkers int, perWorkerBufferSize int, af AggregatorFactory) Dispatcher {
+// NewMetricDispatcher creates a new NewMetricDispatcher with provided configuration.
+func NewMetricDispatcher(numWorkers int, perWorkerBufferSize int, af AggregatorFactory) *MetricDispatcher {
 	workers := make(map[uint16]worker, numWorkers)
 
 	n := uint16(numWorkers)
@@ -66,14 +57,14 @@ func NewDispatcher(numWorkers int, perWorkerBufferSize int, af AggregatorFactory
 			id:           i,
 		}
 	}
-	return &dispatcher{
+	return &MetricDispatcher{
 		numWorkers: numWorkers,
 		workers:    workers,
 	}
 }
 
-// Run runs the Dispatcher.
-func (d *dispatcher) Run(ctx context.Context) error {
+// Run runs the MetricDispatcher.
+func (d *MetricDispatcher) Run(ctx context.Context) error {
 	var wg sync.WaitGroup
 	wg.Add(d.numWorkers)
 	for _, worker := range d.workers {
@@ -93,7 +84,7 @@ func (d *dispatcher) Run(ctx context.Context) error {
 }
 
 // DispatchMetric dispatches metric to a corresponding Aggregator.
-func (d *dispatcher) DispatchMetric(ctx context.Context, m *gostatsd.Metric) error {
+func (d *MetricDispatcher) DispatchMetric(ctx context.Context, m *gostatsd.Metric) error {
 	hash := adler32.Checksum([]byte(m.Name))
 	w := d.workers[uint16(hash%uint32(d.numWorkers))]
 	select {
@@ -107,7 +98,7 @@ func (d *dispatcher) DispatchMetric(ctx context.Context, m *gostatsd.Metric) err
 // Process concurrently executes provided function in goroutines that own Aggregators.
 // DispatcherProcessFunc function may be executed zero or up to numWorkers times. It is executed
 // less than numWorkers times if the context signals "done".
-func (d *dispatcher) Process(ctx context.Context, f DispatcherProcessFunc) *sync.WaitGroup {
+func (d *MetricDispatcher) Process(ctx context.Context, f DispatcherProcessFunc) *sync.WaitGroup {
 	cmd := &processCommand{
 		f: f,
 	}

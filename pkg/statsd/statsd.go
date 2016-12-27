@@ -183,7 +183,7 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 		percentThresholds: s.PercentThreshold,
 		expiryInterval:    s.ExpiryInterval,
 	}
-	dispatcher := NewDispatcher(s.MaxWorkers, s.MaxQueueSize, &factory)
+	dispatcher := NewMetricDispatcher(s.MaxWorkers, s.MaxQueueSize, &factory)
 
 	var wgDispatcher sync.WaitGroup
 	defer wgDispatcher.Wait()                                       // Wait for dispatcher to shutdown

@@ -2,6 +2,7 @@ package statsd
 
 import (
 	"context"
+	"sync"
 	"time"
 
 	"github.com/atlassian/gostatsd"
@@ -29,4 +30,17 @@ type Aggregator interface {
 	Flush(interval time.Duration)
 	Process(ProcessFunc)
 	Reset()
+}
+
+// DispatcherProcessFunc is a function that gets executed by Dispatcher for each Aggregator, passing it into the function.
+type DispatcherProcessFunc func(uint16, Aggregator)
+
+// Dispatcher is responsible for managing Aggregators' lifecycle and dispatching metrics among them.
+type Dispatcher interface {
+	// DispatchMetric dispatches metric to a corresponding Aggregator.
+	DispatchMetric(context.Context, *gostatsd.Metric) error
+	// Process concurrently executes provided function in goroutines that own Aggregators.
+	// DispatcherProcessFunc function may be executed zero or up to numWorkers times. It is executed
+	// less than numWorkers times if the context signals "done".
+	Process(context.Context, DispatcherProcessFunc) *sync.WaitGroup
 }
