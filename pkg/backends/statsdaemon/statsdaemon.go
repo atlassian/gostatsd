@@ -34,12 +34,6 @@ const (
 	maxConcurrentSends = 10
 )
 
-const sampleConfig = `
-[statsdaemon]
-	# statsdaemon host or ip address
-	address = "statsdaemon-master:6126"
-`
-
 // client is an object that is used to send messages to a statsd server's UDP or TCP interface.
 type client struct {
 	packetSize  int
@@ -202,11 +196,6 @@ func constructEventMessage(e *gostatsd.Event) *bytes.Buffer {
 		}
 	}
 	return &buf
-}
-
-// SampleConfig returns the sample config for the statsd backend.
-func (client *client) SampleConfig() string {
-	return sampleConfig
 }
 
 // NewClient constructs a new statsd backend client.

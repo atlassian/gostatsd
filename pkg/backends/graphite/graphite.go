@@ -48,12 +48,6 @@ const (
 	maxConcurrentSends = 10
 )
 
-const sampleConfig = `
-[graphite]
-	# graphite host or ip address
-	address = "ip:2003"
-`
-
 var (
 	regWhitespace  = regexp.MustCompile(`\s+`)
 	regNonAlphaNum = regexp.MustCompile(`[^a-zA-Z\d_.-]`)
@@ -149,11 +143,6 @@ func (client *client) preparePayload(metrics *gostatsd.MetricMap, ts time.Time) 
 // SendEvent discards events.
 func (client *client) SendEvent(ctx context.Context, e *gostatsd.Event) error {
 	return nil
-}
-
-// SampleConfig returns the sample config for the graphite backend.
-func (client *client) SampleConfig() string {
-	return sampleConfig
 }
 
 // BackendName returns the name of the backend.

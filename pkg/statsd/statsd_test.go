@@ -75,10 +75,6 @@ func (cb *countingBackend) Name() string {
 	return "countingBackend"
 }
 
-func (cb *countingBackend) SampleConfig() string {
-	return ""
-}
-
 func (cb *countingBackend) SendMetricsAsync(ctx context.Context, m *gostatsd.MetricMap, callback gostatsd.SendCallback) {
 	atomic.AddUint64(&cb.metrics, uint64(m.NumStats))
 	callback(nil)
@@ -95,10 +91,6 @@ type fakeProvider struct {
 
 func (fp *fakeProvider) Name() string {
 	return "fakeProvider"
-}
-
-func (fp *fakeProvider) SampleConfig() string {
-	return ""
 }
 
 func (fp *fakeProvider) Instance(ctx context.Context, IP gostatsd.IP) (*gostatsd.Instance, error) {

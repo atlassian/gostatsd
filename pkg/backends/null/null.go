@@ -24,11 +24,6 @@ func NewClient() (gostatsd.Backend, error) {
 	return client{}, nil
 }
 
-// SampleConfig returns the sample config for the null backend.
-func (client client) SampleConfig() string {
-	return ""
-}
-
 // SendMetricsAsync discards the metrics in a MetricsMap.
 func (client client) SendMetricsAsync(ctx context.Context, metrics *gostatsd.MetricMap, cb gostatsd.SendCallback) {
 	cb(nil)
