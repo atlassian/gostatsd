@@ -1,8 +1,8 @@
-hash: 87eaa8d0cd5e876a9575e5175e0bf1d5260a69956cd05dd7a8a5b98fa8c8bbee
-updated: 2016-10-26T20:29:11.550369154+11:00
+hash: 359cade812f38c0fd4660a5faabea736675fc327392b120cb3bddc26573f46c3
+updated: 2016-12-27T16:05:41.886428348+11:00
 imports:
 - name: github.com/aws/aws-sdk-go
-  version: 6c577e9e7b08a6d10bad1c9703227cd0403a8dd7
+  version: 1e6377549087b490b693300bce2c5e286dc87740
   subpackages:
   - aws
   - aws/awserr
@@ -16,10 +16,10 @@ imports:
   - aws/credentials/stscreds
   - aws/defaults
   - aws/ec2metadata
+  - aws/endpoints
   - aws/request
   - aws/session
   - aws/signer/v4
-  - private/endpoints
   - private/protocol
   - private/protocol/ec2query
   - private/protocol/query
@@ -32,11 +32,11 @@ imports:
 - name: github.com/cenkalti/backoff
   version: b02f2bbce11d7ea6b97f282ef1771b0fe2f65ef3
 - name: github.com/fsnotify/fsnotify
-  version: bd2828f9f176e52d7222e565abb2d338d3f3c103
+  version: fd9ec7deca8bf46ecd2a795baaacf2b3a9be1197
 - name: github.com/go-ini/ini
-  version: 6e4869b434bd001f6983749881c7ead3545887d8
+  version: 6f66b0e091edb3c7b380f7c4f0f884274d550b67
 - name: github.com/hashicorp/hcl
-  version: 99ce73d4fe576449f7a689d4fc2b2ad09a86bdaa
+  version: 80e628d796135357b3d2e33a985c666b9f35eee1
   subpackages:
   - hcl/ast
   - hcl/parser
@@ -50,49 +50,35 @@ imports:
   version: bd40a432e4c76585ef6b72d3fd96fb9b6dc7b68d
 - name: github.com/kisielk/cmd
   version: d175a37b36239828941c8e176ffa0f4d9221f641
-- name: github.com/kr/fs
-  version: 2788f0dbd16903de03cb8186e5c7d97b69ad387b
 - name: github.com/magiconair/properties
-  version: 0723e352fa358f9322c938cc2dadda874e9151a9
+  version: 9c47895dc1ce54302908ab8a43385d1f5df2c11c
 - name: github.com/mitchellh/mapstructure
-  version: f3009df150dadf309fdee4a54ed65c124afad715
+  version: bfdb1a85537d60bc7e954e600c250219ea497417
 - name: github.com/pelletier/go-buffruneio
   version: df1e16fde7fc330a0ca68167c23bf7ed6ac31d6d
 - name: github.com/pelletier/go-toml
-  version: 45932ad32dfdd20826f5671da37a5f3ce9f26a8d
-- name: github.com/pkg/errors
-  version: 839d9e913e063e28dfd0e6c7b7512793e0a48be9
-- name: github.com/pkg/sftp
-  version: 4d0e916071f68db74f8a73926335f809396d6b42
+  version: 017119f7a78a0b5fc0ea39ef6be09f03acf3345d
 - name: github.com/Sirupsen/logrus
-  version: 3ec0642a7fb6488f65b06f9040adc67e3990296a
+  version: 881bee4e20a5d11a6a88a5667c6f292072ac1963
 - name: github.com/spf13/afero
-  version: 52e4a6cfac46163658bd4f123c49b6ee7dc75f78
+  version: 90dd71edc4d0a8b3511dc12ea15d617d03be09e0
   subpackages:
   - mem
-  - sftp
 - name: github.com/spf13/cast
-  version: 2580bc98dc0e62908119e4737030cc2fdfc45e4c
+  version: 56a7ecbeb18dde53c6db4bd96b541fd9741b8d44
 - name: github.com/spf13/jwalterweatherman
   version: 33c24e77fb80341fe7130ee7c594256ff08ccc46
 - name: github.com/spf13/pflag
-  version: 5ccb023bc27df288a957c5e994cd44fd19619465
+  version: 25f8b5b07aece3207895bf19f7ab517eb3b22a40
 - name: github.com/spf13/viper
-  version: 80ab6657f9ec7e5761f6603320d3d58dfe6970f6
+  version: 5ed0fc31f7f453625df314d8e66b9791e8d13003
 - name: github.com/stretchr/testify
-  version: 976c720a22c8eb4eb6a0b4348ad85ad12491a506
+  version: 2402e8e7a02fc811447d11f881aa9746cdc57983
   subpackages:
   - assert
   - require
-- name: golang.org/x/crypto
-  version: ca7e7f10cb9fd9c1a6ff7f60436c086d73714180
-  subpackages:
-  - curve25519
-  - ed25519
-  - ed25519/internal/edwards25519
-  - ssh
 - name: golang.org/x/net
-  version: 65dfc08770ce66f74becfdff5f8ab01caef4e946
+  version: 45e771701b814666a7eb299e6c7a57d0b1799e91
   subpackages:
   - context
   - http2
@@ -100,23 +86,23 @@ imports:
   - idna
   - lex/httplex
 - name: golang.org/x/sys
-  version: c200b10b5d5e122be351b67af224adc6128af5bf
+  version: d75a52659825e75fff6158388dddc6a5b04f9ba5
   subpackages:
   - unix
 - name: golang.org/x/text
-  version: 16e1d1f27f7aba51c74c0aeb7a7ee31a75c5c63c
+  version: a49bea13b776691cb1b49873e5d8df96ec74831a
   subpackages:
   - transform
   - unicode/norm
 - name: golang.org/x/time
-  version: 711ca1cb87636abec28122ef3bc6a77269d433f3
+  version: f51c12702a4d776e4c1fa9b0fabab841babae631
   subpackages:
   - rate
 - name: gopkg.in/yaml.v2
   version: a5b47d31c556af34a302ce5d659e6fea44d90de0
 testImports:
 - name: github.com/davecgh/go-spew
-  version: 6d212800a42e8ab5c146b8ace3490ee17e5225f9
+  version: 04cdfd42973bb9c8589fd6a731800cf222fde1a9
   subpackages:
   - spew
 - name: github.com/pmezard/go-difflib
