@@ -22,10 +22,10 @@ var errClientQuit = errors.New("client quit")
 // ConsoleServer is an object that listens for telnet connection on a TCP address Addr
 // and provides a console interface to manage statsd server.
 type ConsoleServer struct {
-	Addr string
-	Receiver
-	Dispatcher
-	Flusher
+	Addr       string
+	Receiver   Receiver
+	Dispatcher Dispatcher
+	Flusher    Flusher
 }
 
 // ListenAndServe listens on the ConsoleServer's TCP network address and then calls Serve.
@@ -45,40 +45,20 @@ func (s *ConsoleServer) ListenAndServe(ctx context.Context) error {
 // Serve accepts incoming connections on the listener and serves them a console interface to
 // the Dispatcher and Receiver.
 func (s *ConsoleServer) Serve(ctx context.Context, l net.Listener) error {
-	for {
-		c, err := l.Accept()
-		if err != nil {
-			return err
-		}
-		console := consoleConn{c, s}
-		go console.serve(ctx)
-	}
-}
-
-// consoleConn represents a single ConsoleServer connection.
-type consoleConn struct {
-	conn   net.Conn
-	server *ConsoleServer
-}
-
-// serve reads from the consoleConn and responds to incoming requests.
-func (c *consoleConn) serve(ctx context.Context) {
-	defer c.conn.Close()
-
 	commands := map[string]cmd.CmdFn{
 		"help": func(args []string) (string, error) {
 			return "Commands: stats, counters, timers, gauges, delcounters, deltimers, delgauges, quit\n", nil
 		},
 		"stats": func(args []string) (string, error) {
-			receiverStats := c.server.Receiver.GetStats()
-			flusherStats := c.server.Flusher.GetStats()
+			receiverStats := s.Receiver.GetStats()
+			flusherStats := s.Flusher.GetStats()
 			return fmt.Sprintf(
 				"Invalid messages received: %d\n"+
 					"Metrics received: %d\n"+
 					"Packets received: %d\n"+
-					"Last packet received: %s\n"+
-					"Last flush to backends: %s\n"+
-					"Last error from backends: %s\n",
+					"Last packet received: %v\n"+
+					"Last flush to backends: %v\n"+
+					"Last error from backends: %v\n",
 				receiverStats.BadLines,
 				receiverStats.MetricsReceived,
 				receiverStats.PacketsReceived,
@@ -87,48 +67,60 @@ func (c *consoleConn) serve(ctx context.Context) {
 				flusherStats.LastFlushError), nil
 		},
 		"counters": func(args []string) (string, error) {
-			return c.printMetrics(ctx, getCounters)
+			return s.printMetrics(ctx, getCounters)
 		},
 		"timers": func(args []string) (string, error) {
-			return c.printMetrics(ctx, getTimers)
+			return s.printMetrics(ctx, getTimers)
 		},
 		"gauges": func(args []string) (string, error) {
-			return c.printMetrics(ctx, getGauges)
+			return s.printMetrics(ctx, getGauges)
 		},
 		"sets": func(args []string) (string, error) {
-			return c.printMetrics(ctx, getSets)
+			return s.printMetrics(ctx, getSets)
 		},
 		"delcounters": func(args []string) (string, error) {
-			i := c.delete(ctx, args, getCounters)
+			i := s.delete(ctx, args, getCounters)
 			return fmt.Sprintf("deleted %d counters\n", i), nil
 		},
 		"deltimers": func(args []string) (string, error) {
-			i := c.delete(ctx, args, getTimers)
+			i := s.delete(ctx, args, getTimers)
 			return fmt.Sprintf("deleted %d timers\n", i), nil
 		},
 		"delgauges": func(args []string) (string, error) {
-			i := c.delete(ctx, args, getGauges)
+			i := s.delete(ctx, args, getGauges)
 			return fmt.Sprintf("deleted %d gauges\n", i), nil
 		},
 		"delsets": func(args []string) (string, error) {
-			i := c.delete(ctx, args, getSets)
+			i := s.delete(ctx, args, getSets)
 			return fmt.Sprintf("deleted %d sets\n", i), nil
 		},
 		"quit": func(args []string) (string, error) {
 			return "goodbye\n", errClientQuit
 		},
 	}
+	for {
+		c, err := l.Accept()
+		if err != nil {
+			return err
+		}
+		go s.serveConnection(ctx, c, commands)
+	}
+}
 
-	console := cmd.New(commands, c.conn, c.conn)
+// serveConnection reads from the conn and responds to incoming requests.
+func (s *ConsoleServer) serveConnection(ctx context.Context, conn net.Conn, commands map[string]cmd.CmdFn) {
+	defer conn.Close()
+
+	console := cmd.New(commands, conn, conn)
 	console.Prompt = "console> "
 	if err := console.Loop(); err != nil && err != context.Canceled && err != context.DeadlineExceeded && err != errClientQuit {
 		log.Infof("Problem with console connection: %v", err)
 	}
 }
 
-func (c *consoleConn) delete(ctx context.Context, keys []string, f mapperFunc) uint32 {
+func (s *ConsoleServer) delete(ctx context.Context, keys []string, f mapperFunc) uint32 {
 	var counter uint32
-	wg := c.server.Dispatcher.Process(ctx, func(workerId uint16, aggr Aggregator) {
+	wg := s.Dispatcher.Process(ctx, func(workerId uint16, aggr Aggregator) {
 		aggr.Process(func(m *gostatsd.MetricMap) {
 			metrics := f(m)
 			var i uint32
@@ -146,10 +138,10 @@ func (c *consoleConn) delete(ctx context.Context, keys []string, f mapperFunc) u
 
 type mapperFunc func(*gostatsd.MetricMap) gostatsd.AggregatedMetrics
 
-func (c *consoleConn) printMetrics(ctx context.Context, f mapperFunc) (string, error) {
+func (s *ConsoleServer) printMetrics(ctx context.Context, f mapperFunc) (string, error) {
 	results := make(chan *bytes.Buffer, 16) // Some space to avoid blocking
 
-	wg := c.server.Dispatcher.Process(ctx, func(workerId uint16, aggr Aggregator) {
+	wg := s.Dispatcher.Process(ctx, func(workerId uint16, aggr Aggregator) {
 		aggr.Process(func(m *gostatsd.MetricMap) {
 			buf := new(bytes.Buffer) // We cannot share a buffer because this function is executed concurrently by workers
 			_, _ = fmt.Fprintln(buf, f(m))
