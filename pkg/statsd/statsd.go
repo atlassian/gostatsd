@@ -328,7 +328,7 @@ type agrFactory struct {
 }
 
 func (af *agrFactory) Create() Aggregator {
-	return NewAggregator(af.percentThresholds, af.expiryInterval)
+	return NewMetricAggregator(af.percentThresholds, af.expiryInterval)
 }
 
 func toStringSlice(fs []float64) []string {
