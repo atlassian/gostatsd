@@ -58,9 +58,9 @@ const (
 	// ParamCloudProvider is the name of parameter with the name of cloud provider.
 	ParamCloudProvider = "cloud-provider"
 	// ParamMaxCloudRequests is the name of parameter with maximum number of cloud provider requests per second.
-	ParamMaxCloudRequests = "maxCloudRequests"
+	ParamMaxCloudRequests = "max-cloud-requests"
 	// ParamBurstCloudRequests is the name of parameter with burst number of cloud provider requests per second.
-	ParamBurstCloudRequests = "burstCloudRequests"
+	ParamBurstCloudRequests = "burst-cloud-requests"
 	// ParamDefaultTags is the name of parameter with the list of additional tags.
 	ParamDefaultTags = "default-tags"
 	// ParamExpiryInterval is the name of parameter with expiry interval for metrics.
