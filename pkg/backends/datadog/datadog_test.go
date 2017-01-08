@@ -12,6 +12,7 @@ import (
 	"github.com/atlassian/gostatsd"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestRetries(t *testing.T) {
@@ -22,7 +23,7 @@ func TestRetries(t *testing.T) {
 		defer r.Body.Close()
 		n := atomic.AddUint32(&requestNum, 1)
 		data, err := ioutil.ReadAll(r.Body)
-		if !assert.Nil(err) {
+		if !assert.NoError(err) {
 			return
 		}
 		assert.NotEmpty(data)
@@ -35,16 +36,14 @@ func TestRetries(t *testing.T) {
 	defer ts.Close()
 
 	client, err := NewClient(ts.URL, "apiKey123", defaultMetricsPerBatch, 1*time.Second, 2*time.Second)
-	if !assert.Nil(err) {
-		return
-	}
+	require.NoError(t, err)
 	res := make(chan []error, 1)
 	client.SendMetricsAsync(context.Background(), twoCounters(), func(errs []error) {
 		res <- errs
 	})
 	errs := <-res
 	for _, err := range errs {
-		assert.Nil(err)
+		assert.NoError(err)
 	}
 	assert.EqualValues(2, requestNum)
 }
@@ -57,7 +56,7 @@ func TestSendMetricsInMultipleBatches(t *testing.T) {
 		defer r.Body.Close()
 		atomic.AddUint32(&requestNum, 1)
 		data, err := ioutil.ReadAll(r.Body)
-		if !assert.Nil(err) {
+		if !assert.NoError(err) {
 			return
 		}
 		assert.NotEmpty(data)
@@ -66,16 +65,14 @@ func TestSendMetricsInMultipleBatches(t *testing.T) {
 	defer ts.Close()
 
 	client, err := NewClient(ts.URL, "apiKey123", 1, 1*time.Second, 2*time.Second)
-	if !assert.Nil(err) {
-		return
-	}
+	require.NoError(t, err)
 	res := make(chan []error, 1)
 	client.SendMetricsAsync(context.Background(), twoCounters(), func(errs []error) {
 		res <- errs
 	})
 	errs := <-res
 	for _, err := range errs {
-		assert.Nil(err)
+		assert.NoError(err)
 	}
 	assert.EqualValues(2, requestNum)
 }
@@ -86,7 +83,7 @@ func TestSendMetrics(t *testing.T) {
 	mux.HandleFunc("/api/v1/series", func(w http.ResponseWriter, r *http.Request) {
 		defer r.Body.Close()
 		data, err := ioutil.ReadAll(r.Body)
-		if !assert.Nil(err) {
+		if !assert.NoError(err) {
 			return
 		}
 		expected := `{"series":[` +
@@ -110,9 +107,7 @@ func TestSendMetrics(t *testing.T) {
 	defer ts.Close()
 
 	cli, err := NewClient(ts.URL, "apiKey123", 1000, 1*time.Second, 2*time.Second)
-	if !assert.Nil(err) {
-		return
-	}
+	require.NoError(t, err)
 	cli.(*client).now = func() time.Time {
 		return time.Unix(100, 0)
 	}
@@ -122,7 +117,7 @@ func TestSendMetrics(t *testing.T) {
 	})
 	errs := <-res
 	for _, err := range errs {
-		assert.Nil(err)
+		assert.NoError(err)
 	}
 }
 
