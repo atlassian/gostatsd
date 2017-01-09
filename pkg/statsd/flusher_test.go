@@ -2,8 +2,8 @@ package statsd
 
 import (
 	"errors"
-	"testing"
 	"strconv"
+	"testing"
 
 	"github.com/atlassian/gostatsd"
 )

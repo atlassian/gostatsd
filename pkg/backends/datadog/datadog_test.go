@@ -17,17 +17,16 @@ import (
 
 func TestRetries(t *testing.T) {
 	t.Parallel()
-	assert := assert.New(t)
 	var requestNum uint32
 	mux := http.NewServeMux()
 	mux.HandleFunc("/api/v1/series", func(w http.ResponseWriter, r *http.Request) {
 		defer r.Body.Close()
 		n := atomic.AddUint32(&requestNum, 1)
 		data, err := ioutil.ReadAll(r.Body)
-		if !assert.NoError(err) {
+		if !assert.NoError(t, err) {
 			return
 		}
-		assert.NotEmpty(data)
+		assert.NotEmpty(t, data)
 		if n == 1 {
 			// Return error on first request to trigger a retry
 			w.WriteHeader(http.StatusBadRequest)
@@ -44,24 +43,23 @@ func TestRetries(t *testing.T) {
 	})
 	errs := <-res
 	for _, err := range errs {
-		assert.NoError(err)
+		assert.NoError(t, err)
 	}
-	assert.EqualValues(2, requestNum)
+	assert.EqualValues(t, 2, requestNum)
 }
 
 func TestSendMetricsInMultipleBatches(t *testing.T) {
 	t.Parallel()
-	assert := assert.New(t)
 	var requestNum uint32
 	mux := http.NewServeMux()
 	mux.HandleFunc("/api/v1/series", func(w http.ResponseWriter, r *http.Request) {
 		defer r.Body.Close()
 		atomic.AddUint32(&requestNum, 1)
 		data, err := ioutil.ReadAll(r.Body)
-		if !assert.NoError(err) {
+		if !assert.NoError(t, err) {
 			return
 		}
-		assert.NotEmpty(data)
+		assert.NotEmpty(t, data)
 	})
 	ts := httptest.NewServer(mux)
 	defer ts.Close()
@@ -74,19 +72,18 @@ func TestSendMetricsInMultipleBatches(t *testing.T) {
 	})
 	errs := <-res
 	for _, err := range errs {
-		assert.NoError(err)
+		assert.NoError(t, err)
 	}
-	assert.EqualValues(2, requestNum)
+	assert.EqualValues(t, 2, requestNum)
 }
 
 func TestSendMetrics(t *testing.T) {
 	t.Parallel()
-	assert := assert.New(t)
 	mux := http.NewServeMux()
 	mux.HandleFunc("/api/v1/series", func(w http.ResponseWriter, r *http.Request) {
 		defer r.Body.Close()
 		data, err := ioutil.ReadAll(r.Body)
-		if !assert.NoError(err) {
+		if !assert.NoError(t, err) {
 			return
 		}
 		expected := `{"series":[` +
@@ -104,7 +101,7 @@ func TestSendMetrics(t *testing.T) {
 			`{"host":"h2","interval":1.1,"metric":"t1.count_90","points":[[100,0.1]],"tags":["tag2"],"type":"gauge"},` +
 			`{"host":"h3","interval":1.1,"metric":"g1","points":[[100,3]],"tags":["tag3"],"type":"gauge"},` +
 			`{"host":"h4","interval":1.1,"metric":"users","points":[[100,3]],"tags":["tag4"],"type":"gauge"}]}`
-		assert.Equal([]byte(expected), data)
+		assert.Equal(t, []byte(expected), data)
 	})
 	ts := httptest.NewServer(mux)
 	defer ts.Close()
@@ -120,7 +117,7 @@ func TestSendMetrics(t *testing.T) {
 	})
 	errs := <-res
 	for _, err := range errs {
-		assert.NoError(err)
+		assert.NoError(t, err)
 	}
 }
 

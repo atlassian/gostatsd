@@ -1,13 +1,12 @@
 package statsd
 
 import (
-	"reflect"
 	"testing"
 
 	"github.com/atlassian/gostatsd"
 
-	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestMetricsLexer(t *testing.T) {
@@ -46,10 +45,12 @@ func TestInvalidMetricsLexer(t *testing.T) {
 	t.Parallel()
 	failing := []string{"fOO|bar:bazkk", "foo.bar.baz:1|q", "NaN.should.be:NaN|g"}
 	for _, tc := range failing {
-		result, _, err := parseLine([]byte(tc), "")
-		if err == nil {
-			t.Errorf("test %s: expected error but got %s", tc, result)
-		}
+		tc := tc
+		t.Run(tc, func(t *testing.T) {
+			t.Parallel()
+			result, _, err := parseLine([]byte(tc), "")
+			assert.Error(t, err, result)
+		})
 	}
 
 	tests := map[string]gostatsd.Metric{
@@ -95,7 +96,7 @@ func TestEventsLexer(t *testing.T) {
 	for input, expected := range tests {
 		input := input
 		expected := expected
-		t.Run(input, func (t *testing.T){
+		t.Run(input, func(t *testing.T) {
 			t.Parallel()
 			_, result, err := parseLine([]byte(input), "")
 			require.NoError(t, err)
@@ -144,14 +145,14 @@ func parseLine(input []byte, namespace string) (*gostatsd.Metric, *gostatsd.Even
 
 func compareMetric(t *testing.T, tests map[string]gostatsd.Metric, namespace string) {
 	for input, expected := range tests {
-		result, _, err := parseLine([]byte(input), namespace)
-		if err != nil {
-			t.Errorf("test %s error: %v", input, err)
-			continue
-		}
-		if !reflect.DeepEqual(result, &expected) {
-			t.Errorf("test %s: expected %v, got %v", input, expected, result)
-		}
+		input := input
+		expected := expected
+		t.Run(input, func(t *testing.T) {
+			t.Parallel()
+			result, _, err := parseLine([]byte(input), namespace)
+			require.NoError(t, err)
+			assert.Equal(t, &expected, result)
+		})
 	}
 }
 

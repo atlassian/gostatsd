@@ -52,7 +52,7 @@ func TestProcessMetricsPanic(t *testing.T) {
 	c.processMetrics(&m, func(buf *bytes.Buffer) (*bytes.Buffer, bool) {
 		panic(expectedErr)
 	})
-	t.Errorf("unreachable %v", err)
+	t.Error("unreachable")
 }
 
 var gaugeMetic = gostatsd.MetricMap{

@@ -2,14 +2,14 @@ package statsd
 
 import (
 	"context"
-	"reflect"
-	"testing"
 	"strconv"
+	"testing"
 
 	"github.com/atlassian/gostatsd"
 	"github.com/atlassian/gostatsd/pkg/fakesocket"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 type metricAndEvent struct {
@@ -28,19 +28,15 @@ func TestReceiveEmptyPacket(t *testing.T) {
 	}
 	for pos, inp := range input {
 		inp := inp
-		t.Run(strconv.Itoa(pos), func (t *testing.T){
+		t.Run(strconv.Itoa(pos), func(t *testing.T) {
 			t.Parallel()
 			ch := &countingHandler{}
 			mr := NewMetricReceiver("", ch)
 
 			err := mr.handlePacket(context.Background(), fakesocket.FakeAddr, inp)
-			assert.NoError(t, err)
-			if len(ch.events) > 0 {
-				t.Errorf("expected no events: %v", ch.events)
-			}
-			if len(ch.metrics) > 0 {
-				t.Errorf("expected no metrics: %v", ch.metrics)
-			}
+			require.NoError(t, err)
+			assert.Zero(t, len(ch.events), ch.events)
+			assert.Zero(t, len(ch.metrics), ch.metrics)
 		})
 	}
 }
@@ -82,7 +78,7 @@ func TestReceivePacket(t *testing.T) {
 	for packet, mAndE := range input {
 		packet := packet
 		mAndE := mAndE
-		t.Run(packet, func (t *testing.T){
+		t.Run(packet, func(t *testing.T) {
 			t.Parallel()
 			ch := &countingHandler{}
 			mr := NewMetricReceiver("", ch)
@@ -95,12 +91,8 @@ func TestReceivePacket(t *testing.T) {
 				}
 				ch.events[i].DateHappened = 0
 			}
-			if !reflect.DeepEqual(ch.events, mAndE.events) {
-				t.Errorf("expected to be equal:\n%v\n%v", ch.events, mAndE.events)
-			}
-			if !reflect.DeepEqual(ch.metrics, mAndE.metrics) {
-				t.Errorf("expected to be equal:\n%v\n%v", ch.metrics, mAndE.metrics)
-			}
+			assert.Equal(t, mAndE.events, ch.events)
+			assert.Equal(t, mAndE.metrics, ch.metrics)
 		})
 	}
 }

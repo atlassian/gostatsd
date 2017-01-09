@@ -3,7 +3,6 @@ package statsd
 import (
 	"context"
 	"errors"
-	"reflect"
 	"sort"
 	"sync"
 	"testing"
@@ -11,6 +10,7 @@ import (
 
 	"github.com/atlassian/gostatsd"
 
+	"github.com/stretchr/testify/assert"
 	"golang.org/x/time/rate"
 )
 
@@ -61,12 +61,8 @@ func testExpire(t *testing.T, expectedIps []gostatsd.IP, f func(Handler) error) 
 	cancelFunc()
 	wg.Wait()
 
-	if !reflect.DeepEqual(fp.ips, expectedIps) {
-		t.Errorf("%+v is not equal to the expected ips %+v", fp.ips, expectedIps)
-	}
-	if len(ch.cache) > 0 {
-		t.Errorf("cache should be empty %v", ch.cache)
-	}
+	assert.Equal(t, expectedIps, fp.ips)
+	assert.Zero(t, len(ch.cache))
 }
 
 func TestCloudHandlerDispatch(t *testing.T) {
@@ -179,15 +175,9 @@ func doCheck(t *testing.T, cloud gostatsd.CloudProvider, counting *countingHandl
 
 	l := ipList(*ips)
 	sort.Sort(&l)
-	if !reflect.DeepEqual(*ips, expectedIps) {
-		t.Errorf("%+v is not equal to the expected ips %+v", *ips, expectedIps)
-	}
-	if !reflect.DeepEqual(counting.metrics, expectedM) {
-		t.Errorf("%+v is not equal to the expected metrics %+v", counting.metrics, expectedM)
-	}
-	if !reflect.DeepEqual(counting.events, expectedE) {
-		t.Errorf("%+v is not equal to the expected events %+v", counting.events, expectedE)
-	}
+	assert.Equal(t, expectedIps, *ips)
+	assert.Equal(t, expectedM, counting.metrics)
+	assert.Equal(t, expectedE, counting.events)
 }
 
 type ipList []gostatsd.IP

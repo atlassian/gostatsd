@@ -10,6 +10,8 @@ import (
 	"time"
 
 	"github.com/atlassian/gostatsd"
+
+	"github.com/stretchr/testify/assert"
 )
 
 type testAggregator struct {
@@ -87,12 +89,8 @@ func TestNewDispatcherShouldCreateCorrectNumberOfWorkers(t *testing.T) {
 	n := r.Intn(5) + 1
 	factory := newTestFactory()
 	d := NewMetricDispatcher(n, 1, factory)
-	if len(d.workers) != n {
-		t.Errorf("workers: expected %d, got %d", n, len(d.workers))
-	}
-	if factory.numAgrs != n {
-		t.Errorf("aggregators: expected %d, got %d", n, factory.numAgrs)
-	}
+	assert.Equal(t, n, len(d.workers))
+	assert.Equal(t, n, factory.numAgrs)
 }
 
 func TestRunShouldReturnWhenContextCancelled(t *testing.T) {
@@ -102,9 +100,7 @@ func TestRunShouldReturnWhenContextCancelled(t *testing.T) {
 	defer cancelFunc()
 
 	err := d.Run(ctx)
-	if err != context.DeadlineExceeded {
-		t.Errorf("expected %v, got %v", context.DeadlineExceeded, err)
-	}
+	assert.Equal(t, context.DeadlineExceeded, err)
 }
 
 func TestDispatchMetricShouldDistributeMetrics(t *testing.T) {
@@ -119,9 +115,8 @@ func TestDispatchMetricShouldDistributeMetrics(t *testing.T) {
 	wgFinish.Add(1)
 	go func() {
 		defer wgFinish.Done()
-		if err := d.Run(ctx); err != context.Canceled {
-			t.Errorf("unexpected exit error: %v", err)
-		}
+		err := d.Run(ctx)
+		assert.Equal(t, context.Canceled, err)
 	}()
 	numMetrics := r.Intn(1000) + n*10
 	var wg sync.WaitGroup
@@ -135,9 +130,7 @@ func TestDispatchMetricShouldDistributeMetrics(t *testing.T) {
 		}
 		go func() {
 			defer wg.Done()
-			if err := d.DispatchMetric(ctx, m); err != nil {
-				t.Errorf("unexpected error: %v", err)
-			}
+			assert.NoError(t, d.DispatchMetric(ctx, m))
 		}()
 	}
 	wg.Wait()       // Wait for all metrics to be dispatched
@@ -145,9 +138,7 @@ func TestDispatchMetricShouldDistributeMetrics(t *testing.T) {
 	wgFinish.Wait() // Wait for dispatcher to shutdown
 
 	receiveInvocations := getTotalInvocations(factory.receiveInvocations)
-	if numMetrics != receiveInvocations {
-		t.Errorf("expected number of receiver metrics: %d, got %d", numMetrics, receiveInvocations)
-	}
+	assert.Equal(t, numMetrics, receiveInvocations)
 	for agrNum, count := range factory.receiveInvocations {
 		if count == 0 {
 			t.Errorf("aggregator %d was never invoked", agrNum)

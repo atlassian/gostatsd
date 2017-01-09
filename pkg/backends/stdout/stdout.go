@@ -69,19 +69,19 @@ func preparePayload(metrics *gostatsd.MetricMap) *bytes.Buffer {
 	now := time.Now().Unix()
 	metrics.Counters.Each(func(key, tagsKey string, counter gostatsd.Counter) {
 		nk := composeMetricName(key, tagsKey)
-		fmt.Fprintf(buf, "stats.counter.%s.count %d %d\n", nk, counter.Value, now) // #nosec
+		fmt.Fprintf(buf, "stats.counter.%s.count %d %d\n", nk, counter.Value, now)          // #nosec
 		fmt.Fprintf(buf, "stats.counter.%s.per_second %f %d\n", nk, counter.PerSecond, now) // #nosec
 	})
 	metrics.Timers.Each(func(key, tagsKey string, timer gostatsd.Timer) {
 		nk := composeMetricName(key, tagsKey)
-		fmt.Fprintf(buf, "stats.timers.%s.lower %f %d\n", nk, timer.Min, now) // #nosec
-		fmt.Fprintf(buf, "stats.timers.%s.upper %f %d\n", nk, timer.Max, now) // #nosec
-		fmt.Fprintf(buf, "stats.timers.%s.count %d %d\n", nk, timer.Count, now) // #nosec
-		fmt.Fprintf(buf, "stats.timers.%s.count_ps %f %d\n", nk, timer.PerSecond, now) // #nosec
-		fmt.Fprintf(buf, "stats.timers.%s.mean %f %d\n", nk, timer.Mean, now) // #nosec
-		fmt.Fprintf(buf, "stats.timers.%s.median %f %d\n", nk, timer.Median, now) // #nosec
-		fmt.Fprintf(buf, "stats.timers.%s.std %f %d\n", nk, timer.StdDev, now) // #nosec
-		fmt.Fprintf(buf, "stats.timers.%s.sum %f %d\n", nk, timer.Sum, now) // #nosec
+		fmt.Fprintf(buf, "stats.timers.%s.lower %f %d\n", nk, timer.Min, now)              // #nosec
+		fmt.Fprintf(buf, "stats.timers.%s.upper %f %d\n", nk, timer.Max, now)              // #nosec
+		fmt.Fprintf(buf, "stats.timers.%s.count %d %d\n", nk, timer.Count, now)            // #nosec
+		fmt.Fprintf(buf, "stats.timers.%s.count_ps %f %d\n", nk, timer.PerSecond, now)     // #nosec
+		fmt.Fprintf(buf, "stats.timers.%s.mean %f %d\n", nk, timer.Mean, now)              // #nosec
+		fmt.Fprintf(buf, "stats.timers.%s.median %f %d\n", nk, timer.Median, now)          // #nosec
+		fmt.Fprintf(buf, "stats.timers.%s.std %f %d\n", nk, timer.StdDev, now)             // #nosec
+		fmt.Fprintf(buf, "stats.timers.%s.sum %f %d\n", nk, timer.Sum, now)                // #nosec
 		fmt.Fprintf(buf, "stats.timers.%s.sum_squares %f %d\n", nk, timer.SumSquares, now) // #nosec
 		for _, pct := range timer.Percentiles {
 			fmt.Fprintf(buf, "stats.timers.%s.%s %f %d\n", nk, pct.Str, pct.Float, now) // #nosec
