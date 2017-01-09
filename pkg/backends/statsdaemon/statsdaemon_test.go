@@ -27,6 +27,7 @@ var m = gostatsd.MetricMap{
 }
 
 func TestProcessMetricsRecover(t *testing.T) {
+	t.Parallel()
 	b, err := NewClient("localhost:8125", 1*time.Second, 1*time.Second, false, false)
 	require.NoError(t, err)
 	c := b.(*client)
@@ -36,6 +37,7 @@ func TestProcessMetricsRecover(t *testing.T) {
 }
 
 func TestProcessMetricsPanic(t *testing.T) {
+	t.Parallel()
 	b, err := NewClient("localhost:8125", 1*time.Second, 1*time.Second, false, false)
 	require.NoError(t, err)
 	c := b.(*client)
@@ -65,6 +67,7 @@ var gaugeMetic = gostatsd.MetricMap{
 }
 
 func TestProcessMetrics(t *testing.T) {
+	t.Parallel()
 	input := []struct {
 		disableTags   bool
 		expectedValue string
@@ -79,7 +82,9 @@ func TestProcessMetrics(t *testing.T) {
 		},
 	}
 	for _, val := range input {
+		val := val
 		t.Run(fmt.Sprintf("disableTags: %t", val.disableTags), func(t *testing.T) {
+			t.Parallel()
 			b, err := NewClient("localhost:8125", 1*time.Second, 1*time.Second, val.disableTags, false)
 			require.NoError(t, err)
 			c := b.(*client)

@@ -5,9 +5,13 @@ import (
 	"testing"
 
 	"github.com/atlassian/gostatsd"
+
+	"github.com/stretchr/testify/require"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestMetricsLexer(t *testing.T) {
+	t.Parallel()
 	tests := map[string]gostatsd.Metric{
 		"foo.bar.baz:2|c":               {Name: "foo.bar.baz", Value: 2, Type: gostatsd.COUNTER},
 		"abc.def.g:3|g":                 {Name: "abc.def.g", Value: 3, Type: gostatsd.GAUGE},
@@ -35,10 +39,11 @@ func TestMetricsLexer(t *testing.T) {
 		"a:1|g|#,,":                     {Name: "a", Value: 1, Type: gostatsd.GAUGE},
 	}
 
-	compareMetric(tests, "", t)
+	compareMetric(t, tests, "")
 }
 
 func TestInvalidMetricsLexer(t *testing.T) {
+	t.Parallel()
 	failing := []string{"fOO|bar:bazkk", "foo.bar.baz:1|q", "NaN.should.be:NaN|g"}
 	for _, tc := range failing {
 		result, _, err := parseLine([]byte(tc), "")
@@ -54,10 +59,11 @@ func TestInvalidMetricsLexer(t *testing.T) {
 		"uniq.usr:joe|s":  {Name: "stats.uniq.usr", StringValue: "joe", Type: gostatsd.SET},
 	}
 
-	compareMetric(tests, "stats", t)
+	compareMetric(t, tests, "stats")
 }
 
 func TestEventsLexer(t *testing.T) {
+	t.Parallel()
 	//_e{title.length,text.length}:title|text|d:date_happened|h:hostname|p:priority|t:alert_type|#tag1,tag2
 	tests := map[string]gostatsd.Event{
 		"_e{1,1}:a|b":                                               {Title: "a", Text: "b"},
@@ -86,10 +92,20 @@ func TestEventsLexer(t *testing.T) {
 		},
 	}
 
-	compareEvent(tests, t)
+	for input, expected := range tests {
+		input := input
+		expected := expected
+		t.Run(input, func (t *testing.T){
+			t.Parallel()
+			_, result, err := parseLine([]byte(input), "")
+			require.NoError(t, err)
+			assert.Equal(t, &expected, result)
+		})
+	}
 }
 
 func TestInvalidEventsLexer(t *testing.T) {
+	t.Parallel()
 	failing := map[string]error{
 		"_x{1,1}:a|b": errInvalidType,
 		"_e{2,1}:a|b": errNotEnoughData,
@@ -109,10 +125,15 @@ func TestInvalidEventsLexer(t *testing.T) {
 		"_e{1,999999999999999999999999}:a|b": errOverflow,
 	}
 	for input, expectedErr := range failing {
-		m, e, err := parseLine([]byte(input), "")
-		if m != nil || e != nil || !reflect.DeepEqual(err, expectedErr) {
-			t.Errorf("test %s: expected error %q but got %q, %q and %q", input, expectedErr, m, e, err)
-		}
+		input := input
+		expectedErr := expectedErr
+		t.Run(input, func(t *testing.T) {
+			t.Parallel()
+			m, e, err := parseLine([]byte(input), "")
+			assert.Equal(t, expectedErr, err)
+			assert.Nil(t, m)
+			assert.Nil(t, e)
+		})
 	}
 }
 
@@ -121,22 +142,9 @@ func parseLine(input []byte, namespace string) (*gostatsd.Metric, *gostatsd.Even
 	return l.run(input, namespace)
 }
 
-func compareMetric(tests map[string]gostatsd.Metric, namespace string, t *testing.T) {
+func compareMetric(t *testing.T, tests map[string]gostatsd.Metric, namespace string) {
 	for input, expected := range tests {
 		result, _, err := parseLine([]byte(input), namespace)
-		if err != nil {
-			t.Errorf("test %s error: %v", input, err)
-			continue
-		}
-		if !reflect.DeepEqual(result, &expected) {
-			t.Errorf("test %s: expected %v, got %v", input, expected, result)
-		}
-	}
-}
-
-func compareEvent(tests map[string]gostatsd.Event, t *testing.T) {
-	for input, expected := range tests {
-		_, result, err := parseLine([]byte(input), "")
 		if err != nil {
 			t.Errorf("test %s error: %v", input, err)
 			continue

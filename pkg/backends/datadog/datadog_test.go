@@ -16,6 +16,7 @@ import (
 )
 
 func TestRetries(t *testing.T) {
+	t.Parallel()
 	assert := assert.New(t)
 	var requestNum uint32
 	mux := http.NewServeMux()
@@ -49,6 +50,7 @@ func TestRetries(t *testing.T) {
 }
 
 func TestSendMetricsInMultipleBatches(t *testing.T) {
+	t.Parallel()
 	assert := assert.New(t)
 	var requestNum uint32
 	mux := http.NewServeMux()
@@ -78,6 +80,7 @@ func TestSendMetricsInMultipleBatches(t *testing.T) {
 }
 
 func TestSendMetrics(t *testing.T) {
+	t.Parallel()
 	assert := assert.New(t)
 	mux := http.NewServeMux()
 	mux.HandleFunc("/api/v1/series", func(w http.ResponseWriter, r *http.Request) {

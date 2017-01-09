@@ -15,17 +15,23 @@ import (
 )
 
 func TestCloudHandlerExpirationAndRefresh(t *testing.T) {
-	testExpire(t, []gostatsd.IP{"4.3.2.1", "4.3.2.1"}, func(h Handler) error {
-		e := se1()
-		return h.DispatchEvent(context.Background(), &e)
+	t.Parallel()
+	t.Run("4.3.2.1", func(t *testing.T) {
+		testExpire(t, []gostatsd.IP{"4.3.2.1", "4.3.2.1"}, func(h Handler) error {
+			e := se1()
+			return h.DispatchEvent(context.Background(), &e)
+		})
 	})
-	testExpire(t, []gostatsd.IP{"1.2.3.4", "1.2.3.4"}, func(h Handler) error {
-		m := sm1()
-		return h.DispatchMetric(context.Background(), &m)
+	t.Run("1.2.3.4", func(t *testing.T) {
+		testExpire(t, []gostatsd.IP{"1.2.3.4", "1.2.3.4"}, func(h Handler) error {
+			m := sm1()
+			return h.DispatchMetric(context.Background(), &m)
+		})
 	})
 }
 
 func testExpire(t *testing.T, expectedIps []gostatsd.IP, f func(Handler) error) {
+	t.Parallel()
 	fp := &fakeProviderIP{
 		Region: "us-west-3",
 	}
@@ -64,6 +70,7 @@ func testExpire(t *testing.T, expectedIps []gostatsd.IP, f func(Handler) error) 
 }
 
 func TestCloudHandlerDispatch(t *testing.T) {
+	t.Parallel()
 	fp := &fakeProviderIP{
 		Region: "us-west-3",
 		Tags:   gostatsd.Tags{"tag1", "tag2:234"},
@@ -109,6 +116,7 @@ func TestCloudHandlerDispatch(t *testing.T) {
 }
 
 func TestCloudHandlerInstanceNotFound(t *testing.T) {
+	t.Parallel()
 	fp := &fakeProviderNotFound{}
 	counting := &countingHandler{}
 	expectedIps := []gostatsd.IP{"1.2.3.4", "4.3.2.1"}
@@ -124,6 +132,7 @@ func TestCloudHandlerInstanceNotFound(t *testing.T) {
 }
 
 func TestCloudHandlerFailingProvider(t *testing.T) {
+	t.Parallel()
 	fp := &fakeFailingProvider{}
 	counting := &countingHandler{}
 	expectedIps := []gostatsd.IP{"1.2.3.4", "4.3.2.1"}
