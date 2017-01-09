@@ -24,7 +24,7 @@ func (p *Percentiles) Set(s string, f float64) {
 func (p *Percentiles) String() string {
 	buf := new(bytes.Buffer)
 	for _, pct := range *p {
-		fmt.Fprintf(buf, "%s:%f ", pct.Str, pct.Float)
+		fmt.Fprintf(buf, "%s:%f ", pct.Str, pct.Float) // #nosec
 	}
 	return buf.String()
 }

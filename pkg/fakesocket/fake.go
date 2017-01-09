@@ -57,17 +57,17 @@ func (frpc FakeRandomPacketConn) ReadFrom(b []byte) (int, net.Addr, error) {
 	buf := new(bytes.Buffer)
 	switch rand.Int31n(4) {
 	case 0: // Counter
-		fmt.Fprintf(buf, "statsd.tester.counter_%d:%f|c\n", num, rand.Float64()*100)
+		fmt.Fprintf(buf, "statsd.tester.counter_%d:%f|c\n", num, rand.Float64()*100) // #nosec
 	case 1: // Gauge
-		fmt.Fprintf(buf, "statsd.tester.gauge_%d:%f|g\n", num, rand.Float64()*100)
+		fmt.Fprintf(buf, "statsd.tester.gauge_%d:%f|g\n", num, rand.Float64()*100) // #nosec
 	case 2: // Timer
 		n := 10
 		for i := 0; i < n; i++ {
-			fmt.Fprintf(buf, "statsd.tester.timer_%d:%f|ms\n", num, rand.Float64()*100)
+			fmt.Fprintf(buf, "statsd.tester.timer_%d:%f|ms\n", num, rand.Float64()*100) // #nosec
 		}
 	case 3: // Set
 		for i := 0; i < 10; i++ {
-			fmt.Fprintf(buf, "statsd.tester.set_%d:%d|s\n", num, rand.Int31n(9)+1)
+			fmt.Fprintf(buf, "statsd.tester.set_%d:%d|s\n", num, rand.Int31n(9)+1) // #nosec
 		}
 	default:
 		panic(errors.New("unreachable"))

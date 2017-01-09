@@ -95,10 +95,10 @@ func (client *client) processMetrics(metrics *gostatsd.MetricMap, handler overfl
 		line.Reset()
 		if tags == "" || client.disableTags {
 			format += "\n"
-			fmt.Fprintf(line, format, name, value)
+			fmt.Fprintf(line, format, name, value) // #nosec
 		} else {
 			format += "|#%s\n"
-			fmt.Fprintf(line, format, name, value, tags)
+			fmt.Fprintf(line, format, name, value, tags) // #nosec
 		}
 		// Make sure we don't go over max udp datagram size
 		if buf.Len()+line.Len() > client.packetSize {
@@ -108,7 +108,7 @@ func (client *client) processMetrics(metrics *gostatsd.MetricMap, handler overfl
 			}
 			buf = b
 		}
-		fmt.Fprint(buf, line)
+		fmt.Fprint(buf, line) // #nosec
 	}
 	metrics.Counters.Each(func(key, tagsKey string, counter gostatsd.Counter) {
 		// do not send statsd stats as they will be recalculated on the master instead

@@ -69,31 +69,31 @@ func preparePayload(metrics *gostatsd.MetricMap) *bytes.Buffer {
 	now := time.Now().Unix()
 	metrics.Counters.Each(func(key, tagsKey string, counter gostatsd.Counter) {
 		nk := composeMetricName(key, tagsKey)
-		fmt.Fprintf(buf, "stats.counter.%s.count %d %d\n", nk, counter.Value, now)
-		fmt.Fprintf(buf, "stats.counter.%s.per_second %f %d\n", nk, counter.PerSecond, now)
+		fmt.Fprintf(buf, "stats.counter.%s.count %d %d\n", nk, counter.Value, now) // #nosec
+		fmt.Fprintf(buf, "stats.counter.%s.per_second %f %d\n", nk, counter.PerSecond, now) // #nosec
 	})
 	metrics.Timers.Each(func(key, tagsKey string, timer gostatsd.Timer) {
 		nk := composeMetricName(key, tagsKey)
-		fmt.Fprintf(buf, "stats.timers.%s.lower %f %d\n", nk, timer.Min, now)
-		fmt.Fprintf(buf, "stats.timers.%s.upper %f %d\n", nk, timer.Max, now)
-		fmt.Fprintf(buf, "stats.timers.%s.count %d %d\n", nk, timer.Count, now)
-		fmt.Fprintf(buf, "stats.timers.%s.count_ps %f %d\n", nk, timer.PerSecond, now)
-		fmt.Fprintf(buf, "stats.timers.%s.mean %f %d\n", nk, timer.Mean, now)
-		fmt.Fprintf(buf, "stats.timers.%s.median %f %d\n", nk, timer.Median, now)
-		fmt.Fprintf(buf, "stats.timers.%s.std %f %d\n", nk, timer.StdDev, now)
-		fmt.Fprintf(buf, "stats.timers.%s.sum %f %d\n", nk, timer.Sum, now)
-		fmt.Fprintf(buf, "stats.timers.%s.sum_squares %f %d\n", nk, timer.SumSquares, now)
+		fmt.Fprintf(buf, "stats.timers.%s.lower %f %d\n", nk, timer.Min, now) // #nosec
+		fmt.Fprintf(buf, "stats.timers.%s.upper %f %d\n", nk, timer.Max, now) // #nosec
+		fmt.Fprintf(buf, "stats.timers.%s.count %d %d\n", nk, timer.Count, now) // #nosec
+		fmt.Fprintf(buf, "stats.timers.%s.count_ps %f %d\n", nk, timer.PerSecond, now) // #nosec
+		fmt.Fprintf(buf, "stats.timers.%s.mean %f %d\n", nk, timer.Mean, now) // #nosec
+		fmt.Fprintf(buf, "stats.timers.%s.median %f %d\n", nk, timer.Median, now) // #nosec
+		fmt.Fprintf(buf, "stats.timers.%s.std %f %d\n", nk, timer.StdDev, now) // #nosec
+		fmt.Fprintf(buf, "stats.timers.%s.sum %f %d\n", nk, timer.Sum, now) // #nosec
+		fmt.Fprintf(buf, "stats.timers.%s.sum_squares %f %d\n", nk, timer.SumSquares, now) // #nosec
 		for _, pct := range timer.Percentiles {
-			fmt.Fprintf(buf, "stats.timers.%s.%s %f %d\n", nk, pct.Str, pct.Float, now)
+			fmt.Fprintf(buf, "stats.timers.%s.%s %f %d\n", nk, pct.Str, pct.Float, now) // #nosec
 		}
 	})
 	metrics.Gauges.Each(func(key, tagsKey string, gauge gostatsd.Gauge) {
 		nk := composeMetricName(key, tagsKey)
-		fmt.Fprintf(buf, "stats.gauge.%s %f %d\n", nk, gauge.Value, now)
+		fmt.Fprintf(buf, "stats.gauge.%s %f %d\n", nk, gauge.Value, now) // #nosec
 	})
 	metrics.Sets.Each(func(key, tagsKey string, set gostatsd.Set) {
 		nk := composeMetricName(key, tagsKey)
-		fmt.Fprintf(buf, "stats.set.%s %d %d\n", nk, len(set.Values), now)
+		fmt.Fprintf(buf, "stats.set.%s %d %d\n", nk, len(set.Values), now) // #nosec
 	})
 	return buf
 }
