@@ -17,6 +17,7 @@ func newFakeAggregator() *MetricAggregator {
 }
 
 func TestNewAggregator(t *testing.T) {
+	t.Parallel()
 	assert := assert.New(t)
 
 	actual := newFakeAggregator()
@@ -39,6 +40,7 @@ func TestNewAggregator(t *testing.T) {
 }
 
 func TestFlush(t *testing.T) {
+	t.Parallel()
 	assert := assert.New(t)
 
 	now := time.Now()
@@ -131,6 +133,7 @@ func BenchmarkFlush(b *testing.B) {
 }
 
 func TestReset(t *testing.T) {
+	t.Parallel()
 	assert := assert.New(t)
 	now := time.Now()
 	nowNano := gostatsd.Nanotime(now.UnixNano())
@@ -261,6 +264,7 @@ func TestReset(t *testing.T) {
 }
 
 func TestIsExpired(t *testing.T) {
+	t.Parallel()
 	assert := assert.New(t)
 
 	now := gostatsd.Nanotime(time.Now().UnixNano())
@@ -296,6 +300,7 @@ func metricsFixtures() []gostatsd.Metric {
 }
 
 func TestReceive(t *testing.T) {
+	t.Parallel()
 	assert := assert.New(t)
 
 	ma := newFakeAggregator()

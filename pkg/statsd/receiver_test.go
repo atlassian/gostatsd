@@ -4,9 +4,12 @@ import (
 	"context"
 	"reflect"
 	"testing"
+	"strconv"
 
 	"github.com/atlassian/gostatsd"
 	"github.com/atlassian/gostatsd/pkg/fakesocket"
+
+	"github.com/stretchr/testify/assert"
 )
 
 type metricAndEvent struct {
@@ -17,29 +20,33 @@ type metricAndEvent struct {
 var receiveBlackhole error
 
 func TestReceiveEmptyPacket(t *testing.T) {
+	t.Parallel()
 	input := [][]byte{
 		{},
 		{'\n'},
 		{'\n', '\n'},
 	}
-	for _, inp := range input {
-		ch := &countingHandler{}
-		mr := NewMetricReceiver("", ch)
+	for pos, inp := range input {
+		inp := inp
+		t.Run(strconv.Itoa(pos), func (t *testing.T){
+			t.Parallel()
+			ch := &countingHandler{}
+			mr := NewMetricReceiver("", ch)
 
-		err := mr.handlePacket(context.Background(), fakesocket.FakeAddr, inp)
-		if err != nil {
-			t.Errorf("%q: unexpected error: %v", inp, err)
-		}
-		if len(ch.events) > 0 {
-			t.Errorf("%q: expected no events: %v", inp, ch.events)
-		}
-		if len(ch.metrics) > 0 {
-			t.Errorf("%q: expected no metrics: %v", inp, ch.metrics)
-		}
+			err := mr.handlePacket(context.Background(), fakesocket.FakeAddr, inp)
+			assert.NoError(t, err)
+			if len(ch.events) > 0 {
+				t.Errorf("expected no events: %v", ch.events)
+			}
+			if len(ch.metrics) > 0 {
+				t.Errorf("expected no metrics: %v", ch.metrics)
+			}
+		})
 	}
 }
 
 func TestReceivePacket(t *testing.T) {
+	t.Parallel()
 	input := map[string]metricAndEvent{
 		"f:2|c": {
 			metrics: []gostatsd.Metric{
@@ -73,25 +80,28 @@ func TestReceivePacket(t *testing.T) {
 		},
 	}
 	for packet, mAndE := range input {
-		ch := &countingHandler{}
-		mr := NewMetricReceiver("", ch)
+		packet := packet
+		mAndE := mAndE
+		t.Run(packet, func (t *testing.T){
+			t.Parallel()
+			ch := &countingHandler{}
+			mr := NewMetricReceiver("", ch)
 
-		err := mr.handlePacket(context.Background(), fakesocket.FakeAddr, []byte(packet))
-		if err != nil {
-			t.Errorf("%q: unexpected error: %v", packet, err)
-		}
-		for i, e := range ch.events {
-			if e.DateHappened <= 0 {
-				t.Errorf("%q: DateHappened should be positive", e)
+			err := mr.handlePacket(context.Background(), fakesocket.FakeAddr, []byte(packet))
+			assert.NoError(t, err)
+			for i, e := range ch.events {
+				if e.DateHappened <= 0 {
+					t.Errorf("%q: DateHappened should be positive", e)
+				}
+				ch.events[i].DateHappened = 0
 			}
-			ch.events[i].DateHappened = 0
-		}
-		if !reflect.DeepEqual(ch.events, mAndE.events) {
-			t.Errorf("%q: expected to be equal:\n%v\n%v", packet, ch.events, mAndE.events)
-		}
-		if !reflect.DeepEqual(ch.metrics, mAndE.metrics) {
-			t.Errorf("%q: expected to be equal:\n%v\n%v", packet, ch.metrics, mAndE.metrics)
-		}
+			if !reflect.DeepEqual(ch.events, mAndE.events) {
+				t.Errorf("expected to be equal:\n%v\n%v", ch.events, mAndE.events)
+			}
+			if !reflect.DeepEqual(ch.metrics, mAndE.metrics) {
+				t.Errorf("expected to be equal:\n%v\n%v", ch.metrics, mAndE.metrics)
+			}
+		})
 	}
 }
 

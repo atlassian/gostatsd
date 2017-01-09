@@ -82,6 +82,7 @@ func newTestFactory() *testAggregatorFactory {
 }
 
 func TestNewDispatcherShouldCreateCorrectNumberOfWorkers(t *testing.T) {
+	t.Parallel()
 	r := rand.New(rand.NewSource(time.Now().UnixNano()))
 	n := r.Intn(5) + 1
 	factory := newTestFactory()
@@ -95,6 +96,7 @@ func TestNewDispatcherShouldCreateCorrectNumberOfWorkers(t *testing.T) {
 }
 
 func TestRunShouldReturnWhenContextCancelled(t *testing.T) {
+	t.Parallel()
 	d := NewMetricDispatcher(5, 1, newTestFactory())
 	ctx, cancelFunc := context.WithTimeout(context.Background(), 1*time.Second)
 	defer cancelFunc()
@@ -106,6 +108,7 @@ func TestRunShouldReturnWhenContextCancelled(t *testing.T) {
 }
 
 func TestDispatchMetricShouldDistributeMetrics(t *testing.T) {
+	t.Parallel()
 	r := rand.New(rand.NewSource(time.Now().UnixNano()))
 	n := r.Intn(5) + 1
 	factory := newTestFactory()

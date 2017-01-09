@@ -16,6 +16,7 @@ import (
 )
 
 func TestPreparePayload(t *testing.T) {
+	t.Parallel()
 	type testData struct {
 		config *Config
 		result []byte
@@ -93,7 +94,9 @@ func TestPreparePayload(t *testing.T) {
 		},
 	}
 	for i, td := range input {
+		td := td
 		t.Run(strconv.Itoa(i), func(t *testing.T) {
+			t.Parallel()
 			c, err := NewClient(td.config)
 			require.NoError(t, err)
 			cl := c.(*client)
@@ -104,6 +107,7 @@ func TestPreparePayload(t *testing.T) {
 }
 
 func TestSendMetricsAsync(t *testing.T) {
+	t.Parallel()
 	l, err := net.Listen("tcp", "localhost:0")
 	require.NoError(t, err)
 	defer l.Close()
@@ -118,7 +122,9 @@ func TestSendMetricsAsync(t *testing.T) {
 	go func() {
 		defer acceptWg.Done()
 		conn, e := l.Accept()
-		require.NoError(t, e)
+		if !assert.NoError(t, e) {
+			return
+		}
 		defer conn.Close()
 		d := make([]byte, 1024)
 		for {
@@ -127,7 +133,7 @@ func TestSendMetricsAsync(t *testing.T) {
 			if e == io.EOF {
 				break
 			}
-			require.NoError(t, e)
+			assert.NoError(t, e)
 		}
 	}()
 	defer acceptWg.Wait()
@@ -140,7 +146,7 @@ func TestSendMetricsAsync(t *testing.T) {
 	go func() {
 		defer wg.Done()
 		if e := c.(gostatsd.RunnableBackend).Run(ctx); e != nil && err != context.Canceled && e != context.DeadlineExceeded {
-			assert.NoError(t, e, "unexpected error")
+			assert.NoError(t, e)
 		}
 	}()
 	c.SendMetricsAsync(ctx, metrics(), func(errs []error) {

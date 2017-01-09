@@ -14,6 +14,7 @@ import (
 )
 
 func TestSend(t *testing.T) {
+	t.Parallel()
 	dc := dummyConn{}
 	sender := Sender{
 		ConnFactory: func() (net.Conn, error) {
