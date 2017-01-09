@@ -146,7 +146,7 @@ func (client *Client) SendEvent(ctx context.Context, e *gostatsd.Event) error {
 }
 
 // Name returns the name of the backend.
-func (Client) Name() string {
+func (c *Client) Name() string {
 	return BackendName
 }
 

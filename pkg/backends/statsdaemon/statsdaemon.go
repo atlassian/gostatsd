@@ -256,7 +256,7 @@ func NewClientFromViper(v *viper.Viper) (gostatsd.Backend, error) {
 }
 
 // Name returns the name of the backend.
-func (Client) Name() string {
+func (c *Client) Name() string {
 	return BackendName
 }
 
