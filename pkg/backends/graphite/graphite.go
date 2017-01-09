@@ -67,8 +67,8 @@ type Config struct {
 	LegacyNamespace *bool
 }
 
-// client is an object that is used to send messages to a Graphite server's TCP interface.
-type client struct {
+// Client is an object that is used to send messages to a Graphite server's TCP interface.
+type Client struct {
 	sender           sender.Sender
 	counterNamespace string
 	timerNamespace   string
@@ -78,12 +78,12 @@ type client struct {
 	legacyNamespace  bool
 }
 
-func (client *client) Run(ctx context.Context) error {
+func (client *Client) Run(ctx context.Context) error {
 	return client.sender.Run(ctx)
 }
 
 // SendMetricsAsync flushes the metrics to the Graphite server, preparing payload synchronously but doing the send asynchronously.
-func (client *client) SendMetricsAsync(ctx context.Context, metrics *gostatsd.MetricMap, cb gostatsd.SendCallback) {
+func (client *Client) SendMetricsAsync(ctx context.Context, metrics *gostatsd.MetricMap, cb gostatsd.SendCallback) {
 	if metrics.NumStats == 0 {
 		cb(nil)
 		return
@@ -100,7 +100,7 @@ func (client *client) SendMetricsAsync(ctx context.Context, metrics *gostatsd.Me
 	}
 }
 
-func (client *client) preparePayload(metrics *gostatsd.MetricMap, ts time.Time) *bytes.Buffer {
+func (client *Client) preparePayload(metrics *gostatsd.MetricMap, ts time.Time) *bytes.Buffer {
 	buf := client.sender.GetBuffer()
 	now := ts.Unix()
 	if client.legacyNamespace {
@@ -141,12 +141,12 @@ func (client *client) preparePayload(metrics *gostatsd.MetricMap, ts time.Time) 
 }
 
 // SendEvent discards events.
-func (client *client) SendEvent(ctx context.Context, e *gostatsd.Event) error {
+func (client *Client) SendEvent(ctx context.Context, e *gostatsd.Event) error {
 	return nil
 }
 
-// BackendName returns the name of the backend.
-func (client *client) Name() string {
+// Name returns the name of the backend.
+func (Client) Name() string {
 	return BackendName
 }
 
@@ -178,7 +178,7 @@ func NewClientFromViper(v *viper.Viper) (gostatsd.Backend, error) {
 }
 
 // NewClient constructs a Graphite backend object.
-func NewClient(config *Config) (gostatsd.Backend, error) {
+func NewClient(config *Config) (*Client, error) {
 	address := getOrDefaultStr(config.Address, DefaultAddress)
 	if address == "" {
 		return nil, fmt.Errorf("[%s] address is required", BackendName)
@@ -215,7 +215,7 @@ func NewClient(config *Config) (gostatsd.Backend, error) {
 		setsNamespace = globalPrefix + getOrDefaultPrefix(config.PrefixSet, DefaultPrefixSet)
 	}
 	log.Infof("[%s] address=%s dialTimeout=%s writeTimeout=%s", BackendName, address, dialTimeout, writeTimeout)
-	return &client{
+	return &Client{
 		sender: sender.Sender{
 			ConnFactory: func() (net.Conn, error) {
 				return net.DialTimeout("tcp", address, dialTimeout)

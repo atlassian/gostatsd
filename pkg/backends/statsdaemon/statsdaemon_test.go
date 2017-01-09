@@ -28,9 +28,8 @@ var m = gostatsd.MetricMap{
 
 func TestProcessMetricsRecover(t *testing.T) {
 	t.Parallel()
-	b, err := NewClient("localhost:8125", 1*time.Second, 1*time.Second, false, false)
+	c, err := NewClient("localhost:8125", 1*time.Second, 1*time.Second, false, false)
 	require.NoError(t, err)
-	c := b.(*client)
 	c.processMetrics(&m, func(buf *bytes.Buffer) (*bytes.Buffer, bool) {
 		return nil, true
 	})
@@ -38,9 +37,8 @@ func TestProcessMetricsRecover(t *testing.T) {
 
 func TestProcessMetricsPanic(t *testing.T) {
 	t.Parallel()
-	b, err := NewClient("localhost:8125", 1*time.Second, 1*time.Second, false, false)
+	c, err := NewClient("localhost:8125", 1*time.Second, 1*time.Second, false, false)
 	require.NoError(t, err)
-	c := b.(*client)
 	expectedErr := errors.New("ABC some error")
 	defer func() {
 		if r := recover(); r != nil {
@@ -85,9 +83,8 @@ func TestProcessMetrics(t *testing.T) {
 		val := val
 		t.Run(fmt.Sprintf("disableTags: %t", val.disableTags), func(t *testing.T) {
 			t.Parallel()
-			b, err := NewClient("localhost:8125", 1*time.Second, 1*time.Second, val.disableTags, false)
+			c, err := NewClient("localhost:8125", 1*time.Second, 1*time.Second, val.disableTags, false)
 			require.NoError(t, err)
-			c := b.(*client)
 			c.processMetrics(&gaugeMetic, func(buf *bytes.Buffer) (*bytes.Buffer, bool) {
 				assert.EqualValues(t, val.expectedValue, buf.String())
 				return new(bytes.Buffer), false

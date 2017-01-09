@@ -11,8 +11,8 @@ import (
 // BackendName is the name of this backend.
 const BackendName = "null"
 
-// client represents a discarding backend.
-type client struct{}
+// Client represents a discarding backend.
+type Client struct{}
 
 // NewClientFromViper constructs a GraphiteClient object by connecting to an address.
 func NewClientFromViper(v *viper.Viper) (gostatsd.Backend, error) {
@@ -20,21 +20,21 @@ func NewClientFromViper(v *viper.Viper) (gostatsd.Backend, error) {
 }
 
 // NewClient constructs a client object.
-func NewClient() (gostatsd.Backend, error) {
-	return client{}, nil
+func NewClient() (*Client, error) {
+	return &Client{}, nil
 }
 
 // SendMetricsAsync discards the metrics in a MetricsMap.
-func (client client) SendMetricsAsync(ctx context.Context, metrics *gostatsd.MetricMap, cb gostatsd.SendCallback) {
+func (Client) SendMetricsAsync(ctx context.Context, metrics *gostatsd.MetricMap, cb gostatsd.SendCallback) {
 	cb(nil)
 }
 
 // SendEvent discards events.
-func (client client) SendEvent(ctx context.Context, e *gostatsd.Event) error {
+func (Client) SendEvent(ctx context.Context, e *gostatsd.Event) error {
 	return nil
 }
 
-// BackendName returns the name of the backend.
-func (client client) Name() string {
+// Name returns the name of the backend.
+func (Client) Name() string {
 	return BackendName
 }

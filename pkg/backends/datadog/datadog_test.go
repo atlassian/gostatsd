@@ -108,7 +108,7 @@ func TestSendMetrics(t *testing.T) {
 
 	cli, err := NewClient(ts.URL, "apiKey123", 1000, 1*time.Second, 2*time.Second)
 	require.NoError(t, err)
-	cli.(*client).now = func() time.Time {
+	cli.now = func() time.Time {
 		return time.Unix(100, 0)
 	}
 	res := make(chan []error, 1)

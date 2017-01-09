@@ -97,9 +97,8 @@ func TestPreparePayload(t *testing.T) {
 		td := td
 		t.Run(strconv.Itoa(i), func(t *testing.T) {
 			t.Parallel()
-			c, err := NewClient(td.config)
+			cl, err := NewClient(td.config)
 			require.NoError(t, err)
-			cl := c.(*client)
 			b := cl.preparePayload(metrics, time.Unix(1234, 0))
 			assert.Equal(t, string(td.result), b.String(), "test %d", i)
 		})
@@ -145,7 +144,7 @@ func TestSendMetricsAsync(t *testing.T) {
 	wg.Add(2)
 	go func() {
 		defer wg.Done()
-		if e := c.(gostatsd.RunnableBackend).Run(ctx); e != nil && err != context.Canceled && e != context.DeadlineExceeded {
+		if e := c.Run(ctx); e != nil && err != context.Canceled && e != context.DeadlineExceeded {
 			assert.NoError(t, e)
 		}
 	}()

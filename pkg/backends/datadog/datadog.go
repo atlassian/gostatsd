@@ -36,8 +36,8 @@ const (
 	maxResponseSize = 10 * 1024
 )
 
-// client represents a Datadog client.
-type client struct {
+// Client represents a Datadog client.
+type Client struct {
 	apiKey                string
 	apiEndpoint           string
 	maxRequestElapsedTime time.Duration
@@ -60,7 +60,7 @@ type event struct {
 }
 
 // SendMetricsAsync flushes the metrics to Datadog, preparing payload synchronously but doing the send asynchronously.
-func (d *client) SendMetricsAsync(ctx context.Context, metrics *gostatsd.MetricMap, cb gostatsd.SendCallback) {
+func (d *Client) SendMetricsAsync(ctx context.Context, metrics *gostatsd.MetricMap, cb gostatsd.SendCallback) {
 	if metrics.NumStats == 0 {
 		cb(nil)
 		return
@@ -93,7 +93,7 @@ func (d *client) SendMetricsAsync(ctx context.Context, metrics *gostatsd.MetricM
 	}()
 }
 
-func (d *client) processMetrics(metrics *gostatsd.MetricMap, cb func(*timeSeries)) {
+func (d *Client) processMetrics(metrics *gostatsd.MetricMap, cb func(*timeSeries)) {
 	fl := flush{
 		ts: &timeSeries{
 			Series: make([]metric, 0, d.metricsPerBatch),
@@ -139,12 +139,12 @@ func (d *client) processMetrics(metrics *gostatsd.MetricMap, cb func(*timeSeries
 	fl.finish()
 }
 
-func (d *client) postMetrics(ctx context.Context, ts *timeSeries) error {
+func (d *Client) postMetrics(ctx context.Context, ts *timeSeries) error {
 	return d.post(ctx, "/api/v1/series", "metrics", ts)
 }
 
 // SendEvent sends an event to Datadog.
-func (d *client) SendEvent(ctx context.Context, e *gostatsd.Event) error {
+func (d *Client) SendEvent(ctx context.Context, e *gostatsd.Event) error {
 	return d.post(ctx, "/api/v1/events", "events", &event{
 		Title:          e.Title,
 		Text:           e.Text,
@@ -158,12 +158,12 @@ func (d *client) SendEvent(ctx context.Context, e *gostatsd.Event) error {
 	})
 }
 
-// BackendName returns the name of the backend.
-func (d *client) Name() string {
+// Name returns the name of the backend.
+func (Client) Name() string {
 	return BackendName
 }
 
-func (d *client) post(ctx context.Context, path, typeOfPost string, data interface{}) error {
+func (d *Client) post(ctx context.Context, path, typeOfPost string, data interface{}) error {
 	tsBytes, err := json.Marshal(data)
 	if err != nil {
 		return fmt.Errorf("[%s] unable to marshal %s: %v", BackendName, typeOfPost, err)
@@ -182,7 +182,7 @@ func (d *client) post(ctx context.Context, path, typeOfPost string, data interfa
 	return nil
 }
 
-func (d *client) doPost(ctx context.Context, path string, body []byte) backoff.Operation {
+func (d *Client) doPost(ctx context.Context, path string, body []byte) backoff.Operation {
 	authenticatedURL := d.authenticatedURL(path)
 	return func() error {
 		req, err := http.NewRequest("POST", authenticatedURL, bytes.NewReader(body))
@@ -210,7 +210,7 @@ func (d *client) doPost(ctx context.Context, path string, body []byte) backoff.O
 	}
 }
 
-func (d *client) authenticatedURL(path string) string {
+func (d *Client) authenticatedURL(path string) string {
 	q := url.Values{
 		"api_key": []string{d.apiKey},
 	}
@@ -234,7 +234,7 @@ func NewClientFromViper(v *viper.Viper) (gostatsd.Backend, error) {
 }
 
 // NewClient returns a new Datadog API client.
-func NewClient(apiEndpoint, apiKey string, metricsPerBatch uint, clientTimeout, maxRequestElapsedTime time.Duration) (gostatsd.Backend, error) {
+func NewClient(apiEndpoint, apiKey string, metricsPerBatch uint, clientTimeout, maxRequestElapsedTime time.Duration) (*Client, error) {
 	if apiEndpoint == "" {
 		return nil, fmt.Errorf("[%s] apiEndpoint is required", BackendName)
 	}
@@ -268,7 +268,7 @@ func NewClient(apiEndpoint, apiKey string, metricsPerBatch uint, clientTimeout, 
 	if err := http2.ConfigureTransport(transport); err != nil {
 		return nil, err
 	}
-	return &client{
+	return &Client{
 		apiKey:                apiKey,
 		apiEndpoint:           apiEndpoint,
 		maxRequestElapsedTime: maxRequestElapsedTime,

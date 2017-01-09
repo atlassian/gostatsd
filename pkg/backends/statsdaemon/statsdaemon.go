@@ -34,8 +34,8 @@ const (
 	maxConcurrentSends = 10
 )
 
-// client is an object that is used to send messages to a statsd server's UDP or TCP interface.
-type client struct {
+// Client is an object that is used to send messages to a statsd server's UDP or TCP interface.
+type Client struct {
 	packetSize  int
 	disableTags bool
 	sender      sender.Sender
@@ -46,12 +46,12 @@ type client struct {
 // if contents are processed somehow and are no longer needed).
 type overflowHandler func(*bytes.Buffer) (buf *bytes.Buffer, stop bool)
 
-func (client *client) Run(ctx context.Context) error {
+func (client *Client) Run(ctx context.Context) error {
 	return client.sender.Run(ctx)
 }
 
 // SendMetricsAsync flushes the metrics to the statsd server, preparing payload synchronously but doing the send asynchronously.
-func (client *client) SendMetricsAsync(ctx context.Context, metrics *gostatsd.MetricMap, cb gostatsd.SendCallback) {
+func (client *Client) SendMetricsAsync(ctx context.Context, metrics *gostatsd.MetricMap, cb gostatsd.SendCallback) {
 	if metrics.NumStats == 0 {
 		cb(nil)
 		return
@@ -75,7 +75,7 @@ func (client *client) SendMetricsAsync(ctx context.Context, metrics *gostatsd.Me
 	})
 }
 
-func (client *client) processMetrics(metrics *gostatsd.MetricMap, handler overflowHandler) {
+func (client *Client) processMetrics(metrics *gostatsd.MetricMap, handler overflowHandler) {
 	type stopProcessing struct {
 	}
 	defer func() {
@@ -138,7 +138,7 @@ func (client *client) processMetrics(metrics *gostatsd.MetricMap, handler overfl
 }
 
 // SendEvent sends events to the statsd master server.
-func (client *client) SendEvent(ctx context.Context, e *gostatsd.Event) error {
+func (client *Client) SendEvent(ctx context.Context, e *gostatsd.Event) error {
 	conn, err := client.sender.ConnFactory()
 	if err != nil {
 		return fmt.Errorf("error connecting to statsd backend: %s", err)
@@ -199,7 +199,7 @@ func constructEventMessage(e *gostatsd.Event) *bytes.Buffer {
 }
 
 // NewClient constructs a new statsd backend client.
-func NewClient(address string, dialTimeout, writeTimeout time.Duration, disableTags, tcpTransport bool) (gostatsd.Backend, error) {
+func NewClient(address string, dialTimeout, writeTimeout time.Duration, disableTags, tcpTransport bool) (*Client, error) {
 	if address == "" {
 		return nil, fmt.Errorf("[%s] address is required", BackendName)
 	}
@@ -219,7 +219,7 @@ func NewClient(address string, dialTimeout, writeTimeout time.Duration, disableT
 		packetSize = maxUDPPacketSize
 		transport = "udp"
 	}
-	return &client{
+	return &Client{
 		packetSize:  packetSize,
 		disableTags: disableTags,
 		sender: sender.Sender{
@@ -255,8 +255,8 @@ func NewClientFromViper(v *viper.Viper) (gostatsd.Backend, error) {
 	)
 }
 
-// BackendName returns the name of the backend.
-func (client *client) Name() string {
+// Name returns the name of the backend.
+func (Client) Name() string {
 	return BackendName
 }
 

@@ -16,8 +16,8 @@ import (
 // BackendName is the name of this backend.
 const BackendName = "stdout"
 
-// client is an object that is used to send messages to stdout.
-type client struct{}
+// Client is an object that is used to send messages to stdout.
+type Client struct{}
 
 // NewClientFromViper constructs a stdout backend.
 func NewClientFromViper(v *viper.Viper) (gostatsd.Backend, error) {
@@ -25,8 +25,8 @@ func NewClientFromViper(v *viper.Viper) (gostatsd.Backend, error) {
 }
 
 // NewClient constructs a stdout backend.
-func NewClient() (gostatsd.Backend, error) {
-	return &client{}, nil
+func NewClient() (*Client, error) {
+	return &Client{}, nil
 }
 
 // composeMetricName adds the key and the tags to compose the metric name.
@@ -46,7 +46,7 @@ func tagToMetricName(tag string) string {
 }
 
 // SendMetricsAsync prints the metrics in a MetricsMap to the stdout, preparing payload synchronously but doing the send asynchronously.
-func (client client) SendMetricsAsync(ctx context.Context, metrics *gostatsd.MetricMap, cb gostatsd.SendCallback) {
+func (client Client) SendMetricsAsync(ctx context.Context, metrics *gostatsd.MetricMap, cb gostatsd.SendCallback) {
 	buf := preparePayload(metrics)
 	go func() {
 		cb([]error{writePayload(buf)})
@@ -99,7 +99,7 @@ func preparePayload(metrics *gostatsd.MetricMap) *bytes.Buffer {
 }
 
 // SendEvent prints events to the stdout.
-func (client client) SendEvent(ctx context.Context, e *gostatsd.Event) (retErr error) {
+func (client Client) SendEvent(ctx context.Context, e *gostatsd.Event) (retErr error) {
 	writer := log.StandardLogger().Writer()
 	defer func() {
 		if err := writer.Close(); err != nil && retErr == nil {
@@ -110,7 +110,7 @@ func (client client) SendEvent(ctx context.Context, e *gostatsd.Event) (retErr e
 	return err
 }
 
-// BackendName returns the name of the backend.
-func (client client) Name() string {
+// Name returns the name of the backend.
+func (Client) Name() string {
 	return BackendName
 }
