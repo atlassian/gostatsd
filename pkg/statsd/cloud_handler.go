@@ -25,8 +25,9 @@ const (
 )
 
 type lookupResult struct {
+	err      error
 	ip       gostatsd.IP
-	instance *gostatsd.Instance // Can be nil if lookup failed
+	instance *gostatsd.Instance // Can be nil if lookup failed or instance was not found
 }
 
 type instanceHolder struct {
@@ -181,7 +182,10 @@ func (ch *CloudHandler) doRefresh(ctx context.Context, toLookup chan<- gostatsd.
 
 func (ch *CloudHandler) handleLookupResult(ctx context.Context, lr *lookupResult, awaitingMetrics map[gostatsd.IP][]*gostatsd.Metric, awaitingEvents map[gostatsd.IP][]*gostatsd.Event) {
 	var ttl time.Duration
-	if lr.instance == nil {
+	if lr.err != nil {
+		log.Infof("Error retrieving instance details from cloud provider for %s: %v", lr.ip, lr.err)
+	}
+	if lr.instance == nil || lr.err != nil {
 		ttl = ch.cacheOpts.CacheNegativeTTL
 	} else {
 		ttl = ch.cacheOpts.CacheTTL
@@ -196,6 +200,10 @@ func (ch *CloudHandler) handleLookupResult(ctx context.Context, lr *lookupResult
 		newHolder.lastAccessNano = now.UnixNano()
 	} else {
 		newHolder.lastAccessNano = currentHolder.lastAccess()
+		if lr.err != nil {
+			// Use the old instance if there was a lookup error.
+			newHolder.instance = currentHolder.instance
+		}
 	}
 	ch.rw.Lock()
 	ch.cache[lr.ip] = newHolder
@@ -305,10 +313,8 @@ func (ch *CloudHandler) doLookup(ctx context.Context, wg *sync.WaitGroup, ip gos
 	defer wg.Done()
 
 	instance, err := ch.cloud.Instance(ctx, ip)
-	if err != nil {
-		log.Debugf("Error retrieving instance details from cloud provider for %s: %v", ip, err)
-	}
 	res := &lookupResult{
+		err:      err,
 		ip:       ip,
 		instance: instance,
 	}

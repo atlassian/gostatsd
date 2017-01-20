@@ -129,18 +129,21 @@ func NewProviderFromViper(v *viper.Viper) (gostatsd.CloudProvider, error) {
 			Timeout:   5 * time.Second,
 			KeepAlive: 30 * time.Second,
 		}).DialContext,
+		MaxIdleConns:          50,
+		IdleConnTimeout:       1 * time.Minute,
+		ResponseHeaderTimeout: 2 * time.Second,
+		ExpectContinueTimeout: 2 * time.Second,
 	}
 	if err := http2.ConfigureTransport(transport); err != nil {
 		return nil, err
 	}
-	config := &aws.Config{
-		MaxRetries: aws.Int(a.GetInt("max_retries")),
-		HTTPClient: &http.Client{
+	sharedConfig := aws.NewConfig().
+		WithHTTPClient(&http.Client{
 			Transport: transport,
 			Timeout:   httpTimeout,
-		},
-	}
-	metadata := ec2metadata.New(session.New(config))
+		}).
+		WithMaxRetries(a.GetInt("max_retries"))
+	metadata := ec2metadata.New(session.New(sharedConfig))
 	az, err := metadata.GetMetadata("placement/availability-zone")
 	if err != nil {
 		return nil, fmt.Errorf("error getting availability zone: %v", err)
@@ -149,19 +152,19 @@ func NewProviderFromViper(v *viper.Viper) (gostatsd.CloudProvider, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error getting aws region: %v", err)
 	}
+	ec2config := sharedConfig.Copy().
+		WithCredentials(credentials.NewChainCredentials(
+			[]credentials.Provider{
+				&credentials.EnvProvider{},
+				&ec2rolecreds.EC2RoleProvider{
+					Client: metadata,
+				},
+				&credentials.SharedCredentialsProvider{},
+			})).
+		WithRegion(region)
 	return &Provider{
 		Metadata: metadata,
-		Ec2: ec2.New(session.New(config.Copy(&aws.Config{
-			Credentials: credentials.NewChainCredentials(
-				[]credentials.Provider{
-					&credentials.EnvProvider{},
-					&ec2rolecreds.EC2RoleProvider{
-						Client: metadata,
-					},
-					&credentials.SharedCredentialsProvider{},
-				}),
-			Region: aws.String(region),
-		}))),
+		Ec2:      ec2.New(session.New(ec2config)),
 	}, nil
 }
 

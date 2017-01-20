@@ -5,7 +5,7 @@ import:
 - package: github.com/spf13/pflag
 - package: github.com/spf13/viper
 - package: github.com/aws/aws-sdk-go
-  version: 1.6.8
+  version: 1.6.14
   subpackages:
   - aws/credentials
   - aws/credentials/ec2rolecreds
