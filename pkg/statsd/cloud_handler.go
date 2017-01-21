@@ -126,11 +126,18 @@ func (ch *CloudHandler) Run(ctx context.Context) error {
 	awaitingEvents := make(map[gostatsd.IP][]*gostatsd.Event)
 	awaitingMetrics := make(map[gostatsd.IP][]*gostatsd.Metric)
 
-	var wg sync.WaitGroup
-	defer wg.Wait()       // Wait for lookupDispatcher to stop
+	subCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	ld := lookupDispatcher{
+		limiter:       ch.limiter,
+		cloud:         ch.cloud,
+		lookupResults: lookupResults,
+	}
+	go ld.run(subCtx, toLookup)
+	defer ld.join()       // Wait for lookupDispatcher to stop
 	defer close(toLookup) // Tell lookupDispatcher to stop
-	wg.Add(1)
-	go ch.lookupDispatcher(ctx, &wg, toLookup, lookupResults)
+	defer cancel()        // Tell lookupDispatcher to stop
 
 	refreshTicker := time.NewTicker(ch.cacheOpts.CacheRefreshPeriod)
 	defer refreshTicker.Stop()
@@ -286,41 +293,6 @@ func (ch *CloudHandler) updateAndDispatchEvents(ctx context.Context, instance *g
 			}
 			log.Warnf("Failed to dispatch event: %v", err)
 		}
-	}
-}
-
-func (ch *CloudHandler) lookupDispatcher(ctx context.Context, wg *sync.WaitGroup, toLookup <-chan gostatsd.IP, lookupResults chan<- *lookupResult) {
-	defer wg.Done()
-	defer log.Info("Cloud lookup dispatcher stopped")
-
-	var wgLookups sync.WaitGroup
-	defer wgLookups.Wait() // Wait for all in-flight lookups to finish
-
-	for ip := range toLookup {
-		if err := ch.limiter.Wait(ctx); err != nil {
-			if err != context.Canceled && err != context.DeadlineExceeded {
-				// This could be an error caused by context signaling done. Or something nasty but it is very unlikely.
-				log.Warnf("Error from limiter: %v", err)
-			}
-			return
-		}
-		wgLookups.Add(1)
-		go ch.doLookup(ctx, &wgLookups, ip, lookupResults)
-	}
-}
-
-func (ch *CloudHandler) doLookup(ctx context.Context, wg *sync.WaitGroup, ip gostatsd.IP, lookupResults chan<- *lookupResult) {
-	defer wg.Done()
-
-	instance, err := ch.cloud.Instance(ctx, ip)
-	res := &lookupResult{
-		err:      err,
-		ip:       ip,
-		instance: instance,
-	}
-	select {
-	case <-ctx.Done():
-	case lookupResults <- res:
 	}
 }
 
