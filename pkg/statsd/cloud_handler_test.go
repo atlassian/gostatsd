@@ -14,23 +14,25 @@ import (
 	"golang.org/x/time/rate"
 )
 
+var _ Handler = &CloudHandler{}
+
 func TestCloudHandlerExpirationAndRefresh(t *testing.T) {
 	t.Parallel()
 	t.Run("4.3.2.1", func(t *testing.T) {
-		testExpire(t, []gostatsd.IP{"4.3.2.1", "4.3.2.1"}, func(h Handler) error {
+		testExpire(t, []gostatsd.IP{"4.3.2.1", "4.3.2.1"}, func(h *CloudHandler) error {
 			e := se1()
 			return h.DispatchEvent(context.Background(), &e)
 		})
 	})
 	t.Run("1.2.3.4", func(t *testing.T) {
-		testExpire(t, []gostatsd.IP{"1.2.3.4", "1.2.3.4"}, func(h Handler) error {
+		testExpire(t, []gostatsd.IP{"1.2.3.4", "1.2.3.4"}, func(h *CloudHandler) error {
 			m := sm1()
 			return h.DispatchMetric(context.Background(), &m)
 		})
 	})
 }
 
-func testExpire(t *testing.T, expectedIps []gostatsd.IP, f func(Handler) error) {
+func testExpire(t *testing.T, expectedIps []gostatsd.IP, f func(*CloudHandler) error) {
 	t.Parallel()
 	fp := &fakeProviderIP{
 		Region: "us-west-3",
