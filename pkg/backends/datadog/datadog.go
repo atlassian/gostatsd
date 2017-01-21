@@ -264,6 +264,10 @@ func NewClient(apiEndpoint, apiKey string, metricsPerBatch uint, clientTimeout, 
 			Timeout:   5 * time.Second,
 			KeepAlive: 30 * time.Second,
 		}).DialContext,
+		MaxIdleConns:          50,
+		IdleConnTimeout:       1 * time.Minute,
+		ResponseHeaderTimeout: 2 * time.Second,
+		ExpectContinueTimeout: 2 * time.Second,
 	}
 	if err := http2.ConfigureTransport(transport); err != nil {
 		return nil, err
