@@ -1,3 +1,13 @@
+1.0.0
+-----
+- BREAKING: Renamed parameter `maxCloudRequests` into `max-cloud-requests` for consistency
+- BREAKING: Renamed parameter `burstCloudRequests` into `burst-cloud-requests` for consistency
+- Fix a bunch of linting issues
+- Run tests concurrently
+- Configure various timeouts on HTTP clients
+- Update dependencies
+- Big internals refactoring and cleanup
+
 0.15.1
 ------
 - Fix bug in Graphite backend introduced in 0.15.0 (#75)
