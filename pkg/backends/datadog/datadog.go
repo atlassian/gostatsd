@@ -222,13 +222,13 @@ func NewClientFromViper(v *viper.Viper) (gostatsd.Backend, error) {
 	dd := getSubViper(v, "datadog")
 	dd.SetDefault("api_endpoint", apiURL)
 	dd.SetDefault("metrics_per_batch", defaultMetricsPerBatch)
-	dd.SetDefault("timeout", defaultClientTimeout)
+	dd.SetDefault("client_timeout", defaultClientTimeout)
 	dd.SetDefault("max_request_elapsed_time", defaultMaxRequestElapsedTime)
 	return NewClient(
 		dd.GetString("api_endpoint"),
 		dd.GetString("api_key"),
 		uint(dd.GetInt("metrics_per_batch")),
-		dd.GetDuration("timeout"),
+		dd.GetDuration("client_timeout"),
 		dd.GetDuration("max_request_elapsed_time"),
 	)
 }
@@ -253,7 +253,7 @@ func NewClient(apiEndpoint, apiKey string, metricsPerBatch uint, clientTimeout, 
 	log.Infof("[%s] maxRequestElapsedTime=%s clientTimeout=%s metricsPerBatch=%d", BackendName, maxRequestElapsedTime, clientTimeout, metricsPerBatch)
 	transport := &http.Transport{
 		Proxy:               http.ProxyFromEnvironment,
-		TLSHandshakeTimeout: 5 * time.Second,
+		TLSHandshakeTimeout: 3 * time.Second,
 		TLSClientConfig: &tls.Config{
 			// Can't use SSLv3 because of POODLE and BEAST
 			// Can't use TLSv1.0 because of POODLE and BEAST using CBC cipher
@@ -264,10 +264,8 @@ func NewClient(apiEndpoint, apiKey string, metricsPerBatch uint, clientTimeout, 
 			Timeout:   5 * time.Second,
 			KeepAlive: 30 * time.Second,
 		}).DialContext,
-		MaxIdleConns:          50,
-		IdleConnTimeout:       1 * time.Minute,
-		ResponseHeaderTimeout: 2 * time.Second,
-		ExpectContinueTimeout: 2 * time.Second,
+		MaxIdleConns:    50,
+		IdleConnTimeout: 1 * time.Minute,
 	}
 	if err := http2.ConfigureTransport(transport); err != nil {
 		return nil, err

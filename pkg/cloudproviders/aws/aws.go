@@ -24,7 +24,8 @@ import (
 
 const (
 	// ProviderName is the name of AWS cloud provider.
-	ProviderName = "aws"
+	ProviderName         = "aws"
+	defaultClientTimeout = 9 * time.Second
 )
 
 // Provider represents an AWS provider.
@@ -109,16 +110,16 @@ func azToRegion(az string) (string, error) {
 func NewProviderFromViper(v *viper.Viper) (gostatsd.CloudProvider, error) {
 	a := getSubViper(v, "aws")
 	a.SetDefault("max_retries", 3)
-	a.SetDefault("http_timeout", 3*time.Second)
-	httpTimeout := a.GetDuration("http_timeout")
+	a.SetDefault("client_timeout", defaultClientTimeout)
+	httpTimeout := a.GetDuration("client_timeout")
 	if httpTimeout <= 0 {
-		return nil, errors.New("http client timeout must be positive")
+		return nil, errors.New("client timeout must be positive")
 	}
 
 	// This is the main config without credentials.
 	transport := &http.Transport{
 		Proxy:               http.ProxyFromEnvironment,
-		TLSHandshakeTimeout: 5 * time.Second,
+		TLSHandshakeTimeout: 3 * time.Second,
 		TLSClientConfig: &tls.Config{
 			// Can't use SSLv3 because of POODLE and BEAST
 			// Can't use TLSv1.0 because of POODLE and BEAST using CBC cipher
@@ -129,10 +130,8 @@ func NewProviderFromViper(v *viper.Viper) (gostatsd.CloudProvider, error) {
 			Timeout:   5 * time.Second,
 			KeepAlive: 30 * time.Second,
 		}).DialContext,
-		MaxIdleConns:          50,
-		IdleConnTimeout:       1 * time.Minute,
-		ResponseHeaderTimeout: 2 * time.Second,
-		ExpectContinueTimeout: 2 * time.Second,
+		MaxIdleConns:    50,
+		IdleConnTimeout: 1 * time.Minute,
 	}
 	if err := http2.ConfigureTransport(transport); err != nil {
 		return nil, err
@@ -150,7 +149,7 @@ func NewProviderFromViper(v *viper.Viper) (gostatsd.CloudProvider, error) {
 	}
 	region, err := azToRegion(az)
 	if err != nil {
-		return nil, fmt.Errorf("error getting aws region: %v", err)
+		return nil, fmt.Errorf("error getting AWS region: %v", err)
 	}
 	ec2config := sharedConfig.Copy().
 		WithCredentials(credentials.NewChainCredentials(
