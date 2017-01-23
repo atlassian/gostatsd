@@ -3,6 +3,7 @@ package statsdaemon
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
 	"fmt"
 	"net"
 	"strconv"
@@ -12,8 +13,6 @@ import (
 
 	"github.com/atlassian/gostatsd"
 	"github.com/atlassian/gostatsd/pkg/backends/sender"
-
-	"crypto/tls"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/spf13/viper"

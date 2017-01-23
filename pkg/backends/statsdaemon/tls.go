@@ -13,27 +13,21 @@ func getTLSConfiguration(caPath, certPath, keyPath string, enable bool) (*tls.Co
 	}
 
 	tlsConfig := &tls.Config{
+		// Can't use SSLv3 because of POODLE and BEAST
+		// Can't use TLSv1.0 because of POODLE and BEAST using CBC cipher
+		// Can't use TLSv1.1 because of RC4 cipher usage
 		MinVersion: tls.VersionTLS12,
-		// Rationale:
-		// * Retain performance-conscious ordering from the crypto/tls defaults
-		// * Reject deprecated ciphers and modes, including non-DHE
-		CipherSuites: []uint16{
-			tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
-			tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
-			tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
-			tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
-		},
 	}
 
 	if caPath != "" {
 		caPEM, err := ioutil.ReadFile(caPath)
 		if err != nil {
-			return nil, fmt.Errorf("[%s] error reading tls ca: %v", BackendName, err)
+			return nil, fmt.Errorf("[%s] error reading TLS CA: %v", BackendName, err)
 		}
 
 		tlsConfig.RootCAs = x509.NewCertPool()
 		if ok := tlsConfig.RootCAs.AppendCertsFromPEM(caPEM); !ok {
-			return nil, fmt.Errorf("[%s] error reading tls ca: no certs found", BackendName)
+			return nil, fmt.Errorf("[%s] error reading TLS CA: no certificates found", BackendName)
 		}
 	}
 
