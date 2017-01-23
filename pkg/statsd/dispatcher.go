@@ -4,11 +4,8 @@ import (
 	"context"
 	"hash/adler32"
 	"sync"
-	"time"
 
 	"github.com/atlassian/gostatsd"
-
-	log "github.com/Sirupsen/logrus"
 )
 
 // AggregatorFactory creates Aggregator objects.
@@ -23,18 +20,6 @@ type AggregatorFactoryFunc func() Aggregator
 // Create calls f().
 func (f AggregatorFactoryFunc) Create() Aggregator {
 	return f()
-}
-
-type processCommand struct {
-	f  DispatcherProcessFunc
-	wg sync.WaitGroup
-}
-
-type worker struct {
-	aggr         Aggregator
-	metricsQueue chan *gostatsd.Metric
-	processChan  chan *processCommand
-	id           uint16
 }
 
 // MetricDispatcher dispatches incoming metrics to corresponding aggregators.
@@ -102,13 +87,13 @@ func (d *MetricDispatcher) Process(ctx context.Context, f DispatcherProcessFunc)
 	cmd := &processCommand{
 		f: f,
 	}
-	cmd.wg.Add(len(d.workers))
+	cmd.wg.Add(d.numWorkers)
 	cmdSent := 0
 loop:
 	for _, worker := range d.workers {
 		select {
 		case <-ctx.Done():
-			cmd.wg.Add(cmdSent - len(d.workers)) // Not all commands have been sent, should decrement the WG counter.
+			cmd.wg.Add(cmdSent - d.numWorkers) // Not all commands have been sent, should decrement the WG counter.
 			break loop
 		case worker.processChan <- cmd:
 			cmdSent++
@@ -116,26 +101,4 @@ loop:
 	}
 
 	return &cmd.wg
-}
-
-func (w *worker) work(wg *sync.WaitGroup) {
-	defer wg.Done()
-
-	for {
-		select {
-		case metric, ok := <-w.metricsQueue:
-			if !ok {
-				log.Info("Worker metrics queue was closed, exiting")
-				return
-			}
-			w.aggr.Receive(metric, time.Now())
-		case cmd := <-w.processChan:
-			w.executeProcess(cmd)
-		}
-	}
-}
-
-func (w *worker) executeProcess(cmd *processCommand) {
-	defer cmd.wg.Done() // Done with the process command
-	cmd.f(w.id, w.aggr)
 }
