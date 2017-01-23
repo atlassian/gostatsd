@@ -18,7 +18,7 @@ type ConnFactory func() (net.Conn, error)
 
 type Stream struct {
 	Cb  gostatsd.SendCallback
-	Buf chan *bytes.Buffer
+	Buf <-chan *bytes.Buffer
 }
 
 type Sender struct {
