@@ -33,7 +33,7 @@ type lookupResult struct {
 type instanceHolder struct {
 	lastAccessNano int64
 	expires        time.Time          // When this record expires.
-	instance       *gostatsd.Instance // Can be nil if the lookup resulted in an error (instance not found/etc)
+	instance       *gostatsd.Instance // Can be nil if the lookup resulted in an error or instance was not found
 }
 
 func (ih *instanceHolder) updateAccess() {
@@ -191,8 +191,6 @@ func (ch *CloudHandler) handleLookupResult(ctx context.Context, lr *lookupResult
 	var ttl time.Duration
 	if lr.err != nil {
 		log.Infof("Error retrieving instance details from cloud provider for %s: %v", lr.ip, lr.err)
-	}
-	if lr.instance == nil || lr.err != nil {
 		ttl = ch.cacheOpts.CacheNegativeTTL
 	} else {
 		ttl = ch.cacheOpts.CacheTTL
