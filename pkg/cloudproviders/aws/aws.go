@@ -143,11 +143,7 @@ func NewProviderFromViper(v *viper.Viper) (gostatsd.CloudProvider, error) {
 		}).
 		WithMaxRetries(a.GetInt("max_retries"))
 	metadata := ec2metadata.New(session.New(sharedConfig))
-	az, err := metadata.GetMetadata("placement/availability-zone")
-	if err != nil {
-		return nil, fmt.Errorf("error getting availability zone: %v", err)
-	}
-	region, err := azToRegion(az)
+	region, err := metadata.Region()
 	if err != nil {
 		return nil, fmt.Errorf("error getting AWS region: %v", err)
 	}
