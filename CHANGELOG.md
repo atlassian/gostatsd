@@ -1,3 +1,7 @@
+2.0.1
+-----
+- Do not log an error if source instance was not found
+
 2.0.0
 -----
 - BREAKING: Renamed `aws.http_timeout` into `aws.client_timeout` for consistency
