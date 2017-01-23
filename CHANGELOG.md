@@ -1,3 +1,9 @@
+2.0.0
+-----
+- BREAKING: Renamed `aws.http_timeout` into `aws.client_timeout` for consistency
+- BREAKING: Renamed `datadog.timeout` into `datadog.client_timeout` for consistency
+- Tweaked some timeouts on HTTP clients
+
 1.0.0
 -----
 - BREAKING: Renamed parameter `maxCloudRequests` into `max-cloud-requests` for consistency
