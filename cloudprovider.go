@@ -21,6 +21,7 @@ type CloudProvider interface {
 	// Name returns the name of the cloud provider.
 	Name() string
 	// Instance returns the instance details from the cloud provider.
+	// Returns nil pointer if instance was not found.
 	Instance(context.Context, IP) (*Instance, error)
 	// SelfIP returns host's IPv4 address.
 	SelfIP() (IP, error)

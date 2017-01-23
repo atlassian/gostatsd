@@ -43,7 +43,8 @@ func newEc2Filter(name string, value string) *ec2.Filter {
 	}
 }
 
-// Instance returns the instance details from aws.
+// Instance returns the instance details from AWS.
+// Returns nil pointer if instance was not found.
 func (p *Provider) Instance(ctx context.Context, IP gostatsd.IP) (*gostatsd.Instance, error) {
 	req, _ := p.Ec2.DescribeInstancesRequest(&ec2.DescribeInstancesInput{
 		Filters: []*ec2.Filter{
@@ -65,7 +66,7 @@ func (p *Provider) Instance(ctx context.Context, IP gostatsd.IP) (*gostatsd.Inst
 		return nil, fmt.Errorf("error listing AWS instances: %v", err)
 	}
 	if inst == nil {
-		return nil, errors.New("no instances found")
+		return nil, nil
 	}
 	region, err := azToRegion(aws.StringValue(inst.Placement.AvailabilityZone))
 	if err != nil {
