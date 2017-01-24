@@ -143,7 +143,11 @@ func NewProviderFromViper(v *viper.Viper) (gostatsd.CloudProvider, error) {
 			Timeout:   httpTimeout,
 		}).
 		WithMaxRetries(a.GetInt("max_retries"))
-	metadata := ec2metadata.New(session.New(sharedConfig))
+	metadataSession, err := session.NewSession(sharedConfig)
+	if err != nil {
+		return nil, fmt.Errorf("error creating a new Metadata session: %v", err)
+	}
+	metadata := ec2metadata.New(metadataSession)
 	region, err := metadata.Region()
 	if err != nil {
 		return nil, fmt.Errorf("error getting AWS region: %v", err)
@@ -158,9 +162,13 @@ func NewProviderFromViper(v *viper.Viper) (gostatsd.CloudProvider, error) {
 				&credentials.SharedCredentialsProvider{},
 			})).
 		WithRegion(region)
+	ec2Session, err := session.NewSession(ec2config)
+	if err != nil {
+		return nil, fmt.Errorf("error creating a new EC2 session: %v", err)
+	}
 	return &Provider{
 		Metadata: metadata,
-		Ec2:      ec2.New(session.New(ec2config)),
+		Ec2:      ec2.New(ec2Session),
 	}, nil
 }
 
