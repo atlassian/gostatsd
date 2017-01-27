@@ -13,6 +13,7 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/credentials/ec2rolecreds"
 	"github.com/aws/aws-sdk-go/aws/ec2metadata"
@@ -63,6 +64,11 @@ func (p *Provider) Instance(ctx context.Context, IP gostatsd.IP) (*gostatsd.Inst
 		return true
 	})
 	if err != nil {
+		// Avoid spamming logs if instance id is not visible yet due to eventual consistency.
+		// https://docs.aws.amazon.com/AWSEC2/latest/APIReference/errors-overview.html#CommonErrors
+		if awsErr, ok := err.(awserr.Error); ok && awsErr.Code() == "InvalidInstanceID.NotFound" {
+			return nil, nil
+		}
 		return nil, fmt.Errorf("error listing AWS instances: %v", err)
 	}
 	if inst == nil {
