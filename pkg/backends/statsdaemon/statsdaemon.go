@@ -3,6 +3,7 @@ package statsdaemon
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
 	"fmt"
 	"net"
 	"strconv"
@@ -199,7 +200,7 @@ func constructEventMessage(e *gostatsd.Event) *bytes.Buffer {
 }
 
 // NewClient constructs a new statsd backend client.
-func NewClient(address string, dialTimeout, writeTimeout time.Duration, disableTags, tcpTransport bool) (*Client, error) {
+func NewClient(address string, dialTimeout, writeTimeout time.Duration, disableTags, tcpTransport bool, tlsConfig *tls.Config) (*Client, error) {
 	if address == "" {
 		return nil, fmt.Errorf("[%s] address is required", BackendName)
 	}
@@ -211,22 +212,36 @@ func NewClient(address string, dialTimeout, writeTimeout time.Duration, disableT
 	}
 	log.Infof("[%s] address=%s dialTimeout=%s writeTimeout=%s", BackendName, address, dialTimeout, writeTimeout)
 	var packetSize int
-	var transport string
-	if tcpTransport {
+	var connFactory func() (net.Conn, error)
+
+	if tlsConfig != nil {
+		if !tcpTransport {
+			// Avoid surprising a user that expected this to enable DTLS.
+			return nil, fmt.Errorf("[%s] tcp_transport is required when using tls_transport", BackendName)
+		}
+
 		packetSize = maxTCPPacketSize
-		transport = "tcp"
+		dialer := &net.Dialer{Timeout: dialTimeout}
+		connFactory = func() (net.Conn, error) {
+			return tls.DialWithDialer(dialer, "tcp", address, tlsConfig)
+		}
+	} else if tcpTransport {
+		packetSize = maxTCPPacketSize
+		connFactory = func() (net.Conn, error) {
+			return net.DialTimeout("tcp", address, dialTimeout)
+		}
 	} else {
 		packetSize = maxUDPPacketSize
-		transport = "udp"
+		connFactory = func() (net.Conn, error) {
+			return net.DialTimeout("udp", address, dialTimeout)
+		}
 	}
 	return &Client{
 		packetSize:  packetSize,
 		disableTags: disableTags,
 		sender: sender.Sender{
-			ConnFactory: func() (net.Conn, error) {
-				return net.DialTimeout(transport, address, dialTimeout)
-			},
-			Sink: make(chan sender.Stream, maxConcurrentSends),
+			ConnFactory: connFactory,
+			Sink:        make(chan sender.Stream, maxConcurrentSends),
 			BufPool: sync.Pool{
 				New: func() interface{} {
 					buf := new(bytes.Buffer)
@@ -246,12 +261,22 @@ func NewClientFromViper(v *viper.Viper) (gostatsd.Backend, error) {
 	g.SetDefault("write_timeout", DefaultWriteTimeout)
 	g.SetDefault("disable_tags", false)
 	g.SetDefault("tcp_transport", false)
+	g.SetDefault("tls_transport", false)
+	maybeTLSConfig, err := getTLSConfiguration(
+		g.GetString("tls_ca_path"),
+		g.GetString("tls_cert_path"),
+		g.GetString("tls_key_path"),
+		g.GetBool("tls_transport"))
+	if err != nil {
+		return nil, err
+	}
 	return NewClient(
 		g.GetString("address"),
 		g.GetDuration("dial_timeout"),
 		g.GetDuration("write_timeout"),
 		g.GetBool("disable_tags"),
 		g.GetBool("tcp_transport"),
+		maybeTLSConfig,
 	)
 }
 
