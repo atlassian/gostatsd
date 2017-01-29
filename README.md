@@ -23,11 +23,9 @@ Being written in Go, it is able to use all cores which makes it easy to scale up
 server based on load. The server can also be run HA and be scaled out, see
 [Load balancing and scaling out](https://github.com/atlassian/gostatsd#load-balancing-and-scaling-out).
 
-
 Building the server
 -------------------
-From the `gostatsd/` directory run `make build`. The binary will be built in `build/bin/<arch>/gostatsd`.
-
+From the `gostatsd` directory run `make build`. The binary will be built in `build/bin/<arch>/gostatsd`.
 
 Running the server
 ------------------
@@ -37,11 +35,25 @@ to display info on screen.
 You can also run through `docker` by running `make run-docker` which will use `docker-compose`
 to run `gostatsd` with a graphite backend and a grafana dashboard. 
 
-Configuring the backends
-------------------------
-Backends are configured using `toml`, `json` or `yaml` configuration file passed through
-the `--config-path` flag, see [example/config.toml](example/config.toml).
+Configuring backends and cloud providers
+----------------------------------------
+Backends and cloud providers are configured using `toml`, `json` or `yaml` configuration file
+passed via the `--config-path` flag. For all configuration options see source code of the backends you
+are interested in. Configuration file might look like this:
+```
+[graphite]
+	address = "192.168.99.100:2003"
 
+[datadog]
+	api_key = "my-secret-key" # Datadog API key required.
+
+[statsdaemon]
+	address = "docker.local:8125"
+	disable_tags = false
+
+[aws]
+	max_retries = 4
+```
 
 Sending metrics
 ---------------
@@ -123,7 +135,7 @@ Prior to accepting your contributions we ask that you please follow the appropri
 License
 -------
 
-Copyright (c) 2012 Kamil Kisiel, Copyright (c) 2016 Atlassian and others. MIT licensed, see LICENSE file.
+Copyright (c) 2012 Kamil Kisiel, Copyright (c) 2016-2017 Atlassian and others. MIT licensed, see LICENSE file.
 
 [etsy]: https://www.etsy.com
 [statsd]: https://www.github.com/etsy/statsd
