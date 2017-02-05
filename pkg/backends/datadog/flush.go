@@ -1,6 +1,8 @@
 package datadog
 
 import (
+	"fmt"
+
 	"github.com/atlassian/gostatsd"
 )
 
@@ -40,8 +42,13 @@ type metric struct {
 // point is a Datadog data point.
 type point [2]float64
 
-// AddMetric adds a metric to the series.
-func (f *flush) addMetric(name string, metricType metricType, value float64, hostname string, tags gostatsd.Tags) {
+// addMetricf adds a metric to the series.
+func (f *flush) addMetricf(metricType metricType, value float64, hostname string, tags gostatsd.Tags, nameFormat string, a ...interface{}) {
+	f.addMetric(metricType, value, hostname, tags, fmt.Sprintf(nameFormat, a...))
+}
+
+// addMetric adds a metric to the series.
+func (f *flush) addMetric(metricType metricType, value float64, hostname string, tags gostatsd.Tags, name string) {
 	f.ts.Series = append(f.ts.Series, metric{
 		Host:     hostname,
 		Interval: f.flushIntervalSec,
