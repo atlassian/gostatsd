@@ -172,18 +172,31 @@ func (d *Client) post(ctx context.Context, path, typeOfPost string, data interfa
 
 	b := backoff.NewExponentialBackOff()
 	b.MaxElapsedTime = d.maxRequestElapsedTime
-	err = backoff.RetryNotify(d.doPost(ctx, path, tsBytes), b, func(err error, d time.Duration) {
-		log.Warnf("[%s] failed to send %s, sleeping for %s: %v", BackendName, typeOfPost, d, err)
-	})
-	if err != nil {
-		return fmt.Errorf("[%s] %v", BackendName, err)
-	}
+	authenticatedURL := d.authenticatedURL(path)
+	post := d.constructPost(ctx, authenticatedURL, tsBytes)
+	for {
+		if err = post(); err == nil {
+			return nil
+		}
 
-	return nil
+		next := b.NextBackOff()
+		if next == backoff.Stop {
+			return fmt.Errorf("[%s] %v", BackendName, err)
+		}
+
+		log.Warnf("[%s] failed to send %s, sleeping for %s: %v", BackendName, typeOfPost, next, err)
+
+		timer := time.NewTimer(next)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return ctx.Err()
+		case <-timer.C:
+		}
+	}
 }
 
-func (d *Client) doPost(ctx context.Context, path string, body []byte) backoff.Operation {
-	authenticatedURL := d.authenticatedURL(path)
+func (d *Client) constructPost(ctx context.Context, authenticatedURL string, body []byte) func() error {
 	return func() error {
 		req, err := http.NewRequest("POST", authenticatedURL, bytes.NewReader(body))
 		if err != nil {
