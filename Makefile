@@ -9,7 +9,7 @@ BINARY_NAME := gostatsd
 IMAGE_NAME := atlassianlabs/$(BINARY_NAME)
 ARCH ?= darwin
 METALINTER_CONCURRENCY ?= 4
-GOVERSION := 1.7
+GOVERSION := 1.8
 GP := /gopath
 MAIN_PKG := github.com/atlassian/gostatsd/cmd/gostatsd
 
