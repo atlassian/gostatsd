@@ -126,7 +126,7 @@ func (ch *CloudHandler) Run(ctx context.Context) error {
 	awaitingEvents := make(map[gostatsd.IP][]*gostatsd.Event)
 	awaitingMetrics := make(map[gostatsd.IP][]*gostatsd.Metric)
 
-	subCtx, cancel := context.WithCancel(ctx)
+	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
 	ld := lookupDispatcher{
@@ -134,7 +134,7 @@ func (ch *CloudHandler) Run(ctx context.Context) error {
 		cloud:         ch.cloud,
 		lookupResults: lookupResults,
 	}
-	go ld.run(subCtx, toLookup)
+	go ld.run(ctx, toLookup)
 	defer ld.join()       // Wait for lookupDispatcher to stop
 	defer close(toLookup) // Tell lookupDispatcher to stop
 	defer cancel()        // Tell lookupDispatcher to stop
