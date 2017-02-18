@@ -22,14 +22,14 @@ type testAggregator struct {
 
 func (a *testAggregator) Receive(m *gostatsd.Metric, t time.Time) {
 	a.af.Mutex.Lock()
+	defer a.af.Mutex.Unlock()
 	a.af.receiveInvocations[a.agrNumber]++
-	a.af.Mutex.Unlock()
 }
 
 func (a *testAggregator) Flush(interval time.Duration) {
 	a.af.Mutex.Lock()
+	defer a.af.Mutex.Unlock()
 	a.af.flushInvocations[a.agrNumber]++
-	a.af.Mutex.Unlock()
 }
 
 func (a *testAggregator) Process(f ProcessFunc) {
@@ -41,8 +41,8 @@ func (a *testAggregator) Process(f ProcessFunc) {
 
 func (a *testAggregator) Reset() {
 	a.af.Mutex.Lock()
+	defer a.af.Mutex.Unlock()
 	a.af.resetInvocations[a.agrNumber]++
-	a.af.Mutex.Unlock()
 }
 
 type testAggregatorFactory struct {

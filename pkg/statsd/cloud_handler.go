@@ -180,10 +180,10 @@ func (ch *CloudHandler) doRefresh(ctx context.Context, toLookup chan<- gostatsd.
 	}
 	if len(toDelete) > 0 {
 		ch.rw.Lock()
+		defer ch.rw.Unlock()
 		for _, ip := range toDelete {
 			delete(ch.cache, ip)
 		}
-		ch.rw.Unlock()
 	}
 }
 
@@ -210,9 +210,11 @@ func (ch *CloudHandler) handleLookupResult(ctx context.Context, lr *lookupResult
 			newHolder.instance = currentHolder.instance
 		}
 	}
-	ch.rw.Lock()
-	ch.cache[lr.ip] = newHolder
-	ch.rw.Unlock()
+	func() {
+		ch.rw.Lock()
+		defer ch.rw.Unlock()
+		ch.cache[lr.ip] = newHolder
+	}()
 	metrics := awaitingMetrics[lr.ip]
 	if metrics != nil {
 		delete(awaitingMetrics, lr.ip)
