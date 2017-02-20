@@ -39,7 +39,13 @@ func TestStatsdThroughput(t *testing.T) {
 		MaxWorkers:       DefaultMaxWorkers,
 		MaxQueueSize:     DefaultMaxQueueSize,
 		PercentThreshold: DefaultPercentThreshold,
-		Viper:            viper.New(),
+		CacheOptions: CacheOptions{
+			CacheRefreshPeriod:        DefaultCacheRefreshPeriod,
+			CacheEvictAfterIdlePeriod: DefaultCacheEvictAfterIdlePeriod,
+			CacheTTL:                  DefaultCacheTTL,
+			CacheNegativeTTL:          DefaultCacheNegativeTTL,
+		},
+		Viper: viper.New(),
 	}
 	ctx, cancelFunc := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancelFunc()

@@ -14,14 +14,6 @@ import (
 
 const (
 	lookupChannelSize = 1024 // Random size. Should be good enough.
-	// DefaultCacheRefreshPeriod is the default cache refresh period.
-	DefaultCacheRefreshPeriod = 1 * time.Minute
-	// DefaultCacheEvictAfterIdlePeriod is the default idle cache eviction period.
-	DefaultCacheEvictAfterIdlePeriod = 10 * time.Minute
-	// DefaultCacheTTL is the default cache TTL for successful lookups.
-	DefaultCacheTTL = 30 * time.Minute
-	// DefaultCacheNegativeTTL is the default cache TTL for failed lookups (errors or when instance was not found).
-	DefaultCacheNegativeTTL = 1 * time.Minute
 )
 
 type lookupResult struct {
@@ -67,16 +59,7 @@ type CloudHandler struct {
 }
 
 // NewCloudHandler initialises a new cloud handler.
-// If cacheOptions is nil default cache configuration is used.
 func NewCloudHandler(cloud gostatsd.CloudProvider, next Handler, limiter *rate.Limiter, cacheOptions *CacheOptions) *CloudHandler {
-	if cacheOptions == nil {
-		cacheOptions = &CacheOptions{
-			CacheRefreshPeriod:        DefaultCacheRefreshPeriod,
-			CacheEvictAfterIdlePeriod: DefaultCacheEvictAfterIdlePeriod,
-			CacheTTL:                  DefaultCacheTTL,
-			CacheNegativeTTL:          DefaultCacheNegativeTTL,
-		}
-	}
 	return &CloudHandler{
 		cacheOpts:    *cacheOptions,
 		cloud:        cloud,

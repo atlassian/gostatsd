@@ -146,7 +146,12 @@ func TestCloudHandlerFailingProvider(t *testing.T) {
 }
 
 func doCheck(t *testing.T, cloud gostatsd.CloudProvider, counting *countingHandler, m1 gostatsd.Metric, e1 gostatsd.Event, m2 gostatsd.Metric, e2 gostatsd.Event, ips *[]gostatsd.IP, expectedIps []gostatsd.IP, expectedM []gostatsd.Metric, expectedE gostatsd.Events) {
-	ch := NewCloudHandler(cloud, counting, rate.NewLimiter(100, 120), nil)
+	ch := NewCloudHandler(cloud, counting, rate.NewLimiter(100, 120), &CacheOptions{
+		CacheRefreshPeriod:        DefaultCacheRefreshPeriod,
+		CacheEvictAfterIdlePeriod: DefaultCacheEvictAfterIdlePeriod,
+		CacheTTL:                  DefaultCacheTTL,
+		CacheNegativeTTL:          DefaultCacheNegativeTTL,
+	})
 	var wg sync.WaitGroup
 	defer wg.Wait()
 	ctx, cancelFunc := context.WithCancel(context.Background())
