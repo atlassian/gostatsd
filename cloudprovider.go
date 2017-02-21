@@ -20,9 +20,10 @@ type Instance struct {
 type CloudProvider interface {
 	// Name returns the name of the cloud provider.
 	Name() string
-	// Instance returns the instance details from the cloud provider.
-	// Returns nil pointer if instance was not found.
-	Instance(context.Context, IP) (*Instance, error)
+	// Instance returns instances details from the cloud provider.
+	// ip -> nil pointer if instance was not found.
+	// map is returned even in case of errors because it may contain partial data.
+	Instance(context.Context, ...IP) (map[IP]*Instance, error)
 	// SelfIP returns host's IPv4 address.
 	SelfIP() (IP, error)
 }

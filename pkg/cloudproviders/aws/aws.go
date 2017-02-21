@@ -35,30 +35,48 @@ type Provider struct {
 	Ec2      *ec2.EC2
 }
 
-func newEc2Filter(name string, value string) *ec2.Filter {
-	return &ec2.Filter{
-		Name: aws.String(name),
-		Values: []*string{
-			aws.String(value),
-		},
+// Instance returns instances details from AWS.
+// ip -> nil pointer if instance was not found.
+// map is returned even in case of errors because it may contain partial data.
+func (p *Provider) Instance(ctx context.Context, IP ...gostatsd.IP) (map[gostatsd.IP]*gostatsd.Instance, error) {
+	instances := make(map[gostatsd.IP]*gostatsd.Instance, len(IP))
+	values := make([]*string, len(IP))
+	for i, ip := range IP {
+		instances[ip] = nil // initialize map. Used for lookups to see if info for IP was requested
+		values[i] = aws.String(string(ip))
 	}
-}
-
-// Instance returns the instance details from AWS.
-// Returns nil pointer if instance was not found.
-func (p *Provider) Instance(ctx context.Context, IP gostatsd.IP) (*gostatsd.Instance, error) {
 	req, _ := p.Ec2.DescribeInstancesRequest(&ec2.DescribeInstancesInput{
 		Filters: []*ec2.Filter{
-			newEc2Filter("private-ip-address", string(IP)),
+			{
+				Name:   aws.String("private-ip-address"),
+				Values: values,
+			},
 		},
 	})
 	req.HTTPRequest = req.HTTPRequest.WithContext(ctx)
-	var inst *ec2.Instance
 	err := req.EachPage(func(data interface{}, isLastPage bool) bool {
 		for _, reservation := range data.(*ec2.DescribeInstancesOutput).Reservations {
 			for _, instance := range reservation.Instances {
-				inst = instance
-				return false
+				ip := getInterestingInstanceIP(instance, instances)
+				if ip == gostatsd.UnknownIP {
+					log.Warnf("AWS returned unexpected EC2 instance: %#v", instance)
+					continue
+				}
+				region, err := azToRegion(aws.StringValue(instance.Placement.AvailabilityZone))
+				if err != nil {
+					log.Errorf("Error getting instance region: %v", err)
+				}
+				tags := make(gostatsd.Tags, len(instance.Tags))
+				for idx, tag := range instance.Tags {
+					tags[idx] = fmt.Sprintf("%s:%s",
+						gostatsd.NormalizeTagKey(aws.StringValue(tag.Key)),
+						aws.StringValue(tag.Value))
+				}
+				instances[ip] = &gostatsd.Instance{
+					ID:     aws.StringValue(instance.InstanceId),
+					Region: region,
+					Tags:   tags,
+				}
 			}
 		}
 		return true
@@ -67,29 +85,37 @@ func (p *Provider) Instance(ctx context.Context, IP gostatsd.IP) (*gostatsd.Inst
 		// Avoid spamming logs if instance id is not visible yet due to eventual consistency.
 		// https://docs.aws.amazon.com/AWSEC2/latest/APIReference/errors-overview.html#CommonErrors
 		if awsErr, ok := err.(awserr.Error); ok && awsErr.Code() == "InvalidInstanceID.NotFound" {
-			return nil, nil
+			return instances, nil
 		}
-		return nil, fmt.Errorf("error listing AWS instances: %v", err)
+		return instances, fmt.Errorf("error listing AWS instances: %v", err)
 	}
-	if inst == nil {
-		return nil, nil
+	return instances, nil
+}
+
+func getInterestingInstanceIP(instance *ec2.Instance, instances map[gostatsd.IP]*gostatsd.Instance) gostatsd.IP {
+	// Check primary private IPv4 address
+	ip := gostatsd.IP(aws.StringValue(instance.PrivateIpAddress))
+	if _, ok := instances[ip]; ok {
+		return ip
 	}
-	region, err := azToRegion(aws.StringValue(inst.Placement.AvailabilityZone))
-	if err != nil {
-		log.Errorf("Error getting instance region: %v", err)
+	// Check interfaces
+	for _, iface := range instance.NetworkInterfaces {
+		// Check private IPv4 addresses on interface
+		for _, privateIP := range iface.PrivateIpAddresses {
+			ip = gostatsd.IP(aws.StringValue(privateIP.PrivateIpAddress))
+			if _, ok := instances[ip]; ok {
+				return ip
+			}
+		}
+		// Check private IPv6 addresses on interface
+		for _, IPv6 := range iface.Ipv6Addresses {
+			ip = gostatsd.IP(aws.StringValue(IPv6.Ipv6Address))
+			if _, ok := instances[ip]; ok {
+				return ip
+			}
+		}
 	}
-	tags := make(gostatsd.Tags, len(inst.Tags))
-	for idx, tag := range inst.Tags {
-		tags[idx] = fmt.Sprintf("%s:%s",
-			gostatsd.NormalizeTagKey(aws.StringValue(tag.Key)),
-			aws.StringValue(tag.Value))
-	}
-	instance := &gostatsd.Instance{
-		ID:     aws.StringValue(inst.InstanceId),
-		Region: region,
-		Tags:   tags,
-	}
-	return instance, nil
+	return gostatsd.UnknownIP
 }
 
 // Name returns the name of the provider.

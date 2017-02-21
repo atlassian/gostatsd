@@ -109,18 +109,24 @@ func (ch *CloudHandler) Run(ctx context.Context) error {
 	awaitingEvents := make(map[gostatsd.IP][]*gostatsd.Event)
 	awaitingMetrics := make(map[gostatsd.IP][]*gostatsd.Metric)
 
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
-
 	ld := lookupDispatcher{
 		limiter:       ch.limiter,
 		cloud:         ch.cloud,
+		toLookup:      toLookup,
 		lookupResults: lookupResults,
 	}
-	go ld.run(ctx, toLookup)
-	defer ld.join()       // Wait for lookupDispatcher to stop
-	defer close(toLookup) // Tell lookupDispatcher to stop
-	defer cancel()        // Tell lookupDispatcher to stop
+
+	var wg sync.WaitGroup
+	defer wg.Wait() // Wait for lookupDispatcher to stop
+
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel() // Tell lookupDispatcher to stop
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		ld.run(ctx)
+	}()
 
 	refreshTicker := time.NewTicker(ch.cacheOpts.CacheRefreshPeriod)
 	defer refreshTicker.Stop()
