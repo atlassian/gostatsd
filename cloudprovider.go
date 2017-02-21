@@ -24,6 +24,8 @@ type CloudProvider interface {
 	// ip -> nil pointer if instance was not found.
 	// map is returned even in case of errors because it may contain partial data.
 	Instance(context.Context, ...IP) (map[IP]*Instance, error)
+	// MaxInstancesBatch returns maximum number of instances that could be requested via the Instance method.
+	MaxInstancesBatch() int
 	// SelfIP returns host's IPv4 address.
 	SelfIP() (IP, error)
 }

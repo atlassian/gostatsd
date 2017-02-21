@@ -25,14 +25,16 @@ import (
 
 const (
 	// ProviderName is the name of AWS cloud provider.
-	ProviderName         = "aws"
-	defaultClientTimeout = 9 * time.Second
+	ProviderName             = "aws"
+	defaultClientTimeout     = 9 * time.Second
+	defaultMaxInstancesBatch = 32
 )
 
 // Provider represents an AWS provider.
 type Provider struct {
-	Metadata *ec2metadata.EC2Metadata
-	Ec2      *ec2.EC2
+	Metadata     *ec2metadata.EC2Metadata
+	Ec2          *ec2.EC2
+	MaxInstances int
 }
 
 // Instance returns instances details from AWS.
@@ -118,6 +120,11 @@ func getInterestingInstanceIP(instance *ec2.Instance, instances map[gostatsd.IP]
 	return gostatsd.UnknownIP
 }
 
+// MaxInstancesBatch returns maximum number of instances that could be requested via the Instance method.
+func (p *Provider) MaxInstancesBatch() int {
+	return p.MaxInstances
+}
+
 // Name returns the name of the provider.
 func (p *Provider) Name() string {
 	return ProviderName
@@ -144,9 +151,14 @@ func NewProviderFromViper(v *viper.Viper) (gostatsd.CloudProvider, error) {
 	a := getSubViper(v, "aws")
 	a.SetDefault("max_retries", 3)
 	a.SetDefault("client_timeout", defaultClientTimeout)
+	a.SetDefault("max_instances_batch", defaultMaxInstancesBatch)
 	httpTimeout := a.GetDuration("client_timeout")
 	if httpTimeout <= 0 {
 		return nil, errors.New("client timeout must be positive")
+	}
+	maxInstances := a.GetInt("max_instances_batch")
+	if maxInstances <= 0 {
+		return nil, errors.New("max number of instances per batch must be positive")
 	}
 
 	// This is the main config without credentials.
@@ -199,8 +211,9 @@ func NewProviderFromViper(v *viper.Viper) (gostatsd.CloudProvider, error) {
 		return nil, fmt.Errorf("error creating a new EC2 session: %v", err)
 	}
 	return &Provider{
-		Metadata: metadata,
-		Ec2:      ec2.New(ec2Session),
+		Metadata:     metadata,
+		Ec2:          ec2.New(ec2Session),
+		MaxInstances: maxInstances,
 	}, nil
 }
 

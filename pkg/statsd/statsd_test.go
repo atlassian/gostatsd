@@ -99,6 +99,10 @@ func (fp *fakeProvider) Name() string {
 	return "fakeProvider"
 }
 
+func (p *fakeProvider) MaxInstancesBatch() int {
+	return 16
+}
+
 func (fp *fakeProvider) Instance(ctx context.Context, ips ...gostatsd.IP) (map[gostatsd.IP]*gostatsd.Instance, error) {
 	instances := make(map[gostatsd.IP]*gostatsd.Instance, len(ips))
 	for _, ip := range ips {
