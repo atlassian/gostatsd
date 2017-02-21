@@ -262,6 +262,10 @@ type fakeCountingProvider struct {
 	invocations uint64
 }
 
+func (p *fakeCountingProvider) MaxInstancesBatch() int {
+	return 16
+}
+
 func (fp *fakeCountingProvider) Invocations() uint64 {
 	fp.mu.Lock()
 	defer fp.mu.Unlock()
