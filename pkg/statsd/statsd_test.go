@@ -99,8 +99,12 @@ func (fp *fakeProvider) Name() string {
 	return "fakeProvider"
 }
 
-func (fp *fakeProvider) Instance(ctx context.Context, IP gostatsd.IP) (*gostatsd.Instance, error) {
-	return fp.instance, nil
+func (fp *fakeProvider) Instance(ctx context.Context, ips ...gostatsd.IP) (map[gostatsd.IP]*gostatsd.Instance, error) {
+	instances := make(map[gostatsd.IP]*gostatsd.Instance, len(ips))
+	for _, ip := range ips {
+		instances[ip] = fp.instance
+	}
+	return instances, nil
 }
 
 func (fp *fakeProvider) SelfIP() (gostatsd.IP, error) {

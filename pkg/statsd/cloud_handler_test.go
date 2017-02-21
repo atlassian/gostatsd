@@ -73,7 +73,6 @@ func TestCloudHandlerDispatch(t *testing.T) {
 		Region: "us-west-3",
 		Tags:   gostatsd.Tags{"tag1", "tag2:234"},
 	}
-	counting := &countingHandler{}
 
 	expectedIps := []gostatsd.IP{"1.2.3.4", "4.3.2.1"}
 	expectedMetrics := []gostatsd.Metric{
@@ -110,13 +109,12 @@ func TestCloudHandlerDispatch(t *testing.T) {
 			SourceIP: "4.3.2.1",
 		},
 	}
-	doCheck(t, fp, counting, sm1(), se1(), sm2(), se2(), &fp.ips, expectedIps, expectedMetrics, expectedEvents)
+	doCheck(t, fp, sm1(), se1(), sm2(), se2(), &fp.ips, expectedIps, expectedMetrics, expectedEvents)
 }
 
 func TestCloudHandlerInstanceNotFound(t *testing.T) {
 	t.Parallel()
 	fp := &fakeProviderNotFound{}
-	counting := &countingHandler{}
 	expectedIps := []gostatsd.IP{"1.2.3.4", "4.3.2.1"}
 	expectedMetrics := []gostatsd.Metric{
 		sm1(),
@@ -126,13 +124,12 @@ func TestCloudHandlerInstanceNotFound(t *testing.T) {
 		se1(),
 		se2(),
 	}
-	doCheck(t, fp, counting, sm1(), se1(), sm2(), se2(), &fp.ips, expectedIps, expectedMetrics, expectedEvents)
+	doCheck(t, fp, sm1(), se1(), sm2(), se2(), &fp.ips, expectedIps, expectedMetrics, expectedEvents)
 }
 
 func TestCloudHandlerFailingProvider(t *testing.T) {
 	t.Parallel()
 	fp := &fakeFailingProvider{}
-	counting := &countingHandler{}
 	expectedIps := []gostatsd.IP{"1.2.3.4", "4.3.2.1"}
 	expectedMetrics := []gostatsd.Metric{
 		sm1(),
@@ -142,10 +139,11 @@ func TestCloudHandlerFailingProvider(t *testing.T) {
 		se1(),
 		se2(),
 	}
-	doCheck(t, fp, counting, sm1(), se1(), sm2(), se2(), &fp.ips, expectedIps, expectedMetrics, expectedEvents)
+	doCheck(t, fp, sm1(), se1(), sm2(), se2(), &fp.ips, expectedIps, expectedMetrics, expectedEvents)
 }
 
-func doCheck(t *testing.T, cloud gostatsd.CloudProvider, counting *countingHandler, m1 gostatsd.Metric, e1 gostatsd.Event, m2 gostatsd.Metric, e2 gostatsd.Event, ips *[]gostatsd.IP, expectedIps []gostatsd.IP, expectedM []gostatsd.Metric, expectedE gostatsd.Events) {
+func doCheck(t *testing.T, cloud gostatsd.CloudProvider, m1 gostatsd.Metric, e1 gostatsd.Event, m2 gostatsd.Metric, e2 gostatsd.Event, ips *[]gostatsd.IP, expectedIps []gostatsd.IP, expectedM []gostatsd.Metric, expectedE gostatsd.Events) {
+	counting := &countingHandler{}
 	ch := NewCloudHandler(cloud, counting, rate.NewLimiter(100, 120), &CacheOptions{
 		CacheRefreshPeriod:        DefaultCacheRefreshPeriod,
 		CacheEvictAfterIdlePeriod: DefaultCacheEvictAfterIdlePeriod,
@@ -180,27 +178,13 @@ func doCheck(t *testing.T, cloud gostatsd.CloudProvider, counting *countingHandl
 	cancelFunc()
 	wg.Wait()
 
-	l := ipList(*ips)
-	sort.Sort(&l)
+	sort.Slice(*ips, func(i, j int) bool {
+		return (*ips)[i] < (*ips)[j]
+	})
 	assert.Equal(t, expectedIps, *ips)
 	assert.Equal(t, expectedM, counting.metrics)
 	assert.Equal(t, expectedE, counting.events)
-}
-
-type ipList []gostatsd.IP
-
-func (l *ipList) Len() int {
-	return len(*l)
-}
-
-func (l *ipList) Less(i, j int) bool {
-	return (*l)[i] < (*l)[j]
-}
-
-func (l *ipList) Swap(i, j int) {
-	x := (*l)[i]
-	(*l)[i] = (*l)[j]
-	(*l)[j] = x
+	assert.EqualValues(t, 1, cloud.(CountingProvider).Invocations())
 }
 
 func sm1() gostatsd.Metric {
@@ -268,15 +252,27 @@ func (ch *countingHandler) DispatchEvent(ctx context.Context, e *gostatsd.Event)
 func (ch *countingHandler) WaitForEvents() {
 }
 
-type fakeCountingProvider struct {
-	mu  sync.Mutex
-	ips []gostatsd.IP
+type CountingProvider interface {
+	Invocations() uint64
 }
 
-func (fp *fakeCountingProvider) count(ip gostatsd.IP) {
+type fakeCountingProvider struct {
+	mu          sync.Mutex
+	ips         []gostatsd.IP
+	invocations uint64
+}
+
+func (fp *fakeCountingProvider) Invocations() uint64 {
 	fp.mu.Lock()
 	defer fp.mu.Unlock()
-	fp.ips = append(fp.ips, ip)
+	return fp.invocations
+}
+
+func (fp *fakeCountingProvider) count(ips ...gostatsd.IP) {
+	fp.mu.Lock()
+	defer fp.mu.Unlock()
+	fp.ips = append(fp.ips, ips...)
+	fp.invocations++
 }
 
 func (fp *fakeCountingProvider) SelfIP() (gostatsd.IP, error) {
@@ -293,13 +289,17 @@ func (fp *fakeProviderIP) Name() string {
 	return "fakeProviderIP"
 }
 
-func (fp *fakeProviderIP) Instance(ctx context.Context, ip gostatsd.IP) (*gostatsd.Instance, error) {
-	fp.count(ip)
-	return &gostatsd.Instance{
-		ID:     "i-" + string(ip),
-		Region: fp.Region,
-		Tags:   fp.Tags,
-	}, nil
+func (fp *fakeProviderIP) Instance(ctx context.Context, ips ...gostatsd.IP) (map[gostatsd.IP]*gostatsd.Instance, error) {
+	fp.count(ips...)
+	instances := make(map[gostatsd.IP]*gostatsd.Instance, len(ips))
+	for _, ip := range ips {
+		instances[ip] = &gostatsd.Instance{
+			ID:     "i-" + string(ip),
+			Region: fp.Region,
+			Tags:   fp.Tags,
+		}
+	}
+	return instances, nil
 }
 
 type fakeProviderNotFound struct {
@@ -310,8 +310,8 @@ func (fp *fakeProviderNotFound) Name() string {
 	return "fakeProviderNotFound"
 }
 
-func (fp *fakeProviderNotFound) Instance(ctx context.Context, ip gostatsd.IP) (*gostatsd.Instance, error) {
-	fp.count(ip)
+func (fp *fakeProviderNotFound) Instance(ctx context.Context, ips ...gostatsd.IP) (map[gostatsd.IP]*gostatsd.Instance, error) {
+	fp.count(ips...)
 	return nil, nil
 }
 
@@ -323,7 +323,7 @@ func (fp *fakeFailingProvider) Name() string {
 	return "fakeFailingProvider"
 }
 
-func (fp *fakeFailingProvider) Instance(ctx context.Context, ip gostatsd.IP) (*gostatsd.Instance, error) {
-	fp.count(ip)
+func (fp *fakeFailingProvider) Instance(ctx context.Context, ips ...gostatsd.IP) (map[gostatsd.IP]*gostatsd.Instance, error) {
+	fp.count(ips...)
 	return nil, errors.New("clear skies, no clouds available")
 }

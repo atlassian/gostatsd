@@ -2,7 +2,7 @@ package statsd
 
 import (
 	"context"
-	"sync"
+	"time"
 
 	"github.com/atlassian/gostatsd"
 
@@ -10,46 +10,76 @@ import (
 	"golang.org/x/time/rate"
 )
 
+const (
+	maxLookupIPs  = 32
+	batchDuration = 10 * time.Millisecond
+)
+
 type lookupDispatcher struct {
-	wg            sync.WaitGroup
 	limiter       *rate.Limiter
 	cloud         gostatsd.CloudProvider // Cloud provider interface
+	toLookup      <-chan gostatsd.IP
 	lookupResults chan<- *lookupResult
 }
 
-func (ld *lookupDispatcher) run(ctx context.Context, toLookup <-chan gostatsd.IP) {
-	ld.wg.Add(1)
-	defer log.Info("Cloud lookup dispatcher stopped")
-	defer ld.wg.Done()
+func (ld *lookupDispatcher) run(ctx context.Context) {
+	ips := make([]gostatsd.IP, 0, maxLookupIPs)
+	var c <-chan time.Time
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case ip := <-ld.toLookup:
+			ips = append(ips, ip)
+			if len(ips) >= maxLookupIPs {
+				break // enough ips, exit select
+			}
+			if c == nil {
+				c = time.After(batchDuration)
+			}
+			continue // have some more time to collect ips
+		case <-c: // time to do the lookup
+		}
+		c = nil
 
-	for ip := range toLookup {
 		if err := ld.limiter.Wait(ctx); err != nil {
 			if err != context.Canceled && err != context.DeadlineExceeded {
-				// This could be an error caused by context signaling done. Or something nasty but it is very unlikely.
+				// This could be an error caused by context signaling done.
+				// Or something nasty but it is very unlikely.
 				log.Warnf("Error from limiter: %v", err)
 			}
 			return
 		}
-		ld.wg.Add(1)
-		go ld.doLookup(ctx, ip)
+		ld.doLookup(ctx, ips)
+		for i := range ips { // cleanup pointers for GC
+			ips[i] = gostatsd.UnknownIP
+		}
+		ips = ips[:0] // reset slice
 	}
 }
 
-func (ld *lookupDispatcher) doLookup(ctx context.Context, ip gostatsd.IP) {
-	defer ld.wg.Done()
+func (ld *lookupDispatcher) doLookup(ctx context.Context, ips []gostatsd.IP) {
+	// instances may contain partial result even if err != nil
+	instances, err := ld.cloud.Instance(ctx, ips...)
+	for _, ip := range ips {
+		instance := instances[ip]
+		var res *lookupResult
+		if instance != nil {
+			res = &lookupResult{
+				ip:       ip,
+				instance: instance,
+			}
 
-	instance, err := ld.cloud.Instance(ctx, ip)
-	res := &lookupResult{
-		err:      err,
-		ip:       ip,
-		instance: instance,
+		} else {
+			res = &lookupResult{
+				err: err,
+				ip:  ip,
+			}
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case ld.lookupResults <- res:
+		}
 	}
-	select {
-	case <-ctx.Done():
-	case ld.lookupResults <- res:
-	}
-}
-
-func (ld *lookupDispatcher) join() {
-	ld.wg.Wait() // Wait for all in-flight lookups to finish
 }
