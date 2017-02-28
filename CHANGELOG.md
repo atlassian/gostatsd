@@ -1,3 +1,12 @@
+2.1.0
+-----
+- Handle EC2 `InvalidInstanceID.NotFound` error gracefully
+- Build with Go 1.8
+- Make cloud handler cache configurable
+- Batch AWS Describe Instances call
+- Fix a deadlock in Cloud Handler
+- Minor internals refactoring
+
 2.0.1
 -----
 - Do not log an error if source instance was not found
