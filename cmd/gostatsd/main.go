@@ -107,7 +107,6 @@ func constructServer(v *viper.Viper) (*statsd.Server, error) {
 	// Create server
 	return &statsd.Server{
 		Backends:            backendsList,
-		ConsoleAddr:         v.GetString(statsd.ParamConsoleAddr),
 		CloudProvider:       cloud,
 		Limiter:             rate.NewLimiter(rate.Limit(v.GetInt(statsd.ParamMaxCloudRequests)), v.GetInt(statsd.ParamBurstCloudRequests)),
 		DefaultTags:         toSlice(v.GetString(statsd.ParamDefaultTags)),

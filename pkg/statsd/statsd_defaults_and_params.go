@@ -55,8 +55,6 @@ const (
 const (
 	// ParamBackends is the name of parameter with backends.
 	ParamBackends = "backends"
-	// ParamConsoleAddr is the name of parameter with console address.
-	ParamConsoleAddr = "console-addr"
 	// ParamCloudProvider is the name of parameter with the name of cloud provider.
 	ParamCloudProvider = "cloud-provider"
 	// ParamMaxCloudRequests is the name of parameter with maximum number of cloud provider requests per second.
@@ -96,7 +94,6 @@ const (
 // NewServer will create a new Server with the default configuration.
 func NewServer() *Server {
 	return &Server{
-		ConsoleAddr:         DefaultConsoleAddr,
 		Limiter:             rate.NewLimiter(DefaultMaxCloudRequests, DefaultBurstCloudRequests),
 		DefaultTags:         DefaultTags,
 		ExpiryInterval:      DefaultExpiryInterval,
@@ -119,7 +116,6 @@ func NewServer() *Server {
 
 // AddFlags adds flags to the specified FlagSet.
 func AddFlags(fs *pflag.FlagSet) {
-	fs.String(ParamConsoleAddr, DefaultConsoleAddr, "If set, use as the address of the telnet-based console")
 	fs.String(ParamCloudProvider, "", "If set, use the cloud provider to retrieve metadata about the sender")
 	fs.Duration(ParamExpiryInterval, DefaultExpiryInterval, "After how long do we expire metrics (0 to disable)")
 	fs.Duration(ParamFlushInterval, DefaultFlushInterval, "How often to flush metrics to the backends")
