@@ -19,7 +19,6 @@ import (
 // the statsd server. These can either be set via command line or directly.
 type Server struct {
 	Backends            []gostatsd.Backend
-	ConsoleAddr         string
 	CloudProvider       gostatsd.CloudProvider
 	Limiter             *rate.Limiter
 	DefaultTags         gostatsd.Tags
@@ -153,13 +152,7 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 		}
 	}()
 
-	// 5. Start the console(s)
-	if s.ConsoleAddr != "" {
-		console := ConsoleServer{s.ConsoleAddr, receiver, dispatcher, flusher}
-		go console.ListenAndServe(ctx)
-	}
-
-	// 6. Send events on start and on stop
+	// 5. Send events on start and on stop
 	defer sendStopEvent(handler, ip, hostname)
 	sendStartEvent(ctx, handler, ip, hostname)
 

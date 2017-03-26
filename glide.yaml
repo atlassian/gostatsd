@@ -1,7 +1,6 @@
 package: github.com/atlassian/gostatsd
 import:
 - package: github.com/Sirupsen/logrus
-- package: github.com/kisielk/cmd
 - package: github.com/spf13/pflag
 - package: github.com/spf13/viper
 - package: github.com/aws/aws-sdk-go

@@ -1,5 +1,5 @@
-hash: 343a6bf696be91d71a08824fca96635ed63036b9ce00d2e537a25b7b71e6f18e
-updated: 2017-03-26T14:24:49.024472323+11:00
+hash: fb141f5a4a0942ee3b61646b6bb524234d5de71364cfdb2823c557330da5661e
+updated: 2017-03-26T20:31:18.201414421+11:00
 imports:
 - name: github.com/aws/aws-sdk-go
   version: 72df63b404d3f9820db08c73176c1b277d9f614f
@@ -47,8 +47,6 @@ imports:
   - json/token
 - name: github.com/jmespath/go-jmespath
   version: bd40a432e4c76585ef6b72d3fd96fb9b6dc7b68d
-- name: github.com/kisielk/cmd
-  version: d175a37b36239828941c8e176ffa0f4d9221f641
 - name: github.com/magiconair/properties
   version: 51463bfca2576e06c62a8504b5c0f06d61312647
 - name: github.com/mitchellh/mapstructure

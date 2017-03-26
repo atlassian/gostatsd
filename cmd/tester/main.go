@@ -37,7 +37,6 @@ func main() {
 	}
 	if s.Benchmark != 0 {
 		server := statsd.Server{
-			ConsoleAddr:      "",
 			DefaultTags:      statsd.DefaultTags,
 			ExpiryInterval:   statsd.DefaultExpiryInterval,
 			FlushInterval:    statsd.DefaultFlushInterval,
