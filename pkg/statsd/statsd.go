@@ -33,7 +33,6 @@ type Server struct {
 	MetricsAddr         string
 	Namespace           string
 	PercentThreshold    []float64
-	WebConsoleAddr      string
 	CacheOptions
 	Viper *viper.Viper
 }
@@ -159,10 +158,6 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 		console := ConsoleServer{s.ConsoleAddr, receiver, dispatcher, flusher}
 		go console.ListenAndServe(ctx)
 	}
-	//if s.WebConsoleAddr != "" {
-	//	console := WebConsoleServer{s.WebConsoleAddr, aggregator}
-	//	go console.ListenAndServe()
-	//}
 
 	// 6. Send events on start and on stop
 	defer sendStopEvent(handler, ip, hostname)
