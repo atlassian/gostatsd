@@ -47,17 +47,16 @@ func (p *Provider) Instance(ctx context.Context, IP ...gostatsd.IP) (map[gostats
 		instances[ip] = nil // initialize map. Used for lookups to see if info for IP was requested
 		values[i] = aws.String(string(ip))
 	}
-	req, _ := p.Ec2.DescribeInstancesRequest(&ec2.DescribeInstancesInput{
+	input := &ec2.DescribeInstancesInput{
 		Filters: []*ec2.Filter{
 			{
 				Name:   aws.String("private-ip-address"),
 				Values: values,
 			},
 		},
-	})
-	req.HTTPRequest = req.HTTPRequest.WithContext(ctx)
-	err := req.EachPage(func(data interface{}, isLastPage bool) bool {
-		for _, reservation := range data.(*ec2.DescribeInstancesOutput).Reservations {
+	}
+	err := p.Ec2.DescribeInstancesPagesWithContext(ctx, input, func(page *ec2.DescribeInstancesOutput, lastPage bool) bool {
+		for _, reservation := range page.Reservations {
 			for _, instance := range reservation.Instances {
 				ip := getInterestingInstanceIP(instance, instances)
 				if ip == gostatsd.UnknownIP {
