@@ -120,7 +120,6 @@ func constructServer(v *viper.Viper) (*statsd.Server, error) {
 		MetricsAddr:         v.GetString(statsd.ParamMetricsAddr),
 		Namespace:           v.GetString(statsd.ParamNamespace),
 		PercentThreshold:    pt,
-		WebConsoleAddr:      v.GetString(statsd.ParamWebAddr),
 		CacheOptions: statsd.CacheOptions{
 			CacheRefreshPeriod:        v.GetDuration(statsd.ParamCacheRefreshPeriod),
 			CacheEvictAfterIdlePeriod: v.GetDuration(statsd.ParamCacheEvictAfterIdlePeriod),

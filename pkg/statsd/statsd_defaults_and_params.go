@@ -91,8 +91,6 @@ const (
 	ParamNamespace = "namespace"
 	// ParamPercentThreshold is the name of parameter with list of applied percentiles.
 	ParamPercentThreshold = "percent-threshold"
-	// ParamWebAddr is the name of parameter with the address of the web-based console.
-	ParamWebAddr = "web-addr"
 )
 
 // NewServer will create a new Server with the default configuration.
@@ -109,7 +107,6 @@ func NewServer() *Server {
 		MaxConcurrentEvents: DefaultMaxConcurrentEvents,
 		MetricsAddr:         DefaultMetricsAddr,
 		PercentThreshold:    DefaultPercentThreshold,
-		WebConsoleAddr:      DefaultWebConsoleAddr,
 		CacheOptions: CacheOptions{
 			CacheRefreshPeriod:        DefaultCacheRefreshPeriod,
 			CacheEvictAfterIdlePeriod: DefaultCacheEvictAfterIdlePeriod,
@@ -136,7 +133,6 @@ func AddFlags(fs *pflag.FlagSet) {
 	fs.Duration(ParamCacheNegativeTTL, DefaultCacheNegativeTTL, "Cloud cache TTL for failed lookups")
 	fs.String(ParamMetricsAddr, DefaultMetricsAddr, "Address on which to listen for metrics")
 	fs.String(ParamNamespace, "", "Namespace all metrics")
-	fs.String(ParamWebAddr, DefaultWebConsoleAddr, "If set, use as the address of the web-based console")
 	//TODO Remove workaround when https://github.com/spf13/viper/issues/112 is fixed
 	// https://github.com/spf13/viper/issues/200
 	fs.String(ParamBackends, strings.Join(DefaultBackends, ","), "Comma-separated list of backends")
