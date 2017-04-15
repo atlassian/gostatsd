@@ -49,12 +49,7 @@ func testExpire(t *testing.T, expectedIps []gostatsd.IP, f func(*CloudHandler) e
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	defer cancelFunc()
 	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		if handlerErr := ch.Run(ctx); handlerErr != nil && handlerErr != context.Canceled {
-			t.Errorf("Cloud handler quit unexpectedly: %v", handlerErr)
-		}
-	}()
+	go ch.Run(ctx, wg.Done)
 	if err := f(ch); err != nil {
 		t.Fatal(err)
 	}
@@ -155,12 +150,7 @@ func doCheck(t *testing.T, cloud gostatsd.CloudProvider, m1 gostatsd.Metric, e1 
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	defer cancelFunc()
 	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		if handlerErr := ch.Run(ctx); handlerErr != nil && handlerErr != context.Canceled {
-			t.Errorf("Cloud handler quit unexpectedly: %v", handlerErr)
-		}
-	}()
+	go ch.Run(ctx, wg.Done)
 	if err := ch.DispatchMetric(ctx, &m1); err != nil {
 		t.Fatal(err)
 	}

@@ -29,7 +29,8 @@ type Sender struct {
 	WriteTimeout time.Duration
 }
 
-func (s *Sender) Run(ctx context.Context) error {
+func (s *Sender) Run(ctx context.Context, done gostatsd.Done) {
+	defer done()
 	defer s.cleanup(ctx)
 	var stream *Stream
 	var errs []error
@@ -56,7 +57,7 @@ func (s *Sender) Run(ctx context.Context) error {
 				case <-ctx.Done():
 					timer.Stop()
 					errs = append(errs, ctx.Err())
-					return ctx.Err()
+					return
 				case st := <-sink:
 					sink = nil
 					stream = &st
@@ -76,7 +77,7 @@ func (s *Sender) Run(ctx context.Context) error {
 		if stream, errs, err = s.innerRun(ctx, w, stream, errs); err != nil {
 			errs = append(errs, err)
 			if err == context.Canceled || err == context.DeadlineExceeded {
-				return err
+				return
 			}
 		}
 	}

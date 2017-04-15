@@ -142,12 +142,7 @@ func TestSendMetricsAsync(t *testing.T) {
 	defer cancel()
 	var wg sync.WaitGroup
 	wg.Add(2)
-	go func() {
-		defer wg.Done()
-		if e := c.Run(ctx); e != nil && err != context.Canceled && e != context.DeadlineExceeded {
-			assert.NoError(t, e)
-		}
-	}()
+	go c.Run(ctx, wg.Done)
 	c.SendMetricsAsync(ctx, metrics(), func(errs []error) {
 		defer wg.Done()
 		for i, e := range errs {

@@ -57,12 +57,7 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 	for _, b := range s.Backends {
 		if b, ok := b.(gostatsd.RunnableBackend); ok {
 			wgBackends.Add(1)
-			go func(b gostatsd.RunnableBackend) {
-				defer wgBackends.Done()
-				if err := b.Run(ctxBack); unexpectedErr(err) {
-					log.Panicf("Backend %s quit unexpectedly: %v", b.Name(), err)
-				}
-			}(b)
+			go b.Run(ctxBack, wgBackends.Done)
 		}
 	}
 
@@ -78,12 +73,7 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 	ctxDisp, cancelDisp := context.WithCancel(context.Background()) // Separate context!
 	defer cancelDisp()                                              // Tell the dispatcher to shutdown
 	wgDispatcher.Add(1)
-	go func() {
-		defer wgDispatcher.Done()
-		if dispErr := dispatcher.Run(ctxDisp); unexpectedErr(dispErr) {
-			log.Panicf("Dispatcher quit unexpectedly: %v", dispErr)
-		}
-	}()
+	go dispatcher.Run(ctxDisp, wgDispatcher.Done)
 
 	// 2. Start handlers
 	ip := gostatsd.UnknownIP
@@ -98,12 +88,7 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 		ctxHandler, cancelHandler := context.WithCancel(context.Background()) // Separate context!
 		defer cancelHandler()                                                 // Tell the handler to shutdown
 		wgCloudHandler.Add(1)
-		go func() {
-			defer wgCloudHandler.Done()
-			if handlerErr := ch.Run(ctxHandler); unexpectedErr(handlerErr) {
-				log.Panicf("Cloud handler quit unexpectedly: %v", handlerErr)
-			}
-		}()
+		go ch.Run(ctxHandler, wgCloudHandler.Done)
 		selfIP, err := s.CloudProvider.SelfIP()
 		if err != nil {
 			log.Warnf("Failed to get self ip: %v", err)
@@ -131,12 +116,7 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 	receiver := NewMetricReceiver(s.Namespace, handler)
 	wgReceiver.Add(s.MaxReaders)
 	for r := 0; r < s.MaxReaders; r++ {
-		go func() {
-			defer wgReceiver.Done()
-			if e := receiver.Receive(ctx, c); unexpectedErr(e) {
-				log.Panicf("Receiver quit unexpectedly: %v", e)
-			}
-		}()
+		go receiver.Receive(ctx, wgReceiver.Done, c)
 	}
 
 	// 4. Start the Flusher
@@ -145,12 +125,7 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 	var wgFlusher sync.WaitGroup
 	defer wgFlusher.Wait() // Wait for the Flusher to finish
 	wgFlusher.Add(1)
-	go func() {
-		defer wgFlusher.Done()
-		if err := flusher.Run(ctx); unexpectedErr(err) {
-			log.Panicf("Flusher quit unexpectedly: %v", err)
-		}
-	}()
+	go flusher.Run(ctx, wgFlusher.Done)
 
 	// 5. Send events on start and on stop
 	defer sendStopEvent(handler, ip, hostname)

@@ -10,3 +10,7 @@ type IP string
 
 // UnknownIP is an IP of an unknown source.
 const UnknownIP IP = ""
+
+type Done func()
+
+type Wait func()

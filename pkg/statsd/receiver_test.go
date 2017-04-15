@@ -3,6 +3,7 @@ package statsd
 import (
 	"context"
 	"strconv"
+	"sync"
 	"testing"
 
 	"github.com/atlassian/gostatsd"
@@ -16,8 +17,6 @@ type metricAndEvent struct {
 	metrics []gostatsd.Metric
 	events  gostatsd.Events
 }
-
-var receiveBlackhole error
 
 func TestReceiveEmptyPacket(t *testing.T) {
 	t.Parallel()
@@ -103,13 +102,13 @@ func BenchmarkReceive(b *testing.B) {
 	}
 	c := fakesocket.FakePacketConn{}
 	ctx := context.Background()
-	var r error
+	var wg sync.WaitGroup
+	wg.Add(b.N)
 	b.ReportAllocs()
 	b.ResetTimer()
 	for n := 0; n < b.N; n++ {
-		r = mr.Receive(ctx, c)
+		mr.Receive(ctx, wg.Done, c)
 	}
-	receiveBlackhole = r
 }
 
 type nopHandler struct{}
