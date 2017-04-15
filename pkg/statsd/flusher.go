@@ -116,7 +116,9 @@ func (f *MetricFlusher) handleSendResult(flushResults []error) {
 	for _, err := range flushResults {
 		if err != nil {
 			timestampPointer = &f.lastFlushError
-			log.Errorf("Sending metrics to backend failed: %v", err)
+			if err != context.DeadlineExceeded && err != context.Canceled {
+				log.Errorf("Sending metrics to backend failed: %v", err)
+			}
 		}
 	}
 	atomic.StoreInt64(timestampPointer, time.Now().UnixNano())

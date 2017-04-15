@@ -62,8 +62,166 @@ func TestSend(t *testing.T) {
 	assert.Equal(t, []byte{0x0, 0x0, 0x1, 0x0, 0x1, 0x2, 0x0, 0x1, 0x2, 0x3}, dc.buf.Bytes())
 }
 
+func TestSendCallsCallbacksOnMainCtxDone(t *testing.T) {
+	t.Parallel()
+	sender := Sender{
+		ConnFactory: func() (net.Conn, error) {
+			return nil, errors.New("(donotwant)")
+		},
+		Sink: make(chan Stream, 1),
+		BufPool: sync.Pool{
+			New: func() interface{} {
+				return new(bytes.Buffer)
+			},
+		},
+	}
+	var wg sync.WaitGroup
+	defer wg.Wait()
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		if err := sender.Run(ctx); err != nil && err != context.Canceled && err != context.DeadlineExceeded {
+			t.Error(err)
+		}
+	}()
+	var cbWg sync.WaitGroup
+	cbWg.Add(1)
+	sender.Sink <- Stream{
+		Ctx: context.Background(),
+		Cb: func(errs []error) {
+			defer cbWg.Done()
+			if assert.Len(t, errs, 1) {
+				assert.Equal(t, context.Canceled, errs[0])
+			}
+		},
+		Buf: make(<-chan *bytes.Buffer),
+	}
+	cancel()
+	cbWg.Wait()
+}
+
+func TestSendCallsCallbackOnCtxDone1(t *testing.T) {
+	t.Parallel()
+	sender := Sender{
+		ConnFactory: func() (net.Conn, error) {
+			return nil, errors.New("(donotwant)")
+		},
+		Sink: make(chan Stream, 2),
+		BufPool: sync.Pool{
+			New: func() interface{} {
+				return new(bytes.Buffer)
+			},
+		},
+	}
+	var wg sync.WaitGroup
+	defer wg.Wait()
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		if err := sender.Run(ctx); err != nil && err != context.Canceled && err != context.DeadlineExceeded {
+			t.Error(err)
+		}
+	}()
+	var cbWg sync.WaitGroup
+	cbWg.Add(2)
+	ctx1, cancel1 := context.WithTimeout(ctx, 100*time.Millisecond)
+	defer cancel1()
+	sender.Sink <- Stream{
+		Ctx: ctx1,
+		Cb: func(errs []error) {
+			defer cbWg.Done()
+			if assert.Len(t, errs, 1) {
+				assert.Equal(t, context.DeadlineExceeded, errs[0])
+			}
+		},
+		Buf: make(<-chan *bytes.Buffer),
+	}
+	ctx2, cancel2 := context.WithTimeout(ctx, 300*time.Millisecond)
+	defer cancel2()
+	sender.Sink <- Stream{
+		Ctx: ctx2,
+		Cb: func(errs []error) {
+			defer cbWg.Done()
+			if assert.Len(t, errs, 1) {
+				assert.Equal(t, context.DeadlineExceeded, errs[0])
+			}
+		},
+		Buf: make(<-chan *bytes.Buffer),
+	}
+	cbWg.Wait()
+}
+
+func TestSendCallsCallbackOnCtxDone2(t *testing.T) {
+	t.Parallel()
+	getFail := false
+	sender := Sender{
+		ConnFactory: func() (net.Conn, error) {
+			if getFail {
+				return nil, errors.New("(donotwant)")
+			}
+			getFail = true
+			return &dummyConn{
+				writeErr: errors.New("write fail"),
+			}, nil
+		},
+		Sink: make(chan Stream, 2),
+		BufPool: sync.Pool{
+			New: func() interface{} {
+				return new(bytes.Buffer)
+			},
+		},
+	}
+	var wg sync.WaitGroup
+	defer wg.Wait()
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		if err := sender.Run(ctx); err != nil && err != context.Canceled && err != context.DeadlineExceeded {
+			t.Error(err)
+		}
+	}()
+	var cbWg sync.WaitGroup
+	cbWg.Add(2)
+	ctx1, cancel1 := context.WithTimeout(ctx, 100*time.Millisecond)
+	defer cancel1()
+	buf := make(chan *bytes.Buffer, 1)
+	buf <- &bytes.Buffer{}
+	close(buf)
+	sender.Sink <- Stream{
+		Ctx: ctx1,
+		Cb: func(errs []error) {
+			defer cbWg.Done()
+			if assert.Len(t, errs, 2) {
+				assert.EqualError(t, errs[0], "write fail")
+				assert.Equal(t, context.DeadlineExceeded, errs[1])
+			}
+		},
+		Buf: buf,
+	}
+	ctx2, cancel2 := context.WithTimeout(ctx, 300*time.Millisecond)
+	defer cancel2()
+	sender.Sink <- Stream{
+		Ctx: ctx2,
+		Cb: func(errs []error) {
+			defer cbWg.Done()
+			if assert.Len(t, errs, 1) {
+				assert.Equal(t, context.DeadlineExceeded, errs[0])
+			}
+		},
+		Buf:  make(chan *bytes.Buffer),
+	}
+	cbWg.Wait()
+}
+
 type dummyConn struct {
 	buf      bytes.Buffer
+	writeErr error
 	isClosed bool
 }
 
@@ -74,6 +232,9 @@ func (c *dummyConn) Read(b []byte) (int, error) {
 func (c *dummyConn) Write(b []byte) (int, error) {
 	if c.isClosed {
 		panic("closed")
+	}
+	if c.writeErr != nil {
+		return 0, c.writeErr
 	}
 	return c.buf.Write(b)
 }
