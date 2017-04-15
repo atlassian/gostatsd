@@ -252,7 +252,7 @@ type fakeCountingProvider struct {
 	invocations uint64
 }
 
-func (p *fakeCountingProvider) MaxInstancesBatch() int {
+func (fp *fakeCountingProvider) MaxInstancesBatch() int {
 	return 16
 }
 
