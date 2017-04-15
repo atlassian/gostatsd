@@ -63,7 +63,7 @@ func (client *Client) SendMetricsAsync(ctx context.Context, metrics *gostatsd.Me
 	case <-ctx.Done():
 		cb([]error{ctx.Err()})
 		return
-	case client.sender.Sink <- sender.Stream{Cb: cb, Buf: sink}:
+	case client.sender.Sink <- sender.Stream{Ctx: ctx, Cb: cb, Buf: sink}:
 	}
 	defer close(sink)
 	client.processMetrics(metrics, func(buf *bytes.Buffer) (*bytes.Buffer, bool) {

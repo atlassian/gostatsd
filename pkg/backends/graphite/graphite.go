@@ -96,7 +96,7 @@ func (client *Client) SendMetricsAsync(ctx context.Context, metrics *gostatsd.Me
 	case <-ctx.Done():
 		client.sender.PutBuffer(buf)
 		cb([]error{ctx.Err()})
-	case client.sender.Sink <- sender.Stream{Cb: cb, Buf: sink}:
+	case client.sender.Sink <- sender.Stream{Ctx: ctx, Cb: cb, Buf: sink}:
 	}
 }
 

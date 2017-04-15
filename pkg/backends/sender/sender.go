@@ -17,6 +17,7 @@ const maxStreamsPerConnection = 100
 type ConnFactory func() (net.Conn, error)
 
 type Stream struct {
+	Ctx context.Context
 	Cb  gostatsd.SendCallback
 	Buf <-chan *bytes.Buffer
 }
@@ -29,27 +30,54 @@ type Sender struct {
 }
 
 func (s *Sender) Run(ctx context.Context) error {
+	defer s.cleanup(ctx)
 	var stream *Stream
 	var errs []error
+	defer func() {
+		if stream != nil {
+			stream.Cb(errs)
+		}
+	}()
+	var sink <-chan Stream
+	var streamCancel <-chan struct{}
 	for {
 		w, err := s.ConnFactory()
 		if err != nil {
 			log.Warnf("Failed to connect: %v", err)
 			// TODO do backoff
 			timer := time.NewTimer(1 * time.Second)
-			select {
-			case <-ctx.Done():
-				timer.Stop()
-				return ctx.Err()
-			case <-timer.C:
+			for {
+				if stream == nil {
+					sink = s.Sink
+				} else {
+					streamCancel = stream.Ctx.Done()
+				}
+				select {
+				case <-ctx.Done():
+					timer.Stop()
+					errs = append(errs, ctx.Err())
+					return ctx.Err()
+				case st := <-sink:
+					sink = nil
+					stream = &st
+					continue
+				case <-streamCancel:
+					stream.Cb(append(errs, stream.Ctx.Err()))
+					stream = nil
+					streamCancel = nil
+					errs = nil
+					continue
+				case <-timer.C:
+				}
+				break
 			}
 			continue
 		}
 		if stream, errs, err = s.innerRun(ctx, w, stream, errs); err != nil {
+			errs = append(errs, err)
 			if err == context.Canceled || err == context.DeadlineExceeded {
 				return err
 			}
-			errs = append(errs, err)
 		}
 	}
 }
@@ -98,4 +126,11 @@ func (s *Sender) GetBuffer() *bytes.Buffer {
 func (s *Sender) PutBuffer(buf *bytes.Buffer) {
 	buf.Reset() // Reset buffer before returning it into the pool
 	s.BufPool.Put(buf)
+}
+
+func (s *Sender) cleanup(ctx context.Context) {
+	close(s.Sink) // Sender must not be used after ctx is done
+	for stream := range s.Sink {
+		stream.Cb([]error{ctx.Err()})
+	}
 }
