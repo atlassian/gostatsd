@@ -99,7 +99,7 @@ func (fp *fakeProvider) Name() string {
 	return "fakeProvider"
 }
 
-func (p *fakeProvider) MaxInstancesBatch() int {
+func (fp *fakeProvider) MaxInstancesBatch() int {
 	return 16
 }
 
