@@ -2,8 +2,6 @@ package statsd
 
 import (
 	"context"
-	"net"
-	"sync"
 	"time"
 
 	"github.com/atlassian/gostatsd"
@@ -43,7 +41,7 @@ type Dispatcher interface {
 	// Process concurrently executes provided function in goroutines that own Aggregators.
 	// DispatcherProcessFunc function may be executed zero or up to numWorkers times. It is executed
 	// less than numWorkers times if the context signals "done".
-	Process(context.Context, DispatcherProcessFunc) *sync.WaitGroup
+	Process(context.Context, DispatcherProcessFunc) gostatsd.Wait
 }
 
 // FlusherStats holds statistics about a Flusher.
@@ -58,11 +56,8 @@ type Flusher interface {
 	GetStats() FlusherStats
 }
 
-// Receiver receives data on its PacketConn.
-type Receiver interface {
-	// Receive accepts incoming datagrams on packet connection.
-	// Safe for concurrent use.
-	Receive(context.Context, net.PacketConn) error
+// ReceiverStatsGetter returns current Receiver stats.
+type ReceiverStatsGetter interface {
 	// GetStats returns current Receiver stats.
 	// Safe for concurrent use.
 	GetStats() ReceiverStats

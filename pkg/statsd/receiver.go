@@ -3,7 +3,6 @@ package statsd
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"net"
 	"sync/atomic"
 	"time"
@@ -53,19 +52,17 @@ func (mr *MetricReceiver) GetStats() ReceiverStats {
 
 // Receive accepts incoming datagrams on c, parses them and calls Handler.DispatchMetric() for each metric
 // and Handler.DispatchEvent() for each event.
-func (mr *MetricReceiver) Receive(ctx context.Context, c net.PacketConn) error {
+func (mr *MetricReceiver) Receive(ctx context.Context, done gostatsd.Done, c net.PacketConn) {
+	defer done()
 	buf := make([]byte, packetSizeUDP)
 	for {
 		// This will error out when the socket is closed.
 		nbytes, addr, err := c.ReadFrom(buf)
 		if err != nil {
-			if netErr, ok := err.(net.Error); ok && !netErr.Temporary() {
-				select {
-				case <-ctx.Done():
-				default:
-					return fmt.Errorf("non-temporary error reading from socket: %v", err)
-				}
-				return nil
+			select {
+			case <-ctx.Done():
+				return
+			default:
 			}
 			log.Warnf("Error reading from socket: %v", err)
 			continue
@@ -75,7 +72,7 @@ func (mr *MetricReceiver) Receive(ctx context.Context, c net.PacketConn) error {
 		atomic.StoreInt64(&mr.lastPacket, time.Now().UnixNano())
 		if err := mr.handlePacket(ctx, addr, buf[:nbytes]); err != nil {
 			if err == context.Canceled || err == context.DeadlineExceeded {
-				return err
+				return
 			}
 			log.Warnf("Failed to handle packet: %v", err)
 		}

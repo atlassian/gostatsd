@@ -32,12 +32,7 @@ func TestSend(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		if err := sender.Run(ctx); err != nil && err != context.Canceled && err != context.DeadlineExceeded {
-			t.Error(err)
-		}
-	}()
+	go sender.Run(ctx, wg.Done)
 	var wgTest sync.WaitGroup
 	for i := 0; i <= 4; i++ {
 		wgTest.Add(1)
@@ -80,12 +75,7 @@ func TestSendCallsCallbacksOnMainCtxDone(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		if err := sender.Run(ctx); err != nil && err != context.Canceled && err != context.DeadlineExceeded {
-			t.Error(err)
-		}
-	}()
+	go sender.Run(ctx, wg.Done)
 	var cbWg sync.WaitGroup
 	cbWg.Add(1)
 	sender.Sink <- Stream{
@@ -120,12 +110,7 @@ func TestSendCallsCallbackOnCtxDone1(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		if err := sender.Run(ctx); err != nil && err != context.Canceled && err != context.DeadlineExceeded {
-			t.Error(err)
-		}
-	}()
+	go sender.Run(ctx, wg.Done)
 	var cbWg sync.WaitGroup
 	cbWg.Add(2)
 	ctx1, cancel1 := context.WithTimeout(ctx, 100*time.Millisecond)
@@ -180,12 +165,7 @@ func TestSendCallsCallbackOnCtxDone2(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		if err := sender.Run(ctx); err != nil && err != context.Canceled && err != context.DeadlineExceeded {
-			t.Error(err)
-		}
-	}()
+	go sender.Run(ctx, wg.Done)
 	var cbWg sync.WaitGroup
 	cbWg.Add(2)
 	ctx1, cancel1 := context.WithTimeout(ctx, 100*time.Millisecond)
@@ -214,7 +194,7 @@ func TestSendCallsCallbackOnCtxDone2(t *testing.T) {
 				assert.Equal(t, context.DeadlineExceeded, errs[0])
 			}
 		},
-		Buf:  make(chan *bytes.Buffer),
+		Buf: make(chan *bytes.Buffer),
 	}
 	cbWg.Wait()
 }

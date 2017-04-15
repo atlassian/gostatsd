@@ -1,15 +1,14 @@
 package statsd
 
 import (
-	"sync"
 	"time"
 
 	"github.com/atlassian/gostatsd"
 )
 
 type processCommand struct {
-	f  DispatcherProcessFunc
-	wg sync.WaitGroup
+	f    DispatcherProcessFunc
+	done gostatsd.Done
 }
 
 type worker struct {
@@ -19,8 +18,8 @@ type worker struct {
 	id           uint16
 }
 
-func (w *worker) work(wg *sync.WaitGroup) {
-	defer wg.Done()
+func (w *worker) work(done gostatsd.Done) {
+	defer done()
 
 	for {
 		select {
@@ -36,6 +35,6 @@ func (w *worker) work(wg *sync.WaitGroup) {
 }
 
 func (w *worker) executeProcess(cmd *processCommand) {
-	defer cmd.wg.Done() // Done with the process command
+	defer cmd.done() // Done with the process command
 	cmd.f(w.id, w.aggr)
 }

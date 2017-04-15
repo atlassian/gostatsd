@@ -32,7 +32,7 @@ type MetricFlusher struct {
 
 	flushInterval time.Duration // How often to flush metrics to the sender
 	dispatcher    Dispatcher
-	receiver      Receiver
+	receiver      ReceiverStatsGetter
 	handler       Handler
 	backends      []gostatsd.Backend
 	selfIP        gostatsd.IP
@@ -45,7 +45,7 @@ type MetricFlusher struct {
 }
 
 // NewMetricFlusher creates a new MetricFlusher with provided configuration.
-func NewMetricFlusher(flushInterval time.Duration, dispatcher Dispatcher, receiver Receiver, handler Handler, backends []gostatsd.Backend, selfIP gostatsd.IP, hostname string) *MetricFlusher {
+func NewMetricFlusher(flushInterval time.Duration, dispatcher Dispatcher, receiver ReceiverStatsGetter, handler Handler, backends []gostatsd.Backend, selfIP gostatsd.IP, hostname string) *MetricFlusher {
 	return &MetricFlusher{
 		flushInterval: flushInterval,
 		dispatcher:    dispatcher,
@@ -58,13 +58,14 @@ func NewMetricFlusher(flushInterval time.Duration, dispatcher Dispatcher, receiv
 }
 
 // Run runs the MetricFlusher.
-func (f *MetricFlusher) Run(ctx context.Context) error {
+func (f *MetricFlusher) Run(ctx context.Context, done gostatsd.Done) {
+	defer done()
 	flushTicker := time.NewTicker(f.flushInterval)
 	defer flushTicker.Stop()
 	for {
 		select {
 		case <-ctx.Done():
-			return ctx.Err()
+			return
 		case <-flushTicker.C: // Time to flush to the backends
 			dispatcherStats := f.flushData(ctx)
 			f.dispatchInternalStats(ctx, dispatcherStats)
@@ -84,7 +85,7 @@ func (f *MetricFlusher) flushData(ctx context.Context) map[uint16]gostatsd.Metri
 	var lock sync.Mutex
 	dispatcherStats := make(map[uint16]gostatsd.MetricStats)
 	var sendWg sync.WaitGroup
-	processWg := f.dispatcher.Process(ctx, func(workerId uint16, aggr Aggregator) {
+	processWait := f.dispatcher.Process(ctx, func(workerId uint16, aggr Aggregator) {
 		aggr.Flush(f.flushInterval)
 		aggr.Process(func(m *gostatsd.MetricMap) {
 			f.sendMetricsAsync(ctx, &sendWg, m)
@@ -94,8 +95,8 @@ func (f *MetricFlusher) flushData(ctx context.Context) map[uint16]gostatsd.Metri
 		})
 		aggr.Reset()
 	})
-	processWg.Wait() // Wait for all workers to execute function
-	sendWg.Wait()    // Wait for all backends to finish sending
+	processWait() // Wait for all workers to execute function
+	sendWg.Wait() // Wait for all backends to finish sending
 
 	return dispatcherStats
 }

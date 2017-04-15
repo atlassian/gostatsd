@@ -49,12 +49,13 @@ func NewMetricDispatcher(numWorkers int, perWorkerBufferSize int, af AggregatorF
 }
 
 // Run runs the MetricDispatcher.
-func (d *MetricDispatcher) Run(ctx context.Context) error {
+func (d *MetricDispatcher) Run(ctx context.Context, done gostatsd.Done) {
+	defer done()
 	var wg sync.WaitGroup
 	wg.Add(d.numWorkers)
 	for _, worker := range d.workers {
 		w := worker // Make a copy of the loop variable! https://github.com/golang/go/wiki/CommonMistakes
-		go w.work(&wg)
+		go w.work(wg.Done)
 	}
 	defer func() {
 		for _, worker := range d.workers {
@@ -65,7 +66,6 @@ func (d *MetricDispatcher) Run(ctx context.Context) error {
 
 	// Work until asked to stop
 	<-ctx.Done()
-	return ctx.Err()
 }
 
 // DispatchMetric dispatches metric to a corresponding Aggregator.
@@ -83,22 +83,24 @@ func (d *MetricDispatcher) DispatchMetric(ctx context.Context, m *gostatsd.Metri
 // Process concurrently executes provided function in goroutines that own Aggregators.
 // DispatcherProcessFunc function may be executed zero or up to numWorkers times. It is executed
 // less than numWorkers times if the context signals "done".
-func (d *MetricDispatcher) Process(ctx context.Context, f DispatcherProcessFunc) *sync.WaitGroup {
+func (d *MetricDispatcher) Process(ctx context.Context, f DispatcherProcessFunc) gostatsd.Wait {
+	var wg sync.WaitGroup
 	cmd := &processCommand{
-		f: f,
+		f:    f,
+		done: wg.Done,
 	}
-	cmd.wg.Add(d.numWorkers)
+	wg.Add(d.numWorkers)
 	cmdSent := 0
 loop:
 	for _, worker := range d.workers {
 		select {
 		case <-ctx.Done():
-			cmd.wg.Add(cmdSent - d.numWorkers) // Not all commands have been sent, should decrement the WG counter.
+			wg.Add(cmdSent - d.numWorkers) // Not all commands have been sent, should decrement the WG counter.
 			break loop
 		case worker.processChan <- cmd:
 			cmdSent++
 		}
 	}
 
-	return &cmd.wg
+	return wg.Wait
 }

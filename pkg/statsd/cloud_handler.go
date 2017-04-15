@@ -104,7 +104,8 @@ func (ch *CloudHandler) WaitForEvents() {
 	ch.next.WaitForEvents()
 }
 
-func (ch *CloudHandler) Run(ctx context.Context) error {
+func (ch *CloudHandler) Run(ctx context.Context, done gostatsd.Done) {
+	defer done()
 	// IPs to lookup. Can make the channel bigger or smaller but this is the perfect size.
 	toLookup := make(chan gostatsd.IP, ch.cloud.MaxInstancesBatch())
 	var toLookupC chan<- gostatsd.IP
@@ -126,10 +127,7 @@ func (ch *CloudHandler) Run(ctx context.Context) error {
 	defer cancel() // Tell lookupDispatcher to stop
 
 	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		ld.run(ctx)
-	}()
+	go ld.run(ctx, wg.Done)
 
 	refreshTicker := time.NewTicker(ch.cacheOpts.CacheRefreshPeriod)
 	defer refreshTicker.Stop()
@@ -140,7 +138,7 @@ func (ch *CloudHandler) Run(ctx context.Context) error {
 	for {
 		select {
 		case <-ctx.Done():
-			return ctx.Err()
+			return
 		case toLookupC <- toLookupIP:
 			toLookupIP = gostatsd.UnknownIP
 			toLookupC = nil // ip has been sent; if there is nothing to send, will block

@@ -98,9 +98,10 @@ func TestRunShouldReturnWhenContextCancelled(t *testing.T) {
 	d := NewMetricDispatcher(5, 1, newTestFactory())
 	ctx, cancelFunc := context.WithTimeout(context.Background(), 1*time.Second)
 	defer cancelFunc()
-
-	err := d.Run(ctx)
-	assert.Equal(t, context.DeadlineExceeded, err)
+	var wgFinish sync.WaitGroup
+	wgFinish.Add(1)
+	d.Run(ctx, wgFinish.Done)
+	wgFinish.Wait() // Make sure waitgroup was released
 }
 
 func TestDispatchMetricShouldDistributeMetrics(t *testing.T) {
@@ -113,11 +114,7 @@ func TestDispatchMetricShouldDistributeMetrics(t *testing.T) {
 	defer cancelFunc()
 	var wgFinish sync.WaitGroup
 	wgFinish.Add(1)
-	go func() {
-		defer wgFinish.Done()
-		err := d.Run(ctx)
-		assert.Equal(t, context.Canceled, err)
-	}()
+	go d.Run(ctx, wgFinish.Done)
 	numMetrics := r.Intn(1000) + n*10
 	var wg sync.WaitGroup
 	wg.Add(numMetrics)
@@ -164,12 +161,7 @@ func BenchmarkDispatcher(b *testing.B) {
 	defer cancelFunc()
 	var wgFinish sync.WaitGroup
 	wgFinish.Add(1)
-	go func() {
-		defer wgFinish.Done()
-		if err := d.Run(ctx); err != context.Canceled {
-			b.Errorf("unexpected exit error: %v", err)
-		}
-	}()
+	go d.Run(ctx, wgFinish.Done)
 	b.ReportAllocs()
 	b.ResetTimer()
 	b.RunParallel(func(pb *testing.PB) {
