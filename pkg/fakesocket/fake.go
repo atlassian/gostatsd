@@ -28,7 +28,7 @@ type FakePacketConn struct {
 
 func (fpc *FakePacketConn) isClosed() bool {
 	select {
-	case _, _ = <-fpc.closed:
+	case <-fpc.closed:
 		return true
 	default:
 		return false
