@@ -100,7 +100,7 @@ func BenchmarkReceive(b *testing.B) {
 	mr := &MetricReceiver{
 		handler: nopHandler{},
 	}
-	c := fakesocket.FakePacketConn{}
+	c := fakesocket.NewFakePacketConn()
 	ctx := context.Background()
 	var wg sync.WaitGroup
 	wg.Add(b.N)
