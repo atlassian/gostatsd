@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"math/rand"
 	"net"
-	"sync/atomic"
 	"time"
 )
 
@@ -19,32 +18,61 @@ var FakeAddr = &net.UDPAddr{
 	Port: 8181,
 }
 
+var ErrClosedConnection = errors.New("Connection is closed")
+var ErrAlreadyClosedConnection = errors.New("Connection is already closed")
+
 // FakePacketConn is a fake net.PacketConn providing FakeMetric when read from.
-type FakePacketConn struct{}
+type FakePacketConn struct {
+	closed chan struct{}
+}
+
+func (fpc *FakePacketConn) isClosed() bool {
+	select {
+	case <-fpc.closed:
+		return true
+	default:
+		return false
+	}
+}
 
 // ReadFrom copies FakeMetric into b.
-func (fpc FakePacketConn) ReadFrom(b []byte) (int, net.Addr, error) {
+func (fpc *FakePacketConn) ReadFrom(b []byte) (int, net.Addr, error) {
+	if fpc.isClosed() {
+		return 0, nil, ErrClosedConnection
+	}
 	n := copy(b, FakeMetric)
 	return n, FakeAddr, nil
 }
 
 // WriteTo dummy impl.
-func (fpc FakePacketConn) WriteTo(b []byte, addr net.Addr) (int, error) { return 0, nil }
+func (fpc *FakePacketConn) WriteTo(b []byte, addr net.Addr) (int, error) {
+	if fpc.isClosed() {
+		return 0, ErrClosedConnection
+	}
+	return 0, nil
+}
 
 // Close dummy impl.
-func (fpc FakePacketConn) Close() error { return nil }
+func (fpc *FakePacketConn) Close() error {
+	if fpc.isClosed() {
+		return ErrAlreadyClosedConnection
+	}
+	// Potential race, but it's a test fixture anyway
+	close(fpc.closed)
+	return nil
+}
 
 // LocalAddr dummy impl.
-func (fpc FakePacketConn) LocalAddr() net.Addr { return FakeAddr }
+func (fpc *FakePacketConn) LocalAddr() net.Addr { return FakeAddr }
 
 // SetDeadline dummy impl.
-func (fpc FakePacketConn) SetDeadline(t time.Time) error { return nil }
+func (fpc *FakePacketConn) SetDeadline(t time.Time) error { return nil }
 
 // SetReadDeadline dummy impl.
-func (fpc FakePacketConn) SetReadDeadline(t time.Time) error { return nil }
+func (fpc *FakePacketConn) SetReadDeadline(t time.Time) error { return nil }
 
 // SetWriteDeadline dummy impl.
-func (fpc FakePacketConn) SetWriteDeadline(t time.Time) error { return nil }
+func (fpc *FakePacketConn) SetWriteDeadline(t time.Time) error { return nil }
 
 // FakeRandomPacketConn is a fake net.PacketConn providing random fake metrics.
 type FakeRandomPacketConn struct {
@@ -52,7 +80,11 @@ type FakeRandomPacketConn struct {
 }
 
 // ReadFrom generates random metric and writes in into b.
-func (frpc FakeRandomPacketConn) ReadFrom(b []byte) (int, net.Addr, error) {
+func (frpc *FakeRandomPacketConn) ReadFrom(b []byte) (int, net.Addr, error) {
+	if frpc.isClosed() {
+		return 0, nil, ErrClosedConnection
+	}
+
 	num := rand.Int31n(10000) // Randomize metric name
 	buf := new(bytes.Buffer)
 	switch rand.Int31n(4) {
@@ -76,20 +108,18 @@ func (frpc FakeRandomPacketConn) ReadFrom(b []byte) (int, net.Addr, error) {
 	return n, FakeAddr, nil
 }
 
-// CountingFakeRandomPacketConn is a fake net.PacketConn providing random fake metrics and counting number of performed read operations.
-// Safe for concurrent use.
-type CountingFakeRandomPacketConn struct {
-	NumReads uint64
-	FakeRandomPacketConn
-}
-
-// ReadFrom generates random metric and writes in into b.
-func (frpc *CountingFakeRandomPacketConn) ReadFrom(b []byte) (int, net.Addr, error) {
-	atomic.AddUint64(&frpc.NumReads, 1)
-	return frpc.FakeRandomPacketConn.ReadFrom(b)
-}
-
 // Factory is a replacement for net.ListenPacket() that produces instances of FakeRandomPacketConn.
 func Factory() (net.PacketConn, error) {
-	return FakeRandomPacketConn{}, nil
+	frpc := &FakeRandomPacketConn{
+		FakePacketConn: FakePacketConn{
+			closed: make(chan struct{}),
+		},
+	}
+	return frpc, nil
+}
+
+func NewFakePacketConn() net.PacketConn {
+	return &FakePacketConn{
+		closed: make(chan struct{}),
+	}
 }
