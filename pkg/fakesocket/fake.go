@@ -23,7 +23,7 @@ var ErrAlreadyClosedConnection = errors.New("Connection is already closed")
 
 // FakePacketConn is a fake net.PacketConn providing FakeMetric when read from.
 type FakePacketConn struct {
-	closed chan interface{}
+	closed chan struct{}
 }
 
 func (fpc *FakePacketConn) isClosed() bool {
@@ -112,7 +112,7 @@ func (frpc *FakeRandomPacketConn) ReadFrom(b []byte) (int, net.Addr, error) {
 func Factory() (net.PacketConn, error) {
 	frpc := &FakeRandomPacketConn{
 		FakePacketConn: FakePacketConn{
-			closed: make(chan interface{}),
+			closed: make(chan struct{}),
 		},
 	}
 	return frpc, nil
@@ -120,6 +120,6 @@ func Factory() (net.PacketConn, error) {
 
 func NewFakePacketConn() net.PacketConn {
 	return &FakePacketConn{
-		closed: make(chan interface{}),
+		closed: make(chan struct{}),
 	}
 }
