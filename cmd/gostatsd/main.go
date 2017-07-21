@@ -112,6 +112,7 @@ func constructServer(v *viper.Viper) (*statsd.Server, error) {
 		DefaultTags:         toSlice(v.GetString(statsd.ParamDefaultTags)),
 		ExpiryInterval:      v.GetDuration(statsd.ParamExpiryInterval),
 		FlushInterval:       v.GetDuration(statsd.ParamFlushInterval),
+		IgnoreHost:          v.GetBool(statsd.ParamIgnoreHost),
 		MaxReaders:          v.GetInt(statsd.ParamMaxReaders),
 		MaxWorkers:          v.GetInt(statsd.ParamMaxWorkers),
 		MaxQueueSize:        v.GetInt(statsd.ParamMaxQueueSize),

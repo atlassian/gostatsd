@@ -1,3 +1,8 @@
+2.1.x
+-----
+- New flag `--ignore-host` prevents capturing of source IP address.  Hostname can be provided
+  by client via a `host:` tag.
+
 2.1.0
 -----
 - Handle EC2 `InvalidInstanceID.NotFound` error gracefully

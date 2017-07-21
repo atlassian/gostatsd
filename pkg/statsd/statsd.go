@@ -24,6 +24,7 @@ type Server struct {
 	DefaultTags         gostatsd.Tags
 	ExpiryInterval      time.Duration
 	FlushInterval       time.Duration
+	IgnoreHost          bool
 	MaxReaders          int
 	MaxWorkers          int
 	MaxQueueSize        int
@@ -113,7 +114,7 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 		}
 	}()
 
-	receiver := NewMetricReceiver(s.Namespace, handler)
+	receiver := NewMetricReceiver(s.Namespace, s.IgnoreHost, handler)
 	wgReceiver.Add(s.MaxReaders)
 	for r := 0; r < s.MaxReaders; r++ {
 		go receiver.Receive(ctx, wgReceiver.Done, c)

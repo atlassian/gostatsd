@@ -36,6 +36,8 @@ const (
 	DefaultExpiryInterval = 5 * time.Minute
 	// DefaultFlushInterval is the default metrics flush interval.
 	DefaultFlushInterval = 1 * time.Second
+	// DefaultIgnoreHost is the default value for whether the source should be used as the host
+	DefaultIgnoreHost = false
 	// DefaultMetricsAddr is the default address on which to listen for metrics.
 	DefaultMetricsAddr = ":8125"
 	// DefaultMaxQueueSize is the default maximum number of buffered metrics per worker.
@@ -67,6 +69,8 @@ const (
 	ParamExpiryInterval = "expiry-interval"
 	// ParamFlushInterval is the name of parameter with metrics flush interval.
 	ParamFlushInterval = "flush-interval"
+	// ParamIgnoreHost is the name of parameter indicating if the source should be used as the host
+	ParamIgnoreHost = "ignore-host"
 	// ParamMaxReaders is the name of parameter with number of socket readers.
 	ParamMaxReaders = "max-readers"
 	// ParamMaxWorkers is the name of parameter with number of goroutines that aggregate metrics.
@@ -98,6 +102,7 @@ func NewServer() *Server {
 		DefaultTags:         DefaultTags,
 		ExpiryInterval:      DefaultExpiryInterval,
 		FlushInterval:       DefaultFlushInterval,
+		IgnoreHost:          DefaultIgnoreHost,
 		MaxReaders:          DefaultMaxReaders,
 		MaxWorkers:          DefaultMaxWorkers,
 		MaxQueueSize:        DefaultMaxQueueSize,
@@ -119,6 +124,7 @@ func AddFlags(fs *pflag.FlagSet) {
 	fs.String(ParamCloudProvider, "", "If set, use the cloud provider to retrieve metadata about the sender")
 	fs.Duration(ParamExpiryInterval, DefaultExpiryInterval, "After how long do we expire metrics (0 to disable)")
 	fs.Duration(ParamFlushInterval, DefaultFlushInterval, "How often to flush metrics to the backends")
+	fs.Bool(ParamIgnoreHost, DefaultIgnoreHost, "Ignore the source for populating the hostname field of metrics")
 	fs.Int(ParamMaxReaders, DefaultMaxReaders, "Maximum number of socket readers")
 	fs.Int(ParamMaxWorkers, DefaultMaxWorkers, "Maximum number of workers to process metrics")
 	fs.Int(ParamMaxQueueSize, DefaultMaxQueueSize, "Maximum number of buffered metrics per worker")
