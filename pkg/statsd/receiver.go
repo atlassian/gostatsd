@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"net"
+	"strings"
 	"sync/atomic"
 	"time"
 
@@ -27,15 +28,17 @@ type MetricReceiver struct {
 	packetsReceived uint64
 	metricsReceived uint64
 	eventsReceived  uint64
+	ignoreHost      bool
 	handler         Handler // handler to invoke
 	namespace       string  // Namespace to prefix all metrics
 }
 
 // NewMetricReceiver initialises a new MetricReceiver.
-func NewMetricReceiver(ns string, handler Handler) *MetricReceiver {
+func NewMetricReceiver(ns string, ignoreHost bool, handler Handler) *MetricReceiver {
 	return &MetricReceiver{
-		handler:   handler,
-		namespace: ns,
+		ignoreHost: ignoreHost,
+		handler:    handler,
+		namespace:  ns,
 	}
 }
 
@@ -109,11 +112,25 @@ func (mr *MetricReceiver) handlePacket(ctx context.Context, addr net.Addr, msg [
 		}
 		if metric != nil {
 			numMetrics++
-			metric.SourceIP = ip
+			if mr.ignoreHost {
+				for idx, tag := range metric.Tags {
+					if strings.HasPrefix(tag, "host:") {
+						metric.Hostname = tag[5:]
+						if len(metric.Tags) > 1 {
+							metric.Tags = append(metric.Tags[:idx], metric.Tags[idx+1:]...)
+						} else {
+							metric.Tags = nil
+						}
+						break
+					}
+				}
+			} else {
+				metric.SourceIP = ip
+			}
 			err = mr.handler.DispatchMetric(ctx, metric)
 		} else if event != nil {
 			numEvents++
-			event.SourceIP = ip
+			event.SourceIP = ip // Always keep the source ip for events
 			if event.DateHappened == 0 {
 				event.DateHappened = time.Now().Unix()
 			}
