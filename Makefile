@@ -98,7 +98,7 @@ docker:
 		-e GOPATH="$(GP)" \
 		-e CGO_ENABLED=0 \
 		golang:$(GOVERSION) \
-		go build -o build/bin/linux/$(BINARY_NAME) $(GOBUILD_VERSION_ARGS) -installsuffix cgo $(MAIN_PKG)
+		go build -o build/bin/linux/$(BINARY_NAME) $(GOBUILD_VERSION_ARGS) $(MAIN_PKG)
 	docker build --pull -t $(IMAGE_NAME):$(GIT_HASH) build
 
 # Compile a binary with -race. Needs to be run on a glibc-based system.
@@ -110,7 +110,7 @@ docker-race:
 		-w "$(GP)/src/github.com/atlassian/gostatsd" \
 		-e GOPATH="$(GP)" \
 		golang:$(GOVERSION) \
-		go build -race -o build/bin/linux/$(BINARY_NAME) $(GOBUILD_VERSION_ARGS) -installsuffix cgo $(MAIN_PKG)
+		go build -race -o build/bin/linux/$(BINARY_NAME) $(GOBUILD_VERSION_ARGS) $(MAIN_PKG)
 	docker build --pull -t $(IMAGE_NAME):$(GIT_HASH)-race -f build/Dockerfile-glibc build
 
 release-hash: docker
