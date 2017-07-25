@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/atlassian/gostatsd"
+	"github.com/atlassian/gostatsd/pkg/statser"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -18,6 +19,9 @@ type testAggregator struct {
 	agrNumber int
 	af        *testAggregatorFactory
 	gostatsd.MetricMap
+}
+
+func (a *testAggregator) TrackMetrics(statser statser.Statser) {
 }
 
 func (a *testAggregator) Receive(m *gostatsd.Metric, t time.Time) {
@@ -114,7 +118,7 @@ func TestDispatchMetricShouldDistributeMetrics(t *testing.T) {
 	defer cancelFunc()
 	var wgFinish sync.WaitGroup
 	wgFinish.Add(1)
-	go d.Run(ctx, wgFinish.Done)
+	d.Run(ctx, wgFinish.Done)
 	numMetrics := r.Intn(1000) + n*10
 	var wg sync.WaitGroup
 	wg.Add(numMetrics)

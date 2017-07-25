@@ -27,6 +27,9 @@ var DefaultPercentThreshold = []float64{90}
 // DefaultTags is the default list of additional tags.
 var DefaultTags = gostatsd.Tags{}
 
+// DefaultInternalTags is the default list of additional tags on internal metrics
+var DefaultInternalTags = gostatsd.Tags{}
+
 const (
 	// DefaultMaxCloudRequests is the maximum number of cloud provider requests per second.
 	DefaultMaxCloudRequests = 10
@@ -52,6 +55,8 @@ const (
 	DefaultCacheTTL = 30 * time.Minute
 	// DefaultCacheNegativeTTL is the default cache TTL for failed lookups (errors or when instance was not found).
 	DefaultCacheNegativeTTL = 1 * time.Minute
+	// DefaultInternalNamespace is the default internal namespace
+	DefaultInternalNamespace = "statsd"
 )
 
 const (
@@ -65,6 +70,10 @@ const (
 	ParamBurstCloudRequests = "burst-cloud-requests"
 	// ParamDefaultTags is the name of parameter with the list of additional tags.
 	ParamDefaultTags = "default-tags"
+	// ParamInternalTags is the name of parameter with the list of tags for internal metrics.
+	ParamInternalTags = "internal-tags"
+	// ParamInternalNamespace is the name of parameter with the namespace for internal metrics.
+	ParamInternalNamespace = "internal-namespace"
 	// ParamExpiryInterval is the name of parameter with expiry interval for metrics.
 	ParamExpiryInterval = "expiry-interval"
 	// ParamFlushInterval is the name of parameter with metrics flush interval.
@@ -141,5 +150,7 @@ func AddFlags(fs *pflag.FlagSet) {
 	fs.Int(ParamMaxCloudRequests, DefaultMaxCloudRequests, "Maximum number of cloud provider requests per second")
 	fs.Int(ParamBurstCloudRequests, DefaultBurstCloudRequests, "Burst number of cloud provider requests per second")
 	fs.String(ParamDefaultTags, strings.Join(DefaultTags, ","), "Comma-separated list of tags to add to all metrics")
+	fs.String(ParamInternalTags, strings.Join(DefaultInternalTags, ","), "Comma-separated list of tags to add to internal metrics")
+	fs.String(ParamInternalNamespace, DefaultInternalNamespace, "Namespace for internal metrics, may be \"\"")
 	fs.String(ParamPercentThreshold, strings.Join(toStringSlice(DefaultPercentThreshold), ","), "Comma-separated list of percentiles")
 }

@@ -58,16 +58,9 @@ type AggregatedMetrics interface {
 	HasChildren(string) bool
 }
 
-// MetricStats holds stats of an Aggregator.
-type MetricStats struct {
-	ProcessingTime time.Duration
-	NumStats       uint32
-}
-
 // MetricMap is used for storing aggregated Metric values.
 // The keys of each map are metric names.
 type MetricMap struct {
-	MetricStats
 	FlushInterval time.Duration
 	Counters      Counters
 	Timers        Timers

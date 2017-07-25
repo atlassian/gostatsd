@@ -7,7 +7,7 @@ GIT_HASH := $$(git rev-parse --short HEAD)
 GOBUILD_VERSION_ARGS := -ldflags "-s -X $(VERSION_VAR)=$(REPO_VERSION) -X $(GIT_VAR)=$(GIT_HASH) -X $(BUILD_DATE_VAR)=$(BUILD_DATE)"
 BINARY_NAME := gostatsd
 IMAGE_NAME := atlassianlabs/$(BINARY_NAME)
-ARCH ?= darwin
+ARCH ?= $$(uname -s | tr A-Z a-z)
 METALINTER_CONCURRENCY ?= 4
 GOVERSION := 1.8
 GP := /gopath
@@ -132,7 +132,7 @@ release-race: docker-race
 release: release-normal release-race
 
 run: build
-	./build/bin/$(ARCH)/$(BINARY_NAME) --backends=stdout --verbose --flush-interval=1s
+	./build/bin/$(ARCH)/$(BINARY_NAME) --backends=stdout --verbose --flush-interval=2s
 
 run-docker: docker
 	cd build/ && docker-compose rm -f gostatsd

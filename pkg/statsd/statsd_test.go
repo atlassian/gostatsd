@@ -18,6 +18,7 @@ import (
 // TestStatsdThroughput emulates statsd work using fake network socket and null backend to
 // measure throughput.
 func TestStatsdThroughput(t *testing.T) {
+	// TODO: Refactor this in to a Benchmark
 	rand.Seed(time.Now().UnixNano())
 	var memStatsStart, memStatsFinish runtime.MemStats
 	runtime.ReadMemStats(&memStatsStart)
@@ -82,7 +83,20 @@ func (cb *countingBackend) Name() string {
 }
 
 func (cb *countingBackend) SendMetricsAsync(ctx context.Context, m *gostatsd.MetricMap, callback gostatsd.SendCallback) {
-	atomic.AddUint64(&cb.metrics, uint64(m.NumStats))
+	count := 0
+	m.Counters.Each(func(name, tagset string, c gostatsd.Counter) {
+		count++
+	})
+	m.Gauges.Each(func(name, tagset string, g gostatsd.Gauge) {
+		count++
+	})
+	m.Timers.Each(func(name, tagset string, t gostatsd.Timer) {
+		count++
+	})
+	m.Sets.Each(func(name, tagset string, s gostatsd.Set) {
+		count++
+	})
+	atomic.AddUint64(&cb.metrics, uint64(count))
 	callback(nil)
 }
 

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/atlassian/gostatsd"
+	"github.com/atlassian/gostatsd/pkg/statser"
 
 	log "github.com/Sirupsen/logrus"
 )
@@ -23,9 +24,11 @@ type percentStruct struct {
 
 // MetricAggregator aggregates metrics.
 type MetricAggregator struct {
+	metricsReceived   uint64
 	expiryInterval    time.Duration // How often to expire metrics
 	percentThresholds map[float64]percentStruct
 	now               func() time.Time // Returns current time. Useful for testing.
+	statser           statser.Statser
 	gostatsd.MetricMap
 }
 
@@ -35,6 +38,7 @@ func NewMetricAggregator(percentThresholds []float64, expiryInterval time.Durati
 		expiryInterval:    expiryInterval,
 		percentThresholds: make(map[float64]percentStruct, len(percentThresholds)),
 		now:               time.Now,
+		statser:           statser.NewNullStatser(), // Will probably be replaced
 		MetricMap: gostatsd.MetricMap{
 			Counters: gostatsd.Counters{},
 			Timers:   gostatsd.Timers{},
@@ -64,7 +68,10 @@ func round(v float64) float64 {
 
 // Flush prepares the contents of a MetricAggregator for sending via the Sender.
 func (a *MetricAggregator) Flush(flushInterval time.Duration) {
-	startTime := a.now()
+	flushTimer := a.statser.NewTimer("processing_time", nil)
+	defer flushTimer.SendGauge()
+	a.statser.Gauge("metrics_received", float64(a.metricsReceived), nil)
+
 	a.FlushInterval = flushInterval
 	flushInSeconds := float64(flushInterval) / float64(time.Second)
 
@@ -153,8 +160,10 @@ func (a *MetricAggregator) Flush(flushInterval time.Duration) {
 			timer.PerSecond = 0
 		}
 	})
+}
 
-	a.ProcessingTime = a.now().Sub(startTime)
+func (a *MetricAggregator) TrackMetrics(statser statser.Statser) {
+	a.statser = statser
 }
 
 func (a *MetricAggregator) Process(f ProcessFunc) {
@@ -172,9 +181,9 @@ func deleteMetric(key, tagsKey string, metrics gostatsd.AggregatedMetrics) {
 	}
 }
 
-// Reset clears the contents of an MetricAggregator.
+// Reset clears the contents of a MetricAggregator.
 func (a *MetricAggregator) Reset() {
-	a.NumStats = 0
+	a.metricsReceived = 0
 	nowNano := gostatsd.Nanotime(a.now().UnixNano())
 
 	a.Counters.Each(func(key, tagsKey string, counter gostatsd.Counter) {
@@ -298,7 +307,7 @@ func (a *MetricAggregator) receiveSet(m *gostatsd.Metric, tagsKey string, now go
 
 // Receive aggregates an incoming metric.
 func (a *MetricAggregator) Receive(m *gostatsd.Metric, now time.Time) {
-	a.NumStats++
+	a.metricsReceived++
 	tagsKey := formatTagsKey(m.Tags, m.Hostname)
 	nowNano := gostatsd.Nanotime(now.UnixNano())
 

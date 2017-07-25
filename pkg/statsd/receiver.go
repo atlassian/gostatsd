@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/atlassian/gostatsd"
+	"github.com/atlassian/gostatsd/pkg/statser"
 
 	log "github.com/Sirupsen/logrus"
 )
@@ -28,28 +29,38 @@ type MetricReceiver struct {
 	packetsReceived uint64
 	metricsReceived uint64
 	eventsReceived  uint64
-	ignoreHost      bool
-	handler         Handler // handler to invoke
-	namespace       string  // Namespace to prefix all metrics
+
+	ignoreHost bool
+	handler    Handler // handler to invoke
+	namespace  string  // Namespace to prefix all metrics
+	statser    statser.Statser
 }
 
 // NewMetricReceiver initialises a new MetricReceiver.
-func NewMetricReceiver(ns string, ignoreHost bool, handler Handler) *MetricReceiver {
+func NewMetricReceiver(ns string, ignoreHost bool, handler Handler, statser statser.Statser) *MetricReceiver {
 	return &MetricReceiver{
 		ignoreHost: ignoreHost,
 		handler:    handler,
 		namespace:  ns,
+		statser:    statser,
 	}
 }
 
-// GetStats returns current MetricReceiver stats. Safe for concurrent use.
-func (mr *MetricReceiver) GetStats() ReceiverStats {
-	return ReceiverStats{
-		LastPacket:      time.Unix(0, atomic.LoadInt64(&mr.lastPacket)),
-		BadLines:        atomic.LoadUint64(&mr.badLines),
-		PacketsReceived: atomic.LoadUint64(&mr.packetsReceived),
-		MetricsReceived: atomic.LoadUint64(&mr.metricsReceived),
-		EventsReceived:  atomic.LoadUint64(&mr.eventsReceived),
+func (mr *MetricReceiver) runMetrics(ctx context.Context, done gostatsd.Done) {
+	defer done()
+
+	ticker := time.NewTicker(1 * time.Second) // TODO: Make configurable
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			mr.statser.Count("packets_received", float64(atomic.SwapUint64(&mr.packetsReceived, 0)), nil)
+			mr.statser.Count("metrics_received", float64(atomic.SwapUint64(&mr.metricsReceived, 0)), nil)
+			mr.statser.Count("events_received", float64(atomic.SwapUint64(&mr.eventsReceived, 0)), nil)
+			mr.statser.Count("bad_lines_seen", float64(atomic.SwapUint64(&mr.badLines, 0)), nil)
+		}
 	}
 }
 

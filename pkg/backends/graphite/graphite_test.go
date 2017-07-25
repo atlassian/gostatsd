@@ -156,9 +156,6 @@ func metrics() *gostatsd.MetricMap {
 	timestamp := gostatsd.Nanotime(time.Unix(123456, 0).UnixNano())
 
 	return &gostatsd.MetricMap{
-		MetricStats: gostatsd.MetricStats{
-			NumStats: 10,
-		},
 		Counters: gostatsd.Counters{
 			"stat1": map[string]gostatsd.Counter{
 				"tag1": {PerSecond: 1.1, Value: 5, Timestamp: timestamp},

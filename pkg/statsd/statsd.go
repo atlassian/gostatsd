@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/atlassian/gostatsd"
+	"github.com/atlassian/gostatsd/pkg/statser"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/spf13/viper"
@@ -21,6 +22,8 @@ type Server struct {
 	Backends            []gostatsd.Backend
 	CloudProvider       gostatsd.CloudProvider
 	Limiter             *rate.Limiter
+	InternalTags        gostatsd.Tags
+	InternalNamespace   string
 	DefaultTags         gostatsd.Tags
 	ExpiryInterval      time.Duration
 	FlushInterval       time.Duration
@@ -74,7 +77,7 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 	ctxDisp, cancelDisp := context.WithCancel(context.Background()) // Separate context!
 	defer cancelDisp()                                              // Tell the dispatcher to shutdown
 	wgDispatcher.Add(1)
-	go dispatcher.Run(ctxDisp, wgDispatcher.Done)
+	dispatcher.Run(ctxDisp, wgDispatcher.Done)
 
 	// 2. Start handlers
 	ip := gostatsd.UnknownIP
@@ -98,7 +101,22 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 		}
 	}
 
-	// 3. Start the Receiver
+	// 3. Attach the dispatchers metrics
+	hostname := getHost()
+	namespace := s.Namespace
+	if s.InternalNamespace != "" {
+		if namespace != "" {
+			namespace = namespace + "." + s.InternalNamespace
+		} else {
+			namespace = s.InternalNamespace
+		}
+	}
+	statser := statser.NewInternalStatser(ctx, s.InternalTags, namespace, hostname, handler)
+	// TODO: Make internal metric dispatch configurable
+	// statser := NewLoggingStatser(s.InternalTags, log.NewEntry(log.New()))
+	dispatcher.runMetrics(ctx, statser)
+
+	// 4. Start the Receiver
 	var wgReceiver sync.WaitGroup
 	defer wgReceiver.Wait() // Wait for all receivers to finish
 
@@ -114,21 +132,22 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 		}
 	}()
 
-	receiver := NewMetricReceiver(s.Namespace, s.IgnoreHost, handler)
-	wgReceiver.Add(s.MaxReaders)
+	receiver := NewMetricReceiver(s.Namespace, s.IgnoreHost, handler, statser)
+	wgReceiver.Add(s.MaxReaders + 1)
+	go receiver.runMetrics(ctx, wgReceiver.Done)
 	for r := 0; r < s.MaxReaders; r++ {
 		go receiver.Receive(ctx, wgReceiver.Done, c)
 	}
 
-	// 4. Start the Flusher
-	hostname := getHost()
-	flusher := NewMetricFlusher(s.FlushInterval, dispatcher, receiver, handler, s.Backends, ip, hostname)
+	// 5. Start the Flusher
+	flusher := NewMetricFlusher(s.FlushInterval, dispatcher, handler, s.Backends, ip, hostname, statser)
 	var wgFlusher sync.WaitGroup
 	defer wgFlusher.Wait() // Wait for the Flusher to finish
 	wgFlusher.Add(1)
 	go flusher.Run(ctx, wgFlusher.Done)
 
-	// 5. Send events on start and on stop
+	// 6. Send events on start and on stop
+	// TODO: Push these in to statser
 	defer sendStopEvent(handler, ip, hostname)
 	sendStartEvent(ctx, handler, ip, hostname)
 

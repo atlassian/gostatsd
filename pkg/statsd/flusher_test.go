@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/atlassian/gostatsd"
+	"github.com/atlassian/gostatsd/pkg/statser"
 )
 
 func TestFlusherHandleSendResultNoErrors(t *testing.T) {
@@ -19,7 +20,7 @@ func TestFlusherHandleSendResultNoErrors(t *testing.T) {
 		errs := errs
 		t.Run(strconv.Itoa(pos), func(t *testing.T) {
 			t.Parallel()
-			fl := NewMetricFlusher(0, nil, nil, nil, nil, gostatsd.UnknownIP, "host")
+			fl := NewMetricFlusher(0, nil, nil, nil, gostatsd.UnknownIP, "host", statser.NewNullStatser())
 			fl.handleSendResult(errs)
 
 			if fl.lastFlush == 0 || fl.lastFlushError != 0 {
@@ -41,7 +42,7 @@ func TestFlusherHandleSendResultError(t *testing.T) {
 		errs := errs
 		t.Run(strconv.Itoa(pos), func(t *testing.T) {
 			t.Parallel()
-			fl := NewMetricFlusher(0, nil, nil, nil, nil, gostatsd.UnknownIP, "host")
+			fl := NewMetricFlusher(0, nil, nil, nil, gostatsd.UnknownIP, "host", statser.NewNullStatser())
 			fl.handleSendResult(errs)
 
 			if fl.lastFlushError == 0 || fl.lastFlush != 0 {

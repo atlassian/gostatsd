@@ -2,24 +2,14 @@ package statsd
 
 import (
 	"context"
-	"fmt"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/atlassian/gostatsd"
+	"github.com/atlassian/gostatsd/pkg/statser"
 
 	log "github.com/Sirupsen/logrus"
-)
-
-const (
-	internalMetric     = "statsd."
-	badLinesSeen       = internalMetric + "bad_lines_seen"
-	metricsReceived    = internalMetric + "metrics_received"
-	packetsReceived    = internalMetric + "packets_received"
-	numStats           = internalMetric + "numStats"
-	aggregatorNumStats = internalMetric + "aggregator_num_stats"
-	processingTime     = internalMetric + "processing_time"
 )
 
 // MetricFlusher periodically flushes metrics from all Aggregators to Senders.
@@ -32,28 +22,23 @@ type MetricFlusher struct {
 
 	flushInterval time.Duration // How often to flush metrics to the sender
 	dispatcher    Dispatcher
-	receiver      ReceiverStatsGetter
 	handler       Handler
 	backends      []gostatsd.Backend
 	selfIP        gostatsd.IP
 	hostname      string
-
-	// Sent statistics for Receiver. Keep sent values to calculate diff.
-	sentBadLines        uint64
-	sentPacketsReceived uint64
-	sentMetricsReceived uint64
+	statser       statser.Statser
 }
 
 // NewMetricFlusher creates a new MetricFlusher with provided configuration.
-func NewMetricFlusher(flushInterval time.Duration, dispatcher Dispatcher, receiver ReceiverStatsGetter, handler Handler, backends []gostatsd.Backend, selfIP gostatsd.IP, hostname string) *MetricFlusher {
+func NewMetricFlusher(flushInterval time.Duration, dispatcher Dispatcher, handler Handler, backends []gostatsd.Backend, selfIP gostatsd.IP, hostname string, statser statser.Statser) *MetricFlusher {
 	return &MetricFlusher{
 		flushInterval: flushInterval,
 		dispatcher:    dispatcher,
-		receiver:      receiver,
 		handler:       handler,
 		backends:      backends,
 		selfIP:        selfIP,
 		hostname:      hostname,
+		statser:       statser,
 	}
 }
 
@@ -67,44 +52,28 @@ func (f *MetricFlusher) Run(ctx context.Context, done gostatsd.Done) {
 		case <-ctx.Done():
 			return
 		case <-flushTicker.C: // Time to flush to the backends
-			dispatcherStats := f.flushData(ctx)
-			f.dispatchInternalStats(ctx, dispatcherStats)
+			f.flushData(ctx)
+
 		}
 	}
 }
 
-// GetStats returns MetricFlusher statistics.
-func (f *MetricFlusher) GetStats() FlusherStats {
-	return FlusherStats{
-		time.Unix(0, atomic.LoadInt64(&f.lastFlush)),
-		time.Unix(0, atomic.LoadInt64(&f.lastFlushError)),
-	}
-}
-
-func (f *MetricFlusher) flushData(ctx context.Context) map[uint16]gostatsd.MetricStats {
-	var lock sync.Mutex
-	dispatcherStats := make(map[uint16]gostatsd.MetricStats)
+func (f *MetricFlusher) flushData(ctx context.Context) {
 	var sendWg sync.WaitGroup
 	processWait := f.dispatcher.Process(ctx, func(workerId uint16, aggr Aggregator) {
 		aggr.Flush(f.flushInterval)
 		aggr.Process(func(m *gostatsd.MetricMap) {
 			f.sendMetricsAsync(ctx, &sendWg, m)
-			lock.Lock()
-			defer lock.Unlock()
-			dispatcherStats[workerId] = m.MetricStats
 		})
 		aggr.Reset()
 	})
 	processWait() // Wait for all workers to execute function
 	sendWg.Wait() // Wait for all backends to finish sending
-
-	return dispatcherStats
 }
 
 func (f *MetricFlusher) sendMetricsAsync(ctx context.Context, wg *sync.WaitGroup, m *gostatsd.MetricMap) {
 	wg.Add(len(f.backends))
 	for _, backend := range f.backends {
-		log.Debugf("Sending %d metrics to backend %s", m.NumStats, backend.Name())
 		backend.SendMetricsAsync(ctx, m, func(errs []error) {
 			defer wg.Done()
 			f.handleSendResult(errs)
@@ -123,66 +92,4 @@ func (f *MetricFlusher) handleSendResult(flushResults []error) {
 		}
 	}
 	atomic.StoreInt64(timestampPointer, time.Now().UnixNano())
-}
-
-func (f *MetricFlusher) dispatchInternalStats(ctx context.Context, dispatcherStats map[uint16]gostatsd.MetricStats) {
-	receiverStats := f.receiver.GetStats()
-	packetsReceivedValue := receiverStats.PacketsReceived - f.sentPacketsReceived
-	metrics := make([]gostatsd.Metric, 0, 4+2*len(dispatcherStats))
-	metrics = append(metrics,
-		gostatsd.Metric{
-			Name:  badLinesSeen,
-			Value: float64(receiverStats.BadLines - f.sentBadLines),
-			Type:  gostatsd.COUNTER,
-		},
-		gostatsd.Metric{
-			Name:  metricsReceived,
-			Value: float64(receiverStats.MetricsReceived - f.sentMetricsReceived),
-			Type:  gostatsd.COUNTER,
-		},
-		gostatsd.Metric{
-			Name:  packetsReceived,
-			Value: float64(packetsReceivedValue),
-			Type:  gostatsd.COUNTER,
-		})
-	var totalStats uint32
-	for workerID, stat := range dispatcherStats {
-		totalStats += stat.NumStats
-		tag := fmt.Sprintf("aggregator_id:%d", workerID)
-		metrics = append(metrics,
-			gostatsd.Metric{
-				Name:  aggregatorNumStats,
-				Value: float64(stat.NumStats),
-				Tags:  gostatsd.Tags{tag},
-				Type:  gostatsd.COUNTER,
-			},
-			gostatsd.Metric{
-				Name:  processingTime,
-				Value: float64(stat.ProcessingTime) / float64(time.Millisecond),
-				Tags:  gostatsd.Tags{tag},
-				Type:  gostatsd.GAUGE,
-			})
-	}
-	metrics = append(metrics, gostatsd.Metric{
-		Name:  numStats,
-		Value: float64(totalStats),
-		Type:  gostatsd.COUNTER,
-	})
-	log.Debugf("numStats: %d packetsReceived: %d", totalStats, packetsReceivedValue)
-
-	f.sentBadLines = receiverStats.BadLines
-	f.sentMetricsReceived = receiverStats.MetricsReceived
-	f.sentPacketsReceived = receiverStats.PacketsReceived
-
-	for _, metric := range metrics {
-		m := metric // Copy into a new variable
-		m.SourceIP = f.selfIP
-		m.Hostname = f.hostname
-		if err := f.handler.DispatchMetric(ctx, &m); err != nil {
-			if err == context.Canceled || err == context.DeadlineExceeded {
-				return
-			}
-			log.Warnf("Failed to dispatch internal metric: %v", err)
-		}
-	}
 }

@@ -2,10 +2,12 @@ package statsd
 
 import (
 	"context"
+	"fmt"
 	"hash/adler32"
 	"sync"
 
 	"github.com/atlassian/gostatsd"
+	"github.com/atlassian/gostatsd/pkg/statser"
 )
 
 // AggregatorFactory creates Aggregator objects.
@@ -26,6 +28,7 @@ func (f AggregatorFactoryFunc) Create() Aggregator {
 type MetricDispatcher struct {
 	numWorkers int
 	workers    map[uint16]worker
+	runContext context.Context
 }
 
 // NewMetricDispatcher creates a new NewMetricDispatcher with provided configuration.
@@ -50,22 +53,36 @@ func NewMetricDispatcher(numWorkers int, perWorkerBufferSize int, af AggregatorF
 
 // Run runs the MetricDispatcher.
 func (d *MetricDispatcher) Run(ctx context.Context, done gostatsd.Done) {
-	defer done()
-	var wg sync.WaitGroup
-	wg.Add(d.numWorkers)
-	for _, worker := range d.workers {
-		w := worker // Make a copy of the loop variable! https://github.com/golang/go/wiki/CommonMistakes
-		go w.work(wg.Done)
-	}
-	defer func() {
-		for _, worker := range d.workers {
-			close(worker.metricsQueue) // Close channel to terminate worker
-		}
-		wg.Wait() // Wait for all workers to finish
-	}()
+	d.runContext = ctx
 
-	// Work until asked to stop
-	<-ctx.Done()
+	go func() {
+		defer done()
+		var wg sync.WaitGroup
+		wg.Add(d.numWorkers)
+		for _, worker := range d.workers {
+			w := worker // Make a copy of the loop variable! https://github.com/golang/go/wiki/CommonMistakes
+			go w.work(wg.Done)
+		}
+		defer func() {
+			for _, worker := range d.workers {
+				close(worker.metricsQueue) // Close channel to terminate worker
+			}
+			wg.Wait() // Wait for all workers to finish
+		}()
+
+		// Work until asked to stop
+		<-ctx.Done()
+	}()
+}
+
+func (d *MetricDispatcher) runMetrics(ctx context.Context, statser statser.Statser) {
+	for _, worker := range d.workers {
+		worker.runMetrics(ctx, statser)
+	}
+	d.Process(ctx, func(aggrId uint16, aggr Aggregator) {
+		tag := fmt.Sprintf("aggregator_id:%d", aggrId)
+		aggr.TrackMetrics(statser.WithTags(gostatsd.Tags{tag}))
+	})
 }
 
 // DispatchMetric dispatches metric to a corresponding Aggregator.
@@ -73,6 +90,8 @@ func (d *MetricDispatcher) DispatchMetric(ctx context.Context, m *gostatsd.Metri
 	hash := adler32.Checksum([]byte(m.Name))
 	w := d.workers[uint16(hash%uint32(d.numWorkers))]
 	select {
+	case <-d.runContext.Done():
+		return d.runContext.Err()
 	case <-ctx.Done():
 		return ctx.Err()
 	case w.metricsQueue <- m:
@@ -94,6 +113,9 @@ func (d *MetricDispatcher) Process(ctx context.Context, f DispatcherProcessFunc)
 loop:
 	for _, worker := range d.workers {
 		select {
+		case <-d.runContext.Done():
+			wg.Add(cmdSent - d.numWorkers) // Not all commands have been sent, should decrement the WG counter.
+			break loop
 		case <-ctx.Done():
 			wg.Add(cmdSent - d.numWorkers) // Not all commands have been sent, should decrement the WG counter.
 			break loop
