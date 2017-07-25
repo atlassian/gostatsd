@@ -1,4 +1,4 @@
-2.1.x
+2.2.0
 -----
 - New flag `--ignore-host` prevents capturing of source IP address.  Hostname can be provided
   by client via a `host:` tag.
