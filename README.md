@@ -135,7 +135,10 @@ Prior to accepting your contributions we ask that you please follow the appropri
 License
 -------
 
-Copyright (c) 2012 Kamil Kisiel, Copyright (c) 2016-2017 Atlassian and others. MIT licensed, see LICENSE file.
+Copyright (c) 2012 Kamil Kisiel.
+Copyright @ 2016-2017 Atlassian Pty Ltd and others.
+
+Licensed under the MIT license. See LICENSE file.
 
 [etsy]: https://www.etsy.com
 [statsd]: https://www.github.com/etsy/statsd
