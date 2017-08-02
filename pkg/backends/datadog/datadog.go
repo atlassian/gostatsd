@@ -19,7 +19,6 @@ import (
 	log "github.com/Sirupsen/logrus"
 	"github.com/cenkalti/backoff"
 	"github.com/spf13/viper"
-	"golang.org/x/net/http2"
 )
 
 const (
@@ -279,9 +278,9 @@ func NewClient(apiEndpoint, apiKey string, metricsPerBatch uint, clientTimeout, 
 		}).DialContext,
 		MaxIdleConns:    50,
 		IdleConnTimeout: 1 * time.Minute,
-	}
-	if err := http2.ConfigureTransport(transport); err != nil {
-		return nil, err
+		// A non-nil empty map used in TLSNextProto to disable HTTP/2 support in client.
+		// https://golang.org/doc/go1.6#http2
+		TLSNextProto: map[string](func(string, *tls.Conn) http.RoundTripper){},
 	}
 	return &Client{
 		apiKey:                apiKey,
