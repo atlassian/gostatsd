@@ -7,7 +7,7 @@ gostatsd
 [![GitHub tag](https://img.shields.io/github/tag/atlassian/gostatsd.svg?maxAge=86400)](https://github.com/atlassian/gostatsd)
 [![Docker Pulls](https://img.shields.io/docker/pulls/atlassianlabs/gostatsd.svg)](https://hub.docker.com/r/atlassianlabs/gostatsd/)
 [![Docker Stars](https://img.shields.io/docker/stars/atlassianlabs/gostatsd.svg)](https://hub.docker.com/r/atlassianlabs/gostatsd/)
-[![ImageLayers Size](https://imagelayers.io/badge/atlassianlabs/gostatsd:latest.svg)](https://imagelayers.io/?images=atlassianlabs/gostatsd:latest)
+[![MicroBadger Layers Size](https://images.microbadger.com/badges/image/atlassianlabs/gostatsd.svg)](https://microbadger.com/images/atlassianlabs/gostatsd)
 [![Go Report Card](https://goreportcard.com/badge/github.com/atlassian/gostatsd)](https://goreportcard.com/report/github.com/atlassian/gostatsd)
 [![license](https://img.shields.io/github/license/atlassian/gostatsd.svg)](https://github.com/atlassian/gostatsd/blob/master/LICENSE)
 
