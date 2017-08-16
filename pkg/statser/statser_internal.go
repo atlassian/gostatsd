@@ -96,5 +96,5 @@ func (is *InternalStatser) dispatchMetric(metric *gostatsd.Metric) {
 		metric.Name = is.namespace + "." + metric.Name
 	}
 	metric.Tags = append(metric.Tags, is.tags...)
-	is.handler.DispatchMetric(is.ctx, metric)
+	_ = is.handler.DispatchMetric(is.ctx, metric)
 }

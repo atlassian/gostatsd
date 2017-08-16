@@ -18,7 +18,6 @@ import (
 // TestStatsdThroughput emulates statsd work using fake network socket and null backend to
 // measure throughput.
 func TestStatsdThroughput(t *testing.T) {
-	// TODO: Refactor this in to a Benchmark
 	rand.Seed(time.Now().UnixNano())
 	var memStatsStart, memStatsFinish runtime.MemStats
 	runtime.ReadMemStats(&memStatsStart)

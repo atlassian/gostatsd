@@ -51,5 +51,5 @@ func (w *worker) runMetrics(ctx context.Context, s statser.Statser) {
 		func() int { return len(w.metricsQueue) },
 		1000*time.Millisecond, // TODO: Make configurable
 	)
-	csw.Run(ctx)
+	go csw.Run(ctx)
 }

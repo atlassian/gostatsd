@@ -25,7 +25,7 @@ func concatTags(a, b gostatsd.Tags) gostatsd.Tags {
 }
 
 func copyTags(tags gostatsd.Tags) gostatsd.Tags {
-	new := make(gostatsd.Tags, len(tags))
-	copy(new, tags)
-	return new
+	tagCopy := make(gostatsd.Tags, len(tags))
+	copy(tagCopy, tags)
+	return tagCopy
 }

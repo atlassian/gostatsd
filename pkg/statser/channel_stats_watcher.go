@@ -34,19 +34,16 @@ func NewChannelStatsWatcher(client Statser, channelName string, tags gostatsd.Ta
 // Run will run a ChannelStatsWatcher in the background until the supplied context is
 // closed, or Stop is called.
 func (csw *ChannelStatsWatcher) Run(ctx context.Context) {
-	go func() {
-		ticker := time.NewTicker(csw.interval)
-		defer ticker.Stop()
-		for {
-			select {
-			case <-ctx.Done():
-				ticker.Stop()
-				return
-			case <-ticker.C:
-				csw.emit()
-			}
+	ticker := time.NewTicker(csw.interval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			csw.emit()
 		}
-	}()
+	}
 }
 
 func (csw *ChannelStatsWatcher) emit() {

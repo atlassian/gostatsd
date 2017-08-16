@@ -179,8 +179,6 @@ func TestReceivePacketIgnoreHost(t *testing.T) {
 }
 
 func BenchmarkReceive(b *testing.B) {
-	// TODO: This is a bad benchmark as mr.Receive() is normally long running.  This
-	// benchmarks "how fast can we allocate and GC 64k"
 	mr := &MetricReceiver{
 		handler: nopHandler{},
 	}
