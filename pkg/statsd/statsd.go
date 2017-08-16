@@ -77,7 +77,7 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 	ctxDisp, cancelDisp := context.WithCancel(context.Background()) // Separate context!
 	defer cancelDisp()                                              // Tell the dispatcher to shutdown
 	wgDispatcher.Add(1)
-	dispatcher.Run(ctxDisp, wgDispatcher.Done)
+	dispatcher.RunAsync(ctxDisp, wgDispatcher.Done)
 
 	// 2. Start handlers
 	ip := gostatsd.UnknownIP

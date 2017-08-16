@@ -51,8 +51,8 @@ func NewMetricDispatcher(numWorkers int, perWorkerBufferSize int, af AggregatorF
 	}
 }
 
-// Run runs the MetricDispatcher.
-func (d *MetricDispatcher) Run(ctx context.Context, done gostatsd.Done) {
+// RunAsync runs the MetricDispatcher in a goroutine.
+func (d *MetricDispatcher) RunAsync(ctx context.Context, done gostatsd.Done) {
 	d.runContext = ctx
 
 	go func() {
