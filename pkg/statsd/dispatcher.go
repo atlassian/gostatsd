@@ -50,17 +50,15 @@ func NewMetricDispatcher(numWorkers int, perWorkerBufferSize int, af AggregatorF
 	}
 }
 
-// RunAsync runs the MetricDispatcher in a goroutine
+// Run runs the MetricDispatcher.
 func (d *MetricDispatcher) Run(ctx context.Context, done gostatsd.Done) {
 	defer done()
-
 	var wg sync.WaitGroup
 	wg.Add(d.numWorkers)
 	for _, worker := range d.workers {
 		w := worker // Make a copy of the loop variable! https://github.com/golang/go/wiki/CommonMistakes
 		go w.work(wg.Done)
 	}
-
 	defer func() {
 		for _, worker := range d.workers {
 			close(worker.metricsQueue) // Close channel to terminate worker
@@ -86,7 +84,6 @@ func (d *MetricDispatcher) runMetrics(ctx context.Context, statser statser.Stats
 func (d *MetricDispatcher) DispatchMetric(ctx context.Context, m *gostatsd.Metric) error {
 	hash := adler32.Checksum([]byte(m.Name))
 	w := d.workers[uint16(hash%uint32(d.numWorkers))]
-
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
