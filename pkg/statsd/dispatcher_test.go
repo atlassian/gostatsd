@@ -104,7 +104,7 @@ func TestRunShouldReturnWhenContextCancelled(t *testing.T) {
 	defer cancelFunc()
 	var wgFinish sync.WaitGroup
 	wgFinish.Add(1)
-	d.RunAsync(ctx, wgFinish.Done)
+	d.Run(ctx, wgFinish.Done)
 	wgFinish.Wait() // Make sure waitgroup was released
 }
 
@@ -118,7 +118,7 @@ func TestDispatchMetricShouldDistributeMetrics(t *testing.T) {
 	defer cancelFunc()
 	var wgFinish sync.WaitGroup
 	wgFinish.Add(1)
-	d.RunAsync(ctx, wgFinish.Done)
+	go d.Run(ctx, wgFinish.Done)
 	numMetrics := r.Intn(1000) + n*10
 	var wg sync.WaitGroup
 	wg.Add(numMetrics)
@@ -165,7 +165,7 @@ func BenchmarkDispatcher(b *testing.B) {
 	defer cancelFunc()
 	var wgFinish sync.WaitGroup
 	wgFinish.Add(1)
-	d.RunAsync(ctx, wgFinish.Done)
+	go d.Run(ctx, wgFinish.Done)
 	b.ReportAllocs()
 	b.ResetTimer()
 	b.RunParallel(func(pb *testing.PB) {

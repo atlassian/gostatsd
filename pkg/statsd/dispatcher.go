@@ -28,8 +28,6 @@ func (f AggregatorFactoryFunc) Create() Aggregator {
 type MetricDispatcher struct {
 	numWorkers int
 	workers    map[uint16]*worker
-	lock       sync.RWMutex
-	running    bool
 }
 
 // NewMetricDispatcher creates a new NewMetricDispatcher with provided configuration.
@@ -53,36 +51,25 @@ func NewMetricDispatcher(numWorkers int, perWorkerBufferSize int, af AggregatorF
 }
 
 // RunAsync runs the MetricDispatcher in a goroutine
-func (d *MetricDispatcher) RunAsync(ctx context.Context, done gostatsd.Done) {
-	d.lock.Lock()
-	defer d.lock.Unlock()
-	d.running = true
-	go func() {
-		defer done()
+func (d *MetricDispatcher) Run(ctx context.Context, done gostatsd.Done) {
+	defer done()
 
-		var wg sync.WaitGroup
-		wg.Add(d.numWorkers)
+	var wg sync.WaitGroup
+	wg.Add(d.numWorkers)
+	for _, worker := range d.workers {
+		w := worker // Make a copy of the loop variable! https://github.com/golang/go/wiki/CommonMistakes
+		go w.work(wg.Done)
+	}
+
+	defer func() {
 		for _, worker := range d.workers {
-			w := worker // Make a copy of the loop variable! https://github.com/golang/go/wiki/CommonMistakes
-			go w.work(wg.Done)
+			close(worker.metricsQueue) // Close channel to terminate worker
 		}
-
-		defer func() {
-			// Once this is indicated as not running, DispatchMetric will no longer
-			// try to send to the channel, so it is safe to close.
-			d.lock.Lock()
-			d.running = false
-			d.lock.Unlock()
-
-			for _, worker := range d.workers {
-				close(worker.metricsQueue) // Close channel to terminate worker
-			}
-			wg.Wait() // Wait for all workers to finish
-		}()
-
-		// Work until asked to stop
-		<-ctx.Done()
+		wg.Wait() // Wait for all workers to finish
 	}()
+
+	// Work until asked to stop
+	<-ctx.Done()
 }
 
 func (d *MetricDispatcher) runMetrics(ctx context.Context, statser statser.Statser) {
@@ -99,13 +86,6 @@ func (d *MetricDispatcher) runMetrics(ctx context.Context, statser statser.Stats
 func (d *MetricDispatcher) DispatchMetric(ctx context.Context, m *gostatsd.Metric) error {
 	hash := adler32.Checksum([]byte(m.Name))
 	w := d.workers[uint16(hash%uint32(d.numWorkers))]
-
-	// Protects both the read of d.running, and that the channel remains open
-	d.lock.RLock()
-	defer d.lock.RUnlock()
-	if !d.running {
-		return nil
-	}
 
 	select {
 	case <-ctx.Done():

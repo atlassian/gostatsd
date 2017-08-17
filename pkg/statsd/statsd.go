@@ -77,7 +77,7 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 	ctxDisp, cancelDisp := context.WithCancel(context.Background()) // Separate context!
 	defer cancelDisp()                                              // Tell the dispatcher to shutdown
 	wgDispatcher.Add(1)
-	dispatcher.RunAsync(ctxDisp, wgDispatcher.Done)
+	go dispatcher.Run(ctxDisp, wgDispatcher.Done)
 
 	// 2. Start handlers
 	ip := gostatsd.UnknownIP
@@ -111,10 +111,16 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 			namespace = s.InternalNamespace
 		}
 	}
-	statser := statser.NewInternalStatser(ctx, s.InternalTags, namespace, hostname, handler)
+
+	var wgStatser sync.WaitGroup
+	defer wgStatser.Wait()
+
+	ctxStatser, cancelStatser := context.WithCancel(context.Background())
+	defer cancelStatser()
+	statser := statser.NewInternalStatser(ctxStatser, &wgStatser, s.InternalTags, namespace, hostname, handler)
 	// TODO: Make internal metric dispatch configurable
 	// statser := NewLoggingStatser(s.InternalTags, log.NewEntry(log.New()))
-	dispatcher.runMetrics(ctx, statser)
+	dispatcher.runMetrics(ctxStatser, statser)
 
 	// 4. Start the Receiver
 	var wgReceiver sync.WaitGroup

@@ -2,6 +2,7 @@ package statser
 
 import (
 	"context"
+	"sync"
 	"time"
 
 	"github.com/atlassian/gostatsd"
@@ -15,7 +16,10 @@ type InternalHandler interface {
 
 // InternalStatser is a Statser which sends metrics to a handler
 type InternalStatser struct {
-	ctx       context.Context
+	ctx  context.Context
+	lock sync.RWMutex
+	wg   *sync.WaitGroup
+
 	tags      gostatsd.Tags
 	namespace string
 	hostname  string
@@ -23,14 +27,31 @@ type InternalStatser struct {
 }
 
 // NewInternalStatser creates a new Statser which sends metrics to the
-// supplied InternalHandler
-func NewInternalStatser(ctx context.Context, tags gostatsd.Tags, namespace, hostname string, handler InternalHandler) Statser {
-	return &InternalStatser{
+// supplied InternalHandler.  The WaitGroup must be waited on after
+// the context is closed.
+func NewInternalStatser(ctx context.Context, wg *sync.WaitGroup, tags gostatsd.Tags, namespace, hostname string, handler InternalHandler) Statser {
+	is := &InternalStatser{
 		ctx:       ctx,
+		wg:        wg,
 		tags:      tags,
 		namespace: namespace,
 		hostname:  hostname,
 		handler:   handler,
+	}
+	wg.Add(1)
+	go is.run()
+	return is
+}
+
+func (is *InternalStatser) run() {
+	select {
+	case <-is.ctx.Done():
+		// At this point we're certain the Context is closed.  Wait for
+		// all consumers to release their locks.  On the next dispatch,
+		// they will see the closed Context and not attempt to proceed.
+		is.lock.Lock()
+		is.lock.Unlock()
+		is.wg.Done()
 	}
 }
 
@@ -87,10 +108,19 @@ func (is *InternalStatser) NewTimer(name string, tags gostatsd.Tags) *Timer {
 
 // WithTags creates a new InternalStatser with additional tags
 func (is *InternalStatser) WithTags(tags gostatsd.Tags) Statser {
-	return NewInternalStatser(is.ctx, concatTags(is.tags, tags), is.namespace, is.hostname, is.handler)
+	return NewInternalStatser(is.ctx, is.wg, concatTags(is.tags, tags), is.namespace, is.hostname, is.handler)
 }
 
 func (is *InternalStatser) dispatchMetric(metric *gostatsd.Metric) {
+	is.lock.RLock()
+	defer is.lock.RUnlock()
+
+	select {
+	case <-is.ctx.Done():
+		return
+	default:
+	}
+
 	// the metric is owned by this file, we can change it freely because we know its origins
 	if is.namespace != "" {
 		metric.Name = is.namespace + "." + metric.Name
