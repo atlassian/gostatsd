@@ -44,15 +44,13 @@ func NewInternalStatser(ctx context.Context, wg *sync.WaitGroup, tags gostatsd.T
 }
 
 func (is *InternalStatser) run() {
-	select {
-	case <-is.ctx.Done():
-		// At this point we're certain the Context is closed.  Wait for
-		// all consumers to release their locks.  On the next dispatch,
-		// they will see the closed Context and not attempt to proceed.
-		is.lock.Lock()
-		is.lock.Unlock()
-		is.wg.Done()
-	}
+	<-is.ctx.Done()
+	// At this point we're certain the Context is closed.  Wait for
+	// all consumers to release their locks.  On the next dispatch,
+	// they will see the closed Context and not attempt to proceed.
+	is.lock.Lock()
+	is.wg.Done()
+	is.lock.Unlock()
 }
 
 // Gauge sends a gauge metric
