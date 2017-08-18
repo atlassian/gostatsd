@@ -68,9 +68,9 @@ func round(v float64) float64 {
 
 // Flush prepares the contents of a MetricAggregator for sending via the Sender.
 func (a *MetricAggregator) Flush(flushInterval time.Duration) {
-	flushTimer := a.statser.NewTimer("processing_time", nil)
+	flushTimer := a.statser.NewTimer("aggregator.processing_time", nil)
 	defer flushTimer.SendGauge()
-	a.statser.Gauge("metrics_received", float64(a.metricsReceived), nil)
+	a.statser.Gauge("aggregator.metrics_received", float64(a.metricsReceived), nil)
 
 	a.FlushInterval = flushInterval
 	flushInSeconds := float64(flushInterval) / float64(time.Second)

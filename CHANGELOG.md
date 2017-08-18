@@ -1,3 +1,9 @@
+2.3.0
+-----
+- New flag `--internal-tags` configures tags on internal metrics (default none)
+- New flag `--internal-namespace` configures namespace on internal metrics (default "statsd")
+- BREAKING: Significant internal metric changes, including new names.  See METRICS.md for details
+
 2.2.0
 -----
 - New flag `--ignore-host` prevents capturing of source IP address.  Hostname can be provided
