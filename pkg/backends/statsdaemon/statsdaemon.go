@@ -53,11 +53,6 @@ func (client *Client) Run(ctx context.Context, done gostatsd.Done) {
 
 // SendMetricsAsync flushes the metrics to the statsd server, preparing payload synchronously but doing the send asynchronously.
 func (client *Client) SendMetricsAsync(ctx context.Context, metrics *gostatsd.MetricMap, cb gostatsd.SendCallback) {
-	if metrics.NumStats == 0 {
-		cb(nil)
-		return
-	}
-
 	sink := make(chan *bytes.Buffer, sendChannelSize)
 	select {
 	case <-ctx.Done():

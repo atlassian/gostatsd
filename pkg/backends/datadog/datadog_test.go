@@ -124,9 +124,6 @@ func TestSendMetrics(t *testing.T) {
 // twoCounters returns two counters.
 func twoCounters() *gostatsd.MetricMap {
 	return &gostatsd.MetricMap{
-		MetricStats: gostatsd.MetricStats{
-			NumStats: 2,
-		},
 		Counters: gostatsd.Counters{
 			"stat1": map[string]gostatsd.Counter{
 				"tag1": gostatsd.NewCounter(gostatsd.Nanotime(time.Now().UnixNano()), 5, "", nil),
@@ -140,10 +137,6 @@ func twoCounters() *gostatsd.MetricMap {
 
 func metricsOneOfEach() *gostatsd.MetricMap {
 	return &gostatsd.MetricMap{
-		MetricStats: gostatsd.MetricStats{
-			NumStats:       4,
-			ProcessingTime: 10 * time.Millisecond,
-		},
 		FlushInterval: 1100 * time.Millisecond,
 		Counters: gostatsd.Counters{
 			"c1": map[string]gostatsd.Counter{

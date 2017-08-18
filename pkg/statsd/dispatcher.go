@@ -2,10 +2,12 @@ package statsd
 
 import (
 	"context"
+	"fmt"
 	"hash/adler32"
 	"sync"
 
 	"github.com/atlassian/gostatsd"
+	"github.com/atlassian/gostatsd/pkg/statser"
 )
 
 // AggregatorFactory creates Aggregator objects.
@@ -25,17 +27,17 @@ func (f AggregatorFactoryFunc) Create() Aggregator {
 // MetricDispatcher dispatches incoming metrics to corresponding aggregators.
 type MetricDispatcher struct {
 	numWorkers int
-	workers    map[uint16]worker
+	workers    map[uint16]*worker
 }
 
 // NewMetricDispatcher creates a new NewMetricDispatcher with provided configuration.
 func NewMetricDispatcher(numWorkers int, perWorkerBufferSize int, af AggregatorFactory) *MetricDispatcher {
-	workers := make(map[uint16]worker, numWorkers)
+	workers := make(map[uint16]*worker, numWorkers)
 
 	n := uint16(numWorkers)
 
 	for i := uint16(0); i < n; i++ {
-		workers[i] = worker{
+		workers[i] = &worker{
 			aggr:         af.Create(),
 			metricsQueue: make(chan *gostatsd.Metric, perWorkerBufferSize),
 			processChan:  make(chan *processCommand),
@@ -66,6 +68,16 @@ func (d *MetricDispatcher) Run(ctx context.Context, done gostatsd.Done) {
 
 	// Work until asked to stop
 	<-ctx.Done()
+}
+
+func (d *MetricDispatcher) runMetrics(ctx context.Context, statser statser.Statser) {
+	for _, worker := range d.workers {
+		worker.runMetrics(ctx, statser)
+	}
+	d.Process(ctx, func(aggrId uint16, aggr Aggregator) {
+		tag := fmt.Sprintf("aggregator_id:%d", aggrId)
+		aggr.TrackMetrics(statser.WithTags(gostatsd.Tags{tag}))
+	})
 }
 
 // DispatchMetric dispatches metric to a corresponding Aggregator.

@@ -16,9 +16,6 @@ import (
 
 var longName = strings.Repeat("t", maxUDPPacketSize-5)
 var m = gostatsd.MetricMap{
-	MetricStats: gostatsd.MetricStats{
-		NumStats: 1,
-	},
 	Counters: gostatsd.Counters{
 		longName: map[string]gostatsd.Counter{
 			"tag1": gostatsd.NewCounter(gostatsd.Nanotime(time.Now().UnixNano()), 5, "", nil),
@@ -54,9 +51,6 @@ func TestProcessMetricsPanic(t *testing.T) {
 }
 
 var gaugeMetic = gostatsd.MetricMap{
-	MetricStats: gostatsd.MetricStats{
-		NumStats: 1,
-	},
 	Gauges: gostatsd.Gauges{
 		"statsd.processing_time": map[string]gostatsd.Gauge{
 			"tag1": gostatsd.NewGauge(gostatsd.Nanotime(time.Now().UnixNano()), 2, "", nil),

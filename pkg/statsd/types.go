@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/atlassian/gostatsd"
+	"github.com/atlassian/gostatsd/pkg/statser"
 )
 
 // Handler interface can be used to handle metrics and events.
@@ -25,6 +26,7 @@ type ProcessFunc func(*gostatsd.MetricMap)
 //
 // Incoming metrics should be passed via Receive function.
 type Aggregator interface {
+	TrackMetrics(statser statser.Statser)
 	Receive(*gostatsd.Metric, time.Time)
 	Flush(interval time.Duration)
 	Process(ProcessFunc)
@@ -42,32 +44,4 @@ type Dispatcher interface {
 	// DispatcherProcessFunc function may be executed zero or up to numWorkers times. It is executed
 	// less than numWorkers times if the context signals "done".
 	Process(context.Context, DispatcherProcessFunc) gostatsd.Wait
-}
-
-// FlusherStats holds statistics about a Flusher.
-type FlusherStats struct {
-	LastFlush      time.Time // Last time the metrics where aggregated
-	LastFlushError time.Time // Time of the last flush error
-}
-
-// Flusher periodically flushes metrics from all Aggregators to Senders.
-type Flusher interface {
-	// GetStats returns Flusher statistics.
-	GetStats() FlusherStats
-}
-
-// ReceiverStatsGetter returns current Receiver stats.
-type ReceiverStatsGetter interface {
-	// GetStats returns current Receiver stats.
-	// Safe for concurrent use.
-	GetStats() ReceiverStats
-}
-
-// ReceiverStats holds statistics for a Receiver.
-type ReceiverStats struct {
-	LastPacket      time.Time
-	BadLines        uint64
-	PacketsReceived uint64
-	MetricsReceived uint64
-	EventsReceived  uint64
 }

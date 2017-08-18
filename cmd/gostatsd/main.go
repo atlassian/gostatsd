@@ -109,6 +109,8 @@ func constructServer(v *viper.Viper) (*statsd.Server, error) {
 		Backends:            backendsList,
 		CloudProvider:       cloud,
 		Limiter:             rate.NewLimiter(rate.Limit(v.GetInt(statsd.ParamMaxCloudRequests)), v.GetInt(statsd.ParamBurstCloudRequests)),
+		InternalTags:        toSlice(v.GetString(statsd.ParamInternalTags)),
+		InternalNamespace:   v.GetString(statsd.ParamInternalNamespace),
 		DefaultTags:         toSlice(v.GetString(statsd.ParamDefaultTags)),
 		ExpiryInterval:      v.GetDuration(statsd.ParamExpiryInterval),
 		FlushInterval:       v.GetDuration(statsd.ParamFlushInterval),

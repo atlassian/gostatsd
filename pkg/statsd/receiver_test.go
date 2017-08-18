@@ -8,6 +8,7 @@ import (
 
 	"github.com/atlassian/gostatsd"
 	"github.com/atlassian/gostatsd/pkg/fakesocket"
+	"github.com/atlassian/gostatsd/pkg/statser"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -30,7 +31,7 @@ func TestReceiveEmptyPacket(t *testing.T) {
 		t.Run(strconv.Itoa(pos), func(t *testing.T) {
 			t.Parallel()
 			ch := &countingHandler{}
-			mr := NewMetricReceiver("", false, ch)
+			mr := NewMetricReceiver("", false, ch, statser.NewNullStatser())
 
 			err := mr.handlePacket(context.Background(), fakesocket.FakeAddr, inp)
 			require.NoError(t, err)
@@ -55,12 +56,12 @@ func TestReceivePacket(t *testing.T) {
 		},
 		"f:2|c|#t": {
 			metrics: []gostatsd.Metric{
-				{Name:"f", Value: 2, SourceIP: "127.0.0.1", Type: gostatsd.COUNTER, Tags: gostatsd.Tags{"t"}},
+				{Name: "f", Value: 2, SourceIP: "127.0.0.1", Type: gostatsd.COUNTER, Tags: gostatsd.Tags{"t"}},
 			},
 		},
 		"f:2|c|#host:h": {
 			metrics: []gostatsd.Metric{
-				{Name:"f", Value: 2, SourceIP: "127.0.0.1", Type: gostatsd.COUNTER, Tags: gostatsd.Tags{"host:h"}},
+				{Name: "f", Value: 2, SourceIP: "127.0.0.1", Type: gostatsd.COUNTER, Tags: gostatsd.Tags{"host:h"}},
 			},
 		},
 		"f:2|c\nx:3|c": {
@@ -90,7 +91,7 @@ func TestReceivePacket(t *testing.T) {
 		t.Run(packet, func(t *testing.T) {
 			t.Parallel()
 			ch := &countingHandler{}
-			mr := NewMetricReceiver("", false, ch)
+			mr := NewMetricReceiver("", false, ch, statser.NewNullStatser())
 
 			err := mr.handlePacket(context.Background(), fakesocket.FakeAddr, []byte(packet))
 			assert.NoError(t, err)
@@ -121,17 +122,17 @@ func TestReceivePacketIgnoreHost(t *testing.T) {
 		},
 		"f:2|c|#t": {
 			metrics: []gostatsd.Metric{
-				{Name:"f", Value: 2, Type: gostatsd.COUNTER, Tags: gostatsd.Tags{"t"}},
+				{Name: "f", Value: 2, Type: gostatsd.COUNTER, Tags: gostatsd.Tags{"t"}},
 			},
 		},
 		"f:2|c|#host:h": {
 			metrics: []gostatsd.Metric{
-				{Name:"f", Value: 2, Hostname: "h", Type: gostatsd.COUNTER},
+				{Name: "f", Value: 2, Hostname: "h", Type: gostatsd.COUNTER},
 			},
 		},
 		"f:2|c|#host:h1,host:h2": {
 			metrics: []gostatsd.Metric{
-				{Name:"f", Value: 2, Hostname: "h1", Type: gostatsd.COUNTER, Tags: gostatsd.Tags{"host:h2"}},
+				{Name: "f", Value: 2, Hostname: "h1", Type: gostatsd.COUNTER, Tags: gostatsd.Tags{"host:h2"}},
 			},
 		},
 		"f:2|c\nx:3|c": {
@@ -161,7 +162,7 @@ func TestReceivePacketIgnoreHost(t *testing.T) {
 		t.Run(packet, func(t *testing.T) {
 			t.Parallel()
 			ch := &countingHandler{}
-			mr := NewMetricReceiver("", true, ch)
+			mr := NewMetricReceiver("", true, ch, statser.NewNullStatser())
 
 			err := mr.handlePacket(context.Background(), fakesocket.FakeAddr, []byte(packet))
 			assert.NoError(t, err)
