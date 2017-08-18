@@ -18,13 +18,9 @@ type ChannelStatsWatcher struct {
 
 // NewChannelStatsWatcher creates a new ChannelStatsWatcher
 func NewChannelStatsWatcher(client Statser, channelName string, tags gostatsd.Tags, capacity int, lenFunc func() int, interval time.Duration) *ChannelStatsWatcher {
-	t := gostatsd.Tags{"channel:" + channelName}
-	if tags != nil {
-		t = append(t, tags...)
-	}
 	return &ChannelStatsWatcher{
 		client:   client,
-		tags:     t,
+		tags:     tags.Concat(gostatsd.Tags{"channel:" + channelName}),
 		capacity: capacity,
 		lenFunc:  lenFunc,
 		interval: interval,
@@ -54,7 +50,7 @@ func (csw *ChannelStatsWatcher) emit() {
 	// tags are normally read from external sources, so are distinct even if the
 	// same values.  As such, many things make assumptions about the ability to
 	// modify tags in place.  So we duplicate them.
-	csw.client.Gauge("channel.capacity", capacity, copyTags(csw.tags))
-	csw.client.Gauge("channel.queued", queued, copyTags(csw.tags))
-	csw.client.Gauge("channel.pct_used", percentUsed, copyTags(csw.tags))
+	csw.client.Gauge("channel.capacity", capacity, csw.tags.Copy())
+	csw.client.Gauge("channel.queued", queued, csw.tags.Copy())
+	csw.client.Gauge("channel.pct_used", percentUsed, csw.tags.Copy())
 }

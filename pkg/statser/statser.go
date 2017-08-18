@@ -1,6 +1,7 @@
 package statser
 
 import (
+	"context"
 	"time"
 
 	"github.com/atlassian/gostatsd"
@@ -8,6 +9,7 @@ import (
 
 // Statser is the interface for sending metrics
 type Statser interface {
+	Run(ctx context.Context, done gostatsd.Done)
 	Gauge(name string, value float64, tags gostatsd.Tags)
 	Count(name string, amount float64, tags gostatsd.Tags)
 	Increment(name string, tags gostatsd.Tags)
@@ -15,17 +17,4 @@ type Statser interface {
 	TimingDuration(name string, d time.Duration, tags gostatsd.Tags)
 	NewTimer(name string, tags gostatsd.Tags) *Timer
 	WithTags(tags gostatsd.Tags) Statser
-}
-
-func concatTags(a, b gostatsd.Tags) gostatsd.Tags {
-	t := make(gostatsd.Tags, 0, len(a)+len(b))
-	t = append(t, a...)
-	t = append(t, b...)
-	return t
-}
-
-func copyTags(tags gostatsd.Tags) gostatsd.Tags {
-	tagCopy := make(gostatsd.Tags, len(tags))
-	copy(tagCopy, tags)
-	return tagCopy
 }

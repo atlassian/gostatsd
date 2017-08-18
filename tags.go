@@ -34,3 +34,18 @@ func (tags Tags) SortedString() string {
 func NormalizeTagKey(key string) string {
 	return strings.Replace(key, ":", "_", -1)
 }
+
+// Concat returns a new Tags with the additional ones added
+func (tags Tags) Concat(additional Tags) Tags {
+	t := make(Tags, 0, len(tags)+len(additional))
+	t = append(t, tags...)
+	t = append(t, additional...)
+	return t
+}
+
+// Copy returns a copy of the Tags
+func (tags Tags) Copy() Tags {
+	tagCopy := make(Tags, len(tags))
+	copy(tagCopy, tags)
+	return tagCopy
+}

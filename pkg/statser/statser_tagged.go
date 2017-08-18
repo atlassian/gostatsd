@@ -1,6 +1,7 @@
 package statser
 
 import (
+	"context"
 	"time"
 
 	"github.com/atlassian/gostatsd"
@@ -24,6 +25,9 @@ func NewTaggedStatser(statser Statser, tags gostatsd.Tags) Statser {
 		tags:    tags,
 	}
 }
+
+// Run does nothing for a TaggedStatser
+func (ts *TaggedStatser) Run(ctx context.Context, done gostatsd.Done) {}
 
 // Gauge sends a gauge metric
 func (ts *TaggedStatser) Gauge(name string, value float64, tags gostatsd.Tags) {
@@ -64,7 +68,7 @@ func (ts *TaggedStatser) WithTags(tags gostatsd.Tags) Statser {
 
 	return &TaggedStatser{
 		statser: ts.statser, // Base Statser
-		tags:    concatTags(ts.tags, tags),
+		tags:    ts.tags.Concat(tags),
 	}
 }
 
@@ -72,5 +76,5 @@ func (ts *TaggedStatser) concatTags(base, extra gostatsd.Tags) gostatsd.Tags {
 	if len(extra) == 0 {
 		return base
 	}
-	return concatTags(base, extra)
+	return base.Concat(extra)
 }

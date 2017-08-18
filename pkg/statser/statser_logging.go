@@ -1,6 +1,7 @@
 package statser
 
 import (
+	"context"
 	"time"
 
 	"github.com/atlassian/gostatsd"
@@ -23,11 +24,16 @@ func NewLoggingStatser(tags gostatsd.Tags, logger *log.Entry) Statser {
 	}
 }
 
+// Run does nothing for a LoggingStatser
+func (ls *LoggingStatser) Run(ctx context.Context, done gostatsd.Done) {
+	done()
+}
+
 // Gauge sends a gauge metric
 func (ls *LoggingStatser) Gauge(name string, value float64, tags gostatsd.Tags) {
 	ls.logger.WithFields(log.Fields{
 		"name":  name,
-		"tags":  concatTags(ls.tags, tags),
+		"tags":  ls.tags.Concat(tags),
 		"value": value,
 	}).Infof("gauge")
 }
@@ -36,7 +42,7 @@ func (ls *LoggingStatser) Gauge(name string, value float64, tags gostatsd.Tags) 
 func (ls *LoggingStatser) Count(name string, amount float64, tags gostatsd.Tags) {
 	ls.logger.WithFields(log.Fields{
 		"name":   name,
-		"tags":   concatTags(ls.tags, tags),
+		"tags":   ls.tags.Concat(tags),
 		"amount": amount,
 	}).Infof("count")
 }
@@ -45,7 +51,7 @@ func (ls *LoggingStatser) Count(name string, amount float64, tags gostatsd.Tags)
 func (ls *LoggingStatser) Increment(name string, tags gostatsd.Tags) {
 	ls.logger.WithFields(log.Fields{
 		"name": name,
-		"tags": concatTags(ls.tags, tags),
+		"tags": ls.tags.Concat(tags),
 	}).Infof("increment")
 }
 
@@ -53,7 +59,7 @@ func (ls *LoggingStatser) Increment(name string, tags gostatsd.Tags) {
 func (ls *LoggingStatser) TimingMS(name string, ms float64, tags gostatsd.Tags) {
 	ls.logger.WithFields(log.Fields{
 		"name": name,
-		"tags": concatTags(ls.tags, tags),
+		"tags": ls.tags.Concat(tags),
 		"ms":   ms,
 	}).Infof("timing")
 }

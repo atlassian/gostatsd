@@ -2,7 +2,6 @@ package statser
 
 import (
 	"context"
-	"sync"
 	"sync/atomic"
 	"time"
 
@@ -24,8 +23,6 @@ type InternalHandler interface {
 // There is an assumption (but not enforcement) that InternalStatser is a
 // singleton, and therefore there is no namespacing/tags on the dropped metrics.
 type InternalStatser struct {
-	ctx    context.Context
-	wg     *sync.WaitGroup
 	buffer chan *gostatsd.Metric
 
 	tags      gostatsd.Tags
@@ -36,34 +33,27 @@ type InternalStatser struct {
 }
 
 // NewInternalStatser creates a new Statser which sends metrics to the
-// supplied InternalHandler.  The WaitGroup must be waited on after
-// the context is closed.
-func NewInternalStatser(ctx context.Context, wg *sync.WaitGroup, bufferSize int, tags gostatsd.Tags, namespace, hostname string, handler InternalHandler) Statser {
-	is := &InternalStatser{
-		ctx:       ctx,
-		wg:        wg,
+// supplied InternalHandler.
+func NewInternalStatser(bufferSize int, tags gostatsd.Tags, namespace, hostname string, handler InternalHandler) Statser {
+	return &InternalStatser{
 		buffer:    make(chan *gostatsd.Metric, bufferSize),
 		tags:      tags,
 		namespace: namespace,
 		hostname:  hostname,
 		handler:   handler,
 	}
-	wg.Add(1)
-	go is.run()
-	return is
 }
 
-// run will pull internal metrics off a small buffer, and dispatch them.  It
+// Run will pull internal metrics off a small buffer, and dispatch them.  It
 // stops running when the context is closed.
-func (is *InternalStatser) run() {
-	defer is.wg.Done()
-
-	ticker := time.NewTicker(1 * time.Second)
+func (is *InternalStatser) Run(ctx context.Context, done gostatsd.Done) {
+	defer done()
+	ticker := time.NewTicker(60 * time.Second)
 	defer ticker.Stop()
 
 	for {
 		select {
-		case <-is.ctx.Done():
+		case <-ctx.Done():
 			return
 		case m := <-is.buffer:
 			is.dispatchMetric(m)
@@ -146,6 +136,6 @@ func (is *InternalStatser) dispatchMetric(metric *gostatsd.Metric) {
 	if is.namespace != "" {
 		metric.Name = is.namespace + "." + metric.Name
 	}
-	metric.Tags = append(metric.Tags, is.tags...)
-	_ = is.handler.DispatchMetric(is.ctx, metric)
+	metric.Tags = metric.Tags.Concat(is.tags)
+	_ = is.handler.DispatchMetric(context.Background(), metric)
 }
