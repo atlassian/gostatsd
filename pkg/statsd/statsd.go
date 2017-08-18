@@ -117,7 +117,8 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 
 	ctxStatser, cancelStatser := context.WithCancel(context.Background())
 	defer cancelStatser()
-	statser := statser.NewInternalStatser(ctxStatser, &wgStatser, s.InternalTags, namespace, hostname, handler)
+	bufferSize := 10 + 4*s.MaxWorkers // Estimate: 3 for the CSW on each, and a bit of overhead for things that tick in the background
+	statser := statser.NewInternalStatser(ctxStatser, &wgStatser, bufferSize, s.InternalTags, namespace, hostname, handler)
 	// TODO: Make internal metric dispatch configurable
 	// statser := NewLoggingStatser(s.InternalTags, log.NewEntry(log.New()))
 	dispatcher.runMetrics(ctxStatser, statser)

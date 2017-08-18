@@ -3,6 +3,7 @@ package statser
 import (
 	"context"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/atlassian/gostatsd"
@@ -14,25 +15,34 @@ type InternalHandler interface {
 	DispatchMetric(ctx context.Context, m *gostatsd.Metric) error
 }
 
-// InternalStatser is a Statser which sends metrics to a handler
+// InternalStatser is a Statser which sends metrics to a handler on a best
+// effort basis.  If all buffers are full, metrics will be dropped.  Dropped
+// metrics will be accumulated and emitted as a gauge (not counter).  Metrics
+// sent after the context is closed will be counted as dropped, but never
+// surfaced because it has nowhere to submit them.
+//
+// There is an assumption (but not enforcement) that InternalStatser is a
+// singleton, and therefore there is no namespacing/tags on the dropped metrics.
 type InternalStatser struct {
-	ctx  context.Context
-	lock sync.RWMutex
-	wg   *sync.WaitGroup
+	ctx    context.Context
+	wg     *sync.WaitGroup
+	buffer chan *gostatsd.Metric
 
 	tags      gostatsd.Tags
 	namespace string
 	hostname  string
 	handler   InternalHandler
+	dropped   uint64
 }
 
 // NewInternalStatser creates a new Statser which sends metrics to the
 // supplied InternalHandler.  The WaitGroup must be waited on after
 // the context is closed.
-func NewInternalStatser(ctx context.Context, wg *sync.WaitGroup, tags gostatsd.Tags, namespace, hostname string, handler InternalHandler) Statser {
+func NewInternalStatser(ctx context.Context, wg *sync.WaitGroup, bufferSize int, tags gostatsd.Tags, namespace, hostname string, handler InternalHandler) Statser {
 	is := &InternalStatser{
 		ctx:       ctx,
 		wg:        wg,
+		buffer:    make(chan *gostatsd.Metric, bufferSize),
 		tags:      tags,
 		namespace: namespace,
 		hostname:  hostname,
@@ -43,14 +53,24 @@ func NewInternalStatser(ctx context.Context, wg *sync.WaitGroup, tags gostatsd.T
 	return is
 }
 
+// run will pull internal metrics off a small buffer, and dispatch them.  It
+// stops running when the context is closed.
 func (is *InternalStatser) run() {
-	<-is.ctx.Done()
-	// At this point we're certain the Context is closed.  Wait for
-	// all consumers to release their locks.  On the next dispatch,
-	// they will see the closed Context and not attempt to proceed.
-	is.lock.Lock()
-	is.wg.Done()
-	is.lock.Unlock()
+	defer is.wg.Done()
+
+	ticker := time.NewTicker(1 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-is.ctx.Done():
+			return
+		case m := <-is.buffer:
+			is.dispatchMetric(m)
+		case <-ticker.C:
+			is.Gauge("internal_dropped", float64(atomic.LoadUint64(&is.dropped)), nil)
+		}
+	}
 }
 
 // Gauge sends a gauge metric
@@ -62,7 +82,7 @@ func (is *InternalStatser) Gauge(name string, value float64, tags gostatsd.Tags)
 		Hostname: is.hostname,
 		Type:     gostatsd.GAUGE,
 	}
-	is.dispatchMetric(g)
+	is.dispatchInternal(g)
 }
 
 // Count sends a counter metric
@@ -74,7 +94,7 @@ func (is *InternalStatser) Count(name string, amount float64, tags gostatsd.Tags
 		Hostname: is.hostname,
 		Type:     gostatsd.COUNTER,
 	}
-	is.dispatchMetric(c)
+	is.dispatchInternal(c)
 }
 
 // Increment sends a counter metric with a value of 1
@@ -91,7 +111,7 @@ func (is *InternalStatser) TimingMS(name string, ms float64, tags gostatsd.Tags)
 		Hostname: is.hostname,
 		Type:     gostatsd.TIMER,
 	}
-	is.dispatchMetric(c)
+	is.dispatchInternal(c)
 }
 
 // TimingDuration sends a timing metric from a time.Duration
@@ -104,21 +124,24 @@ func (is *InternalStatser) NewTimer(name string, tags gostatsd.Tags) *Timer {
 	return newTimer(is, name, tags)
 }
 
-// WithTags creates a new InternalStatser with additional tags
+// WithTags creates a new Statser with additional tags
 func (is *InternalStatser) WithTags(tags gostatsd.Tags) Statser {
-	return NewInternalStatser(is.ctx, is.wg, concatTags(is.tags, tags), is.namespace, is.hostname, is.handler)
+	return NewTaggedStatser(is, tags)
+}
+
+// Attempts to dispatch a metric via the internal buffer.  Non-blocking.
+// Failure to send will be tracked, but not propagated to the caller.
+func (is *InternalStatser) dispatchInternal(metric *gostatsd.Metric) {
+	select {
+	case is.buffer <- metric:
+		// great success
+	default:
+		// at least we tried
+		atomic.AddUint64(&is.dropped, 1)
+	}
 }
 
 func (is *InternalStatser) dispatchMetric(metric *gostatsd.Metric) {
-	is.lock.RLock()
-	defer is.lock.RUnlock()
-
-	select {
-	case <-is.ctx.Done():
-		return
-	default:
-	}
-
 	// the metric is owned by this file, we can change it freely because we know its origins
 	if is.namespace != "" {
 		metric.Name = is.namespace + "." + metric.Name

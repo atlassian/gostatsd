@@ -68,7 +68,7 @@ func (ls *LoggingStatser) NewTimer(name string, tags gostatsd.Tags) *Timer {
 	return newTimer(ls, name, tags)
 }
 
-// WithTags creates a new LoggingStatser with additional tags
+// WithTags creates a new Statser with additional tags
 func (ls *LoggingStatser) WithTags(tags gostatsd.Tags) Statser {
-	return NewLoggingStatser(concatTags(ls.tags, tags), ls.logger)
+	return NewTaggedStatser(ls, tags)
 }
