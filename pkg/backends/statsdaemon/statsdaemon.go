@@ -47,8 +47,8 @@ type Client struct {
 // if contents are processed somehow and are no longer needed).
 type overflowHandler func(*bytes.Buffer) (buf *bytes.Buffer, stop bool)
 
-func (client *Client) Run(ctx context.Context, done gostatsd.Done) {
-	client.sender.Run(ctx, done)
+func (client *Client) Run(ctx context.Context) {
+	client.sender.Run(ctx)
 }
 
 // SendMetricsAsync flushes the metrics to the statsd server, preparing payload synchronously but doing the send asynchronously.

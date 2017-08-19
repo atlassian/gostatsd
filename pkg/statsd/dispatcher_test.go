@@ -12,6 +12,7 @@ import (
 	"github.com/atlassian/gostatsd"
 	"github.com/atlassian/gostatsd/pkg/statser"
 
+	"github.com/ash2k/stager/wait"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -102,10 +103,7 @@ func TestRunShouldReturnWhenContextCancelled(t *testing.T) {
 	d := NewMetricDispatcher(5, 1, newTestFactory())
 	ctx, cancelFunc := context.WithTimeout(context.Background(), 1*time.Second)
 	defer cancelFunc()
-	var wgFinish sync.WaitGroup
-	wgFinish.Add(1)
-	d.Run(ctx, wgFinish.Done)
-	wgFinish.Wait() // Make sure waitgroup was released
+	d.Run(ctx)
 }
 
 func TestDispatchMetricShouldDistributeMetrics(t *testing.T) {
@@ -116,9 +114,8 @@ func TestDispatchMetricShouldDistributeMetrics(t *testing.T) {
 	d := NewMetricDispatcher(n, 10, factory)
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	defer cancelFunc()
-	var wgFinish sync.WaitGroup
-	wgFinish.Add(1)
-	go d.Run(ctx, wgFinish.Done)
+	var wgFinish wait.Group
+	wgFinish.StartWithContext(ctx, d.Run)
 	numMetrics := r.Intn(1000) + n*10
 	var wg sync.WaitGroup
 	wg.Add(numMetrics)
@@ -163,9 +160,8 @@ func BenchmarkDispatcher(b *testing.B) {
 	d := NewMetricDispatcher(runtime.NumCPU(), 10, factory)
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	defer cancelFunc()
-	var wgFinish sync.WaitGroup
-	wgFinish.Add(1)
-	go d.Run(ctx, wgFinish.Done)
+	var wgFinish wait.Group
+	wgFinish.StartWithContext(ctx, d.Run)
 	b.ReportAllocs()
 	b.ResetTimer()
 	b.RunParallel(func(pb *testing.PB) {

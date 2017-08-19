@@ -5,13 +5,13 @@ import (
 	"net"
 	"os"
 	"strconv"
-	"sync"
 	"time"
 
 	"github.com/atlassian/gostatsd"
 	"github.com/atlassian/gostatsd/pkg/statser"
 
 	log "github.com/Sirupsen/logrus"
+	"github.com/ash2k/stager"
 	"github.com/spf13/viper"
 	"golang.org/x/time/rate"
 )
@@ -53,15 +53,13 @@ type SocketFactory func() (net.PacketConn, error)
 // RunWithCustomSocket runs the server until context signals done.
 // Listening socket is created using sf.
 func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) error {
+	stgr := stager.New()
+	defer stgr.Shutdown()
 	// 0. Start runnable backends
-	var wgBackends sync.WaitGroup
-	defer wgBackends.Wait()                                         // Wait for backends to shutdown
-	ctxBack, cancelBack := context.WithCancel(context.Background()) // Separate context!
-	defer cancelBack()                                              // Tell backends to shutdown
+	stage := stgr.NextStage()
 	for _, b := range s.Backends {
 		if b, ok := b.(gostatsd.RunnableBackend); ok {
-			wgBackends.Add(1)
-			go b.Run(ctxBack, wgBackends.Done)
+			stage.StartWithContext(b.Run)
 		}
 	}
 
@@ -72,12 +70,8 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 	}
 	dispatcher := NewMetricDispatcher(s.MaxWorkers, s.MaxQueueSize, &factory)
 
-	var wgDispatcher sync.WaitGroup
-	defer wgDispatcher.Wait()                                       // Wait for dispatcher to shutdown
-	ctxDisp, cancelDisp := context.WithCancel(context.Background()) // Separate context!
-	defer cancelDisp()                                              // Tell the dispatcher to shutdown
-	wgDispatcher.Add(1)
-	go dispatcher.Run(ctxDisp, wgDispatcher.Done)
+	stage = stgr.NextStage()
+	stage.StartWithContext(dispatcher.Run)
 
 	// 2. Start handlers
 	ip := gostatsd.UnknownIP
@@ -87,12 +81,8 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 	if s.CloudProvider != nil {
 		ch := NewCloudHandler(s.CloudProvider, handler, s.Limiter, &s.CacheOptions)
 		handler = ch
-		var wgCloudHandler sync.WaitGroup
-		defer wgCloudHandler.Wait()                                           // Wait for handler to shutdown
-		ctxHandler, cancelHandler := context.WithCancel(context.Background()) // Separate context!
-		defer cancelHandler()                                                 // Tell the handler to shutdown
-		wgCloudHandler.Add(1)
-		go ch.Run(ctxHandler, wgCloudHandler.Done)
+		stage = stgr.NextStage()
+		stage.StartWithContext(ch.Run)
 		selfIP, err := s.CloudProvider.SelfIP()
 		if err != nil {
 			log.Warnf("Failed to get self ip: %v", err)
@@ -112,22 +102,19 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 		}
 	}
 
-	var wgStatser sync.WaitGroup
-	wgStatser.Add(1)
-	defer wgStatser.Wait()
-	ctxStatser, cancelStatser := context.WithCancel(context.Background())
-	defer cancelStatser()
 	bufferSize := 10 + 4*s.MaxWorkers // Estimate: 3 for the CSW on each (+ a bit), and a bit of overhead for things that tick in the background
 	statser := statser.NewInternalStatser(bufferSize, s.InternalTags, namespace, hostname, handler)
 	// TODO: Make internal metric dispatch configurable
 	// statser := NewLoggingStatser(s.InternalTags, log.NewEntry(log.New()))
-	go statser.Run(ctxStatser, wgStatser.Done)
-	dispatcher.runMetrics(ctxStatser, statser)
+	stage = stgr.NextStage()
+	stage.StartWithContext(statser.Run)
+
+	stage = stgr.NextStage()
+	stage.StartWithContext(func(ctx context.Context) {
+		dispatcher.RunMetrics(ctx, statser)
+	})
 
 	// 4. Start the Receiver
-	var wgReceiver sync.WaitGroup
-	defer wgReceiver.Wait() // Wait for all receivers to finish
-
 	// Open socket
 	c, err := sf()
 	if err != nil {
@@ -141,18 +128,16 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 	}()
 
 	receiver := NewMetricReceiver(s.Namespace, s.IgnoreHost, handler, statser)
-	wgReceiver.Add(s.MaxReaders + 1)
-	go receiver.runMetrics(ctx, wgReceiver.Done)
+	stage.StartWithContext(receiver.RunMetrics)
 	for r := 0; r < s.MaxReaders; r++ {
-		go receiver.Receive(ctx, wgReceiver.Done, c)
+		stage.StartWithContext(func(ctx context.Context) {
+			receiver.Receive(ctx, c)
+		})
 	}
 
 	// 5. Start the Flusher
 	flusher := NewMetricFlusher(s.FlushInterval, dispatcher, handler, s.Backends, ip, hostname, statser)
-	var wgFlusher sync.WaitGroup
-	defer wgFlusher.Wait() // Wait for the Flusher to finish
-	wgFlusher.Add(1)
-	go flusher.Run(ctx, wgFlusher.Done)
+	stage.StartWithContext(flusher.Run)
 
 	// 6. Send events on start and on stop
 	// TODO: Push these in to statser

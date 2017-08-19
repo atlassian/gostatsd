@@ -46,9 +46,7 @@ func NewMetricReceiver(ns string, ignoreHost bool, handler Handler, statser stat
 	}
 }
 
-func (mr *MetricReceiver) runMetrics(ctx context.Context, done gostatsd.Done) {
-	defer done()
-
+func (mr *MetricReceiver) RunMetrics(ctx context.Context) {
 	ticker := time.NewTicker(1 * time.Second) // TODO: Make configurable
 	defer ticker.Stop()
 	for {
@@ -66,8 +64,7 @@ func (mr *MetricReceiver) runMetrics(ctx context.Context, done gostatsd.Done) {
 
 // Receive accepts incoming datagrams on c, parses them and calls Handler.DispatchMetric() for each metric
 // and Handler.DispatchEvent() for each event.
-func (mr *MetricReceiver) Receive(ctx context.Context, done gostatsd.Done, c net.PacketConn) {
-	defer done()
+func (mr *MetricReceiver) Receive(ctx context.Context, c net.PacketConn) {
 	buf := make([]byte, packetSizeUDP)
 	for {
 		// This will error out when the socket is closed.

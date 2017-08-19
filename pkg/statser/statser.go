@@ -1,7 +1,6 @@
 package statser
 
 import (
-	"context"
 	"time"
 
 	"github.com/atlassian/gostatsd"
@@ -9,7 +8,6 @@ import (
 
 // Statser is the interface for sending metrics
 type Statser interface {
-	Run(ctx context.Context, done gostatsd.Done)
 	Gauge(name string, value float64, tags gostatsd.Tags)
 	Count(name string, amount float64, tags gostatsd.Tags)
 	Increment(name string, tags gostatsd.Tags)

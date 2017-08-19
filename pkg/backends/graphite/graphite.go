@@ -78,8 +78,8 @@ type Client struct {
 	legacyNamespace  bool
 }
 
-func (client *Client) Run(ctx context.Context, done gostatsd.Done) {
-	client.sender.Run(ctx, done)
+func (client *Client) Run(ctx context.Context) {
+	client.sender.Run(ctx)
 }
 
 // SendMetricsAsync flushes the metrics to the Graphite server, preparing payload synchronously but doing the send asynchronously.

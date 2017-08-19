@@ -11,6 +11,7 @@ import (
 
 	"github.com/atlassian/gostatsd"
 
+	"github.com/ash2k/stager/wait"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -138,18 +139,20 @@ func TestSendMetricsAsync(t *testing.T) {
 	defer acceptWg.Wait()
 	defer l.Close()
 
+	var wg wait.Group
+	defer wg.Wait()
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 	defer cancel()
-	var wg sync.WaitGroup
-	wg.Add(2)
-	go c.Run(ctx, wg.Done)
+	wg.StartWithContext(ctx, c.Run)
+	var swg sync.WaitGroup
+	swg.Add(1)
 	c.SendMetricsAsync(ctx, metrics(), func(errs []error) {
-		defer wg.Done()
+		defer swg.Done()
 		for i, e := range errs {
 			assert.NoError(t, e, i)
 		}
 	})
-	wg.Wait()
+	swg.Wait()
 }
 
 func metrics() *gostatsd.MetricMap {

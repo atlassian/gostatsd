@@ -11,7 +11,7 @@ import (
 
 type processCommand struct {
 	f    DispatcherProcessFunc
-	done gostatsd.Done
+	done func()
 }
 
 type worker struct {
@@ -21,9 +21,7 @@ type worker struct {
 	id           uint16
 }
 
-func (w *worker) work(done gostatsd.Done) {
-	defer done()
-
+func (w *worker) work() {
 	for {
 		select {
 		case metric, ok := <-w.metricsQueue:
@@ -51,5 +49,5 @@ func (w *worker) runMetrics(ctx context.Context, s statser.Statser) {
 		func() int { return len(w.metricsQueue) },
 		1000*time.Millisecond, // TODO: Make configurable
 	)
-	go csw.Run(ctx)
+	csw.Run(ctx)
 }
