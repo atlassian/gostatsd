@@ -12,6 +12,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/time/rate"
+	"github.com/ash2k/stager/wait"
 )
 
 var _ Handler = &CloudHandler{}
@@ -44,12 +45,11 @@ func testExpire(t *testing.T, expectedIps []gostatsd.IP, f func(*CloudHandler) e
 		CacheTTL:                  500 * time.Millisecond,
 		CacheNegativeTTL:          500 * time.Millisecond,
 	})
-	var wg sync.WaitGroup
+	var wg wait.Group
 	defer wg.Wait()
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	defer cancelFunc()
-	wg.Add(1)
-	go ch.Run(ctx, wg.Done)
+	wg.StartWithContext(ctx, ch.Run)
 	if err := f(ch); err != nil {
 		t.Fatal(err)
 	}
@@ -145,12 +145,11 @@ func doCheck(t *testing.T, cloud gostatsd.CloudProvider, m1 gostatsd.Metric, e1 
 		CacheTTL:                  DefaultCacheTTL,
 		CacheNegativeTTL:          DefaultCacheNegativeTTL,
 	})
-	var wg sync.WaitGroup
+	var wg wait.Group
 	defer wg.Wait()
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	defer cancelFunc()
-	wg.Add(1)
-	go ch.Run(ctx, wg.Done)
+	wg.StartWithContext(ctx, ch.Run)
 	if err := ch.DispatchMetric(ctx, &m1); err != nil {
 		t.Fatal(err)
 	}

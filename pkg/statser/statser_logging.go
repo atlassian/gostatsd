@@ -1,7 +1,6 @@
 package statser
 
 import (
-	"context"
 	"time"
 
 	"github.com/atlassian/gostatsd"
@@ -22,11 +21,6 @@ func NewLoggingStatser(tags gostatsd.Tags, logger *log.Entry) Statser {
 		tags:   tags,
 		logger: logger,
 	}
-}
-
-// Run does nothing for a LoggingStatser
-func (ls *LoggingStatser) Run(ctx context.Context, done gostatsd.Done) {
-	done()
 }
 
 // Gauge sends a gauge metric

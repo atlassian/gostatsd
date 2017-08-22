@@ -6,6 +6,7 @@ import (
 	"hash/adler32"
 	"sync"
 
+	"github.com/ash2k/stager/wait"
 	"github.com/atlassian/gostatsd"
 	"github.com/atlassian/gostatsd/pkg/statser"
 )
@@ -51,28 +52,30 @@ func NewMetricDispatcher(numWorkers int, perWorkerBufferSize int, af AggregatorF
 }
 
 // Run runs the MetricDispatcher.
-func (d *MetricDispatcher) Run(ctx context.Context, done gostatsd.Done) {
-	defer done()
-	var wg sync.WaitGroup
-	wg.Add(d.numWorkers)
-	for _, worker := range d.workers {
-		w := worker // Make a copy of the loop variable! https://github.com/golang/go/wiki/CommonMistakes
-		go w.work(wg.Done)
-	}
+func (d *MetricDispatcher) Run(ctx context.Context) {
+	var wg wait.Group
 	defer func() {
 		for _, worker := range d.workers {
 			close(worker.metricsQueue) // Close channel to terminate worker
 		}
 		wg.Wait() // Wait for all workers to finish
 	}()
+	for _, worker := range d.workers {
+		wg.Start(worker.work)
+	}
 
 	// Work until asked to stop
 	<-ctx.Done()
 }
 
-func (d *MetricDispatcher) runMetrics(ctx context.Context, statser statser.Statser) {
+func (d *MetricDispatcher) RunMetrics(ctx context.Context, statser statser.Statser) {
+	var wg wait.Group
+	defer wg.Wait()
 	for _, worker := range d.workers {
-		worker.runMetrics(ctx, statser)
+		worker := worker
+		wg.Start(func() {
+			worker.runMetrics(ctx, statser)
+		})
 	}
 	d.Process(ctx, func(aggrId uint16, aggr Aggregator) {
 		tag := fmt.Sprintf("aggregator_id:%d", aggrId)

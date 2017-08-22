@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ash2k/stager/wait"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -27,12 +28,11 @@ func TestSend(t *testing.T) {
 			},
 		},
 	}
-	var wg sync.WaitGroup
+	var wg wait.Group
 	defer wg.Wait()
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	wg.Add(1)
-	go sender.Run(ctx, wg.Done)
+	wg.StartWithContext(ctx, sender.Run)
 	var wgTest sync.WaitGroup
 	for i := 0; i <= 4; i++ {
 		wgTest.Add(1)
@@ -70,12 +70,11 @@ func TestSendCallsCallbacksOnMainCtxDone(t *testing.T) {
 			},
 		},
 	}
-	var wg sync.WaitGroup
+	var wg wait.Group
 	defer wg.Wait()
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	wg.Add(1)
-	go sender.Run(ctx, wg.Done)
+	wg.StartWithContext(ctx, sender.Run)
 	var cbWg sync.WaitGroup
 	cbWg.Add(1)
 	sender.Sink <- Stream{
@@ -105,12 +104,11 @@ func TestSendCallsCallbackOnCtxDone1(t *testing.T) {
 			},
 		},
 	}
-	var wg sync.WaitGroup
+	var wg wait.Group
 	defer wg.Wait()
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	wg.Add(1)
-	go sender.Run(ctx, wg.Done)
+	wg.StartWithContext(ctx, sender.Run)
 	var cbWg sync.WaitGroup
 	cbWg.Add(2)
 	ctx1, cancel1 := context.WithTimeout(ctx, 100*time.Millisecond)
@@ -160,12 +158,11 @@ func TestSendCallsCallbackOnCtxDone2(t *testing.T) {
 			},
 		},
 	}
-	var wg sync.WaitGroup
+	var wg wait.Group
 	defer wg.Wait()
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	wg.Add(1)
-	go sender.Run(ctx, wg.Done)
+	wg.StartWithContext(ctx, sender.Run)
 	var cbWg sync.WaitGroup
 	cbWg.Add(2)
 	ctx1, cancel1 := context.WithTimeout(ctx, 100*time.Millisecond)

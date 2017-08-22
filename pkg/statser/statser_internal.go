@@ -34,7 +34,7 @@ type InternalStatser struct {
 
 // NewInternalStatser creates a new Statser which sends metrics to the
 // supplied InternalHandler.
-func NewInternalStatser(bufferSize int, tags gostatsd.Tags, namespace, hostname string, handler InternalHandler) Statser {
+func NewInternalStatser(bufferSize int, tags gostatsd.Tags, namespace, hostname string, handler InternalHandler) *InternalStatser {
 	return &InternalStatser{
 		buffer:    make(chan *gostatsd.Metric, bufferSize),
 		tags:      tags,
@@ -46,8 +46,7 @@ func NewInternalStatser(bufferSize int, tags gostatsd.Tags, namespace, hostname 
 
 // Run will pull internal metrics off a small buffer, and dispatch them.  It
 // stops running when the context is closed.
-func (is *InternalStatser) Run(ctx context.Context, done gostatsd.Done) {
-	defer done()
+func (is *InternalStatser) Run(ctx context.Context) {
 	ticker := time.NewTicker(60 * time.Second)
 	defer ticker.Stop()
 
@@ -56,7 +55,7 @@ func (is *InternalStatser) Run(ctx context.Context, done gostatsd.Done) {
 		case <-ctx.Done():
 			return
 		case m := <-is.buffer:
-			is.dispatchMetric(m)
+			is.dispatchMetric(ctx, m)
 		case <-ticker.C:
 			is.Gauge("internal_dropped", float64(atomic.LoadUint64(&is.dropped)), nil)
 		}
@@ -131,11 +130,11 @@ func (is *InternalStatser) dispatchInternal(metric *gostatsd.Metric) {
 	}
 }
 
-func (is *InternalStatser) dispatchMetric(metric *gostatsd.Metric) {
+func (is *InternalStatser) dispatchMetric(ctx context.Context, metric *gostatsd.Metric) {
 	// the metric is owned by this file, we can change it freely because we know its origins
 	if is.namespace != "" {
 		metric.Name = is.namespace + "." + metric.Name
 	}
 	metric.Tags = metric.Tags.Concat(is.tags)
-	_ = is.handler.DispatchMetric(context.Background(), metric)
+	_ = is.handler.DispatchMetric(ctx, metric)
 }

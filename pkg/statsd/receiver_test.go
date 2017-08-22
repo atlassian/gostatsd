@@ -189,7 +189,7 @@ func BenchmarkReceive(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 	for n := 0; n < b.N; n++ {
-		mr.Receive(ctx, wg.Done, c)
+		mr.Receive(ctx, c)
 	}
 }
 

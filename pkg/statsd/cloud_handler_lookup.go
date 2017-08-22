@@ -22,8 +22,7 @@ type lookupDispatcher struct {
 	lookupResults chan<- *lookupResult
 }
 
-func (ld *lookupDispatcher) run(ctx context.Context, done gostatsd.Done) {
-	defer done()
+func (ld *lookupDispatcher) run(ctx context.Context) {
 	ips := make([]gostatsd.IP, 0, maxLookupIPs)
 	var c <-chan time.Time
 	for {
