@@ -7,7 +7,7 @@ GIT_HASH := $$(git rev-parse --short HEAD)
 GOBUILD_VERSION_ARGS := -ldflags "-s -X $(VERSION_VAR)=$(REPO_VERSION) -X $(GIT_VAR)=$(GIT_HASH) -X $(BUILD_DATE_VAR)=$(BUILD_DATE)"
 BINARY_NAME := gostatsd
 IMAGE_NAME := atlassianlabs/$(BINARY_NAME)
-ARCH ?= $((uname -s | tr A-Z a-z))
+ARCH ?= $$(uname -s | tr A-Z a-z)
 METALINTER_CONCURRENCY ?= 4
 GOVERSION := 1.8
 GP := /gopath
