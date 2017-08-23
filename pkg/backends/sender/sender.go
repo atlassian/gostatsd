@@ -29,8 +29,7 @@ type Sender struct {
 	WriteTimeout time.Duration
 }
 
-func (s *Sender) Run(ctx context.Context, done gostatsd.Done) {
-	defer done()
+func (s *Sender) Run(ctx context.Context) {
 	defer s.cleanup(ctx)
 	var stream *Stream
 	var errs []error

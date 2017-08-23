@@ -43,8 +43,7 @@ func NewMetricFlusher(flushInterval time.Duration, dispatcher Dispatcher, handle
 }
 
 // Run runs the MetricFlusher.
-func (f *MetricFlusher) Run(ctx context.Context, done gostatsd.Done) {
-	defer done()
+func (f *MetricFlusher) Run(ctx context.Context) {
 	flushTicker := time.NewTicker(f.flushInterval)
 	defer flushTicker.Stop()
 	for {
@@ -53,7 +52,6 @@ func (f *MetricFlusher) Run(ctx context.Context, done gostatsd.Done) {
 			return
 		case <-flushTicker.C: // Time to flush to the backends
 			f.flushData(ctx)
-
 		}
 	}
 }

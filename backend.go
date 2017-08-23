@@ -29,5 +29,5 @@ type Backend interface {
 type RunnableBackend interface {
 	Backend
 	// Run executes backend send operations. Should be started in a goroutine.
-	Run(context.Context, Done)
+	Run(context.Context)
 }

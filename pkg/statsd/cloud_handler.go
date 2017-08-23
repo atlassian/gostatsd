@@ -9,6 +9,7 @@ import (
 	"github.com/atlassian/gostatsd"
 
 	log "github.com/Sirupsen/logrus"
+	"github.com/ash2k/stager/wait"
 	"golang.org/x/time/rate"
 )
 
@@ -104,8 +105,7 @@ func (ch *CloudHandler) WaitForEvents() {
 	ch.next.WaitForEvents()
 }
 
-func (ch *CloudHandler) Run(ctx context.Context, done gostatsd.Done) {
-	defer done()
+func (ch *CloudHandler) Run(ctx context.Context) {
 	// IPs to lookup. Can make the channel bigger or smaller but this is the perfect size.
 	toLookup := make(chan gostatsd.IP, ch.cloud.MaxInstancesBatch())
 	var toLookupC chan<- gostatsd.IP
@@ -120,14 +120,13 @@ func (ch *CloudHandler) Run(ctx context.Context, done gostatsd.Done) {
 		lookupResults: lookupResults,
 	}
 
-	var wg sync.WaitGroup
+	var wg wait.Group
 	defer wg.Wait() // Wait for lookupDispatcher to stop
 
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel() // Tell lookupDispatcher to stop
 
-	wg.Add(1)
-	go ld.run(ctx, wg.Done)
+	wg.StartWithContext(ctx, ld.run)
 
 	refreshTicker := time.NewTicker(ch.cacheOpts.CacheRefreshPeriod)
 	defer refreshTicker.Stop()
