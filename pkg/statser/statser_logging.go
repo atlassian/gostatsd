@@ -5,7 +5,7 @@ import (
 
 	"github.com/atlassian/gostatsd"
 
-	log "github.com/Sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 )
 
 // LoggingStatser is a Statser which emits logs

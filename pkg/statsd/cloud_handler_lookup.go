@@ -6,7 +6,7 @@ import (
 
 	"github.com/atlassian/gostatsd"
 
-	log "github.com/Sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 	"golang.org/x/time/rate"
 )
 

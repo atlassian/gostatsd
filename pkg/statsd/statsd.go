@@ -10,7 +10,7 @@ import (
 	"github.com/atlassian/gostatsd"
 	"github.com/atlassian/gostatsd/pkg/statser"
 
-	log "github.com/Sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 	"github.com/ash2k/stager"
 	"github.com/spf13/viper"
 	"golang.org/x/time/rate"

@@ -9,7 +9,7 @@ import (
 
 	"github.com/atlassian/gostatsd"
 
-	log "github.com/Sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 )
 
 const maxStreamsPerConnection = 100

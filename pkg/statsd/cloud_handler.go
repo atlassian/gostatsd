@@ -8,7 +8,7 @@ import (
 
 	"github.com/atlassian/gostatsd"
 
-	log "github.com/Sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 	"github.com/ash2k/stager/wait"
 	"golang.org/x/time/rate"
 )
