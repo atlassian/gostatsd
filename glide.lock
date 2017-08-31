@@ -55,7 +55,7 @@ imports:
   version: d0303fe809921458f417bcf828397a65db30a7e4
 - name: github.com/pelletier/go-toml
   version: 4692b8f9babfc93db58cc592ba2689d8736781de
-- name: github.com/Sirupsen/logrus
+- name: github.com/sirupsen/logrus
   version: 68806b4b77355d6c8577a2c8bbc6d547a5272491
 - name: github.com/spf13/afero
   version: 9be650865eab0c12963d8753212f4f9c66cdcf12
