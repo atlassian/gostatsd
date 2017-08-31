@@ -6,7 +6,7 @@ import (
 
 	"github.com/atlassian/gostatsd"
 
-	log "github.com/Sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 )
 
 // DispatchingHandler dispatches events to all configured backends and forwards metrics to a Dispatcher.

@@ -19,7 +19,7 @@ import (
 	"github.com/atlassian/gostatsd/pkg/cloudproviders"
 	"github.com/atlassian/gostatsd/pkg/statsd"
 
-	log "github.com/Sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 	"golang.org/x/time/rate"
