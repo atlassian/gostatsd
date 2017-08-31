@@ -18,30 +18,30 @@ func newFakeAggregator() *MetricAggregator {
 
 func TestNewAggregator(t *testing.T) {
 	t.Parallel()
-	assert := assert.New(t)
+	assrt := assert.New(t)
 
 	actual := newFakeAggregator()
 
-	if assert.NotNil(actual.Counters) {
-		assert.Equal(gostatsd.Counters{}, actual.Counters)
+	if assrt.NotNil(actual.Counters) {
+		assrt.Equal(gostatsd.Counters{}, actual.Counters)
 	}
 
-	if assert.NotNil(actual.Timers) {
-		assert.Equal(gostatsd.Timers{}, actual.Timers)
+	if assrt.NotNil(actual.Timers) {
+		assrt.Equal(gostatsd.Timers{}, actual.Timers)
 	}
 
-	if assert.NotNil(actual.Gauges) {
-		assert.Equal(gostatsd.Gauges{}, actual.Gauges)
+	if assrt.NotNil(actual.Gauges) {
+		assrt.Equal(gostatsd.Gauges{}, actual.Gauges)
 	}
 
-	if assert.NotNil(actual.Sets) {
-		assert.Equal(gostatsd.Sets{}, actual.Sets)
+	if assrt.NotNil(actual.Sets) {
+		assrt.Equal(gostatsd.Sets{}, actual.Sets)
 	}
 }
 
 func TestFlush(t *testing.T) {
 	t.Parallel()
-	assert := assert.New(t)
+	assrt := assert.New(t)
 
 	now := time.Now()
 	nowFn := func() time.Time { return now }
@@ -97,10 +97,10 @@ func TestFlush(t *testing.T) {
 	expected.Sets["some"]["thing"] = gostatsd.Set{Values: unique}
 
 	ma.Flush(10 * time.Second)
-	assert.Equal(expected.Counters, ma.Counters)
-	assert.Equal(expected.Timers, ma.Timers)
-	assert.Equal(expected.Gauges, ma.Gauges)
-	assert.Equal(expected.Sets, ma.Sets)
+	assrt.Equal(expected.Counters, ma.Counters)
+	assrt.Equal(expected.Timers, ma.Timers)
+	assrt.Equal(expected.Gauges, ma.Gauges)
+	assrt.Equal(expected.Sets, ma.Sets)
 }
 
 func BenchmarkFlush(b *testing.B) {
@@ -134,7 +134,7 @@ func BenchmarkFlush(b *testing.B) {
 
 func TestReset(t *testing.T) {
 	t.Parallel()
-	assert := assert.New(t)
+	assrt := assert.New(t)
 	now := time.Now()
 	nowNano := gostatsd.Nanotime(now.UnixNano())
 	nowFn := func() time.Time { return now }
@@ -156,7 +156,7 @@ func TestReset(t *testing.T) {
 	}
 	expected.now = nowFn
 
-	assert.Equal(expected.Counters, actual.Counters)
+	assrt.Equal(expected.Counters, actual.Counters)
 
 	actual = newFakeAggregator()
 	actual.Timers["some"] = map[string]gostatsd.Timer{
@@ -171,7 +171,7 @@ func TestReset(t *testing.T) {
 	}
 	expected.now = nowFn
 
-	assert.Equal(expected.Timers, actual.Timers)
+	assrt.Equal(expected.Timers, actual.Timers)
 
 	actual = newFakeAggregator()
 	actual.Gauges["some"] = map[string]gostatsd.Gauge{
@@ -188,7 +188,7 @@ func TestReset(t *testing.T) {
 	}
 	expected.now = nowFn
 
-	assert.Equal(expected.Gauges, actual.Gauges)
+	assrt.Equal(expected.Gauges, actual.Gauges)
 
 	actual = newFakeAggregator()
 	actual.Sets["some"] = map[string]gostatsd.Set{
@@ -203,7 +203,7 @@ func TestReset(t *testing.T) {
 	}
 	expected.now = nowFn
 
-	assert.Equal(expected.Sets, actual.Sets)
+	assrt.Equal(expected.Sets, actual.Sets)
 
 	// expired
 	pastNano := gostatsd.Nanotime(now.Add(-30 * time.Second).UnixNano())
@@ -220,7 +220,7 @@ func TestReset(t *testing.T) {
 	expected = newFakeAggregator()
 	expected.now = nowFn
 
-	assert.Equal(expected.Counters, actual.Counters)
+	assrt.Equal(expected.Counters, actual.Counters)
 
 	actual = newFakeAggregator()
 	actual.expiryInterval = 10 * time.Second
@@ -233,7 +233,7 @@ func TestReset(t *testing.T) {
 	expected = newFakeAggregator()
 	expected.now = nowFn
 
-	assert.Equal(expected.Timers, actual.Timers)
+	assrt.Equal(expected.Timers, actual.Timers)
 
 	actual = newFakeAggregator()
 	actual.expiryInterval = 10 * time.Second
@@ -247,7 +247,7 @@ func TestReset(t *testing.T) {
 	expected = newFakeAggregator()
 	expected.now = nowFn
 
-	assert.Equal(expected.Gauges, actual.Gauges)
+	assrt.Equal(expected.Gauges, actual.Gauges)
 
 	actual = newFakeAggregator()
 	actual.expiryInterval = 10 * time.Second
@@ -260,25 +260,25 @@ func TestReset(t *testing.T) {
 	expected = newFakeAggregator()
 	expected.now = nowFn
 
-	assert.Equal(expected.Sets, actual.Sets)
+	assrt.Equal(expected.Sets, actual.Sets)
 }
 
 func TestIsExpired(t *testing.T) {
 	t.Parallel()
-	assert := assert.New(t)
+	assrt := assert.New(t)
 
 	now := gostatsd.Nanotime(time.Now().UnixNano())
 
 	ma := &MetricAggregator{expiryInterval: 0}
-	assert.Equal(false, ma.isExpired(now, now))
+	assrt.Equal(false, ma.isExpired(now, now))
 
 	ma.expiryInterval = 10 * time.Second
 
 	ts := gostatsd.Nanotime(time.Now().Add(-30 * time.Second).UnixNano())
-	assert.Equal(true, ma.isExpired(now, ts))
+	assrt.Equal(true, ma.isExpired(now, ts))
 
 	ts = gostatsd.Nanotime(time.Now().Add(-1 * time.Second).UnixNano())
-	assert.Equal(false, ma.isExpired(now, ts))
+	assrt.Equal(false, ma.isExpired(now, ts))
 }
 
 func metricsFixtures() []gostatsd.Metric {
@@ -301,7 +301,7 @@ func metricsFixtures() []gostatsd.Metric {
 
 func TestReceive(t *testing.T) {
 	t.Parallel()
-	assert := assert.New(t)
+	assrt := assert.New(t)
 
 	ma := newFakeAggregator()
 	now := time.Now()
@@ -321,7 +321,7 @@ func TestReceive(t *testing.T) {
 			"baz,foo:bar": {Value: 55, Timestamp: nowNano, Tags: gostatsd.Tags{"baz", "foo:bar"}},
 		},
 	}
-	assert.Equal(expectedCounters, ma.Counters)
+	assrt.Equal(expectedCounters, ma.Counters)
 
 	expectedGauges := gostatsd.Gauges{
 		"abc.def.g": map[string]gostatsd.Gauge{
@@ -329,7 +329,7 @@ func TestReceive(t *testing.T) {
 			"baz,foo:bar": {Value: 8, Timestamp: nowNano, Tags: gostatsd.Tags{"baz", "foo:bar"}},
 		},
 	}
-	assert.Equal(expectedGauges, ma.Gauges)
+	assrt.Equal(expectedGauges, ma.Gauges)
 
 	expectedTimers := gostatsd.Timers{
 		"def.g": map[string]gostatsd.Timer{
@@ -337,7 +337,7 @@ func TestReceive(t *testing.T) {
 			"baz,foo:bar": {Values: []float64{1}, Timestamp: nowNano, Tags: gostatsd.Tags{"baz", "foo:bar"}},
 		},
 	}
-	assert.Equal(expectedTimers, ma.Timers)
+	assrt.Equal(expectedTimers, ma.Timers)
 
 	expectedSets := gostatsd.Sets{
 		"uniq.usr": map[string]gostatsd.Set{
@@ -358,7 +358,7 @@ func TestReceive(t *testing.T) {
 			},
 		},
 	}
-	assert.Equal(expectedSets, ma.Sets)
+	assrt.Equal(expectedSets, ma.Sets)
 }
 
 func benchmarkReceive(metric gostatsd.Metric, b *testing.B) {
