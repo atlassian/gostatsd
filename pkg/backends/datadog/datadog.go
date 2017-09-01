@@ -202,6 +202,15 @@ func (d *Client) post(ctx context.Context, path, typeOfPost string, data interfa
 }
 
 func (d *Client) constructPost(ctx context.Context, authenticatedURL string, body []byte, compressPayload bool) func() error {
+	if compressPayload {
+		// Use deflate (zlib, since DD requires the zlib headers)
+		compressed, err := deflate(body)
+		if err != nil {
+			return func() error { return err }
+		}
+		body = compressed
+	}
+
 	return func() error {
 		headers := map[string]string{
 			"Content-Type": "application/json",
@@ -209,32 +218,10 @@ func (d *Client) constructPost(ctx context.Context, authenticatedURL string, bod
 			"DD-Dogstatsd-Version": dogstatsdVersion,
 			"User-Agent":           dogstatsdUserAgent,
 		}
-		var reader io.Reader
 		if compressPayload {
-			// Use deflate (zlib, since DD requires the zlib headers)
-			var buf bytes.Buffer
-			compressor, err := zlib.NewWriterLevel(&buf, zlib.BestCompression)
-			if err != nil {
-				return fmt.Errorf("unable to create zlib writer: %v", err)
-			}
-			_, err = compressor.Write(body)
-			if err != nil {
-				return fmt.Errorf("unable to write compressed payload: %v", err)
-			}
-			err = compressor.Close()
-			if err != nil {
-				return fmt.Errorf("unable to close compressor: %v", err)
-			}
-			reader = &buf
 			headers["Content-Encoding"] = "deflate"
-			sc := buf.Len()
-			sp := len(body)
-			log.Debugf("payload_size=%d, compressed_size=%d, compression_ration=%.3f", sp, sc, float32(sc)/float32(sp))
-		} else {
-			// No compression
-			reader = bytes.NewReader(body)
 		}
-		req, err := http.NewRequest("POST", authenticatedURL, reader)
+		req, err := http.NewRequest("POST", authenticatedURL, bytes.NewReader(body))
 		if err != nil {
 			return fmt.Errorf("unable to create http.Request: %v", err)
 		}
@@ -340,4 +327,24 @@ func getSubViper(v *viper.Viper, key string) *viper.Viper {
 		n = viper.New()
 	}
 	return n
+}
+
+func deflate(body []byte) ([]byte, error) {
+	var buf bytes.Buffer
+	compressor, err := zlib.NewWriterLevel(&buf, zlib.BestCompression)
+	if err != nil {
+		return nil, fmt.Errorf("unable to create zlib writer: %v", err)
+	}
+	_, err = compressor.Write(body)
+	if err != nil {
+		return nil, fmt.Errorf("unable to write compressed payload: %v", err)
+	}
+	err = compressor.Close()
+	if err != nil {
+		return nil, fmt.Errorf("unable to close compressor: %v", err)
+	}
+	sc := buf.Len()
+	sp := len(body)
+	log.Debugf("payload_size=%d, compressed_size=%d, compression_ration=%.3f", sp, sc, float32(sc)/float32(sp))
+	return buf.Bytes(), nil
 }
