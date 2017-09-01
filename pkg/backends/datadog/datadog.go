@@ -2,6 +2,7 @@ package datadog
 
 import (
 	"bytes"
+	"compress/zlib"
 	"context"
 	"crypto/tls"
 	"encoding/json"
@@ -16,8 +17,8 @@ import (
 
 	"github.com/atlassian/gostatsd"
 
-	log "github.com/sirupsen/logrus"
 	"github.com/cenkalti/backoff"
+	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 )
 
@@ -43,6 +44,7 @@ type Client struct {
 	client                http.Client
 	metricsPerBatch       uint
 	now                   func() time.Time // Returns current time. Useful for testing.
+	compressPayload       bool
 }
 
 // event represents an event data structure for Datadog.
@@ -168,7 +170,15 @@ func (d *Client) post(ctx context.Context, path, typeOfPost string, data interfa
 	b := backoff.NewExponentialBackOff()
 	b.MaxElapsedTime = d.maxRequestElapsedTime
 	authenticatedURL := d.authenticatedURL(path)
-	post := d.constructPost(ctx, authenticatedURL, tsBytes)
+
+	// Selectively compress payload based on knowledge of whether the endpoint supports deflate encoding.
+	// The metrics endpoint does, the events endpoint does not.
+	compressPayload := false
+	if d.compressPayload && typeOfPost == "metrics" {
+		compressPayload = true
+	}
+
+	post := d.constructPost(ctx, authenticatedURL, tsBytes, compressPayload)
 	for {
 		if err = post(); err == nil {
 			return nil
@@ -191,17 +201,34 @@ func (d *Client) post(ctx context.Context, path, typeOfPost string, data interfa
 	}
 }
 
-func (d *Client) constructPost(ctx context.Context, authenticatedURL string, body []byte) func() error {
+func (d *Client) constructPost(ctx context.Context, authenticatedURL string, body []byte, compressPayload bool) func() error {
+	if compressPayload {
+		// Use deflate (zlib, since DD requires the zlib headers)
+		compressed, err := deflate(body)
+		if err != nil {
+			return func() error { return err }
+		}
+		body = compressed
+	}
+
 	return func() error {
+		headers := map[string]string{
+			"Content-Type": "application/json",
+			// Mimic dogstatsd code
+			"DD-Dogstatsd-Version": dogstatsdVersion,
+			"User-Agent":           dogstatsdUserAgent,
+		}
+		if compressPayload {
+			headers["Content-Encoding"] = "deflate"
+		}
 		req, err := http.NewRequest("POST", authenticatedURL, bytes.NewReader(body))
 		if err != nil {
 			return fmt.Errorf("unable to create http.Request: %v", err)
 		}
 		req = req.WithContext(ctx)
-		req.Header.Set("Content-Type", "application/json")
-		// Mimic dogstatsd code
-		req.Header.Set("DD-Dogstatsd-Version", dogstatsdVersion)
-		req.Header.Set("User-Agent", dogstatsdUserAgent)
+		for header, v := range headers {
+			req.Header.Set(header, v)
+		}
 		resp, err := d.client.Do(req)
 		if err != nil {
 			return fmt.Errorf("error POSTing: %s", strings.Replace(err.Error(), d.apiKey, "*****", -1))
@@ -230,19 +257,21 @@ func NewClientFromViper(v *viper.Viper) (gostatsd.Backend, error) {
 	dd := getSubViper(v, "datadog")
 	dd.SetDefault("api_endpoint", apiURL)
 	dd.SetDefault("metrics_per_batch", defaultMetricsPerBatch)
+	dd.SetDefault("compress_payload", true)
 	dd.SetDefault("client_timeout", defaultClientTimeout)
 	dd.SetDefault("max_request_elapsed_time", defaultMaxRequestElapsedTime)
 	return NewClient(
 		dd.GetString("api_endpoint"),
 		dd.GetString("api_key"),
 		uint(dd.GetInt("metrics_per_batch")),
+		dd.GetBool("compress_payload"),
 		dd.GetDuration("client_timeout"),
 		dd.GetDuration("max_request_elapsed_time"),
 	)
 }
 
 // NewClient returns a new Datadog API client.
-func NewClient(apiEndpoint, apiKey string, metricsPerBatch uint, clientTimeout, maxRequestElapsedTime time.Duration) (*Client, error) {
+func NewClient(apiEndpoint, apiKey string, metricsPerBatch uint, compressPayload bool, clientTimeout, maxRequestElapsedTime time.Duration) (*Client, error) {
 	if apiEndpoint == "" {
 		return nil, fmt.Errorf("[%s] apiEndpoint is required", BackendName)
 	}
@@ -258,7 +287,7 @@ func NewClient(apiEndpoint, apiKey string, metricsPerBatch uint, clientTimeout, 
 	if maxRequestElapsedTime <= 0 {
 		return nil, fmt.Errorf("[%s] maxRequestElapsedTime must be positive", BackendName)
 	}
-	log.Infof("[%s] maxRequestElapsedTime=%s clientTimeout=%s metricsPerBatch=%d", BackendName, maxRequestElapsedTime, clientTimeout, metricsPerBatch)
+	log.Infof("[%s] maxRequestElapsedTime=%s clientTimeout=%s metricsPerBatch=%d compressPayload=%t", BackendName, maxRequestElapsedTime, clientTimeout, metricsPerBatch, compressPayload)
 	transport := &http.Transport{
 		Proxy:               http.ProxyFromEnvironment,
 		TLSHandshakeTimeout: 3 * time.Second,
@@ -287,6 +316,7 @@ func NewClient(apiEndpoint, apiKey string, metricsPerBatch uint, clientTimeout, 
 			Timeout:   clientTimeout,
 		},
 		metricsPerBatch: metricsPerBatch,
+		compressPayload: compressPayload,
 		now:             time.Now,
 	}, nil
 }
@@ -297,4 +327,24 @@ func getSubViper(v *viper.Viper, key string) *viper.Viper {
 		n = viper.New()
 	}
 	return n
+}
+
+func deflate(body []byte) ([]byte, error) {
+	var buf bytes.Buffer
+	compressor, err := zlib.NewWriterLevel(&buf, zlib.BestCompression)
+	if err != nil {
+		return nil, fmt.Errorf("unable to create zlib writer: %v", err)
+	}
+	_, err = compressor.Write(body)
+	if err != nil {
+		return nil, fmt.Errorf("unable to write compressed payload: %v", err)
+	}
+	err = compressor.Close()
+	if err != nil {
+		return nil, fmt.Errorf("unable to close compressor: %v", err)
+	}
+	sc := buf.Len()
+	sp := len(body)
+	log.Debugf("payload_size=%d, compressed_size=%d, compression_ration=%.3f", sp, sc, float32(sc)/float32(sp))
+	return buf.Bytes(), nil
 }
