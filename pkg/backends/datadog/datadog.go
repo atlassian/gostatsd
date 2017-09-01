@@ -217,10 +217,13 @@ func (d *Client) constructPost(ctx context.Context, authenticatedURL string, bod
 			if err != nil {
 				return fmt.Errorf("unable to create zlib writer: %v", err)
 			}
-			compressor.Write(body)
+			_, err = compressor.Write(body)
+			if err != nil {
+				return fmt.Errorf("unable to write compressed payload: %v", err)
+			}
 			err = compressor.Close()
 			if err != nil {
-				return fmt.Errorf("unable to compress payload: %v", err)
+				return fmt.Errorf("unable to close compressor: %v", err)
 			}
 			reader = &buf
 			headers["Content-Encoding"] = "deflate"
