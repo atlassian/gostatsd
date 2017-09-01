@@ -210,8 +210,7 @@ func (d *Client) constructPost(ctx context.Context, authenticatedURL string, bod
 			"User-Agent":           dogstatsdUserAgent,
 		}
 		var reader io.Reader
-		switch compressPayload {
-		case true:
+		if compressPayload {
 			// Use deflate (zlib, since DD requires the zlib headers)
 			var buf bytes.Buffer
 			compressor, err := zlib.NewWriterLevel(&buf, zlib.BestCompression)
@@ -228,7 +227,7 @@ func (d *Client) constructPost(ctx context.Context, authenticatedURL string, bod
 			sc := buf.Len()
 			sp := len(body)
 			log.Debugf("payload_size=%d, compressed_size=%d, compression_ration=%.3f", sp, sc, float32(sc)/float32(sp))
-		default:
+		} else {
 			// No compression
 			reader = bytes.NewReader(body)
 		}
