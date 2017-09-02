@@ -27,6 +27,10 @@ Building the server
 -------------------
 From the `gostatsd` directory run `make build`. The binary will be built in `build/bin/<arch>/gostatsd`.
 
+You will need to install the build dependencies by running `make setup` in the `gostatsd` directory. This must be done before the first build, and again if the dependencies change.
+
+If you are unable to build `gostatsd` please try running `make setup` again before reporting a bug.
+
 Running the server
 ------------------
 `gostatsd --help` gives a complete description of available options and their
