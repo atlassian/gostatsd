@@ -1,3 +1,7 @@
+2.4.1
+-----
+- No functional changes over previous version. Release tag to trigger build process.
+
 2.4.0
 -----
 - Build with Go 1.9
