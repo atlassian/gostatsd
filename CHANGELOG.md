@@ -1,3 +1,14 @@
+2.4.1
+-----
+- No functional changes over previous version. Release tag to trigger build process.
+
+2.4.0
+-----
+- Build with Go 1.9
+- Compress metrics uploads to Datadog. Add `compress_payload` config option to disable this
+- Add staged shutdown
+- Update logrus import path
+
 2.3.0
 -----
 - New flag `--internal-tags` configures tags on internal metrics (default none)
