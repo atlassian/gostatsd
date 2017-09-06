@@ -258,6 +258,7 @@ func NewClientFromViper(v *viper.Viper) (gostatsd.Backend, error) {
 	dd.SetDefault("api_endpoint", apiURL)
 	dd.SetDefault("metrics_per_batch", defaultMetricsPerBatch)
 	dd.SetDefault("compress_payload", true)
+	dd.SetDefault("dual_stack", false)
 	dd.SetDefault("client_timeout", defaultClientTimeout)
 	dd.SetDefault("max_request_elapsed_time", defaultMaxRequestElapsedTime)
 	return NewClient(
@@ -265,13 +266,14 @@ func NewClientFromViper(v *viper.Viper) (gostatsd.Backend, error) {
 		dd.GetString("api_key"),
 		uint(dd.GetInt("metrics_per_batch")),
 		dd.GetBool("compress_payload"),
+		dd.GetBool("dual_stack"),
 		dd.GetDuration("client_timeout"),
 		dd.GetDuration("max_request_elapsed_time"),
 	)
 }
 
 // NewClient returns a new Datadog API client.
-func NewClient(apiEndpoint, apiKey string, metricsPerBatch uint, compressPayload bool, clientTimeout, maxRequestElapsedTime time.Duration) (*Client, error) {
+func NewClient(apiEndpoint, apiKey string, metricsPerBatch uint, compressPayload, dualStack bool, clientTimeout, maxRequestElapsedTime time.Duration) (*Client, error) {
 	if apiEndpoint == "" {
 		return nil, fmt.Errorf("[%s] apiEndpoint is required", BackendName)
 	}
@@ -300,6 +302,7 @@ func NewClient(apiEndpoint, apiKey string, metricsPerBatch uint, compressPayload
 		DialContext: (&net.Dialer{
 			Timeout:   5 * time.Second,
 			KeepAlive: 30 * time.Second,
+			DualStack: dualStack,
 		}).DialContext,
 		MaxIdleConns:    50,
 		IdleConnTimeout: 1 * time.Minute,

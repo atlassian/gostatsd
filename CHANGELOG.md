@@ -1,3 +1,7 @@
+2.4.x
+-----
+- New Datadog option: `dual_stack` allows control of RFC-6555 "Happy Eyeballs" for IPv6 control.  Defaults `false`.
+
 2.4.1
 -----
 - No functional changes over previous version. Release tag to trigger build process.
@@ -5,7 +9,8 @@
 2.4.0
 -----
 - Build with Go 1.9
-- Compress metrics uploads to Datadog. Add `compress_payload` config option to disable this
+- Add support for compression in Datadog payload.
+- New Datadog option: `compress_payload` allows compression of Datadog payload.  Defaults `true`.
 - Add staged shutdown
 - Update logrus import path
 
