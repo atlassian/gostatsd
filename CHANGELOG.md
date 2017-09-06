@@ -1,4 +1,4 @@
-2.4.x
+2.4.2
 -----
 - New Datadog option: `dual_stack` allows control of RFC-6555 "Happy Eyeballs" for IPv6 control.  Defaults `false`.
 
