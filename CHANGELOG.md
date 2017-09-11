@@ -1,3 +1,8 @@
+3.x.x
+-----
+- BREAKING: use space instead of comma to specify multiple values for the following parameters: `backends`,
+`percent-threshold`, `default-tags` and `internal-tags`.
+
 2.4.2
 -----
 - New Datadog option: `dual_stack` allows control of RFC-6555 "Happy Eyeballs" for IPv6 control.  Defaults `false`.

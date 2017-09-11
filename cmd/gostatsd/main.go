@@ -90,7 +90,7 @@ func constructServer(v *viper.Viper) (*statsd.Server, error) {
 		return nil, err
 	}
 	// Backends
-	backendNames := toSlice(v.GetString(statsd.ParamBackends))
+	backendNames := v.GetStringSlice(statsd.ParamBackends)
 	backendsList := make([]gostatsd.Backend, len(backendNames))
 	for i, backendName := range backendNames {
 		backend, errBackend := backends.InitBackend(backendName, v)
@@ -100,7 +100,7 @@ func constructServer(v *viper.Viper) (*statsd.Server, error) {
 		backendsList[i] = backend
 	}
 	// Percentiles
-	pt, err := getPercentiles(toSlice(v.GetString(statsd.ParamPercentThreshold)))
+	pt, err := getPercentiles(v.GetStringSlice(statsd.ParamPercentThreshold))
 	if err != nil {
 		return nil, err
 	}
@@ -109,9 +109,9 @@ func constructServer(v *viper.Viper) (*statsd.Server, error) {
 		Backends:            backendsList,
 		CloudProvider:       cloud,
 		Limiter:             rate.NewLimiter(rate.Limit(v.GetInt(statsd.ParamMaxCloudRequests)), v.GetInt(statsd.ParamBurstCloudRequests)),
-		InternalTags:        toSlice(v.GetString(statsd.ParamInternalTags)),
+		InternalTags:        v.GetStringSlice(statsd.ParamInternalTags),
 		InternalNamespace:   v.GetString(statsd.ParamInternalNamespace),
-		DefaultTags:         toSlice(v.GetString(statsd.ParamDefaultTags)),
+		DefaultTags:         v.GetStringSlice(statsd.ParamDefaultTags),
 		ExpiryInterval:      v.GetDuration(statsd.ParamExpiryInterval),
 		FlushInterval:       v.GetDuration(statsd.ParamFlushInterval),
 		IgnoreHost:          v.GetBool(statsd.ParamIgnoreHost),
@@ -130,15 +130,6 @@ func constructServer(v *viper.Viper) (*statsd.Server, error) {
 		},
 		Viper: v,
 	}, nil
-}
-
-func toSlice(s string) []string {
-	//TODO Remove workaround when https://github.com/spf13/viper/issues/112 is fixed
-	// https://github.com/spf13/viper/issues/200
-	if s == "" {
-		return nil
-	}
-	return strings.Split(s, ",")
 }
 
 func getPercentiles(s []string) ([]float64, error) {
