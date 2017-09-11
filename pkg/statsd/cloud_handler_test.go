@@ -10,9 +10,9 @@ import (
 
 	"github.com/atlassian/gostatsd"
 
+	"github.com/ash2k/stager/wait"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/time/rate"
-	"github.com/ash2k/stager/wait"
 )
 
 var _ Handler = &CloudHandler{}
