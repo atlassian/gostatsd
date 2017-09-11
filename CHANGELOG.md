@@ -1,7 +1,10 @@
 3.x.x
 -----
 - BREAKING: use space instead of comma to specify multiple values for the following parameters: `backends`,
-`percent-threshold`, `default-tags` and `internal-tags`.
+  `percent-threshold`, `default-tags` and `internal-tags`.
+- BREAKING: Removed Datadog `dual_stack` option in favor of explicit network selection.
+- New Datadog option: `network` allows control of the network protocol used, typical values are `tcp`,
+  `tcp4`, or `tcp6`.  Defaults `tcp`.  See [Dial](https://golang.org/pkg/net/#Dial) for further information.
 
 2.4.2
 -----
