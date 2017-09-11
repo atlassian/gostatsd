@@ -144,9 +144,7 @@ func AddFlags(fs *pflag.FlagSet) {
 	fs.Duration(ParamCacheNegativeTTL, DefaultCacheNegativeTTL, "Cloud cache TTL for failed lookups")
 	fs.String(ParamMetricsAddr, DefaultMetricsAddr, "Address on which to listen for metrics")
 	fs.String(ParamNamespace, "", "Namespace all metrics")
-	//TODO Remove workaround when https://github.com/spf13/viper/issues/112 is fixed
-	// https://github.com/spf13/viper/issues/200
-	fs.String(ParamBackends, strings.Join(DefaultBackends, ","), "Comma-separated list of backends")
+	fs.StringSlice(ParamBackends, DefaultBackends, "Comma-separated list of backends")
 	fs.Int(ParamMaxCloudRequests, DefaultMaxCloudRequests, "Maximum number of cloud provider requests per second")
 	fs.Int(ParamBurstCloudRequests, DefaultBurstCloudRequests, "Burst number of cloud provider requests per second")
 	fs.String(ParamDefaultTags, strings.Join(DefaultTags, ","), "Comma-separated list of tags to add to all metrics")
