@@ -258,22 +258,23 @@ func NewClientFromViper(v *viper.Viper) (gostatsd.Backend, error) {
 	dd.SetDefault("api_endpoint", apiURL)
 	dd.SetDefault("metrics_per_batch", defaultMetricsPerBatch)
 	dd.SetDefault("compress_payload", true)
-	dd.SetDefault("dual_stack", false)
+	dd.SetDefault("network", "tcp")
 	dd.SetDefault("client_timeout", defaultClientTimeout)
 	dd.SetDefault("max_request_elapsed_time", defaultMaxRequestElapsedTime)
+
 	return NewClient(
 		dd.GetString("api_endpoint"),
 		dd.GetString("api_key"),
+		dd.GetString("network"),
 		uint(dd.GetInt("metrics_per_batch")),
 		dd.GetBool("compress_payload"),
-		dd.GetBool("dual_stack"),
 		dd.GetDuration("client_timeout"),
 		dd.GetDuration("max_request_elapsed_time"),
 	)
 }
 
 // NewClient returns a new Datadog API client.
-func NewClient(apiEndpoint, apiKey string, metricsPerBatch uint, compressPayload, dualStack bool, clientTimeout, maxRequestElapsedTime time.Duration) (*Client, error) {
+func NewClient(apiEndpoint, apiKey, network string, metricsPerBatch uint, compressPayload bool, clientTimeout, maxRequestElapsedTime time.Duration) (*Client, error) {
 	if apiEndpoint == "" {
 		return nil, fmt.Errorf("[%s] apiEndpoint is required", BackendName)
 	}
@@ -289,7 +290,13 @@ func NewClient(apiEndpoint, apiKey string, metricsPerBatch uint, compressPayload
 	if maxRequestElapsedTime <= 0 {
 		return nil, fmt.Errorf("[%s] maxRequestElapsedTime must be positive", BackendName)
 	}
+
 	log.Infof("[%s] maxRequestElapsedTime=%s clientTimeout=%s metricsPerBatch=%d compressPayload=%t", BackendName, maxRequestElapsedTime, clientTimeout, metricsPerBatch, compressPayload)
+
+	dialer := &net.Dialer{
+		Timeout:   5 * time.Second,
+		KeepAlive: 30 * time.Second,
+	}
 	transport := &http.Transport{
 		Proxy:               http.ProxyFromEnvironment,
 		TLSHandshakeTimeout: 3 * time.Second,
@@ -299,11 +306,10 @@ func NewClient(apiEndpoint, apiKey string, metricsPerBatch uint, compressPayload
 			// Can't use TLSv1.1 because of RC4 cipher usage
 			MinVersion: tls.VersionTLS12,
 		},
-		DialContext: (&net.Dialer{
-			Timeout:   5 * time.Second,
-			KeepAlive: 30 * time.Second,
-			DualStack: dualStack,
-		}).DialContext,
+		DialContext: func(ctx context.Context, _, address string) (net.Conn, error) {
+			// replace the network with our own
+			return dialer.DialContext(ctx, network, address)
+		},
 		MaxIdleConns:    50,
 		IdleConnTimeout: 1 * time.Minute,
 		// A non-nil empty map used in TLSNextProto to disable HTTP/2 support in client.
