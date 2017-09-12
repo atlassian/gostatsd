@@ -1,4 +1,4 @@
-3.x.x
+3.0.0
 -----
 - BREAKING: use space instead of comma to specify multiple values for the following parameters: `backends`,
   `percent-threshold`, `default-tags` and `internal-tags`.
