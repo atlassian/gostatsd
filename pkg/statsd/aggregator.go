@@ -171,6 +171,10 @@ func (a *MetricAggregator) Process(f ProcessFunc) {
 }
 
 func (a *MetricAggregator) isExpired(now, ts gostatsd.Nanotime) bool {
+	if a.expiryInterval == 0 {
+		return true
+	}
+
 	return a.expiryInterval != 0 && time.Duration(now-ts) > a.expiryInterval
 }
 
