@@ -36,7 +36,6 @@ func (hb *HeartBeater) Run(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			beats++
 			hb.emit()
 		}
 	}
