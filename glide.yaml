@@ -21,3 +21,5 @@ import:
   subpackages:
   - http2
 - package: github.com/ash2k/stager
+- package: github.com/go-redis/redis
+  version: ^6.6.1

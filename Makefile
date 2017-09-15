@@ -12,6 +12,7 @@ METALINTER_CONCURRENCY ?= 4
 GOVERSION := 1.9
 GP := /gopath
 MAIN_PKG := github.com/atlassian/gostatsd/cmd/gostatsd
+CLUSTER_PKG := github.com/atlassian/gostatsd/cmd/cluster
 
 setup: setup-ci
 	go get -u github.com/githubnemo/CompileDaemon
@@ -23,6 +24,9 @@ setup-ci:
 	go get -u github.com/alecthomas/gometalinter
 	gometalinter --install
 	glide install --strip-vendor
+
+build-cluster: fmt
+	go build -i -v -o build/bin/$(ARCH)/cluster $(GOBUILD_VERSION_ARGS) $(CLUSTER_PKG)
 
 build: fmt
 	go build -i -v -o build/bin/$(ARCH)/$(BINARY_NAME) $(GOBUILD_VERSION_ARGS) $(MAIN_PKG)
