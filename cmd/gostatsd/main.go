@@ -122,11 +122,16 @@ func constructServer(v *viper.Viper) (*statsd.Server, error) {
 		MetricsAddr:         v.GetString(statsd.ParamMetricsAddr),
 		Namespace:           v.GetString(statsd.ParamNamespace),
 		PercentThreshold:    pt,
+		HeartbeatInterval:   v.GetDuration(statsd.ParamHeartbeatInterval),
 		CacheOptions: statsd.CacheOptions{
 			CacheRefreshPeriod:        v.GetDuration(statsd.ParamCacheRefreshPeriod),
 			CacheEvictAfterIdlePeriod: v.GetDuration(statsd.ParamCacheEvictAfterIdlePeriod),
 			CacheTTL:                  v.GetDuration(statsd.ParamCacheTTL),
 			CacheNegativeTTL:          v.GetDuration(statsd.ParamCacheNegativeTTL),
+		},
+		HeartbeatTags: gostatsd.Tags{
+			fmt.Sprintf("version:%s", Version),
+			fmt.Sprintf("commit:%s", GitCommit),
 		},
 		Viper: v,
 	}, nil

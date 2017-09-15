@@ -1,3 +1,8 @@
+3.0.x
+-----
+- New flag `--heartbeat-interval` sends heartbeat metrics on an interval, tagged by version and commit.  Defaults
+  `0`.  Set to `0` to disable.
+
 3.0.0
 -----
 - BREAKING: use space instead of comma to specify multiple values for the following parameters: `backends`,
