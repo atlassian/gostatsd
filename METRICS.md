@@ -1,20 +1,21 @@
 This documents the metrics and tags emitted by gostatsd, their type, tags, and interpretation.
 
-| Name                         | type    | tags          | description
-| ---------------------------- | ------- | ------------- | -----------
-| aggregator.metrics_received  | gauge   | aggregator_id | The number of datapoints received during the flush interval
-| aggregator.processing_time   | gauge   | aggregator_id | The time taken (in ms) to aggregate all datapoints in this
-|                              |         |               | flush interval
-| bad_lines_seen               | counter |               | The number of unprocessable lines that have been seen
-| events_received              | counter |               | The number of events received
-| metrics_received             | counter |               | The number of metrics received
-| packets_received             | counter |               | The number of packets received
-| channel.capacity             | gauge   | channel       | The capacity of the channel
-| channel.queued               | gauge   | channel       | The absolute amount of items in a channel
-| channel.pct_used             | gauge   | channel       | The percentage of how full a channel is
-| internal_dropped             | gauge   |               | The number of internal metrics which have been dropped in the
-|                              |         |               | lifetime of the process.  Not a counter, because it may not be
-|                              |         |               | submitted.
+| Name                         | type    | tags            | description
+| ---------------------------- | ------- | --------------- | -----------
+| aggregator.metrics_received  | gauge   | aggregator_id   | The number of datapoints received during the flush interval
+| aggregator.processing_time   | gauge   | aggregator_id   | The time taken (in ms) to aggregate all datapoints in this
+|                              |         |                 | flush interval
+| bad_lines_seen               | counter |                 | The number of unprocessable lines that have been seen
+| events_received              | counter |                 | The number of events received
+| metrics_received             | counter |                 | The number of metrics received
+| packets_received             | counter |                 | The number of packets received
+| channel.capacity             | gauge   | channel         | The capacity of the channel
+| channel.queued               | gauge   | channel         | The absolute amount of items in a channel
+| channel.pct_used             | gauge   | channel         | The percentage of how full a channel is
+| internal_dropped             | gauge   |                 | The number of internal metrics which have been dropped in the
+|                              |         |                 | lifetime of the process.  Not a counter, because it may not be
+|                              |         |                 | submitted.
+| heartbeat                    | gauge   | version, commit | The value 0, tagged by the version (git tag) and short commit hash
 
 
 | Tag           | Description

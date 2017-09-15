@@ -57,6 +57,8 @@ const (
 	DefaultCacheNegativeTTL = 1 * time.Minute
 	// DefaultInternalNamespace is the default internal namespace
 	DefaultInternalNamespace = "statsd"
+	// DefaultHeartbeatInterval is the default heartbeat interval (0 for disabled)
+	DefaultHeartbeatInterval = time.Duration(0)
 )
 
 const (
@@ -102,6 +104,8 @@ const (
 	ParamNamespace = "namespace"
 	// ParamPercentThreshold is the name of parameter with list of applied percentiles.
 	ParamPercentThreshold = "percent-threshold"
+	// ParamHeartbeatInterval is the name of the parameter with the heartbeat interval
+	ParamHeartbeatInterval = "heartbeat-interval"
 )
 
 // NewServer will create a new Server with the default configuration.
@@ -118,6 +122,7 @@ func NewServer() *Server {
 		MaxConcurrentEvents: DefaultMaxConcurrentEvents,
 		MetricsAddr:         DefaultMetricsAddr,
 		PercentThreshold:    DefaultPercentThreshold,
+		HeartbeatInterval:   DefaultHeartbeatInterval,
 		CacheOptions: CacheOptions{
 			CacheRefreshPeriod:        DefaultCacheRefreshPeriod,
 			CacheEvictAfterIdlePeriod: DefaultCacheEvictAfterIdlePeriod,
@@ -151,4 +156,5 @@ func AddFlags(fs *pflag.FlagSet) {
 	fs.String(ParamInternalTags, strings.Join(DefaultInternalTags, ","), "Comma-separated list of tags to add to internal metrics")
 	fs.String(ParamInternalNamespace, DefaultInternalNamespace, "Namespace for internal metrics, may be \"\"")
 	fs.String(ParamPercentThreshold, strings.Join(toStringSlice(DefaultPercentThreshold), ","), "Comma-separated list of percentiles")
+	fs.Duration(ParamHeartbeatInterval, DefaultHeartbeatInterval, "Heartbeat interval (0s to disable)")
 }

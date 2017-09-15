@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/atlassian/gostatsd"
-	"github.com/atlassian/gostatsd/pkg/statser"
+	stats "github.com/atlassian/gostatsd/pkg/statser"
 
 	"github.com/ash2k/stager"
 	log "github.com/sirupsen/logrus"
@@ -36,6 +36,8 @@ type Server struct {
 	MetricsAddr         string
 	Namespace           string
 	PercentThreshold    []float64
+	HeartbeatInterval   time.Duration
+	HeartbeatTags       gostatsd.Tags
 	CacheOptions
 	Viper *viper.Viper
 }
@@ -102,10 +104,10 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 		}
 	}
 
-	bufferSize := 10 + 4*s.MaxWorkers // Estimate: 3 for the CSW on each (+ a bit), and a bit of overhead for things that tick in the background
-	statser := statser.NewInternalStatser(bufferSize, s.InternalTags, namespace, hostname, handler)
+	bufferSize := 1000 // Estimating this is hard, and tends to cause loss under adverse conditions
+	statser := stats.NewInternalStatser(bufferSize, s.InternalTags, namespace, hostname, handler)
 	// TODO: Make internal metric dispatch configurable
-	// statser := NewLoggingStatser(s.InternalTags, log.NewEntry(log.New()))
+	// statser := stats.NewLoggingStatser(s.InternalTags, log.NewEntry(log.New()))
 	stage = stgr.NextStage()
 	stage.StartWithContext(statser.Run)
 
@@ -114,7 +116,15 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 		dispatcher.RunMetrics(ctx, statser)
 	})
 
-	// 4. Start the Receiver
+	// 4. Start the heartbeat
+
+	if s.HeartbeatInterval != 0 {
+		hb := stats.NewHeartBeater(statser, "heartbeat", s.HeartbeatTags, s.HeartbeatInterval)
+		stage = stgr.NextStage()
+		stage.StartWithContext(hb.Run)
+	}
+
+	// 5. Start the Receiver
 	// Open socket
 	c, err := sf()
 	if err != nil {
@@ -135,16 +145,16 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 		})
 	}
 
-	// 5. Start the Flusher
+	// 6. Start the Flusher
 	flusher := NewMetricFlusher(s.FlushInterval, dispatcher, handler, s.Backends, ip, hostname, statser)
 	stage.StartWithContext(flusher.Run)
 
-	// 6. Send events on start and on stop
+	// 7. Send events on start and on stop
 	// TODO: Push these in to statser
 	defer sendStopEvent(handler, ip, hostname)
 	sendStartEvent(ctx, handler, ip, hostname)
 
-	// 7. Listen until done
+	// 8. Listen until done
 	<-ctx.Done()
 	return ctx.Err()
 }
