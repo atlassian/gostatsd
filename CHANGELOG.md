@@ -1,4 +1,4 @@
-3.0.x
+3.0.1
 -----
 - New flag `--heartbeat-interval` sends heartbeat metrics on an interval, tagged by version and commit.  Defaults
   `0`.  Set to `0` to disable.
