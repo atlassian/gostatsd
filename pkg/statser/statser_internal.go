@@ -8,10 +8,16 @@ import (
 	"github.com/atlassian/gostatsd"
 )
 
-// InternalHandler is an interface to dispatch metrics to.  Exists
+// InternalMetricHandler is an interface to dispatch metrics to.  Exists
 // to break circular dependencies.
-type InternalHandler interface {
+type InternalMetricHandler interface {
 	DispatchMetric(ctx context.Context, m *gostatsd.Metric) error
+}
+
+// InternalEventHandler is an interface to dispatch metrics to.  Exists
+// to break circular dependencies.
+type InternalEventHandler interface {
+	DispatchEvent(context.Context, *gostatsd.Event) error
 }
 
 // InternalStatser is a Statser which sends metrics to a handler on a best
@@ -28,19 +34,21 @@ type InternalStatser struct {
 	tags      gostatsd.Tags
 	namespace string
 	hostname  string
-	handler   InternalHandler
+	metrics   InternalMetricHandler
+	events    InternalEventHandler
 	dropped   uint64
 }
 
 // NewInternalStatser creates a new Statser which sends metrics to the
 // supplied InternalHandler.
-func NewInternalStatser(bufferSize int, tags gostatsd.Tags, namespace, hostname string, handler InternalHandler) *InternalStatser {
+func NewInternalStatser(bufferSize int, tags gostatsd.Tags, namespace, hostname string, metrics InternalMetricHandler, events InternalEventHandler) *InternalStatser {
 	return &InternalStatser{
 		buffer:    make(chan *gostatsd.Metric, bufferSize),
 		tags:      tags,
 		namespace: namespace,
 		hostname:  hostname,
-		handler:   handler,
+		metrics:   metrics,
+		events:    events,
 	}
 }
 
@@ -136,5 +144,5 @@ func (is *InternalStatser) dispatchMetric(ctx context.Context, metric *gostatsd.
 		metric.Name = is.namespace + "." + metric.Name
 	}
 	metric.Tags = metric.Tags.Concat(is.tags)
-	_ = is.handler.DispatchMetric(ctx, metric)
+	_ = is.metrics.DispatchMetric(ctx, metric)
 }
