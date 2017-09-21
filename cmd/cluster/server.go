@@ -5,8 +5,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/atlassian/gostatsd/pkg/cluster/nodes"
 	"github.com/spf13/pflag"
+
+	"github.com/atlassian/gostatsd/pkg/cluster/nodes"
 )
 
 // Cluster is everything for running a single node in a cluster
@@ -48,6 +49,7 @@ func (c *Cluster) Run() error {
 	go rnt.Run(ctx)
 
 	t := time.NewTicker(time.Second)
+	defer t.Stop()
 
 	for range t.C {
 		nodes := rnt.List()

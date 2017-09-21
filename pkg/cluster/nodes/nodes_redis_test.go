@@ -23,6 +23,8 @@ func (ft *fakeTime) Now() time.Time {
 }
 
 func TestLearnNode(t *testing.T) {
+	t.Parallel()
+
 	now := time.Now()
 
 	rnt := &redisNodeTracker{
@@ -50,6 +52,8 @@ func TestLearnNode(t *testing.T) {
 }
 
 func TestLearnMultipleNodes(t *testing.T) {
+	t.Parallel()
+
 	now := time.Now()
 
 	rnt := &redisNodeTracker{
@@ -79,6 +83,8 @@ func TestLearnMultipleNodes(t *testing.T) {
 }
 
 func TestForgetNodes(t *testing.T) {
+	t.Parallel()
+
 	now := time.Now()
 
 	rnt := &redisNodeTracker{
@@ -113,6 +119,8 @@ func TestForgetNodes(t *testing.T) {
 }
 
 func TestUpdateExistingNode(t *testing.T) {
+	t.Parallel()
+
 	now := time.Now()
 
 	rnt := &redisNodeTracker{

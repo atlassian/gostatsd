@@ -12,7 +12,7 @@ import (
 )
 
 var (
-	errNoNodes = errors.New("No nodes available")
+	errNoNodes = errors.New("no nodes available")
 )
 
 type redisNodeTracker struct {
