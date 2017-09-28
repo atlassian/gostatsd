@@ -8,6 +8,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"golang.org/x/net/ipv6"
+
 	"github.com/atlassian/gostatsd"
 	"github.com/atlassian/gostatsd/pkg/statser"
 
@@ -17,6 +19,10 @@ import (
 // ip packet size is stored in two bytes and that is how big in theory the packet can be.
 // In practice it is highly unlikely but still possible to get packets bigger than usual MTU of 1500.
 const packetSizeUDP = 0xffff
+
+// The number of packets to read in each batch
+// In practice we've found a batch size >5 and <100 to be performant
+const receiveBatchSize = 50
 
 // MetricReceiver receives data on its PacketConn and converts lines into Metrics.
 // For each types.Metric it calls Handler.HandleMetric()
@@ -65,10 +71,15 @@ func (mr *MetricReceiver) RunMetrics(ctx context.Context) {
 // Receive accepts incoming datagrams on c, parses them and calls Handler.DispatchMetric() for each metric
 // and Handler.DispatchEvent() for each event.
 func (mr *MetricReceiver) Receive(ctx context.Context, c net.PacketConn) {
-	buf := make([]byte, packetSizeUDP)
+	conn := ipv6.NewPacketConn(c)
+	messages := make([]ipv6.Message, receiveBatchSize)
+	for i := 0; i < receiveBatchSize; i++ {
+		messages[i] = ipv6.Message{
+			Buffers: [][]byte{make([]byte, packetSizeUDP)},
+		}
+	}
 	for {
-		// This will error out when the socket is closed.
-		nbytes, addr, err := c.ReadFrom(buf)
+		packetCount, err := conn.ReadBatch(messages, 0)
 		if err != nil {
 			select {
 			case <-ctx.Done():
@@ -79,13 +90,18 @@ func (mr *MetricReceiver) Receive(ctx context.Context, c net.PacketConn) {
 			continue
 		}
 		// TODO consider updating counter for every N-th iteration to reduce contention
-		atomic.AddUint64(&mr.packetsReceived, 1)
+		atomic.AddUint64(&mr.packetsReceived, uint64(packetCount))
 		atomic.StoreInt64(&mr.lastPacket, time.Now().UnixNano())
-		if err := mr.handlePacket(ctx, addr, buf[:nbytes]); err != nil {
-			if err == context.Canceled || err == context.DeadlineExceeded {
-				return
+		for i := 0; i < packetCount; i++ {
+			addr := messages[i].Addr
+			nbytes := messages[i].N
+			buf := messages[i].Buffers[0]
+			if err := mr.handlePacket(ctx, addr, buf[:nbytes]); err != nil {
+				if err == context.Canceled || err == context.DeadlineExceeded {
+					return
+				}
+				log.Warnf("Failed to handle packet: %v", err)
 			}
-			log.Warnf("Failed to handle packet: %v", err)
 		}
 	}
 }
