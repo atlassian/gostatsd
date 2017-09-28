@@ -1,5 +1,5 @@
-hash: e7ebc0bc29af8173d4988df8fa078f3b6548c38ccac8711bb06e9d103eb9aa30
-updated: 2017-09-14T16:48:26.199245523+10:00
+hash: 048701c983fc0bb8c64675fce1fb524a612062529e2db1f12dfde1545f2647f8
+updated: 2017-09-28T18:15:21.699780645+10:00
 imports:
 - name: github.com/ash2k/stager
   version: 6e9c7b0eacd465286fac042bfb29a170aa8c2c3f
@@ -33,13 +33,13 @@ imports:
   - service/ec2
   - service/sts
 - name: github.com/cenkalti/backoff
-  version: 61153c768f31ee5f130071d08fc82b85208528de
+  version: 61ba96c4d1002f22e06acb8e34a7650611125a63
 - name: github.com/fsnotify/fsnotify
   version: 4da3e2cfbabc9f751898f250b49f2439785783a1
 - name: github.com/go-ini/ini
   version: c787282c39ac1fc618827141a1f762240def08a3
 - name: github.com/go-redis/redis
-  version: fdafb11e5fa5d52d965e12073c8a58468c98ebe2
+  version: 975882d73d21759d45a4eb49652064083bc23e61
   subpackages:
   - internal
   - internal/consistenthash
@@ -47,7 +47,7 @@ imports:
   - internal/pool
   - internal/proto
 - name: github.com/hashicorp/hcl
-  version: 392dba7d905ed5d04a5794ba89f558b27e2ba1ca
+  version: 68e816d1c783414e79bc65b3994d9ab6b0a722ab
   subpackages:
   - hcl/ast
   - hcl/parser
@@ -60,23 +60,23 @@ imports:
 - name: github.com/jmespath/go-jmespath
   version: bd40a432e4c76585ef6b72d3fd96fb9b6dc7b68d
 - name: github.com/magiconair/properties
-  version: be5ece7dd465ab0765a9682137865547526d1dfb
+  version: 8d7837e64d3c1ee4e54a880c5a920ab4316fc90a
 - name: github.com/mitchellh/mapstructure
   version: d0303fe809921458f417bcf828397a65db30a7e4
 - name: github.com/pelletier/go-toml
-  version: 4692b8f9babfc93db58cc592ba2689d8736781de
+  version: 16398bac157da96aa88f98a2df640c7f32af1da2
 - name: github.com/sirupsen/logrus
-  version: 68806b4b77355d6c8577a2c8bbc6d547a5272491
+  version: 89742aefa4b206dcf400792f3bd35b542998eb3b
 - name: github.com/spf13/afero
-  version: 9be650865eab0c12963d8753212f4f9c66cdcf12
+  version: ee1bd8ee15a1306d1f9201acc41ef39cd9f99a1b
   subpackages:
   - mem
 - name: github.com/spf13/cast
   version: acbeb36b902d72a7a4c18e8f3241075e7ab763e4
 - name: github.com/spf13/jwalterweatherman
-  version: 0efa5202c04663c757d84f90f5219c1250baf94f
+  version: 12bd96e66386c1960ab0f74ced1362f66f552f7b
 - name: github.com/spf13/pflag
-  version: 9ff6c6923cfffbcd502984b8e0c80539a94968b7
+  version: 7aff26db30c1be810f9de5038ec5ef96ac41fd7c
 - name: github.com/spf13/viper
   version: 25b30aa063fc18e48662b86996252eabdcf2f0c7
 - name: github.com/stretchr/testify
@@ -85,32 +85,39 @@ imports:
   - assert
   - require
 - name: golang.org/x/crypto
-  version: eb71ad9bd329b5ac0fd0148dd99bd62e8be8e035
+  version: c84b36c635ad003a10f0c755dff5685ceef18c71
   subpackages:
   - ssh/terminal
 - name: golang.org/x/net
-  version: e90d6d0afc4c315a0d87a568ae68577cc15149a0
+  version: 0a9397675ba34b2845f758fe3cd68828369c6517
   subpackages:
+  - bpf
   - context
   - http2
   - http2/hpack
+  - idna
+  - internal/iana
+  - internal/socket
+  - ipv6
   - lex/httplex
 - name: golang.org/x/sys
-  version: 43e60d72a8e2bd92ee98319ba9a384a0e9837c08
+  version: 314a259e304ff91bd6985da2a7149bbf91237993
   subpackages:
   - unix
   - windows
 - name: golang.org/x/text
-  version: 2910a502d2bf9e43193af9d68ca516529614eed3
+  version: 1cbadb444a806fd9430d14ad08967ed91da4fa0a
   subpackages:
+  - secure/bidirule
   - transform
+  - unicode/bidi
   - unicode/norm
 - name: golang.org/x/time
-  version: 8be79e1e0910c292df4e79c241bb7e8f7e725959
+  version: 6dc17368e09b0e8634d71cac8168d853e869a0c7
   subpackages:
   - rate
 - name: gopkg.in/yaml.v2
-  version: 53feefa2559fb8dfa8d81baad31be332c97d6c77
+  version: eb3733d160e74a9c7e442f435eb3bea458e1d19f
 testImports:
 - name: github.com/davecgh/go-spew
   version: 04cdfd42973bb9c8589fd6a731800cf222fde1a9
