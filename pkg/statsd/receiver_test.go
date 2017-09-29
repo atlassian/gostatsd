@@ -3,7 +3,6 @@ package statsd
 import (
 	"context"
 	"strconv"
-	"sync"
 	"testing"
 
 	"github.com/atlassian/gostatsd"
@@ -175,21 +174,6 @@ func TestReceivePacketIgnoreHost(t *testing.T) {
 			assert.Equal(t, mAndE.events, ch.events)
 			assert.Equal(t, mAndE.metrics, ch.metrics)
 		})
-	}
-}
-
-func BenchmarkReceive(b *testing.B) {
-	mr := &MetricReceiver{
-		handler: nopHandler{},
-	}
-	c := fakesocket.NewFakePacketConn()
-	ctx := context.Background()
-	var wg sync.WaitGroup
-	wg.Add(b.N)
-	b.ReportAllocs()
-	b.ResetTimer()
-	for n := 0; n < b.N; n++ {
-		mr.Receive(ctx, c)
 	}
 }
 
