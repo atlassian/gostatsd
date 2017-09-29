@@ -176,16 +176,3 @@ func TestReceivePacketIgnoreHost(t *testing.T) {
 		})
 	}
 }
-
-type nopHandler struct{}
-
-func (h nopHandler) DispatchMetric(ctx context.Context, m *gostatsd.Metric) error {
-	return context.Canceled // Stops receiver after first read is done
-}
-
-func (h nopHandler) DispatchEvent(ctx context.Context, e *gostatsd.Event) error {
-	return context.Canceled // Stops receiver after first read is done
-}
-
-func (h nopHandler) WaitForEvents() {
-}
