@@ -21,7 +21,7 @@ var FakeAddr = &net.UDPAddr{
 var ErrClosedConnection = errors.New("Connection is closed")
 var ErrAlreadyClosedConnection = errors.New("Connection is already closed")
 
-// FakePacketConn is a fake net.PacketConn providing FakeMetric when read from.
+// FakePacketConn is a fake net.PacketConn (and net.Conn) providing FakeMetric when read from.
 type FakePacketConn struct {
 	closed chan struct{}
 }
@@ -73,6 +73,23 @@ func (fpc *FakePacketConn) SetReadDeadline(t time.Time) error { return nil }
 
 // SetWriteDeadline dummy impl.
 func (fpc *FakePacketConn) SetWriteDeadline(t time.Time) error { return nil }
+
+// Read copies FakeMetric into b
+// To satisfy net.Conn
+func (fpc *FakePacketConn) Read(b []byte) (int, error) {
+	n, _, err := fpc.ReadFrom(b)
+	return n, err
+}
+
+// WriteTo dummy impl.
+// To satisfy net.Conn
+func (fpc *FakePacketConn) Write(b []byte) (int, error) {
+	return fpc.WriteTo(b, FakeAddr)
+}
+
+// RemoteAddr dummy impl.
+// To satisfy net.Conn
+func (fpc *FakePacketConn) RemoteAddr() net.Addr { return FakeAddr }
 
 // FakeRandomPacketConn is a fake net.PacketConn providing random fake metrics.
 type FakeRandomPacketConn struct {
