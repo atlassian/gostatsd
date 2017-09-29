@@ -9,6 +9,8 @@ This documents the metrics and tags emitted by gostatsd, their type, tags, and i
 | events_received              | counter |                 | The number of events received
 | metrics_received             | counter |                 | The number of metrics received
 | packets_received             | counter |                 | The number of packets received
+| avg_packets_in_batch         | gauge   |                 | The average number of packets read in a batch (up to receive-batch-size).
+|                              |         |                 | This can be used to tweak receive-batch-size if necessary to reduce memory usage
 | channel.capacity             | gauge   | channel         | The capacity of the channel
 | channel.queued               | gauge   | channel         | The absolute amount of items in a channel
 | channel.pct_used             | gauge   | channel         | The percentage of how full a channel is

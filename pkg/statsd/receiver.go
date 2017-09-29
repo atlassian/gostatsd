@@ -31,6 +31,7 @@ type MetricReceiver struct {
 	packetsReceived uint64
 	metricsReceived uint64
 	eventsReceived  uint64
+	batchesRead     uint64
 
 	ignoreHost       bool
 	handler          Handler // handler to invoke
@@ -58,10 +59,12 @@ func (mr *MetricReceiver) RunMetrics(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			mr.statser.Count("packets_received", float64(atomic.SwapUint64(&mr.packetsReceived, 0)), nil)
+			packetsReceived := float64(atomic.SwapUint64(&mr.packetsReceived, 0))
+			mr.statser.Count("packets_received", packetsReceived, nil)
 			mr.statser.Count("metrics_received", float64(atomic.SwapUint64(&mr.metricsReceived, 0)), nil)
 			mr.statser.Count("events_received", float64(atomic.SwapUint64(&mr.eventsReceived, 0)), nil)
 			mr.statser.Count("bad_lines_seen", float64(atomic.SwapUint64(&mr.badLines, 0)), nil)
+			mr.statser.Gauge("avg_packets_in_batch", packetsReceived/float64(atomic.SwapUint64(&mr.batchesRead, 0)), nil)
 		}
 	}
 }
@@ -90,6 +93,7 @@ func (mr *MetricReceiver) Receive(ctx context.Context, c net.PacketConn) {
 		// TODO consider updating counter for every N-th iteration to reduce contention
 		atomic.AddUint64(&mr.packetsReceived, uint64(packetCount))
 		atomic.StoreInt64(&mr.lastPacket, time.Now().UnixNano())
+		atomic.AddUint64(&mr.batchesRead, 1)
 		for i := 0; i < packetCount; i++ {
 			addr := messages[i].Addr
 			nbytes := messages[i].N
