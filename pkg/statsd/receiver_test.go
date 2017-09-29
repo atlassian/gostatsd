@@ -178,7 +178,7 @@ func TestReceivePacketIgnoreHost(t *testing.T) {
 	}
 }
 
-func BenchmarkReceiveX(b *testing.B) {
+func BenchmarkReceive(b *testing.B) {
 	mr := &MetricReceiver{
 		handler:          nopHandler{},
 		receiveBatchSize: 1,
