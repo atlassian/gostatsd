@@ -42,7 +42,7 @@ const (
 	// DefaultIgnoreHost is the default value for whether the source should be used as the host
 	DefaultIgnoreHost = false
 	// DefaultMetricsAddr is the default address on which to listen for metrics.
-	DefaultMetricsAddr = ":8125"
+	DefaultMetricsAddr = "[::]:8125"
 	// DefaultMaxQueueSize is the default maximum number of buffered metrics per worker.
 	DefaultMaxQueueSize = 10000 // arbitrary
 	// DefaultMaxConcurrentEvents is the default maximum number of events sent concurrently.
@@ -147,7 +147,7 @@ func AddFlags(fs *pflag.FlagSet) {
 	fs.Duration(ParamCacheEvictAfterIdlePeriod, DefaultCacheEvictAfterIdlePeriod, "Idle cloud cache eviction period")
 	fs.Duration(ParamCacheTTL, DefaultCacheTTL, "Cloud cache TTL for successful lookups")
 	fs.Duration(ParamCacheNegativeTTL, DefaultCacheNegativeTTL, "Cloud cache TTL for failed lookups")
-	fs.String(ParamMetricsAddr, DefaultMetricsAddr, "Address on which to listen for metrics")
+	fs.String(ParamMetricsAddr, DefaultMetricsAddr, "IPv6 Address on which to listen for metrics")
 	fs.String(ParamNamespace, "", "Namespace all metrics")
 	fs.StringSlice(ParamBackends, DefaultBackends, "Comma-separated list of backends")
 	fs.Int(ParamMaxCloudRequests, DefaultMaxCloudRequests, "Maximum number of cloud provider requests per second")
