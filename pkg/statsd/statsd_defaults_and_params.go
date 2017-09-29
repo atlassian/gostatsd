@@ -8,8 +8,6 @@ import (
 	"github.com/atlassian/gostatsd"
 
 	"github.com/spf13/pflag"
-	"github.com/spf13/viper"
-	"golang.org/x/time/rate"
 )
 
 // DefaultBackends is the list of default backends' names.
@@ -111,31 +109,6 @@ const (
 	// ParamReceiveBatchSize is the name of the parameter with the number of packets to read in each receive batch
 	ParamReceiveBatchSize = "receive-batch-size"
 )
-
-// NewServer will create a new Server with the default configuration.
-func NewServer() *Server {
-	return &Server{
-		Limiter:             rate.NewLimiter(DefaultMaxCloudRequests, DefaultBurstCloudRequests),
-		DefaultTags:         DefaultTags,
-		ExpiryInterval:      DefaultExpiryInterval,
-		FlushInterval:       DefaultFlushInterval,
-		IgnoreHost:          DefaultIgnoreHost,
-		MaxReaders:          DefaultMaxReaders,
-		MaxWorkers:          DefaultMaxWorkers,
-		MaxQueueSize:        DefaultMaxQueueSize,
-		MaxConcurrentEvents: DefaultMaxConcurrentEvents,
-		MetricsAddr:         DefaultMetricsAddr,
-		PercentThreshold:    DefaultPercentThreshold,
-		HeartbeatInterval:   DefaultHeartbeatInterval,
-		CacheOptions: CacheOptions{
-			CacheRefreshPeriod:        DefaultCacheRefreshPeriod,
-			CacheEvictAfterIdlePeriod: DefaultCacheEvictAfterIdlePeriod,
-			CacheTTL:                  DefaultCacheTTL,
-			CacheNegativeTTL:          DefaultCacheNegativeTTL,
-		},
-		Viper: viper.New(),
-	}
-}
 
 // AddFlags adds flags to the specified FlagSet.
 func AddFlags(fs *pflag.FlagSet) {
