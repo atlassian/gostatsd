@@ -58,11 +58,15 @@ func (mr *MetricReceiver) RunMetrics(ctx context.Context) {
 			return
 		case <-ticker.C:
 			packetsReceived := float64(atomic.SwapUint64(&mr.packetsReceived, 0))
+			batchesRead := atomic.SwapUint64(&mr.batchesRead, 0)
+			if batchesRead == 0 {
+				batchesRead = 1
+			}
 			mr.statser.Count("packets_received", packetsReceived, nil)
 			mr.statser.Count("metrics_received", float64(atomic.SwapUint64(&mr.metricsReceived, 0)), nil)
 			mr.statser.Count("events_received", float64(atomic.SwapUint64(&mr.eventsReceived, 0)), nil)
 			mr.statser.Count("bad_lines_seen", float64(atomic.SwapUint64(&mr.badLines, 0)), nil)
-			mr.statser.Gauge("avg_packets_in_batch", packetsReceived/float64(atomic.SwapUint64(&mr.batchesRead, 0)), nil)
+			mr.statser.Gauge("avg_packets_in_batch", packetsReceived/float64(batchesRead), nil)
 		}
 	}
 }
