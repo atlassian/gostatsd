@@ -3,6 +3,7 @@ package statsd
 import (
 	"context"
 	"strconv"
+	"sync"
 	"testing"
 
 	"github.com/atlassian/gostatsd"
@@ -175,4 +176,33 @@ func TestReceivePacketIgnoreHost(t *testing.T) {
 			assert.Equal(t, mAndE.metrics, ch.metrics)
 		})
 	}
+}
+
+func BenchmarkReceiveX(b *testing.B) {
+	mr := &MetricReceiver{
+		handler:          nopHandler{},
+		receiveBatchSize: 1,
+	}
+	c := fakesocket.NewFakePacketConn()
+	ctx := context.Background()
+	var wg sync.WaitGroup
+	wg.Add(b.N)
+	b.ReportAllocs()
+	b.ResetTimer()
+	for n := 0; n < b.N; n++ {
+		mr.Receive(ctx, c)
+	}
+}
+
+type nopHandler struct{}
+
+func (h nopHandler) DispatchMetric(ctx context.Context, m *gostatsd.Metric) error {
+	return context.Canceled // Stops receiver after first read is done
+}
+
+func (h nopHandler) DispatchEvent(ctx context.Context, e *gostatsd.Event) error {
+	return context.Canceled // Stops receiver after first read is done
+}
+
+func (h nopHandler) WaitForEvents() {
 }

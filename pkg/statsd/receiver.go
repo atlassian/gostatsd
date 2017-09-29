@@ -8,8 +8,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"golang.org/x/net/ipv6"
-
 	"github.com/atlassian/gostatsd"
 	"github.com/atlassian/gostatsd/pkg/statser"
 
@@ -72,15 +70,15 @@ func (mr *MetricReceiver) RunMetrics(ctx context.Context) {
 // Receive accepts incoming datagrams on c, parses them and calls Handler.DispatchMetric() for each metric
 // and Handler.DispatchEvent() for each event.
 func (mr *MetricReceiver) Receive(ctx context.Context, c net.PacketConn) {
-	conn := ipv6.NewPacketConn(c)
-	messages := make([]ipv6.Message, mr.receiveBatchSize)
+	br := NewBatchReader(c)
+	messages := make([]Message, mr.receiveBatchSize)
 	for i := 0; i < mr.receiveBatchSize; i++ {
-		messages[i] = ipv6.Message{
+		messages[i] = Message{
 			Buffers: [][]byte{make([]byte, packetSizeUDP)},
 		}
 	}
 	for {
-		packetCount, err := conn.ReadBatch(messages, 0)
+		packetCount, err := br.ReadBatch(messages)
 		if err != nil {
 			select {
 			case <-ctx.Done():
