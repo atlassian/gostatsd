@@ -20,10 +20,6 @@ import (
 // In practice it is highly unlikely but still possible to get packets bigger than usual MTU of 1500.
 const packetSizeUDP = 0xffff
 
-// The number of packets to read in each batch
-// In practice we've found a batch size >5 and <100 to be performant
-const receiveBatchSize = 50
-
 // MetricReceiver receives data on its PacketConn and converts lines into Metrics.
 // For each types.Metric it calls Handler.HandleMetric()
 type MetricReceiver struct {
@@ -36,19 +32,21 @@ type MetricReceiver struct {
 	metricsReceived uint64
 	eventsReceived  uint64
 
-	ignoreHost bool
-	handler    Handler // handler to invoke
-	namespace  string  // Namespace to prefix all metrics
-	statser    statser.Statser
+	ignoreHost       bool
+	handler          Handler // handler to invoke
+	namespace        string  // Namespace to prefix all metrics
+	statser          statser.Statser
+	receiveBatchSize int // The number of packets to read in each batch
 }
 
 // NewMetricReceiver initialises a new MetricReceiver.
-func NewMetricReceiver(ns string, ignoreHost bool, handler Handler, statser statser.Statser) *MetricReceiver {
+func NewMetricReceiver(ns string, ignoreHost bool, handler Handler, statser statser.Statser, receiveBatchSize int) *MetricReceiver {
 	return &MetricReceiver{
-		ignoreHost: ignoreHost,
-		handler:    handler,
-		namespace:  ns,
-		statser:    statser,
+		ignoreHost:       ignoreHost,
+		handler:          handler,
+		namespace:        ns,
+		statser:          statser,
+		receiveBatchSize: receiveBatchSize,
 	}
 }
 
@@ -72,8 +70,8 @@ func (mr *MetricReceiver) RunMetrics(ctx context.Context) {
 // and Handler.DispatchEvent() for each event.
 func (mr *MetricReceiver) Receive(ctx context.Context, c net.PacketConn) {
 	conn := ipv6.NewPacketConn(c)
-	messages := make([]ipv6.Message, receiveBatchSize)
-	for i := 0; i < receiveBatchSize; i++ {
+	messages := make([]ipv6.Message, mr.receiveBatchSize)
+	for i := 0; i < mr.receiveBatchSize; i++ {
 		messages[i] = ipv6.Message{
 			Buffers: [][]byte{make([]byte, packetSizeUDP)},
 		}

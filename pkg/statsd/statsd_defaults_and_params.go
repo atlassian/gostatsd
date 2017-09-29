@@ -59,6 +59,8 @@ const (
 	DefaultInternalNamespace = "statsd"
 	// DefaultHeartbeatInterval is the default heartbeat interval (0 for disabled)
 	DefaultHeartbeatInterval = time.Duration(0)
+	// DefaultReceiveBatchSize is the number of packets to read in each receive batch
+	DefaultReceiveBatchSize = 50
 )
 
 const (
@@ -106,6 +108,8 @@ const (
 	ParamPercentThreshold = "percent-threshold"
 	// ParamHeartbeatInterval is the name of the parameter with the heartbeat interval
 	ParamHeartbeatInterval = "heartbeat-interval"
+	// ParamReceiveBatchSize is the name of the parameter with the number of packets to read in each receive batch
+	ParamReceiveBatchSize = "receive-batch-size"
 )
 
 // NewServer will create a new Server with the default configuration.
@@ -157,4 +161,5 @@ func AddFlags(fs *pflag.FlagSet) {
 	fs.String(ParamInternalNamespace, DefaultInternalNamespace, "Namespace for internal metrics, may be \"\"")
 	fs.String(ParamPercentThreshold, strings.Join(toStringSlice(DefaultPercentThreshold), ","), "Comma-separated list of percentiles")
 	fs.Duration(ParamHeartbeatInterval, DefaultHeartbeatInterval, "Heartbeat interval (0s to disable)")
+	fs.Int(ParamReceiveBatchSize, DefaultReceiveBatchSize, "The number of packets to read in each receive batch")
 }
