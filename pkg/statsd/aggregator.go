@@ -175,7 +175,7 @@ func (a *MetricAggregator) isExpired(now, ts gostatsd.Nanotime) bool {
 		return true
 	}
 
-	return a.expiryInterval != 0 && time.Duration(now-ts) > a.expiryInterval
+	return time.Duration(now-ts) > a.expiryInterval
 }
 
 func deleteMetric(key, tagsKey string, metrics gostatsd.AggregatedMetrics) {
