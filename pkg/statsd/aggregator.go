@@ -206,6 +206,7 @@ func (a *MetricAggregator) Reset() {
 				Timestamp: timer.Timestamp,
 				Hostname:  timer.Hostname,
 				Tags:      timer.Tags,
+				Values:    timer.Values[:0],
 			}
 		}
 	})
