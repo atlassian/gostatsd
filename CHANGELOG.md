@@ -1,6 +1,9 @@
-3.0.x
+3.1.0
 -----
 - New docker image suffix, `version`-syms, includes symbol table
+- New flag `--receive-batch-size` to set datagram batch size.  Defaults `50`.
+- Batch reading should improve performance by using `recvmmsg(2)`.  This has additional memory considerations
+  documented in README.md, and can tuned by tracking the `avg_packets_in_batch` metric and adjusting as necessary.
 
 3.0.1
 -----

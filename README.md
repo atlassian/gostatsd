@@ -114,7 +114,8 @@ for these read buffers is determined by the config options:
 
     max-readers * receive-batch-size * 64KB (max packet size)
 
-The metric `avg_packets_in_batch` can be used to tune this memory usage if necessary.
+The metric `avg_packets_in_batch` can be used to track the average number of datagrams received per batch, and the
+`--receive-batch-size` flag used to tune it.  There may be some benefit to tuning the `--max-readers` flag as well.
 
 Using the library
 -----------------
