@@ -40,6 +40,7 @@ func TestStatsdThroughput(t *testing.T) {
 		MaxQueueSize:      DefaultMaxQueueSize,
 		PercentThreshold:  DefaultPercentThreshold,
 		HeartbeatInterval: DefaultHeartbeatInterval,
+		ReceiveBatchSize:  DefaultReceiveBatchSize,
 		CacheOptions: CacheOptions{
 			CacheRefreshPeriod:        DefaultCacheRefreshPeriod,
 			CacheEvictAfterIdlePeriod: DefaultCacheEvictAfterIdlePeriod,

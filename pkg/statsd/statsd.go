@@ -38,6 +38,7 @@ type Server struct {
 	PercentThreshold    []float64
 	HeartbeatInterval   time.Duration
 	HeartbeatTags       gostatsd.Tags
+	ReceiveBatchSize    int
 	CacheOptions
 	Viper *viper.Viper
 }
@@ -137,7 +138,7 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 		}
 	}()
 
-	receiver := NewMetricReceiver(s.Namespace, s.IgnoreHost, handler, statser)
+	receiver := NewMetricReceiver(s.Namespace, s.IgnoreHost, handler, statser, s.ReceiveBatchSize)
 	stage.StartWithContext(receiver.RunMetrics)
 	for r := 0; r < s.MaxReaders; r++ {
 		stage.StartWithContext(func(ctx context.Context) {

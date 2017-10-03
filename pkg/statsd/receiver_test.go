@@ -31,7 +31,7 @@ func TestReceiveEmptyPacket(t *testing.T) {
 		t.Run(strconv.Itoa(pos), func(t *testing.T) {
 			t.Parallel()
 			ch := &countingHandler{}
-			mr := NewMetricReceiver("", false, ch, statser.NewNullStatser())
+			mr := NewMetricReceiver("", false, ch, statser.NewNullStatser(), 50)
 
 			err := mr.handlePacket(context.Background(), fakesocket.FakeAddr, inp)
 			require.NoError(t, err)
@@ -91,7 +91,7 @@ func TestReceivePacket(t *testing.T) {
 		t.Run(packet, func(t *testing.T) {
 			t.Parallel()
 			ch := &countingHandler{}
-			mr := NewMetricReceiver("", false, ch, statser.NewNullStatser())
+			mr := NewMetricReceiver("", false, ch, statser.NewNullStatser(), 50)
 
 			err := mr.handlePacket(context.Background(), fakesocket.FakeAddr, []byte(packet))
 			assert.NoError(t, err)
@@ -162,7 +162,7 @@ func TestReceivePacketIgnoreHost(t *testing.T) {
 		t.Run(packet, func(t *testing.T) {
 			t.Parallel()
 			ch := &countingHandler{}
-			mr := NewMetricReceiver("", true, ch, statser.NewNullStatser())
+			mr := NewMetricReceiver("", true, ch, statser.NewNullStatser(), 50)
 
 			err := mr.handlePacket(context.Background(), fakesocket.FakeAddr, []byte(packet))
 			assert.NoError(t, err)
@@ -180,7 +180,8 @@ func TestReceivePacketIgnoreHost(t *testing.T) {
 
 func BenchmarkReceive(b *testing.B) {
 	mr := &MetricReceiver{
-		handler: nopHandler{},
+		handler:          nopHandler{},
+		receiveBatchSize: 1,
 	}
 	c := fakesocket.NewFakePacketConn()
 	ctx := context.Background()

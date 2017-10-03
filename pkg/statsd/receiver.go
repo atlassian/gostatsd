@@ -29,20 +29,23 @@ type MetricReceiver struct {
 	packetsReceived uint64
 	metricsReceived uint64
 	eventsReceived  uint64
+	batchesRead     uint64
 
-	ignoreHost bool
-	handler    Handler // handler to invoke
-	namespace  string  // Namespace to prefix all metrics
-	statser    statser.Statser
+	ignoreHost       bool
+	handler          Handler // handler to invoke
+	namespace        string  // Namespace to prefix all metrics
+	statser          statser.Statser
+	receiveBatchSize int // The number of packets to read in each batch
 }
 
 // NewMetricReceiver initialises a new MetricReceiver.
-func NewMetricReceiver(ns string, ignoreHost bool, handler Handler, statser statser.Statser) *MetricReceiver {
+func NewMetricReceiver(ns string, ignoreHost bool, handler Handler, statser statser.Statser, receiveBatchSize int) *MetricReceiver {
 	return &MetricReceiver{
-		ignoreHost: ignoreHost,
-		handler:    handler,
-		namespace:  ns,
-		statser:    statser,
+		ignoreHost:       ignoreHost,
+		handler:          handler,
+		namespace:        ns,
+		statser:          statser,
+		receiveBatchSize: receiveBatchSize,
 	}
 }
 
@@ -54,10 +57,19 @@ func (mr *MetricReceiver) RunMetrics(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			mr.statser.Count("packets_received", float64(atomic.SwapUint64(&mr.packetsReceived, 0)), nil)
+			packetsReceived := float64(atomic.SwapUint64(&mr.packetsReceived, 0))
+			batchesRead := atomic.SwapUint64(&mr.batchesRead, 0)
+			var avgPacketsInBatch float64
+			if batchesRead == 0 {
+				avgPacketsInBatch = 0
+			} else {
+				avgPacketsInBatch = packetsReceived / float64(batchesRead)
+			}
+			mr.statser.Count("packets_received", packetsReceived, nil)
 			mr.statser.Count("metrics_received", float64(atomic.SwapUint64(&mr.metricsReceived, 0)), nil)
 			mr.statser.Count("events_received", float64(atomic.SwapUint64(&mr.eventsReceived, 0)), nil)
 			mr.statser.Count("bad_lines_seen", float64(atomic.SwapUint64(&mr.badLines, 0)), nil)
+			mr.statser.Gauge("avg_packets_in_batch", avgPacketsInBatch, nil)
 		}
 	}
 }
@@ -65,10 +77,15 @@ func (mr *MetricReceiver) RunMetrics(ctx context.Context) {
 // Receive accepts incoming datagrams on c, parses them and calls Handler.DispatchMetric() for each metric
 // and Handler.DispatchEvent() for each event.
 func (mr *MetricReceiver) Receive(ctx context.Context, c net.PacketConn) {
-	buf := make([]byte, packetSizeUDP)
+	br := NewBatchReader(c)
+	messages := make([]Message, mr.receiveBatchSize)
+	for i := 0; i < mr.receiveBatchSize; i++ {
+		messages[i] = Message{
+			Buffers: [][]byte{make([]byte, packetSizeUDP)},
+		}
+	}
 	for {
-		// This will error out when the socket is closed.
-		nbytes, addr, err := c.ReadFrom(buf)
+		packetCount, err := br.ReadBatch(messages)
 		if err != nil {
 			select {
 			case <-ctx.Done():
@@ -79,13 +96,19 @@ func (mr *MetricReceiver) Receive(ctx context.Context, c net.PacketConn) {
 			continue
 		}
 		// TODO consider updating counter for every N-th iteration to reduce contention
-		atomic.AddUint64(&mr.packetsReceived, 1)
+		atomic.AddUint64(&mr.packetsReceived, uint64(packetCount))
 		atomic.StoreInt64(&mr.lastPacket, time.Now().UnixNano())
-		if err := mr.handlePacket(ctx, addr, buf[:nbytes]); err != nil {
-			if err == context.Canceled || err == context.DeadlineExceeded {
-				return
+		atomic.AddUint64(&mr.batchesRead, 1)
+		for i := 0; i < packetCount; i++ {
+			addr := messages[i].Addr
+			nbytes := messages[i].N
+			buf := messages[i].Buffers[0]
+			if err := mr.handlePacket(ctx, addr, buf[:nbytes]); err != nil {
+				if err == context.Canceled || err == context.DeadlineExceeded {
+					return
+				}
+				log.Warnf("Failed to handle packet: %v", err)
 			}
-			log.Warnf("Failed to handle packet: %v", err)
 		}
 	}
 }

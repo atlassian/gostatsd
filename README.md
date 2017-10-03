@@ -37,7 +37,7 @@ Running the server
 defaults. You can use `make run` to run the server with just the `stdout` backend
 to display info on screen.
 You can also run through `docker` by running `make run-docker` which will use `docker-compose`
-to run `gostatsd` with a graphite backend and a grafana dashboard. 
+to run `gostatsd` with a graphite backend and a grafana dashboard.
 
 Configuring backends and cloud providers
 ----------------------------------------
@@ -106,6 +106,15 @@ Load balancing and scaling out
 ------------------------------
 It is possible to run multiple versions of `gostatsd` behind a load balancer by having them
 send their metrics to another `gostatsd` backend which will then send to the final backends.
+
+Memory allocation for read buffers
+----------------------------------
+By default `gostatsd` will batch read multiple packets to optimise read performance. The amount of memory allocated
+for these read buffers is determined by the config options:
+
+    max-readers * receive-batch-size * 64KB (max packet size)
+
+The metric `avg_packets_in_batch` can be used to tune this memory usage if necessary.
 
 Using the library
 -----------------

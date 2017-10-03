@@ -44,6 +44,7 @@ func main() {
 			MaxWorkers:       statsd.DefaultMaxWorkers,
 			MaxQueueSize:     statsd.DefaultMaxQueueSize,
 			PercentThreshold: statsd.DefaultPercentThreshold,
+			ReceiveBatchSize: statsd.DefaultReceiveBatchSize,
 			Viper:            viper.New(),
 		}
 		ctx, cancelFunc := context.WithTimeout(context.Background(), time.Duration(s.Benchmark)*time.Second)
