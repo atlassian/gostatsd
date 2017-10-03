@@ -1,3 +1,7 @@
+3.0.x
+-----
+- New docker image suffix, `version`-syms, includes symbol table
+
 3.0.1
 -----
 - New flag `--heartbeat-interval` sends heartbeat metrics on an interval, tagged by version and commit.  Defaults

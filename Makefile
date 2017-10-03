@@ -5,6 +5,7 @@ REPO_VERSION := $$(git describe --abbrev=0 --tags)
 BUILD_DATE := $$(date +%Y-%m-%d-%H:%M)
 GIT_HASH := $$(git rev-parse --short HEAD)
 GOBUILD_VERSION_ARGS := -ldflags "-s -X $(VERSION_VAR)=$(REPO_VERSION) -X $(GIT_VAR)=$(GIT_HASH) -X $(BUILD_DATE_VAR)=$(BUILD_DATE)"
+GOBUILD_VERSION_ARGS_WITH_SYMS := -ldflags "-X $(VERSION_VAR)=$(REPO_VERSION) -X $(GIT_VAR)=$(GIT_HASH) -X $(BUILD_DATE_VAR)=$(BUILD_DATE)"
 BINARY_NAME := gostatsd
 IMAGE_NAME := atlassianlabs/$(BINARY_NAME)
 ARCH ?= $$(uname -s | tr A-Z a-z)
@@ -117,6 +118,19 @@ docker-race:
 		go build -race -o build/bin/linux/$(BINARY_NAME) $(GOBUILD_VERSION_ARGS) $(MAIN_PKG)
 	docker build --pull -t $(IMAGE_NAME):$(GIT_HASH)-race -f build/Dockerfile-glibc build
 
+# Compile a static binary with symbols. Cannot be used with -race
+docker-symbols:
+	docker pull golang:$(GOVERSION)
+	docker run \
+		--rm \
+		-v "$(GOPATH)":"$(GP)" \
+		-w "$(GP)/src/github.com/atlassian/gostatsd" \
+		-e GOPATH="$(GP)" \
+		-e CGO_ENABLED=0 \
+		golang:$(GOVERSION) \
+		go build -o build/bin/linux/$(BINARY_NAME) $(GOBUILD_VERSION_ARGS_WITH_SYMS) $(MAIN_PKG)
+	docker build --pull -t $(IMAGE_NAME):$(GIT_HASH)-syms build
+
 release-hash: docker
 	docker push $(IMAGE_NAME):$(GIT_HASH)
 
@@ -133,7 +147,11 @@ release-race: docker-race
 	docker tag $(IMAGE_NAME):$(GIT_HASH)-race $(IMAGE_NAME):$(REPO_VERSION)-race
 	docker push $(IMAGE_NAME):$(REPO_VERSION)-race
 
-release: release-normal release-race
+release-symbols: docker-symbols
+	docker tag $(IMAGE_NAME):$(GIT_HASH)-syms $(IMAGE_NAME):$(REPO_VERSION)-syms
+	docker push $(IMAGE_NAME):$(REPO_VERSION)-syms
+
+release: release-normal release-race release-symbols
 
 run: build
 	./build/bin/$(ARCH)/$(BINARY_NAME) --backends=stdout --verbose --flush-interval=2s
