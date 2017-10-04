@@ -167,7 +167,7 @@ func TestReset(t *testing.T) {
 
 	expected = newFakeAggregator()
 	expected.Timers["some"] = map[string]gostatsd.Timer{
-		"thing": gostatsd.NewTimer(nowNano, nil, host, nil),
+		"thing": gostatsd.NewTimer(nowNano, []float64{}, host, nil),
 	}
 	expected.now = nowFn
 
