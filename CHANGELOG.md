@@ -1,3 +1,7 @@
+3.1.1
+-----
+- GC optimization with buffer reuse
+
 3.1.0
 -----
 - New docker image suffix, `version`-syms, includes symbol table
