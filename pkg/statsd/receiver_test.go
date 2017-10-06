@@ -2,20 +2,20 @@ package statsd
 
 import (
 	"context"
-	"sync"
 	"testing"
 
 	"github.com/atlassian/gostatsd/pkg/fakesocket"
+	"github.com/atlassian/gostatsd/pkg/statser"
 )
 
 func BenchmarkReceive(b *testing.B) {
-	mr := &DatagramReceiver{
-		receiveBatchSize: 1,
-	}
+	ch := make(chan *Datagram, 1)
+	mr := NewDatagramReceiver(ch, 1, statser.NewNullStatser())
 	c := fakesocket.NewFakePacketConn()
-	ctx := context.Background()
-	var wg sync.WaitGroup
-	wg.Add(b.N)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // Stops receiver after first read is done
+
 	b.ReportAllocs()
 	b.ResetTimer()
 	for n := 0; n < b.N; n++ {
