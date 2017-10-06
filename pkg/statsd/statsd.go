@@ -127,7 +127,16 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 
 	// 5. Start the Parser
 	// Open receiver <-> parser chan
-	datagrams := make(chan *Datagram, s.MaxReaders*s.ReceiveBatchSize) // TODO chan metrics
+	datagrams := make(chan *Datagram, s.MaxReaders*s.ReceiveBatchSize)
+	dgStats := stats.NewChannelStatsWatcher(
+		statser,
+		"statsd.channel",
+		nil,
+		cap(datagrams),
+		func() int { return len(datagrams) },
+		time.Second,
+	)
+	stage.StartWithContext(dgStats.Run)
 
 	parser := NewDatagramParser(datagrams, s.Namespace, s.IgnoreHost, handler, statser)
 	stage.StartWithContext(parser.RunMetrics)
