@@ -116,6 +116,7 @@ func constructServer(v *viper.Viper) (*statsd.Server, error) {
 		FlushInterval:       v.GetDuration(statsd.ParamFlushInterval),
 		IgnoreHost:          v.GetBool(statsd.ParamIgnoreHost),
 		MaxReaders:          v.GetInt(statsd.ParamMaxReaders),
+		MaxParsers:          v.GetInt(statsd.ParamMaxParsers),
 		MaxWorkers:          v.GetInt(statsd.ParamMaxWorkers),
 		MaxQueueSize:        v.GetInt(statsd.ParamMaxQueueSize),
 		MaxConcurrentEvents: v.GetInt(statsd.ParamMaxConcurrentEvents),

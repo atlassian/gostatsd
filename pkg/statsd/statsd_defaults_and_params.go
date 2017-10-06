@@ -13,8 +13,8 @@ import (
 // DefaultBackends is the list of default backends' names.
 var DefaultBackends = []string{"graphite"}
 
-// DefaultMaxReaders is the default number of socket reading goroutines.
-var DefaultMaxReaders = runtime.NumCPU()
+// DefaultMaxParsers is the default number of goroutines that parse datagrams into metrics.
+var DefaultMaxParsers = runtime.NumCPU()
 
 // DefaultMaxWorkers is the default number of goroutines that aggregate metrics.
 var DefaultMaxWorkers = runtime.NumCPU()
@@ -59,6 +59,8 @@ const (
 	DefaultHeartbeatInterval = time.Duration(0)
 	// DefaultReceiveBatchSize is the number of packets to read in each receive batch
 	DefaultReceiveBatchSize = 50
+	// DefaultMaxReaders is the default number of socket reading goroutines.
+	DefaultMaxReaders = 8
 )
 
 const (
@@ -84,6 +86,8 @@ const (
 	ParamIgnoreHost = "ignore-host"
 	// ParamMaxReaders is the name of parameter with number of socket readers.
 	ParamMaxReaders = "max-readers"
+	// ParamMaxParsers is the name of the parameter with the number of goroutines that parse datagrams into metrics.
+	ParamMaxParsers = "max-parsers"
 	// ParamMaxWorkers is the name of parameter with number of goroutines that aggregate metrics.
 	ParamMaxWorkers = "max-workers"
 	// ParamMaxQueueSize is the name of parameter with maximum number of buffered metrics per worker.
@@ -117,6 +121,7 @@ func AddFlags(fs *pflag.FlagSet) {
 	fs.Duration(ParamFlushInterval, DefaultFlushInterval, "How often to flush metrics to the backends")
 	fs.Bool(ParamIgnoreHost, DefaultIgnoreHost, "Ignore the source for populating the hostname field of metrics")
 	fs.Int(ParamMaxReaders, DefaultMaxReaders, "Maximum number of socket readers")
+	fs.Int(ParamMaxParsers, DefaultMaxParsers, "Maximum number of workers to parse datagrams into metrics")
 	fs.Int(ParamMaxWorkers, DefaultMaxWorkers, "Maximum number of workers to process metrics")
 	fs.Int(ParamMaxQueueSize, DefaultMaxQueueSize, "Maximum number of buffered metrics per worker")
 	fs.Int(ParamMaxConcurrentEvents, DefaultMaxConcurrentEvents, "Maximum number of events sent concurrently")

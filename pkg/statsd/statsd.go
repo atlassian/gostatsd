@@ -29,6 +29,7 @@ type Server struct {
 	FlushInterval       time.Duration
 	IgnoreHost          bool
 	MaxReaders          int
+	MaxParsers          int
 	MaxWorkers          int
 	MaxQueueSize        int
 	MaxConcurrentEvents int
@@ -118,14 +119,23 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 	})
 
 	// 4. Start the heartbeat
-
 	if s.HeartbeatInterval != 0 {
 		hb := stats.NewHeartBeater(statser, "heartbeat", s.HeartbeatTags, s.HeartbeatInterval)
 		stage = stgr.NextStage()
 		stage.StartWithContext(hb.Run)
 	}
 
-	// 5. Start the Receiver
+	// 5. Start the Parser
+	// Open receiver <-> parser chan
+	datagrams := make(chan *Datagram, s.MaxReaders*s.ReceiveBatchSize) // TODO chan metrics
+
+	parser := NewDatagramParser(datagrams, s.Namespace, s.IgnoreHost, handler, statser)
+	stage.StartWithContext(parser.RunMetrics)
+	for r := 0; r < s.MaxParsers; r++ {
+		stage.StartWithContext(parser.Run)
+	}
+
+	// 6. Start the Receiver
 	// Open socket
 	c, err := sf()
 	if err != nil {
@@ -138,7 +148,7 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 		}
 	}()
 
-	receiver := NewMetricReceiver(s.Namespace, s.IgnoreHost, handler, statser, s.ReceiveBatchSize)
+	receiver := NewDatagramReceiver(datagrams, s.ReceiveBatchSize, statser)
 	stage.StartWithContext(receiver.RunMetrics)
 	for r := 0; r < s.MaxReaders; r++ {
 		stage.StartWithContext(func(ctx context.Context) {
@@ -146,16 +156,16 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 		})
 	}
 
-	// 6. Start the Flusher
+	// 7. Start the Flusher
 	flusher := NewMetricFlusher(s.FlushInterval, dispatcher, handler, s.Backends, ip, hostname, statser)
 	stage.StartWithContext(flusher.Run)
 
-	// 7. Send events on start and on stop
+	// 8. Send events on start and on stop
 	// TODO: Push these in to statser
 	defer sendStopEvent(handler, ip, hostname)
 	sendStartEvent(ctx, handler, ip, hostname)
 
-	// 8. Listen until done
+	// 9. Listen until done
 	<-ctx.Done()
 	return ctx.Err()
 }

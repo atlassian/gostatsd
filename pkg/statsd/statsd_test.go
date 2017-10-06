@@ -36,6 +36,7 @@ func TestStatsdThroughput(t *testing.T) {
 		ExpiryInterval:    DefaultExpiryInterval,
 		FlushInterval:     DefaultFlushInterval,
 		MaxReaders:        DefaultMaxReaders,
+		MaxParsers:        DefaultMaxParsers,
 		MaxWorkers:        DefaultMaxWorkers,
 		MaxQueueSize:      DefaultMaxQueueSize,
 		PercentThreshold:  DefaultPercentThreshold,

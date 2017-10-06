@@ -158,42 +158,42 @@ func compareMetric(t *testing.T, tests map[string]gostatsd.Metric, namespace str
 
 var parselineBlackhole *gostatsd.Metric
 
-func benchmarkLexer(mr *MetricReceiver, input string, b *testing.B) {
+func benchmarkLexer(dp *DatagramParser, input string, b *testing.B) {
 	slice := []byte(input)
 	var r *gostatsd.Metric
 	for n := 0; n < b.N; n++ {
-		r, _, _ = mr.parseLine(slice)
+		r, _, _ = dp.parseLine(slice)
 	}
 	parselineBlackhole = r
 }
 
 func BenchmarkParseCounter(b *testing.B) {
-	benchmarkLexer(&MetricReceiver{}, "foo.bar.baz:2|c", b)
+	benchmarkLexer(&DatagramParser{}, "foo.bar.baz:2|c", b)
 }
 func BenchmarkParseCounterWithSampleRate(b *testing.B) {
-	benchmarkLexer(&MetricReceiver{}, "smp.rte:5|c|@0.1", b)
+	benchmarkLexer(&DatagramParser{}, "smp.rte:5|c|@0.1", b)
 }
 func BenchmarkParseCounterWithTags(b *testing.B) {
-	benchmarkLexer(&MetricReceiver{}, "smp.rte:5|c|#foo:bar,baz", b)
+	benchmarkLexer(&DatagramParser{}, "smp.rte:5|c|#foo:bar,baz", b)
 }
 func BenchmarkParseCounterWithTagsAndSampleRate(b *testing.B) {
-	benchmarkLexer(&MetricReceiver{}, "smp.rte:5|c|@0.1|#foo:bar,baz", b)
+	benchmarkLexer(&DatagramParser{}, "smp.rte:5|c|@0.1|#foo:bar,baz", b)
 }
 func BenchmarkParseGauge(b *testing.B) {
-	benchmarkLexer(&MetricReceiver{}, "abc.def.g:3|g", b)
+	benchmarkLexer(&DatagramParser{}, "abc.def.g:3|g", b)
 }
 func BenchmarkParseTimer(b *testing.B) {
-	benchmarkLexer(&MetricReceiver{}, "def.g:10|ms", b)
+	benchmarkLexer(&DatagramParser{}, "def.g:10|ms", b)
 }
 func BenchmarkParseSet(b *testing.B) {
-	benchmarkLexer(&MetricReceiver{}, "uniq.usr:joe|s", b)
+	benchmarkLexer(&DatagramParser{}, "uniq.usr:joe|s", b)
 }
 func BenchmarkParseCounterWithDefaultTags(b *testing.B) {
-	benchmarkLexer(&MetricReceiver{}, "foo.bar.baz:2|c", b)
+	benchmarkLexer(&DatagramParser{}, "foo.bar.baz:2|c", b)
 }
 func BenchmarkParseCounterWithDefaultTagsAndTags(b *testing.B) {
-	benchmarkLexer(&MetricReceiver{}, "foo.bar.baz:2|c|#foo:bar,baz", b)
+	benchmarkLexer(&DatagramParser{}, "foo.bar.baz:2|c|#foo:bar,baz", b)
 }
 func BenchmarkParseCounterWithDefaultTagsAndTagsAndNameSpace(b *testing.B) {
-	benchmarkLexer(&MetricReceiver{namespace: "stats"}, "foo.bar.baz:2|c|#foo:bar,baz", b)
+	benchmarkLexer(&DatagramParser{namespace: "stats"}, "foo.bar.baz:2|c|#foo:bar,baz", b)
 }
