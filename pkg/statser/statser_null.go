@@ -8,7 +8,9 @@ import (
 
 // NullStatser is a null implementation of Statser, intended primarily
 // for test purposes
-type NullStatser struct{}
+type NullStatser struct {
+	flushNotifier
+}
 
 // NewNullStatser creates a new NullStatser
 func NewNullStatser() Statser {

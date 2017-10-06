@@ -29,6 +29,8 @@ type InternalEventHandler interface {
 // There is an assumption (but not enforcement) that InternalStatser is a
 // singleton, and therefore there is no namespacing/tags on the dropped metrics.
 type InternalStatser struct {
+	flushNotifier
+
 	buffer chan *gostatsd.Metric
 
 	tags      gostatsd.Tags
@@ -78,6 +80,7 @@ func (is *InternalStatser) Gauge(name string, value float64, tags gostatsd.Tags)
 		Tags:     tags,
 		Hostname: is.hostname,
 		Type:     gostatsd.GAUGE,
+		Internal: true,
 	}
 	is.dispatchInternal(g)
 }
@@ -90,6 +93,7 @@ func (is *InternalStatser) Count(name string, amount float64, tags gostatsd.Tags
 		Tags:     tags,
 		Hostname: is.hostname,
 		Type:     gostatsd.COUNTER,
+		Internal: true,
 	}
 	is.dispatchInternal(c)
 }
@@ -107,6 +111,7 @@ func (is *InternalStatser) TimingMS(name string, ms float64, tags gostatsd.Tags)
 		Tags:     tags,
 		Hostname: is.hostname,
 		Type:     gostatsd.TIMER,
+		Internal: true,
 	}
 	is.dispatchInternal(c)
 }

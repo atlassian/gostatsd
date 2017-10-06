@@ -94,8 +94,9 @@ func TestNewBackendHandlerShouldCreateCorrectNumberOfWorkers(t *testing.T) {
 	n := r.Intn(5) + 1
 	factory := newTestFactory()
 	h := NewBackendHandler(nil, 0, n, 1, factory)
-	assert.Equal(t, n, len(h.workers))
-	assert.Equal(t, n, factory.numAgrs)
+	// There is always 1 additional worker allocated for internal metrics
+	assert.Equal(t, n+1, len(h.workers))
+	assert.Equal(t, n+1, factory.numAgrs)
 }
 
 func TestRunShouldReturnWhenContextCancelled(t *testing.T) {
@@ -121,10 +122,11 @@ func TestDispatchMetricShouldDistributeMetrics(t *testing.T) {
 	wg.Add(numMetrics)
 	for i := 0; i < numMetrics; i++ {
 		m := &gostatsd.Metric{
-			Type:  gostatsd.COUNTER,
-			Name:  fmt.Sprintf("counter.metric.%d", r.Int63()),
-			Tags:  nil,
-			Value: r.Float64(),
+			Type:     gostatsd.COUNTER,
+			Name:     fmt.Sprintf("counter.metric.%d", r.Int63()),
+			Tags:     nil,
+			Value:    r.Float64(),
+			Internal: r.Intn(100) > 90,
 		}
 		go func() {
 			defer wg.Done()

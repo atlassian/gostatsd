@@ -3,14 +3,14 @@ package statsd
 import (
 	"context"
 	"fmt"
-	"hash/adler32"
 	"sync"
+	"time"
 
 	"github.com/ash2k/stager/wait"
 	"github.com/sirupsen/logrus"
 
 	"github.com/atlassian/gostatsd"
-	"github.com/atlassian/gostatsd/pkg/statser"
+	stats "github.com/atlassian/gostatsd/pkg/statser"
 )
 
 // AggregatorFactory creates Aggregator objects.
@@ -34,16 +34,16 @@ type BackendHandler struct {
 	concurrentEvents chan struct{}
 
 	numWorkers int
-	workers    map[uint16]*worker
+	workers    []*worker
 }
 
 // NewBackendHandler initialises a new Handler which sends metrics and events to all backends
 func NewBackendHandler(backends []gostatsd.Backend, maxConcurrentEvents uint, numWorkers int, perWorkerBufferSize int, af AggregatorFactory) *BackendHandler {
-	workers := make(map[uint16]*worker, numWorkers)
+	// Allocate an additional worker for internal metrics
+	numWorkers++
+	workers := make([]*worker, numWorkers)
 
-	n := uint16(numWorkers)
-
-	for i := uint16(0); i < n; i++ {
+	for i := 0; i < numWorkers; i++ {
 		workers[i] = &worker{
 			aggr:         af.Create(),
 			metricsQueue: make(chan *gostatsd.Metric, perWorkerBufferSize),
@@ -79,25 +79,38 @@ func (bh *BackendHandler) Run(ctx context.Context) {
 }
 
 // RunMetrics attaches a Statser to the BackendHandler.  Stops when the context is closed.
-func (bh *BackendHandler) RunMetrics(ctx context.Context, statser statser.Statser) {
+func (bh *BackendHandler) RunMetrics(ctx context.Context, statser stats.Statser) {
 	var wg wait.Group
 	defer wg.Wait()
 	for _, worker := range bh.workers {
 		worker := worker
 		wg.Start(func() {
-			worker.runMetrics(ctx, statser)
+			worker.RunMetrics(ctx, statser)
 		})
 	}
-	bh.Process(ctx, func(aggrId uint16, aggr Aggregator) {
-		tag := fmt.Sprintf("aggregator_id:%d", aggrId)
-		aggr.TrackMetrics(statser.WithTags(gostatsd.Tags{tag}))
+	bh.Process(ctx, func(aggrId int, aggr Aggregator) {
+		if me, ok := aggr.(MetricEmitter); ok {
+			tag := fmt.Sprintf("aggregator_id:%d", aggrId)
+			wg.Start(func() {
+				// Aggregator.RunMetrics isn't sync right now, but obey the interface.
+				me.RunMetrics(ctx, statser.WithTags(gostatsd.Tags{tag}))
+			})
+		}
 	})
+	csw := stats.NewChannelStatsWatcher(
+		statser,
+		"backend_events_sem",
+		nil,
+		cap(bh.concurrentEvents),
+		func() int { return len(bh.concurrentEvents) },
+		time.Second,
+	)
+	wg.StartWithContext(ctx, csw.Run)
 }
 
 // DispatchMetric dispatches metric to a corresponding Aggregator.
 func (bh *BackendHandler) DispatchMetric(ctx context.Context, m *gostatsd.Metric) error {
-	hash := adler32.Checksum([]byte(m.Name))
-	w := bh.workers[uint16(hash%uint32(bh.numWorkers))]
+	w := bh.workers[m.Bucket(bh.numWorkers-1)] // Reserve a bucket for internals
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
