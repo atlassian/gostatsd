@@ -29,8 +29,6 @@ type Server struct {
 	DefaultTags         gostatsd.Tags
 	ExpiryInterval      time.Duration
 	FlushInterval       time.Duration
-	IgnoreHost          bool
-	ConnPerReader       bool
 	MaxReaders          int
 	MaxParsers          int
 	MaxWorkers          int
@@ -40,7 +38,9 @@ type Server struct {
 	MetricsAddr         string
 	Namespace           string
 	PercentThreshold    []float64
-	HeartbeatInterval   time.Duration
+	IgnoreHost          bool
+	ConnPerReader       bool
+	HeartbeatEnabled    bool
 	HeartbeatTags       gostatsd.Tags
 	ReceiveBatchSize    int
 	CacheOptions
@@ -108,7 +108,6 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 
 	// 3. Start the cloud handler
 	ip := gostatsd.UnknownIP
-
 	if s.CloudProvider != nil {
 		ch := NewCloudHandler(s.CloudProvider, metrics, events, s.Limiter, &s.CacheOptions)
 		metrics = ch
@@ -141,15 +140,22 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 	stage = stgr.NextStage()
 	stage.StartWithContext(statser.Run)
 
-	// 5. Attach the statser to the backend handler
+	// 5. Attach the statser to anything that needs it
 	stage = stgr.NextStage()
 	stage.StartWithContext(func(ctx context.Context) {
 		backendHandler.RunMetrics(ctx, statser)
 	})
+	for _, backend := range s.Backends {
+		if metricEmitter, ok := backend.(MetricEmitter); ok {
+			stage.StartWithContext(func(ctx context.Context) {
+				metricEmitter.RunMetrics(ctx, statser)
+			})
+		}
+	}
 
 	// 6. Start the heartbeat
-	if s.HeartbeatInterval != 0 {
-		hb := stats.NewHeartBeater(statser, "heartbeat", s.HeartbeatTags, s.HeartbeatInterval)
+	if s.HeartbeatEnabled {
+		hb := stats.NewHeartBeater(statser, "heartbeat", s.HeartbeatTags)
 		stage = stgr.NextStage()
 		stage.StartWithContext(hb.Run)
 	}

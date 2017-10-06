@@ -125,6 +125,7 @@ func BenchmarkFlush(b *testing.B) {
 	}
 	ma.Sets["some"]["thing"] = gostatsd.Set{Values: unique}
 
+	b.ReportAllocs()
 	b.ResetTimer()
 
 	for n := 0; n < b.N; n++ {
@@ -364,6 +365,7 @@ func TestReceive(t *testing.T) {
 func benchmarkReceive(metric gostatsd.Metric, b *testing.B) {
 	ma := newFakeAggregator()
 	now := time.Now()
+	b.ReportAllocs()
 	b.ResetTimer()
 
 	for n := 0; n < b.N; n++ {
@@ -391,6 +393,7 @@ func BenchmarkReceives(b *testing.B) {
 	ma := newFakeAggregator()
 	now := time.Now()
 	tests := metricsFixtures()
+	b.ReportAllocs()
 	b.ResetTimer()
 	for n := 0; n < b.N; n++ {
 		for _, metric := range tests {

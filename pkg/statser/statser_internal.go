@@ -29,6 +29,8 @@ type InternalEventHandler interface {
 // There is an assumption (but not enforcement) that InternalStatser is a
 // singleton, and therefore there is no namespacing/tags on the dropped metrics.
 type InternalStatser struct {
+	flushNotifier
+
 	buffer chan *gostatsd.Metric
 
 	tags      gostatsd.Tags
