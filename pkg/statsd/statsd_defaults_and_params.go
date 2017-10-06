@@ -58,8 +58,8 @@ const (
 	DefaultCacheNegativeTTL = 1 * time.Minute
 	// DefaultInternalNamespace is the default internal namespace
 	DefaultInternalNamespace = "statsd"
-	// DefaultHeartbeatInterval is the default heartbeat interval (0 for disabled)
-	DefaultHeartbeatInterval = time.Duration(0)
+	// DefaultHeartbeatEnabled is the default heartbeat enabled flag
+	DefaultHeartbeatEnabled = false
 	// DefaultReceiveBatchSize is the number of packets to read in each receive batch
 	DefaultReceiveBatchSize = 50
 )
@@ -109,8 +109,8 @@ const (
 	ParamNamespace = "namespace"
 	// ParamPercentThreshold is the name of parameter with list of applied percentiles.
 	ParamPercentThreshold = "percent-threshold"
-	// ParamHeartbeatInterval is the name of the parameter with the heartbeat interval
-	ParamHeartbeatInterval = "heartbeat-interval"
+	// ParamHeartbeatEnabled is the name of the parameter with the heartbeat enabled
+	ParamHeartbeatEnabled = "heartbeat-enabled"
 	// ParamReceiveBatchSize is the name of the parameter with the number of packets to read in each receive batch
 	ParamReceiveBatchSize = "receive-batch-size"
 )
@@ -139,7 +139,7 @@ func AddFlags(fs *pflag.FlagSet) {
 	fs.String(ParamInternalTags, strings.Join(DefaultInternalTags, ","), "Comma-separated list of tags to add to internal metrics")
 	fs.String(ParamInternalNamespace, DefaultInternalNamespace, "Namespace for internal metrics, may be \"\"")
 	fs.String(ParamPercentThreshold, strings.Join(toStringSlice(DefaultPercentThreshold), ","), "Comma-separated list of percentiles")
-	fs.Duration(ParamHeartbeatInterval, DefaultHeartbeatInterval, "Heartbeat interval (0s to disable)")
+	fs.Bool(ParamHeartbeatEnabled, DefaultHeartbeatEnabled, "Enables heartbeat")
 	fs.Int(ParamReceiveBatchSize, DefaultReceiveBatchSize, "The number of packets to read in each receive batch")
 }
 

@@ -3,6 +3,7 @@ package gostatsd
 import (
 	"bytes"
 	"fmt"
+	"hash/adler32"
 	"time"
 )
 
@@ -44,6 +45,19 @@ type Metric struct {
 	Hostname    string     // Hostname of the source of the metric
 	SourceIP    IP         // IP of the source of the metric
 	Type        MetricType // The type of metric
+	Internal    bool       // If the metric is internally generated
+}
+
+// Bucket will pick a distribution bucket for this metric to land in.  max is inclusive.
+func (m *Metric) Bucket(max int) int {
+	if m.Internal {
+		// bucket 0 is reserved for internal metrics
+		return 0
+	}
+
+	// This gives 0 to max-1, 0 is reserved and max is allowed
+	bucket := adler32.Checksum([]byte(m.Name)) % uint32(max)
+	return 1 + int(bucket)
 }
 
 func (m *Metric) String() string {
