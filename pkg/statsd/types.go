@@ -23,7 +23,7 @@ type EventHandler interface {
 }
 
 // DispatcherProcessFunc is a function that gets executed by Dispatcher for each Aggregator, passing it into the function.
-type DispatcherProcessFunc func(uint16, Aggregator)
+type DispatcherProcessFunc func(int, Aggregator)
 
 // AggregateProcesser is an interface to run a function against each Aggregator, in the goroutine
 // context of that Aggregator.
@@ -39,7 +39,6 @@ type ProcessFunc func(*gostatsd.MetricMap)
 //
 // Incoming metrics should be passed via Receive function.
 type Aggregator interface {
-	TrackMetrics(statser statser.Statser)
 	Receive(*gostatsd.Metric, time.Time)
 	Flush(interval time.Duration)
 	Process(ProcessFunc)
@@ -51,4 +50,10 @@ type Datagram struct {
 	IP       gostatsd.IP
 	Msg      []byte
 	DoneFunc func() // to be called once the datagram has been parsed and msg can be freed
+}
+
+// MetricEmitter is an object that emits metrics.  Used to pass a Statser to the object
+// after initialization, as Statsers may be created after MetricEmitters
+type MetricEmitter interface {
+	RunMetrics(ctx context.Context, statser statser.Statser)
 }

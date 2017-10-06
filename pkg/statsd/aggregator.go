@@ -1,6 +1,7 @@
 package statsd
 
 import (
+	"context"
 	"math"
 	"sort"
 	"strconv"
@@ -38,7 +39,7 @@ func NewMetricAggregator(percentThresholds []float64, expiryInterval time.Durati
 		expiryInterval:    expiryInterval,
 		percentThresholds: make(map[float64]percentStruct, len(percentThresholds)),
 		now:               time.Now,
-		statser:           statser.NewNullStatser(), // Will probably be replaced
+		statser:           statser.NewNullStatser(), // Will probably be replaced via RunMetrics
 		MetricMap: gostatsd.MetricMap{
 			Counters: gostatsd.Counters{},
 			Timers:   gostatsd.Timers{},
@@ -68,8 +69,6 @@ func round(v float64) float64 {
 
 // Flush prepares the contents of a MetricAggregator for sending via the Sender.
 func (a *MetricAggregator) Flush(flushInterval time.Duration) {
-	flushTimer := a.statser.NewTimer("aggregator.processing_time", nil)
-	defer flushTimer.SendGauge()
 	a.statser.Gauge("aggregator.metrics_received", float64(a.metricsReceived), nil)
 
 	a.FlushInterval = flushInterval
@@ -162,7 +161,7 @@ func (a *MetricAggregator) Flush(flushInterval time.Duration) {
 	})
 }
 
-func (a *MetricAggregator) TrackMetrics(statser statser.Statser) {
+func (a *MetricAggregator) RunMetrics(ctx context.Context, statser statser.Statser) {
 	a.statser = statser
 }
 

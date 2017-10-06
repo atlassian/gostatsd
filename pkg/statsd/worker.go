@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/atlassian/gostatsd"
-	"github.com/atlassian/gostatsd/pkg/statser"
+	stats "github.com/atlassian/gostatsd/pkg/statser"
 )
 
 type processCommand struct {
@@ -18,7 +18,7 @@ type worker struct {
 	aggr         Aggregator
 	metricsQueue chan *gostatsd.Metric
 	processChan  chan *processCommand
-	id           uint16
+	id           int
 }
 
 func (w *worker) work() {
@@ -40,9 +40,9 @@ func (w *worker) executeProcess(cmd *processCommand) {
 	cmd.f(w.id, w.aggr)
 }
 
-func (w *worker) runMetrics(ctx context.Context, s statser.Statser) {
-	csw := statser.NewChannelStatsWatcher(
-		s,
+func (w *worker) RunMetrics(ctx context.Context, statser stats.Statser) {
+	csw := stats.NewChannelStatsWatcher(
+		statser,
 		"dispatch_aggregator",
 		gostatsd.Tags{fmt.Sprintf("aggregator_id:%d", w.id)},
 		cap(w.metricsQueue),

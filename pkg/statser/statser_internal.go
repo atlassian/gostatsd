@@ -29,6 +29,8 @@ type InternalEventHandler interface {
 // There is an assumption (but not enforcement) that InternalStatser is a
 // singleton, and therefore there is no namespacing/tags on the dropped metrics.
 type InternalStatser struct {
+	flushNotifier
+
 	buffer chan *gostatsd.Metric
 
 	tags      gostatsd.Tags
@@ -55,8 +57,8 @@ func NewInternalStatser(bufferSize int, tags gostatsd.Tags, namespace, hostname 
 // Run will pull internal metrics off a small buffer, and dispatch them.  It
 // stops running when the context is closed.
 func (is *InternalStatser) Run(ctx context.Context) {
-	ticker := time.NewTicker(60 * time.Second)
-	defer ticker.Stop()
+	flushed, unregister := is.RegisterFlush()
+	defer unregister()
 
 	for {
 		select {
@@ -64,7 +66,7 @@ func (is *InternalStatser) Run(ctx context.Context) {
 			return
 		case m := <-is.buffer:
 			is.dispatchMetric(ctx, m)
-		case <-ticker.C:
+		case <-flushed:
 			is.Gauge("internal_dropped", float64(atomic.LoadUint64(&is.dropped)), nil)
 		}
 	}

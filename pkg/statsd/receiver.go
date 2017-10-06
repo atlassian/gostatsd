@@ -5,10 +5,9 @@ import (
 	"net"
 	"sync"
 	"sync/atomic"
-	"time"
 
 	"github.com/atlassian/gostatsd"
-	"github.com/atlassian/gostatsd/pkg/statser"
+	stats "github.com/atlassian/gostatsd/pkg/statser"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -22,43 +21,41 @@ type DatagramReceiver struct {
 	// Counter fields below must be read/written only using atomic instructions.
 	// 64-bit fields must be the first fields in the struct to guarantee proper memory alignment.
 	// See https://golang.org/pkg/sync/atomic/#pkg-note-BUG
-	lastPacket      int64 // When last packet was received. Unix timestamp in nsec.
-	packetsReceived uint64
-	batchesRead     uint64
+	datagramsReceived uint64
+	batchesRead       uint64
 
-	statser          statser.Statser
-	receiveBatchSize int // The number of packets to read in each batch
+	receiveBatchSize int // The number of datagrams to read in each batch
 
 	out chan<- []*Datagram // Output chan of read datagram batches
 }
 
 // NewDatagramReceiver initialises a new DatagramReceiver.
-func NewDatagramReceiver(out chan<- []*Datagram, receiveBatchSize int, statser statser.Statser) *DatagramReceiver {
+func NewDatagramReceiver(out chan<- []*Datagram, receiveBatchSize int) *DatagramReceiver {
 	return &DatagramReceiver{
 		out:              out,
 		receiveBatchSize: receiveBatchSize,
-		statser:          statser,
 	}
 }
 
-func (dr *DatagramReceiver) RunMetrics(ctx context.Context) {
-	ticker := time.NewTicker(1 * time.Second) // TODO: Make configurable
-	defer ticker.Stop()
+func (dr *DatagramReceiver) RunMetrics(ctx context.Context, statser stats.Statser) {
+	flushed, unregister := statser.RegisterFlush()
+	defer unregister()
+
 	for {
 		select {
 		case <-ctx.Done():
 			return
-		case <-ticker.C:
-			packetsReceived := float64(atomic.SwapUint64(&dr.packetsReceived, 0))
-			batchesRead := atomic.SwapUint64(&dr.batchesRead, 0)
-			var avgPacketsInBatch float64
+		case <-flushed:
+			datagramsReceived := float64(atomic.LoadUint64(&dr.datagramsReceived))
+			batchesRead := atomic.LoadUint64(&dr.batchesRead)
+			var avgDatagramsInBatch float64
 			if batchesRead == 0 {
-				avgPacketsInBatch = 0
+				avgDatagramsInBatch = 0
 			} else {
-				avgPacketsInBatch = packetsReceived / float64(batchesRead)
+				avgDatagramsInBatch = datagramsReceived / float64(batchesRead)
 			}
-			dr.statser.Count("packets_received", packetsReceived, nil)
-			dr.statser.Gauge("avg_packets_in_batch", avgPacketsInBatch, nil)
+			statser.Gauge("receiver.datagrams_received", datagramsReceived, nil)
+			statser.Gauge("receiver.avg_datagrams_in_batch", avgDatagramsInBatch, nil)
 		}
 	}
 }
@@ -77,7 +74,8 @@ func (dr *DatagramReceiver) Receive(ctx context.Context, c net.PacketConn) {
 		for i := 0; i < dr.receiveBatchSize; i++ {
 			messages[i].Buffers = [][]byte{*bufPool.Get().(*[]byte)}
 		}
-		packetCount, err := br.ReadBatch(messages)
+
+		datagramCount, err := br.ReadBatch(messages)
 		if err != nil {
 			select {
 			case <-ctx.Done():
@@ -87,12 +85,12 @@ func (dr *DatagramReceiver) Receive(ctx context.Context, c net.PacketConn) {
 			log.Warnf("Error reading from socket: %v", err)
 			continue
 		}
-		// TODO consider updating counter for every N-th iteration to reduce contention
-		atomic.AddUint64(&dr.packetsReceived, uint64(packetCount))
-		atomic.StoreInt64(&dr.lastPacket, time.Now().UnixNano())
+
+		atomic.AddUint64(&dr.datagramsReceived, uint64(datagramCount))
 		atomic.AddUint64(&dr.batchesRead, 1)
-		dgs := make([]*Datagram, packetCount)
-		for i := 0; i < packetCount; i++ {
+
+		dgs := make([]*Datagram, datagramCount)
+		for i := 0; i < datagramCount; i++ {
 			addr := messages[i].Addr
 			nbytes := messages[i].N
 			buf := messages[i].Buffers[0]

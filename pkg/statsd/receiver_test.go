@@ -6,14 +6,13 @@ import (
 	"time"
 
 	"github.com/atlassian/gostatsd/pkg/fakesocket"
-	"github.com/atlassian/gostatsd/pkg/statser"
 	"github.com/magiconair/properties/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func BenchmarkReceive(b *testing.B) {
 	ch := make(chan []*Datagram, 1)
-	mr := NewDatagramReceiver(ch, 1, statser.NewNullStatser())
+	mr := NewDatagramReceiver(ch, 1)
 	c := fakesocket.NewFakePacketConn()
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -28,7 +27,7 @@ func BenchmarkReceive(b *testing.B) {
 
 func TestDatagramReceiver_Receive(t *testing.T) {
 	ch := make(chan []*Datagram, 1)
-	mr := NewDatagramReceiver(ch, 2, statser.NewNullStatser())
+	mr := NewDatagramReceiver(ch, 2)
 	c := fakesocket.NewFakePacketConn()
 
 	ctx, cancel := context.WithCancel(context.Background())

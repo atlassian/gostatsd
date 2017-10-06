@@ -18,7 +18,7 @@ type metricAndEvent struct {
 
 const fakeIP = gostatsd.IP("127.0.0.1")
 
-func TestParseEmptyPacket(t *testing.T) {
+func TestParseEmptyDatagram(t *testing.T) {
 	t.Parallel()
 	input := [][]byte{
 		{},
@@ -31,7 +31,7 @@ func TestParseEmptyPacket(t *testing.T) {
 			t.Parallel()
 			ch := &countingHandler{}
 			mr := NewDatagramParser(nil, "", false, ch, ch, statser.NewNullStatser())
-			err := mr.handlePacket(context.Background(), gostatsd.UnknownIP, inp)
+			_, _, _, err := mr.handleDatagram(context.Background(), gostatsd.UnknownIP, inp)
 			require.NoError(t, err)
 			assert.Zero(t, len(ch.events), ch.events)
 			assert.Zero(t, len(ch.metrics), ch.metrics)
@@ -39,7 +39,7 @@ func TestParseEmptyPacket(t *testing.T) {
 	}
 }
 
-func TestParsePacket(t *testing.T) {
+func TestParseDatagram(t *testing.T) {
 	t.Parallel()
 	input := map[string]metricAndEvent{
 		"f:2|c": {
@@ -83,14 +83,14 @@ func TestParsePacket(t *testing.T) {
 			},
 		},
 	}
-	for packet, mAndE := range input {
-		packet := packet
+	for datagram, mAndE := range input {
+		datagram := datagram
 		mAndE := mAndE
-		t.Run(packet, func(t *testing.T) {
+		t.Run(datagram, func(t *testing.T) {
 			t.Parallel()
 			ch := &countingHandler{}
 			mr := NewDatagramParser(nil, "", false, ch, ch, statser.NewNullStatser())
-			err := mr.handlePacket(context.Background(), fakeIP, []byte(packet))
+			_, _, _, err := mr.handleDatagram(context.Background(), fakeIP, []byte(datagram))
 			assert.NoError(t, err)
 			for i, e := range ch.events {
 				if e.DateHappened <= 0 {
@@ -104,7 +104,7 @@ func TestParsePacket(t *testing.T) {
 	}
 }
 
-func TestParsePacketIgnoreHost(t *testing.T) {
+func TestParseDatagramIgnoreHost(t *testing.T) {
 	t.Parallel()
 	input := map[string]metricAndEvent{
 		"f:2|c": {
@@ -153,14 +153,14 @@ func TestParsePacketIgnoreHost(t *testing.T) {
 			},
 		},
 	}
-	for packet, mAndE := range input {
-		packet := packet
+	for datagram, mAndE := range input {
+		datagram := datagram
 		mAndE := mAndE
-		t.Run(packet, func(t *testing.T) {
+		t.Run(datagram, func(t *testing.T) {
 			t.Parallel()
 			ch := &countingHandler{}
 			mr := NewDatagramParser(nil, "", true, ch, ch, statser.NewNullStatser())
-			err := mr.handlePacket(context.Background(), fakeIP, []byte(packet))
+			_, _, _, err := mr.handleDatagram(context.Background(), fakeIP, []byte(datagram))
 			assert.NoError(t, err)
 			for i, e := range ch.events {
 				if e.DateHappened <= 0 {

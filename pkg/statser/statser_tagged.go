@@ -25,6 +25,14 @@ func NewTaggedStatser(statser Statser, tags gostatsd.Tags) Statser {
 	}
 }
 
+func (ts *TaggedStatser) NotifyFlush(d time.Duration) {
+	ts.statser.NotifyFlush(d)
+}
+
+func (ts *TaggedStatser) RegisterFlush() (<-chan time.Duration, func()) {
+	return ts.statser.RegisterFlush()
+}
+
 // Gauge sends a gauge metric
 func (ts *TaggedStatser) Gauge(name string, value float64, tags gostatsd.Tags) {
 	ts.statser.Gauge(name, value, ts.concatTags(ts.tags, tags))

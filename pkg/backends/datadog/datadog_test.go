@@ -37,7 +37,7 @@ func TestRetries(t *testing.T) {
 	ts := httptest.NewServer(mux)
 	defer ts.Close()
 
-	client, err := NewClient(ts.URL, "apiKey123", "tcp", defaultMetricsPerBatch, true, 1*time.Second, 2*time.Second)
+	client, err := NewClient(ts.URL, "apiKey123", "tcp", defaultMetricsPerBatch, defaultMaxRequests, true, 1*time.Second, 2*time.Second)
 	require.NoError(t, err)
 	res := make(chan []error, 1)
 	client.SendMetricsAsync(context.Background(), twoCounters(), func(errs []error) {
@@ -66,7 +66,7 @@ func TestSendMetricsInMultipleBatches(t *testing.T) {
 	ts := httptest.NewServer(mux)
 	defer ts.Close()
 
-	client, err := NewClient(ts.URL, "apiKey123", "tcp", 1, true, 1*time.Second, 2*time.Second)
+	client, err := NewClient(ts.URL, "apiKey123", "tcp", 1, defaultMaxRequests, true, 1*time.Second, 2*time.Second)
 	require.NoError(t, err)
 	res := make(chan []error, 1)
 	client.SendMetricsAsync(context.Background(), twoCounters(), func(errs []error) {
@@ -118,7 +118,7 @@ func TestSendMetrics(t *testing.T) {
 	ts := httptest.NewServer(mux)
 	defer ts.Close()
 
-	cli, err := NewClient(ts.URL, "apiKey123", "tcp", 1000, true, 1*time.Second, 2*time.Second)
+	cli, err := NewClient(ts.URL, "apiKey123", "tcp", 1000, defaultMaxRequests, true, 1*time.Second, 2*time.Second)
 	require.NoError(t, err)
 	cli.now = func() time.Time {
 		return time.Unix(100, 0)

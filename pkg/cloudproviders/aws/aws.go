@@ -46,13 +46,14 @@ type Provider struct {
 }
 
 func (p *Provider) RunMetrics(ctx context.Context, statser stats.Statser) {
-	ticker := time.NewTicker(1 * time.Second)
-	defer ticker.Stop()
+	flushed, unregister := statser.RegisterFlush()
+	defer unregister()
+
 	for {
 		select {
 		case <-ctx.Done():
 			return
-		case <-ticker.C:
+		case <-flushed:
 			// These are namespaced not tagged because they're very specific
 			statser.Gauge("cloudprovider.aws.describeinstancecount", float64(atomic.LoadUint64(&p.describeInstanceCount)), nil)
 			statser.Gauge("cloudprovider.aws.describeinstanceinstances", float64(atomic.LoadUint64(&p.describeInstanceInstances)), nil)
