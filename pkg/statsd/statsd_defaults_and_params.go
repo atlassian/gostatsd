@@ -13,11 +13,14 @@ import (
 // DefaultBackends is the list of default backends' names.
 var DefaultBackends = []string{"graphite"}
 
-// DefaultMaxParsers is the default number of goroutines that parse datagrams into metrics.
-var DefaultMaxParsers = runtime.NumCPU()
+// DefaultMaxReaders is the default number of socket reading goroutines.
+var DefaultMaxReaders = minInt(8, runtime.NumCPU())
 
 // DefaultMaxWorkers is the default number of goroutines that aggregate metrics.
 var DefaultMaxWorkers = runtime.NumCPU()
+
+// DefaultMaxParsers is the default number of goroutines that parse datagrams into metrics.
+var DefaultMaxParsers = runtime.NumCPU()
 
 // DefaultPercentThreshold is the default list of applied percentiles.
 var DefaultPercentThreshold = []float64{90}
@@ -59,8 +62,6 @@ const (
 	DefaultHeartbeatInterval = time.Duration(0)
 	// DefaultReceiveBatchSize is the number of packets to read in each receive batch
 	DefaultReceiveBatchSize = 50
-	// DefaultMaxReaders is the default number of socket reading goroutines.
-	DefaultMaxReaders = 8
 )
 
 const (
@@ -140,4 +141,11 @@ func AddFlags(fs *pflag.FlagSet) {
 	fs.String(ParamPercentThreshold, strings.Join(toStringSlice(DefaultPercentThreshold), ","), "Comma-separated list of percentiles")
 	fs.Duration(ParamHeartbeatInterval, DefaultHeartbeatInterval, "Heartbeat interval (0s to disable)")
 	fs.Int(ParamReceiveBatchSize, DefaultReceiveBatchSize, "The number of packets to read in each receive batch")
+}
+
+func minInt(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }
