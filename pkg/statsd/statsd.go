@@ -127,7 +127,7 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 
 	// 5. Start the Parser
 	// Open receiver <-> parser chan
-	datagrams := make(chan *Datagram)
+	datagrams := make(chan []*Datagram)
 
 	parser := NewDatagramParser(datagrams, s.Namespace, s.IgnoreHost, handler, statser)
 	stage = stgr.NextStage()

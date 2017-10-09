@@ -28,11 +28,11 @@ type DatagramParser struct {
 	namespace  string  // Namespace to prefix all metrics
 	statser    statser.Statser
 
-	in <-chan *Datagram // Input chan of datagrams to parse
+	in <-chan []*Datagram // Input chan of datagram batches to parse
 }
 
 // NewDatagramParser initialises a new DatagramParser.
-func NewDatagramParser(in <-chan *Datagram, ns string, ignoreHost bool, handler Handler, statser statser.Statser) *DatagramParser {
+func NewDatagramParser(in <-chan []*Datagram, ns string, ignoreHost bool, handler Handler, statser statser.Statser) *DatagramParser {
 	return &DatagramParser{
 		in:         in,
 		ignoreHost: ignoreHost,
@@ -62,13 +62,16 @@ func (dp *DatagramParser) Run(ctx context.Context) {
 		select {
 		case <-ctx.Done():
 			return
-		case dg := <-dp.in:
-			err := dp.handlePacket(ctx, dg.IP, dg.Msg)
-			if err != nil {
-				if err == context.Canceled || err == context.DeadlineExceeded {
-					return
+		case dgs := <-dp.in:
+			for _, dg := range dgs {
+				err := dp.handlePacket(ctx, dg.IP, dg.Msg)
+				dg.DoneFunc()
+				if err != nil {
+					if err == context.Canceled || err == context.DeadlineExceeded {
+						return
+					}
+					log.Warnf("Failed to handle packet: %v", err)
 				}
-				log.Warnf("Failed to handle packet: %v", err)
 			}
 		}
 	}

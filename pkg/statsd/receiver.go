@@ -3,6 +3,7 @@ package statsd
 import (
 	"context"
 	"net"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -28,11 +29,11 @@ type DatagramReceiver struct {
 	statser          statser.Statser
 	receiveBatchSize int // The number of packets to read in each batch
 
-	out chan<- *Datagram // Output chan of read datagrams
+	out chan<- []*Datagram // Output chan of read datagram batches
 }
 
 // NewDatagramReceiver initialises a new DatagramReceiver.
-func NewDatagramReceiver(out chan<- *Datagram, receiveBatchSize int, statser statser.Statser) *DatagramReceiver {
+func NewDatagramReceiver(out chan<- []*Datagram, receiveBatchSize int, statser statser.Statser) *DatagramReceiver {
 	return &DatagramReceiver{
 		out:              out,
 		receiveBatchSize: receiveBatchSize,
@@ -66,12 +67,15 @@ func (dr *DatagramReceiver) RunMetrics(ctx context.Context) {
 func (dr *DatagramReceiver) Receive(ctx context.Context, c net.PacketConn) {
 	br := NewBatchReader(c)
 	messages := make([]Message, dr.receiveBatchSize)
-	for i := 0; i < dr.receiveBatchSize; i++ {
-		messages[i] = Message{
-			Buffers: [][]byte{make([]byte, packetSizeUDP)},
-		}
+	bufPool := sync.Pool{
+		New: func() interface{} {
+			return make([]byte, packetSizeUDP)
+		},
 	}
 	for {
+		for i := 0; i < dr.receiveBatchSize; i++ {
+			messages[i].Buffers = [][]byte{bufPool.Get().([]byte)}
+		}
 		packetCount, err := br.ReadBatch(messages)
 		if err != nil {
 			select {
@@ -86,18 +90,21 @@ func (dr *DatagramReceiver) Receive(ctx context.Context, c net.PacketConn) {
 		atomic.AddUint64(&dr.packetsReceived, uint64(packetCount))
 		atomic.StoreInt64(&dr.lastPacket, time.Now().UnixNano())
 		atomic.AddUint64(&dr.batchesRead, 1)
+		dgs := make([]*Datagram, packetCount)
 		for i := 0; i < packetCount; i++ {
 			addr := messages[i].Addr
 			nbytes := messages[i].N
 			buf := messages[i].Buffers[0]
-			msg := make([]byte, nbytes)
-			copy(msg, buf)
-			dg := &Datagram{
-				IP:  getIP(addr),
-				Msg: msg,
+			doneFn := func() {
+				bufPool.Put(buf)
+			}
+			dgs[i] = &Datagram{
+				IP:       getIP(addr),
+				Msg:      buf[:nbytes],
+				DoneFunc: doneFn,
 			}
 			select {
-			case dr.out <- dg:
+			case dr.out <- dgs:
 			case <-ctx.Done():
 				return
 			}
