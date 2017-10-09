@@ -136,9 +136,11 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 		func() int { return len(datagrams) },
 		time.Second,
 	)
+	stage = stgr.NextStage()
 	stage.StartWithContext(dgStats.Run)
 
 	parser := NewDatagramParser(datagrams, s.Namespace, s.IgnoreHost, handler, statser)
+	stage = stgr.NextStage()
 	stage.StartWithContext(parser.RunMetrics)
 	for r := 0; r < s.MaxParsers; r++ {
 		stage.StartWithContext(parser.Run)
@@ -158,6 +160,7 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 	}()
 
 	receiver := NewDatagramReceiver(datagrams, s.ReceiveBatchSize, statser)
+	stage = stgr.NextStage()
 	stage.StartWithContext(receiver.RunMetrics)
 	for r := 0; r < s.MaxReaders; r++ {
 		stage.StartWithContext(func(ctx context.Context) {
@@ -167,6 +170,7 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 
 	// 7. Start the Flusher
 	flusher := NewMetricFlusher(s.FlushInterval, dispatcher, handler, s.Backends, ip, hostname, statser)
+	stage = stgr.NextStage()
 	stage.StartWithContext(flusher.Run)
 
 	// 8. Send events on start and on stop
