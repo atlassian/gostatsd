@@ -32,6 +32,7 @@ channel tag, and may have additional tags specified below.
 | Channel name        | Additional tags | Description
 | ------------------- | --------------- | -----------
 | dispatch_aggregator | aggregator_id   | Channel to dispatch metrics to a specific aggregator.
+| sender_receiver     |                 | Channel of datagrams read but yet to be parsed.
 
 
 - If both --internal-namespace and --namespace are specified, and metrics are dispatched internally, the resulting

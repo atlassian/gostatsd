@@ -130,7 +130,7 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 	datagrams := make(chan *Datagram, s.MaxReaders*s.ReceiveBatchSize)
 	dgStats := stats.NewChannelStatsWatcher(
 		statser,
-		"statsd.channel",
+		"sender_receiver",
 		nil,
 		cap(datagrams),
 		func() int { return len(datagrams) },
