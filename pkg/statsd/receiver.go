@@ -96,7 +96,11 @@ func (dr *DatagramReceiver) Receive(ctx context.Context, c net.PacketConn) {
 				IP:  getIP(addr),
 				Msg: msg,
 			}
-			dr.out <- dg
+			select {
+			case dr.out <- dg:
+			case <-ctx.Done():
+				return
+			}
 		}
 	}
 }
