@@ -69,12 +69,13 @@ func (dr *DatagramReceiver) Receive(ctx context.Context, c net.PacketConn) {
 	messages := make([]Message, dr.receiveBatchSize)
 	bufPool := sync.Pool{
 		New: func() interface{} {
-			return make([]byte, packetSizeUDP)
+			b := make([]byte, packetSizeUDP)
+			return &b
 		},
 	}
 	for {
 		for i := 0; i < dr.receiveBatchSize; i++ {
-			messages[i].Buffers = [][]byte{bufPool.Get().([]byte)}
+			messages[i].Buffers = [][]byte{*bufPool.Get().(*[]byte)}
 		}
 		packetCount, err := br.ReadBatch(messages)
 		if err != nil {
@@ -96,7 +97,7 @@ func (dr *DatagramReceiver) Receive(ctx context.Context, c net.PacketConn) {
 			nbytes := messages[i].N
 			buf := messages[i].Buffers[0]
 			doneFn := func() {
-				bufPool.Put(buf)
+				bufPool.Put(&buf)
 			}
 			dgs[i] = &Datagram{
 				IP:       getIP(addr),
