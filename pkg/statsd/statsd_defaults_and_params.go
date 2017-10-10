@@ -62,6 +62,8 @@ const (
 	DefaultHeartbeatInterval = time.Duration(0)
 	// DefaultReceiveBatchSize is the number of packets to read in each receive batch
 	DefaultReceiveBatchSize = 50
+	// DefaultConnPerReader is the default for whether to create a connection per reader
+	DefaultConnPerReader = false
 )
 
 const (
@@ -113,6 +115,8 @@ const (
 	ParamHeartbeatInterval = "heartbeat-interval"
 	// ParamReceiveBatchSize is the name of the parameter with the number of packets to read in each receive batch
 	ParamReceiveBatchSize = "receive-batch-size"
+	// ParamConnPerReader is the name of the parameter indicating whether to create a connection per reader
+	ParamConnPerReader = "conn-per-reader"
 )
 
 // AddFlags adds flags to the specified FlagSet.
@@ -141,6 +145,7 @@ func AddFlags(fs *pflag.FlagSet) {
 	fs.String(ParamPercentThreshold, strings.Join(toStringSlice(DefaultPercentThreshold), ","), "Comma-separated list of percentiles")
 	fs.Duration(ParamHeartbeatInterval, DefaultHeartbeatInterval, "Heartbeat interval (0s to disable)")
 	fs.Int(ParamReceiveBatchSize, DefaultReceiveBatchSize, "The number of packets to read in each receive batch")
+	fs.Bool(ParamConnPerReader, DefaultConnPerReader, "Create a separate connection per reader (requires system support for reusing addresses)")
 }
 
 func minInt(a, b int) int {
