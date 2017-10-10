@@ -9,6 +9,7 @@ import (
 
 	"github.com/atlassian/gostatsd"
 	stats "github.com/atlassian/gostatsd/pkg/statser"
+	"github.com/jbenet/go-reuseport"
 
 	"github.com/ash2k/stager"
 	log "github.com/sirupsen/logrus"
@@ -28,6 +29,7 @@ type Server struct {
 	ExpiryInterval      time.Duration
 	FlushInterval       time.Duration
 	IgnoreHost          bool
+	ConnPerReader       bool
 	MaxReaders          int
 	MaxParsers          int
 	MaxWorkers          int
@@ -46,13 +48,24 @@ type Server struct {
 
 // Run runs the server until context signals done.
 func (s *Server) Run(ctx context.Context) error {
-	return s.RunWithCustomSocket(ctx, func() (net.PacketConn, error) {
-		return net.ListenPacket("udp", s.MetricsAddr)
-	})
+	return s.RunWithCustomSocket(ctx, socketFactory(s.MetricsAddr, s.ConnPerReader))
 }
 
 // SocketFactory is an indirection layer over net.ListenPacket() to allow for different implementations.
 type SocketFactory func() (net.PacketConn, error)
+
+func socketFactory(metricsAddr string, connPerReader bool) SocketFactory {
+	if connPerReader {
+		return func() (net.PacketConn, error) {
+			return reuseport.ListenPacket("udp6", metricsAddr)
+		}
+	} else {
+		conn, err := net.ListenPacket("udp", metricsAddr)
+		return func() (net.PacketConn, error) {
+			return conn, err
+		}
+	}
+}
 
 // RunWithCustomSocket runs the server until context signals done.
 // Listening socket is created using sf.
@@ -153,6 +166,18 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 	stage = stgr.NextStage()
 	stage.StartWithContext(receiver.RunMetrics)
 	for r := 0; r < s.MaxReaders; r++ {
+		// Open socket
+		c, err := sf()
+		if err != nil {
+			return err
+		}
+		defer func(c net.PacketConn) {
+			// This makes receivers error out and stop
+			if e := c.Close(); e != nil {
+				log.Warnf("Error closing socket: %v", e)
+			}
+		}(c)
+
 		stage.StartWithContext(func(ctx context.Context) {
 			receiver.Receive(ctx, c)
 		})

@@ -1,5 +1,5 @@
-hash: 048701c983fc0bb8c64675fce1fb524a612062529e2db1f12dfde1545f2647f8
-updated: 2017-09-28T18:15:21.699780645+10:00
+hash: 473fc2a3a4d6d33c739023d0e03b46de7ed6a3d500b16608a5714a1821849276
+updated: 2017-10-10T16:58:18.871991279+11:00
 imports:
 - name: github.com/ash2k/stager
   version: 6e9c7b0eacd465286fac042bfb29a170aa8c2c3f
@@ -39,13 +39,17 @@ imports:
 - name: github.com/go-ini/ini
   version: c787282c39ac1fc618827141a1f762240def08a3
 - name: github.com/go-redis/redis
-  version: 975882d73d21759d45a4eb49652064083bc23e61
+  version: 8e6b51ec3a92ec095dcbd2439c7a3eec6b6cb586
   subpackages:
   - internal
   - internal/consistenthash
   - internal/hashtag
   - internal/pool
   - internal/proto
+- name: github.com/gxed/eventfd
+  version: 80a92cca79a8041496ccc9dd773fcb52a57ec6f9
+- name: github.com/gxed/GoEndian
+  version: 0f5c6873267e5abf306ffcdfcfa4bf77517ef4a7
 - name: github.com/hashicorp/hcl
   version: 68e816d1c783414e79bc65b3994d9ab6b0a722ab
   subpackages:
@@ -57,16 +61,29 @@ imports:
   - json/parser
   - json/scanner
   - json/token
+- name: github.com/ipfs/go-log
+  version: 48d644b006ba26f1793bffc46396e981801078e3
+- name: github.com/jbenet/go-reuseport
+  version: c5d151d96d2a1f8cf5059a161dec4098de939225
+  subpackages:
+  - poll
+  - singlepoll
+- name: github.com/jbenet/go-sockaddr
+  version: 2e7ea655c10e4d4d73365f0f073b81b39cb08ee1
+  subpackages:
+  - net
 - name: github.com/jmespath/go-jmespath
   version: bd40a432e4c76585ef6b72d3fd96fb9b6dc7b68d
 - name: github.com/magiconair/properties
   version: 8d7837e64d3c1ee4e54a880c5a920ab4316fc90a
+  subpackages:
+  - assert
 - name: github.com/mitchellh/mapstructure
   version: d0303fe809921458f417bcf828397a65db30a7e4
 - name: github.com/pelletier/go-toml
   version: 16398bac157da96aa88f98a2df640c7f32af1da2
 - name: github.com/sirupsen/logrus
-  version: 89742aefa4b206dcf400792f3bd35b542998eb3b
+  version: f006c2ac4710855cf0f916dd6b77acf6b048dc6e
 - name: github.com/spf13/afero
   version: ee1bd8ee15a1306d1f9201acc41ef39cd9f99a1b
   subpackages:
@@ -80,12 +97,14 @@ imports:
 - name: github.com/spf13/viper
   version: 25b30aa063fc18e48662b86996252eabdcf2f0c7
 - name: github.com/stretchr/testify
-  version: 890a5c3458b43e6104ff5da8dfa139d013d77544
+  version: 69483b4bd14f5845b5a1e55bca19e954e827f1d0
   subpackages:
   - assert
   - require
+- name: github.com/whyrusleeping/go-logging
+  version: 0457bb6b88fc1973573aaf6b5145d8d3ae972390
 - name: golang.org/x/crypto
-  version: c84b36c635ad003a10f0c755dff5685ceef18c71
+  version: 76eec36fa14229c4b25bb894c2d0e591527af429
   subpackages:
   - ssh/terminal
 - name: golang.org/x/net
@@ -101,7 +120,7 @@ imports:
   - ipv6
   - lex/httplex
 - name: golang.org/x/sys
-  version: 314a259e304ff91bd6985da2a7149bbf91237993
+  version: e24f485414aeafb646f6fca458b0bf869c0880a1
   subpackages:
   - unix
   - windows
@@ -120,7 +139,7 @@ imports:
   version: eb3733d160e74a9c7e442f435eb3bea458e1d19f
 testImports:
 - name: github.com/davecgh/go-spew
-  version: 04cdfd42973bb9c8589fd6a731800cf222fde1a9
+  version: 6d212800a42e8ab5c146b8ace3490ee17e5225f9
   subpackages:
   - spew
 - name: github.com/pmezard/go-difflib
