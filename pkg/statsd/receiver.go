@@ -104,11 +104,11 @@ func (dr *DatagramReceiver) Receive(ctx context.Context, c net.PacketConn) {
 				Msg:      buf[:nbytes],
 				DoneFunc: doneFn,
 			}
-			select {
-			case dr.out <- dgs:
-			case <-ctx.Done():
-				return
-			}
+		}
+		select {
+		case dr.out <- dgs:
+		case <-ctx.Done():
+			return
 		}
 	}
 }
