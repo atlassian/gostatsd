@@ -151,17 +151,6 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 
 	// 6. Start the Receiver
 	// Open socket
-	c, err := sf()
-	if err != nil {
-		return err
-	}
-	defer func() {
-		// This makes receivers error out and stop
-		if e := c.Close(); e != nil {
-			log.Warnf("Error closing socket: %v", e)
-		}
-	}()
-
 	receiver := NewDatagramReceiver(datagrams, s.ReceiveBatchSize, statser)
 	stage = stgr.NextStage()
 	stage.StartWithContext(receiver.RunMetrics)
