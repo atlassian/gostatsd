@@ -14,10 +14,13 @@ import (
 var DefaultBackends = []string{"graphite"}
 
 // DefaultMaxReaders is the default number of socket reading goroutines.
-var DefaultMaxReaders = runtime.NumCPU()
+var DefaultMaxReaders = minInt(8, runtime.NumCPU())
 
 // DefaultMaxWorkers is the default number of goroutines that aggregate metrics.
 var DefaultMaxWorkers = runtime.NumCPU()
+
+// DefaultMaxParsers is the default number of goroutines that parse datagrams into metrics.
+var DefaultMaxParsers = runtime.NumCPU()
 
 // DefaultPercentThreshold is the default list of applied percentiles.
 var DefaultPercentThreshold = []float64{90}
@@ -84,6 +87,8 @@ const (
 	ParamIgnoreHost = "ignore-host"
 	// ParamMaxReaders is the name of parameter with number of socket readers.
 	ParamMaxReaders = "max-readers"
+	// ParamMaxParsers is the name of the parameter with the number of goroutines that parse datagrams into metrics.
+	ParamMaxParsers = "max-parsers"
 	// ParamMaxWorkers is the name of parameter with number of goroutines that aggregate metrics.
 	ParamMaxWorkers = "max-workers"
 	// ParamMaxQueueSize is the name of parameter with maximum number of buffered metrics per worker.
@@ -117,6 +122,7 @@ func AddFlags(fs *pflag.FlagSet) {
 	fs.Duration(ParamFlushInterval, DefaultFlushInterval, "How often to flush metrics to the backends")
 	fs.Bool(ParamIgnoreHost, DefaultIgnoreHost, "Ignore the source for populating the hostname field of metrics")
 	fs.Int(ParamMaxReaders, DefaultMaxReaders, "Maximum number of socket readers")
+	fs.Int(ParamMaxParsers, DefaultMaxParsers, "Maximum number of workers to parse datagrams into metrics")
 	fs.Int(ParamMaxWorkers, DefaultMaxWorkers, "Maximum number of workers to process metrics")
 	fs.Int(ParamMaxQueueSize, DefaultMaxQueueSize, "Maximum number of buffered metrics per worker")
 	fs.Int(ParamMaxConcurrentEvents, DefaultMaxConcurrentEvents, "Maximum number of events sent concurrently")
@@ -135,4 +141,11 @@ func AddFlags(fs *pflag.FlagSet) {
 	fs.String(ParamPercentThreshold, strings.Join(toStringSlice(DefaultPercentThreshold), ","), "Comma-separated list of percentiles")
 	fs.Duration(ParamHeartbeatInterval, DefaultHeartbeatInterval, "Heartbeat interval (0s to disable)")
 	fs.Int(ParamReceiveBatchSize, DefaultReceiveBatchSize, "The number of packets to read in each receive batch")
+}
+
+func minInt(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }

@@ -45,3 +45,10 @@ type Dispatcher interface {
 	// less than numWorkers times if the context signals "done".
 	Process(context.Context, DispatcherProcessFunc) gostatsd.Wait
 }
+
+// Datagram is a received UDP datagram that has not been parsed into Metric/Event(s)
+type Datagram struct {
+	IP       gostatsd.IP
+	Msg      []byte
+	DoneFunc func() // to be called once the datagram has been parsed and msg can be freed
+}
