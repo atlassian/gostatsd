@@ -1,3 +1,10 @@
+4.0.0
+-----
+- BREAKING: Independent scaling of datagram reading and parsing
+    - Separate MetricReceiver into DatagramReceiver and DatagramParser
+    - Allow independent scaling of parser workers with new flag `--max-parsers`. Defaults to number of CPU cores.
+    - Change default of `--max-readers` flag to min(8, number of CPU cores)
+
 3.1.1
 -----
 - GC optimization with buffer reuse
