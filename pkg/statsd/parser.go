@@ -24,19 +24,21 @@ type DatagramParser struct {
 	eventsReceived  uint64
 
 	ignoreHost bool
-	handler    Handler // handler to invoke
-	namespace  string  // Namespace to prefix all metrics
+	metrics    MetricHandler
+	events     EventHandler
+	namespace  string // Namespace to prefix all metrics
 	statser    statser.Statser
 
 	in <-chan []*Datagram // Input chan of datagram batches to parse
 }
 
 // NewDatagramParser initialises a new DatagramParser.
-func NewDatagramParser(in <-chan []*Datagram, ns string, ignoreHost bool, handler Handler, statser statser.Statser) *DatagramParser {
+func NewDatagramParser(in <-chan []*Datagram, ns string, ignoreHost bool, metrics MetricHandler, events EventHandler, statser statser.Statser) *DatagramParser {
 	return &DatagramParser{
 		in:         in,
 		ignoreHost: ignoreHost,
-		handler:    handler,
+		metrics:    metrics,
+		events:     events,
 		namespace:  ns,
 		statser:    statser,
 	}
@@ -121,14 +123,14 @@ func (dp *DatagramParser) handlePacket(ctx context.Context, ip gostatsd.IP, msg 
 			} else {
 				metric.SourceIP = ip
 			}
-			err = dp.handler.DispatchMetric(ctx, metric)
+			err = dp.metrics.DispatchMetric(ctx, metric)
 		} else if event != nil {
 			numEvents++
 			event.SourceIP = ip // Always keep the source ip for events
 			if event.DateHappened == 0 {
 				event.DateHappened = time.Now().Unix()
 			}
-			err = dp.handler.DispatchEvent(ctx, event)
+			err = dp.events.DispatchEvent(ctx, event)
 		} else {
 			// Should never happen.
 			log.Panic("Both event and metric are nil")

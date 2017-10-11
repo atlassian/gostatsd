@@ -45,7 +45,8 @@ type CacheOptions struct {
 type CloudHandler struct {
 	cacheOpts       CacheOptions
 	cloud           gostatsd.CloudProvider // Cloud provider interface
-	next            Handler
+	metrics         MetricHandler
+	events          EventHandler
 	limiter         *rate.Limiter
 	metricSource    chan *gostatsd.Metric
 	eventSource     chan *gostatsd.Event
@@ -59,11 +60,12 @@ type CloudHandler struct {
 }
 
 // NewCloudHandler initialises a new cloud handler.
-func NewCloudHandler(cloud gostatsd.CloudProvider, next Handler, limiter *rate.Limiter, cacheOptions *CacheOptions) *CloudHandler {
+func NewCloudHandler(cloud gostatsd.CloudProvider, metrics MetricHandler, events EventHandler, limiter *rate.Limiter, cacheOptions *CacheOptions) *CloudHandler {
 	return &CloudHandler{
 		cacheOpts:       *cacheOptions,
 		cloud:           cloud,
-		next:            next,
+		metrics:         metrics,
+		events:          events,
 		limiter:         limiter,
 		metricSource:    make(chan *gostatsd.Metric),
 		eventSource:     make(chan *gostatsd.Event),
@@ -75,7 +77,7 @@ func NewCloudHandler(cloud gostatsd.CloudProvider, next Handler, limiter *rate.L
 
 func (ch *CloudHandler) DispatchMetric(ctx context.Context, m *gostatsd.Metric) error {
 	if ch.updateTagsAndHostname(m.SourceIP, &m.Tags, &m.Hostname) {
-		return ch.next.DispatchMetric(ctx, m)
+		return ch.metrics.DispatchMetric(ctx, m)
 	}
 	select {
 	case <-ctx.Done():
@@ -87,7 +89,7 @@ func (ch *CloudHandler) DispatchMetric(ctx context.Context, m *gostatsd.Metric) 
 
 func (ch *CloudHandler) DispatchEvent(ctx context.Context, e *gostatsd.Event) error {
 	if ch.updateTagsAndHostname(e.SourceIP, &e.Tags, &e.Hostname) {
-		return ch.next.DispatchEvent(ctx, e)
+		return ch.events.DispatchEvent(ctx, e)
 	}
 	ch.wg.Add(1) // Increment before sending to the channel
 	select {
@@ -102,7 +104,7 @@ func (ch *CloudHandler) DispatchEvent(ctx context.Context, e *gostatsd.Event) er
 // WaitForEvents waits for all event-dispatching goroutines to finish.
 func (ch *CloudHandler) WaitForEvents() {
 	ch.wg.Wait()
-	ch.next.WaitForEvents()
+	ch.events.WaitForEvents()
 }
 
 func (ch *CloudHandler) Run(ctx context.Context) {
@@ -242,7 +244,7 @@ func (ch *CloudHandler) handleMetric(ctx context.Context, m *gostatsd.Metric) {
 func (ch *CloudHandler) updateAndDispatchMetrics(ctx context.Context, instance *gostatsd.Instance, metrics ...*gostatsd.Metric) {
 	for _, m := range metrics {
 		updateInplace(&m.Tags, &m.Hostname, instance)
-		if err := ch.next.DispatchMetric(ctx, m); err != nil {
+		if err := ch.metrics.DispatchMetric(ctx, m); err != nil {
 			if err == context.Canceled || err == context.DeadlineExceeded {
 				return
 			}
@@ -276,7 +278,7 @@ func (ch *CloudHandler) updateAndDispatchEvents(ctx context.Context, instance *g
 	for _, e := range events {
 		updateInplace(&e.Tags, &e.Hostname, instance)
 		dispatched++
-		if err := ch.next.DispatchEvent(ctx, e); err != nil {
+		if err := ch.events.DispatchEvent(ctx, e); err != nil {
 			if err == context.Canceled || err == context.DeadlineExceeded {
 				return
 			}

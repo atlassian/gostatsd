@@ -67,24 +67,31 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 		}
 	}
 
-	// 1. Start the Dispatcher
+	// 1. Start the backend handler
 	factory := agrFactory{
 		percentThresholds: s.PercentThreshold,
 		expiryInterval:    s.ExpiryInterval,
 	}
-	dispatcher := NewMetricDispatcher(s.MaxWorkers, s.MaxQueueSize, &factory)
+
+	backendHandler := NewBackendHandler(s.Backends, uint(s.MaxConcurrentEvents), s.MaxWorkers, s.MaxQueueSize, &factory)
+	metrics := MetricHandler(backendHandler)
+	events := EventHandler(backendHandler)
 
 	stage = stgr.NextStage()
-	stage.StartWithContext(dispatcher.Run)
+	stage.StartWithContext(backendHandler.Run)
 
-	// 2. Start handlers
+	// 2. Start the default tag adder
+	th := NewTagHandler(metrics, events, s.DefaultTags)
+	metrics = th
+	events = th
+
+	// 3. Start the cloud handler
 	ip := gostatsd.UnknownIP
 
-	var handler Handler // nolint: gosimple, megacheck
-	handler = NewDispatchingHandler(dispatcher, s.Backends, s.DefaultTags, uint(s.MaxConcurrentEvents))
 	if s.CloudProvider != nil {
-		ch := NewCloudHandler(s.CloudProvider, handler, s.Limiter, &s.CacheOptions)
-		handler = ch
+		ch := NewCloudHandler(s.CloudProvider, metrics, events, s.Limiter, &s.CacheOptions)
+		metrics = ch
+		events = ch
 		stage = stgr.NextStage()
 		stage.StartWithContext(ch.Run)
 		selfIP, err := s.CloudProvider.SelfIP()
@@ -95,7 +102,7 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 		}
 	}
 
-	// 3. Attach the dispatchers metrics
+	// 4. Create the statser
 	hostname := getHost()
 	namespace := s.Namespace
 	if s.InternalNamespace != "" {
@@ -107,36 +114,37 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 	}
 
 	bufferSize := 1000 // Estimating this is hard, and tends to cause loss under adverse conditions
-	statser := stats.NewInternalStatser(bufferSize, s.InternalTags, namespace, hostname, handler)
+	statser := stats.NewInternalStatser(bufferSize, s.InternalTags, namespace, hostname, metrics, events)
 	// TODO: Make internal metric dispatch configurable
 	// statser := stats.NewLoggingStatser(s.InternalTags, log.NewEntry(log.New()))
 	stage = stgr.NextStage()
 	stage.StartWithContext(statser.Run)
 
+	// 5. Attach the statser to the backend handler
 	stage = stgr.NextStage()
 	stage.StartWithContext(func(ctx context.Context) {
-		dispatcher.RunMetrics(ctx, statser)
+		backendHandler.RunMetrics(ctx, statser)
 	})
 
-	// 4. Start the heartbeat
+	// 6. Start the heartbeat
 	if s.HeartbeatInterval != 0 {
 		hb := stats.NewHeartBeater(statser, "heartbeat", s.HeartbeatTags, s.HeartbeatInterval)
 		stage = stgr.NextStage()
 		stage.StartWithContext(hb.Run)
 	}
 
-	// 5. Start the Parser
+	// 7. Start the Parser
 	// Open receiver <-> parser chan
 	datagrams := make(chan []*Datagram)
 
-	parser := NewDatagramParser(datagrams, s.Namespace, s.IgnoreHost, handler, statser)
+	parser := NewDatagramParser(datagrams, s.Namespace, s.IgnoreHost, metrics, events, statser)
 	stage = stgr.NextStage()
 	stage.StartWithContext(parser.RunMetrics)
 	for r := 0; r < s.MaxParsers; r++ {
 		stage.StartWithContext(parser.Run)
 	}
 
-	// 6. Start the Receiver
+	// 8. Start the Receiver
 	// Open socket
 	c, err := sf()
 	if err != nil {
@@ -158,23 +166,23 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 		})
 	}
 
-	// 7. Start the Flusher
-	flusher := NewMetricFlusher(s.FlushInterval, dispatcher, handler, s.Backends, ip, hostname, statser)
+	// 9. Start the Flusher
+	flusher := NewMetricFlusher(s.FlushInterval, backendHandler, s.Backends, ip, hostname, statser)
 	stage = stgr.NextStage()
 	stage.StartWithContext(flusher.Run)
 
-	// 8. Send events on start and on stop
+	// 10. Send events on start and on stop
 	// TODO: Push these in to statser
-	defer sendStopEvent(handler, ip, hostname)
-	sendStartEvent(ctx, handler, ip, hostname)
+	defer sendStopEvent(events, ip, hostname)
+	sendStartEvent(ctx, events, ip, hostname)
 
-	// 9. Listen until done
+	// 11. Listen until done
 	<-ctx.Done()
 	return ctx.Err()
 }
 
-func sendStartEvent(ctx context.Context, handler Handler, selfIP gostatsd.IP, hostname string) {
-	err := handler.DispatchEvent(ctx, &gostatsd.Event{
+func sendStartEvent(ctx context.Context, events EventHandler, selfIP gostatsd.IP, hostname string) {
+	err := events.DispatchEvent(ctx, &gostatsd.Event{
 		Title:        "Gostatsd started",
 		Text:         "Gostatsd started",
 		DateHappened: time.Now().Unix(),
@@ -187,10 +195,10 @@ func sendStartEvent(ctx context.Context, handler Handler, selfIP gostatsd.IP, ho
 	}
 }
 
-func sendStopEvent(handler Handler, selfIP gostatsd.IP, hostname string) {
+func sendStopEvent(events EventHandler, selfIP gostatsd.IP, hostname string) {
 	ctx, cancelFunc := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancelFunc()
-	err := handler.DispatchEvent(ctx, &gostatsd.Event{
+	err := events.DispatchEvent(ctx, &gostatsd.Event{
 		Title:        "Gostatsd stopped",
 		Text:         "Gostatsd stopped",
 		DateHappened: time.Now().Unix(),
@@ -201,7 +209,7 @@ func sendStopEvent(handler Handler, selfIP gostatsd.IP, hostname string) {
 	if unexpectedErr(err) {
 		log.Warnf("Failed to send stop event: %v", err)
 	}
-	handler.WaitForEvents()
+	events.WaitForEvents()
 }
 
 func getHost() string {

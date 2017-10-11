@@ -15,8 +15,6 @@ import (
 	"golang.org/x/time/rate"
 )
 
-var _ Handler = &CloudHandler{}
-
 func TestCloudHandlerExpirationAndRefresh(t *testing.T) {
 	t.Parallel()
 	t.Run("4.3.2.1", func(t *testing.T) {
@@ -39,7 +37,7 @@ func testExpire(t *testing.T, expectedIps []gostatsd.IP, f func(*CloudHandler) e
 		Region: "us-west-3",
 	}
 	counting := &countingHandler{}
-	ch := NewCloudHandler(fp, counting, rate.NewLimiter(100, 120), &CacheOptions{
+	ch := NewCloudHandler(fp, counting, counting, rate.NewLimiter(100, 120), &CacheOptions{
 		CacheRefreshPeriod:        100 * time.Millisecond,
 		CacheEvictAfterIdlePeriod: 700 * time.Millisecond,
 		CacheTTL:                  500 * time.Millisecond,
@@ -139,7 +137,7 @@ func TestCloudHandlerFailingProvider(t *testing.T) {
 
 func doCheck(t *testing.T, cloud gostatsd.CloudProvider, m1 gostatsd.Metric, e1 gostatsd.Event, m2 gostatsd.Metric, e2 gostatsd.Event, ips *[]gostatsd.IP, expectedIps []gostatsd.IP, expectedM []gostatsd.Metric, expectedE gostatsd.Events) {
 	counting := &countingHandler{}
-	ch := NewCloudHandler(cloud, counting, rate.NewLimiter(100, 120), &CacheOptions{
+	ch := NewCloudHandler(cloud, counting, counting, rate.NewLimiter(100, 120), &CacheOptions{
 		CacheRefreshPeriod:        DefaultCacheRefreshPeriod,
 		CacheEvictAfterIdlePeriod: DefaultCacheEvictAfterIdlePeriod,
 		CacheTTL:                  DefaultCacheTTL,
