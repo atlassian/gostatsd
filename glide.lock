@@ -1,5 +1,5 @@
-hash: 048701c983fc0bb8c64675fce1fb524a612062529e2db1f12dfde1545f2647f8
-updated: 2017-09-28T18:15:21.699780645+10:00
+hash: 5acefdf002068f8153f132c5fb12cb2d955786d4d5f03a6492d92fddffebfbae
+updated: 2017-10-13T06:44:58.263734949+11:00
 imports:
 - name: github.com/ash2k/stager
   version: 6e9c7b0eacd465286fac042bfb29a170aa8c2c3f
@@ -39,7 +39,7 @@ imports:
 - name: github.com/go-ini/ini
   version: c787282c39ac1fc618827141a1f762240def08a3
 - name: github.com/go-redis/redis
-  version: 975882d73d21759d45a4eb49652064083bc23e61
+  version: 35248155a505a84811be81a2aab1c423317447be
   subpackages:
   - internal
   - internal/consistenthash
@@ -59,8 +59,12 @@ imports:
   - json/token
 - name: github.com/jmespath/go-jmespath
   version: bd40a432e4c76585ef6b72d3fd96fb9b6dc7b68d
+- name: github.com/json-iterator/go
+  version: 6240e1e7983a85228f7fd9c3e1b6932d46ec58e2
 - name: github.com/magiconair/properties
   version: 8d7837e64d3c1ee4e54a880c5a920ab4316fc90a
+  subpackages:
+  - assert
 - name: github.com/mitchellh/mapstructure
   version: d0303fe809921458f417bcf828397a65db30a7e4
 - name: github.com/pelletier/go-toml

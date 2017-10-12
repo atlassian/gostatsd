@@ -5,7 +5,7 @@ import (
 	"compress/zlib"
 	"context"
 	"crypto/tls"
-	"encoding/json"
+	//"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -18,6 +18,7 @@ import (
 
 	"github.com/atlassian/gostatsd"
 	stats "github.com/atlassian/gostatsd/pkg/statser"
+	jsoniter "github.com/json-iterator/go"
 
 	"github.com/cenkalti/backoff"
 	log "github.com/sirupsen/logrus"
@@ -200,6 +201,7 @@ func (d *Client) Name() string {
 }
 
 func (d *Client) post(ctx context.Context, path, typeOfPost string, data interface{}) error {
+	json := jsoniter.ConfigCompatibleWithStandardLibrary
 	tsBytes, err := json.Marshal(data)
 	if err != nil {
 		return fmt.Errorf("[%s] unable to marshal %s: %v", BackendName, typeOfPost, err)
