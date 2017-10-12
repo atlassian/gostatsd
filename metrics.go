@@ -56,7 +56,7 @@ func (m *Metric) Bucket(max int) int {
 	}
 
 	// This gives 0 to max-1, 0 is reserved and max is allowed
-	bucket := adler32.Checksum([]byte(m.Name)) % uint32(max)
+	bucket := (adler32.Checksum([]byte(m.Name)) + adler32.Checksum([]byte(m.Hostname))) % uint32(max)
 	return 1 + int(bucket)
 }
 
