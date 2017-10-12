@@ -8,14 +8,27 @@ import (
 	"github.com/atlassian/gostatsd/pkg/statser"
 )
 
-// Handler interface can be used to handle metrics and events.
-type Handler interface {
-	// DispatchMetric dispatches metric to the next step in a pipeline.
-	DispatchMetric(context.Context, *gostatsd.Metric) error
+// MetricHandler can be used to handle metrics
+type MetricHandler interface {
+	// DispatchMetric dispatches a metric to the next step in a pipeline.
+	DispatchMetric(ctx context.Context, m *gostatsd.Metric) error
+}
+
+// EventHandler can be used to handle events
+type EventHandler interface {
 	// DispatchEvent dispatches event to the next step in a pipeline.
-	DispatchEvent(context.Context, *gostatsd.Event) error
+	DispatchEvent(ctx context.Context, e *gostatsd.Event) error
 	// WaitForEvents waits for all event-dispatching goroutines to finish.
 	WaitForEvents()
+}
+
+// DispatcherProcessFunc is a function that gets executed by Dispatcher for each Aggregator, passing it into the function.
+type DispatcherProcessFunc func(uint16, Aggregator)
+
+// AggregateProcesser is an interface to run a function against each Aggregator, in the goroutine
+// context of that Aggregator.
+type AggregateProcesser interface {
+	Process(ctx context.Context, fn DispatcherProcessFunc) gostatsd.Wait
 }
 
 // ProcessFunc is a function that gets executed by Aggregator with its state passed into the function.
@@ -31,19 +44,6 @@ type Aggregator interface {
 	Flush(interval time.Duration)
 	Process(ProcessFunc)
 	Reset()
-}
-
-// DispatcherProcessFunc is a function that gets executed by Dispatcher for each Aggregator, passing it into the function.
-type DispatcherProcessFunc func(uint16, Aggregator)
-
-// Dispatcher is responsible for managing Aggregators' lifecycle and dispatching metrics among them.
-type Dispatcher interface {
-	// DispatchMetric dispatches metric to a corresponding Aggregator.
-	DispatchMetric(context.Context, *gostatsd.Metric) error
-	// Process concurrently executes provided function in goroutines that own Aggregators.
-	// DispatcherProcessFunc function may be executed zero or up to numWorkers times. It is executed
-	// less than numWorkers times if the context signals "done".
-	Process(context.Context, DispatcherProcessFunc) gostatsd.Wait
 }
 
 // Datagram is a received UDP datagram that has not been parsed into Metric/Event(s)

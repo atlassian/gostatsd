@@ -30,7 +30,7 @@ func TestParseEmptyPacket(t *testing.T) {
 		t.Run(strconv.Itoa(pos), func(t *testing.T) {
 			t.Parallel()
 			ch := &countingHandler{}
-			mr := NewDatagramParser(nil, "", false, ch, statser.NewNullStatser())
+			mr := NewDatagramParser(nil, "", false, ch, ch, statser.NewNullStatser())
 			err := mr.handlePacket(context.Background(), gostatsd.UnknownIP, inp)
 			require.NoError(t, err)
 			assert.Zero(t, len(ch.events), ch.events)
@@ -89,7 +89,7 @@ func TestParsePacket(t *testing.T) {
 		t.Run(packet, func(t *testing.T) {
 			t.Parallel()
 			ch := &countingHandler{}
-			mr := NewDatagramParser(nil, "", false, ch, statser.NewNullStatser())
+			mr := NewDatagramParser(nil, "", false, ch, ch, statser.NewNullStatser())
 			err := mr.handlePacket(context.Background(), fakeIP, []byte(packet))
 			assert.NoError(t, err)
 			for i, e := range ch.events {
@@ -159,7 +159,7 @@ func TestParsePacketIgnoreHost(t *testing.T) {
 		t.Run(packet, func(t *testing.T) {
 			t.Parallel()
 			ch := &countingHandler{}
-			mr := NewDatagramParser(nil, "", true, ch, statser.NewNullStatser())
+			mr := NewDatagramParser(nil, "", true, ch, ch, statser.NewNullStatser())
 			err := mr.handlePacket(context.Background(), fakeIP, []byte(packet))
 			assert.NoError(t, err)
 			for i, e := range ch.events {

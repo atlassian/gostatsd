@@ -88,22 +88,22 @@ func newTestFactory() *testAggregatorFactory {
 	}
 }
 
-func TestNewDispatcherShouldCreateCorrectNumberOfWorkers(t *testing.T) {
+func TestNewBackendHandlerShouldCreateCorrectNumberOfWorkers(t *testing.T) {
 	t.Parallel()
 	r := rand.New(rand.NewSource(time.Now().UnixNano()))
 	n := r.Intn(5) + 1
 	factory := newTestFactory()
-	d := NewMetricDispatcher(n, 1, factory)
-	assert.Equal(t, n, len(d.workers))
+	h := NewBackendHandler(nil, 0, n, 1, factory)
+	assert.Equal(t, n, len(h.workers))
 	assert.Equal(t, n, factory.numAgrs)
 }
 
 func TestRunShouldReturnWhenContextCancelled(t *testing.T) {
 	t.Parallel()
-	d := NewMetricDispatcher(5, 1, newTestFactory())
+	h := NewBackendHandler(nil, 0, 5, 1, newTestFactory())
 	ctx, cancelFunc := context.WithTimeout(context.Background(), 1*time.Second)
 	defer cancelFunc()
-	d.Run(ctx)
+	h.Run(ctx)
 }
 
 func TestDispatchMetricShouldDistributeMetrics(t *testing.T) {
@@ -111,11 +111,11 @@ func TestDispatchMetricShouldDistributeMetrics(t *testing.T) {
 	r := rand.New(rand.NewSource(time.Now().UnixNano()))
 	n := r.Intn(5) + 1
 	factory := newTestFactory()
-	d := NewMetricDispatcher(n, 10, factory)
+	h := NewBackendHandler(nil, 0, n, 10, factory)
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	defer cancelFunc()
 	var wgFinish wait.Group
-	wgFinish.StartWithContext(ctx, d.Run)
+	wgFinish.StartWithContext(ctx, h.Run)
 	numMetrics := r.Intn(1000) + n*10
 	var wg sync.WaitGroup
 	wg.Add(numMetrics)
@@ -128,7 +128,7 @@ func TestDispatchMetricShouldDistributeMetrics(t *testing.T) {
 		}
 		go func() {
 			defer wg.Done()
-			assert.NoError(t, d.DispatchMetric(ctx, m))
+			assert.NoError(t, h.DispatchMetric(ctx, m))
 		}()
 	}
 	wg.Wait()       // Wait for all metrics to be dispatched
@@ -154,14 +154,14 @@ func getTotalInvocations(inv map[int]int) int {
 	return counter
 }
 
-func BenchmarkDispatcher(b *testing.B) {
+func BenchmarkBackendHandler(b *testing.B) {
 	rand.Seed(time.Now().UnixNano())
 	factory := newTestFactory()
-	d := NewMetricDispatcher(runtime.NumCPU(), 10, factory)
+	h := NewBackendHandler(nil, 0, runtime.NumCPU(), 10, factory)
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	defer cancelFunc()
 	var wgFinish wait.Group
-	wgFinish.StartWithContext(ctx, d.Run)
+	wgFinish.StartWithContext(ctx, h.Run)
 	b.ReportAllocs()
 	b.ResetTimer()
 	b.RunParallel(func(pb *testing.PB) {
@@ -172,7 +172,7 @@ func BenchmarkDispatcher(b *testing.B) {
 				Tags:  nil,
 				Value: rand.Float64(),
 			}
-			if err := d.DispatchMetric(ctx, m); err != nil {
+			if err := h.DispatchMetric(ctx, m); err != nil {
 				b.Errorf("unexpected error: %v", err)
 			}
 		}

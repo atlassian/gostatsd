@@ -32,6 +32,7 @@ type DatagramReceiver struct {
 	out chan<- []*Datagram // Output chan of read datagram batches
 }
 
+
 // NewDatagramReceiver initialises a new DatagramReceiver.
 func NewDatagramReceiver(out chan<- []*Datagram, receiveBatchSize int, statser statser.Statser) *DatagramReceiver {
 	return &DatagramReceiver{
@@ -107,6 +108,7 @@ func (dr *DatagramReceiver) Receive(ctx context.Context, c net.PacketConn) {
 		}
 		select {
 		case dr.out <- dgs:
+			// success
 		case <-ctx.Done():
 			return
 		}

@@ -20,25 +20,23 @@ type MetricFlusher struct {
 	lastFlush      int64 // Last time the metrics where aggregated. Unix timestamp in nsec.
 	lastFlushError int64 // Time of the last flush error. Unix timestamp in nsec.
 
-	flushInterval time.Duration // How often to flush metrics to the sender
-	dispatcher    Dispatcher
-	handler       Handler
-	backends      []gostatsd.Backend
-	selfIP        gostatsd.IP
-	hostname      string
-	statser       statser.Statser
+	flushInterval      time.Duration // How often to flush metrics to the sender
+	aggregateProcesser AggregateProcesser
+	backends           []gostatsd.Backend
+	selfIP             gostatsd.IP
+	hostname           string
+	statser            statser.Statser
 }
 
 // NewMetricFlusher creates a new MetricFlusher with provided configuration.
-func NewMetricFlusher(flushInterval time.Duration, dispatcher Dispatcher, handler Handler, backends []gostatsd.Backend, selfIP gostatsd.IP, hostname string, statser statser.Statser) *MetricFlusher {
+func NewMetricFlusher(flushInterval time.Duration, aggregateProcesser AggregateProcesser, backends []gostatsd.Backend, selfIP gostatsd.IP, hostname string, statser statser.Statser) *MetricFlusher {
 	return &MetricFlusher{
-		flushInterval: flushInterval,
-		dispatcher:    dispatcher,
-		handler:       handler,
-		backends:      backends,
-		selfIP:        selfIP,
-		hostname:      hostname,
-		statser:       statser,
+		flushInterval:      flushInterval,
+		aggregateProcesser: aggregateProcesser,
+		backends:           backends,
+		selfIP:             selfIP,
+		hostname:           hostname,
+		statser:            statser,
 	}
 }
 
@@ -58,7 +56,7 @@ func (f *MetricFlusher) Run(ctx context.Context) {
 
 func (f *MetricFlusher) flushData(ctx context.Context) {
 	var sendWg sync.WaitGroup
-	processWait := f.dispatcher.Process(ctx, func(workerId uint16, aggr Aggregator) {
+	processWait := f.aggregateProcesser.Process(ctx, func(workerId uint16, aggr Aggregator) {
 		aggr.Flush(f.flushInterval)
 		aggr.Process(func(m *gostatsd.MetricMap) {
 			f.sendMetricsAsync(ctx, &sendWg, m)
