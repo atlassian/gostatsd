@@ -1,3 +1,10 @@
+4.1.0
+-----
+- Add new flag `--conn-per-reader` adding support for a separate connection per
+  reader (requires system support for reusing addresses)
+- Refactor MetricDispatcher into BackendHandler satisfying separate MetricHandler and EventHandler interfaces
+- Add TagHandler for static tags
+
 4.0.0
 -----
 - BREAKING: Independent scaling of datagram reading and parsing
