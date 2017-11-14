@@ -45,6 +45,11 @@ var defaultMaxRequests = uint(2 * runtime.NumCPU())
 
 // Client represents a Datadog client.
 type Client struct {
+	batchesCreated uint64 // Accumulated number of batches created
+	batchesRetried uint64 // Accumulated number of batches retried (first send is not a retry)
+	batchesDropped uint64 // Accumulated number of batches aborted (data loss)
+	batchesSent    uint64 // Accumulated number of batches successfully sent
+
 	apiKey                string
 	apiEndpoint           string
 	maxRequestElapsedTime time.Duration
@@ -53,11 +58,6 @@ type Client struct {
 	requestSem            chan struct{}
 	now                   func() time.Time // Returns current time. Useful for testing.
 	compressPayload       bool
-
-	batchesCreated uint64 // Accumulated number of batches created
-	batchesRetried uint64 // Accumulated number of batches retried (first send is not a retry)
-	batchesDropped uint64 // Accumulated number of batches aborted (data loss)
-	batchesSent    uint64 // Accumulated number of batches successfully sent
 }
 
 // event represents an event data structure for Datadog.
