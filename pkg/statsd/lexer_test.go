@@ -161,6 +161,8 @@ var parselineBlackhole *gostatsd.Metric
 func benchmarkLexer(dp *DatagramParser, input string, b *testing.B) {
 	slice := []byte(input)
 	var r *gostatsd.Metric
+	b.ReportAllocs()
+	b.ResetTimer()
 	for n := 0; n < b.N; n++ {
 		r, _, _ = dp.parseLine(slice)
 	}

@@ -5,17 +5,20 @@ import (
 	"compress/zlib"
 	"context"
 	"crypto/tls"
-	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"net"
 	"net/http"
 	"net/url"
+	"runtime"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/atlassian/gostatsd"
+	stats "github.com/atlassian/gostatsd/pkg/statser"
+	jsoniter "github.com/json-iterator/go"
 
 	"github.com/cenkalti/backoff"
 	log "github.com/sirupsen/logrus"
@@ -36,13 +39,23 @@ const (
 	maxResponseSize = 10 * 1024
 )
 
+// defaultMaxRequests is the number of parallel outgoing requests to Datadog.  As this mixes both
+// CPU (JSON encoding, TLS) and network bound operations, balancing may require some experimentation.
+var defaultMaxRequests = uint(2 * runtime.NumCPU())
+
 // Client represents a Datadog client.
 type Client struct {
+	batchesCreated uint64 // Accumulated number of batches created
+	batchesRetried uint64 // Accumulated number of batches retried (first send is not a retry)
+	batchesDropped uint64 // Accumulated number of batches aborted (data loss)
+	batchesSent    uint64 // Accumulated number of batches successfully sent
+
 	apiKey                string
 	apiEndpoint           string
 	maxRequestElapsedTime time.Duration
 	client                http.Client
 	metricsPerBatch       uint
+	requestSem            chan struct{}
 	now                   func() time.Time // Returns current time. Useful for testing.
 	compressPayload       bool
 }
@@ -65,8 +78,22 @@ func (d *Client) SendMetricsAsync(ctx context.Context, metrics *gostatsd.MetricM
 	counter := 0
 	results := make(chan error)
 	d.processMetrics(metrics, func(ts *timeSeries) {
+		// This section would be likely be better if it pushed all ts's in to a single channel
+		// which n goroutines then read from.  Current behavior still spins up many goroutines
+		// and has them all hit the same channel.
+		atomic.AddUint64(&d.batchesCreated, 1)
 		go func() {
+			select {
+			case <-ctx.Done():
+				return
+			case d.requestSem <- struct{}{}:
+				defer func() {
+					<-d.requestSem
+				}()
+			}
+
 			err := d.postMetrics(ctx, ts)
+
 			select {
 			case <-ctx.Done():
 			case results <- err:
@@ -88,6 +115,25 @@ func (d *Client) SendMetricsAsync(ctx context.Context, metrics *gostatsd.MetricM
 		}
 		cb(errs)
 	}()
+}
+
+func (d *Client) RunMetrics(ctx context.Context, statser stats.Statser) {
+	statser = statser.WithTags(gostatsd.Tags{"backend:datadog"})
+
+	flushed, unregister := statser.RegisterFlush()
+	defer unregister()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-flushed:
+			statser.Gauge("backend.created", float64(atomic.LoadUint64(&d.batchesCreated)), nil)
+			statser.Gauge("backend.retried", float64(atomic.LoadUint64(&d.batchesRetried)), nil)
+			statser.Gauge("backend.dropped", float64(atomic.LoadUint64(&d.batchesDropped)), nil)
+			statser.Gauge("backend.sent", float64(atomic.LoadUint64(&d.batchesSent)), nil)
+		}
+	}
 }
 
 func (d *Client) processMetrics(metrics *gostatsd.MetricMap, cb func(*timeSeries)) {
@@ -161,7 +207,7 @@ func (d *Client) Name() string {
 }
 
 func (d *Client) post(ctx context.Context, path, typeOfPost string, data interface{}) error {
-	tsBytes, err := json.Marshal(data)
+	tsBytes, err := jsoniter.Marshal(data)
 	if err != nil {
 		return fmt.Errorf("[%s] unable to marshal %s: %v", BackendName, typeOfPost, err)
 	}
@@ -181,11 +227,13 @@ func (d *Client) post(ctx context.Context, path, typeOfPost string, data interfa
 	post := d.constructPost(ctx, authenticatedURL, tsBytes, compressPayload)
 	for {
 		if err = post(); err == nil {
+			atomic.AddUint64(&d.batchesSent, 1)
 			return nil
 		}
 
 		next := b.NextBackOff()
 		if next == backoff.Stop {
+			atomic.AddUint64(&d.batchesDropped, 1)
 			return fmt.Errorf("[%s] %v", BackendName, err)
 		}
 
@@ -198,6 +246,8 @@ func (d *Client) post(ctx context.Context, path, typeOfPost string, data interfa
 			return ctx.Err()
 		case <-timer.C:
 		}
+
+		atomic.AddUint64(&d.batchesRetried, 1)
 	}
 }
 
@@ -261,12 +311,14 @@ func NewClientFromViper(v *viper.Viper) (gostatsd.Backend, error) {
 	dd.SetDefault("network", "tcp")
 	dd.SetDefault("client_timeout", defaultClientTimeout)
 	dd.SetDefault("max_request_elapsed_time", defaultMaxRequestElapsedTime)
+	dd.SetDefault("max_requests", defaultMaxRequests)
 
 	return NewClient(
 		dd.GetString("api_endpoint"),
 		dd.GetString("api_key"),
 		dd.GetString("network"),
 		uint(dd.GetInt("metrics_per_batch")),
+		uint(dd.GetInt("max_requests")),
 		dd.GetBool("compress_payload"),
 		dd.GetDuration("client_timeout"),
 		dd.GetDuration("max_request_elapsed_time"),
@@ -274,7 +326,7 @@ func NewClientFromViper(v *viper.Viper) (gostatsd.Backend, error) {
 }
 
 // NewClient returns a new Datadog API client.
-func NewClient(apiEndpoint, apiKey, network string, metricsPerBatch uint, compressPayload bool, clientTimeout, maxRequestElapsedTime time.Duration) (*Client, error) {
+func NewClient(apiEndpoint, apiKey, network string, metricsPerBatch, maxRequests uint, compressPayload bool, clientTimeout, maxRequestElapsedTime time.Duration) (*Client, error) {
 	if apiEndpoint == "" {
 		return nil, fmt.Errorf("[%s] apiEndpoint is required", BackendName)
 	}
@@ -291,7 +343,7 @@ func NewClient(apiEndpoint, apiKey, network string, metricsPerBatch uint, compre
 		return nil, fmt.Errorf("[%s] maxRequestElapsedTime must be positive", BackendName)
 	}
 
-	log.Infof("[%s] maxRequestElapsedTime=%s clientTimeout=%s metricsPerBatch=%d compressPayload=%t", BackendName, maxRequestElapsedTime, clientTimeout, metricsPerBatch, compressPayload)
+	log.Infof("[%s] maxRequestElapsedTime=%s maxRequests=%d clientTimeout=%s metricsPerBatch=%d compressPayload=%t", BackendName, maxRequestElapsedTime, maxRequests, clientTimeout, metricsPerBatch, compressPayload)
 
 	dialer := &net.Dialer{
 		Timeout:   5 * time.Second,
@@ -325,6 +377,7 @@ func NewClient(apiEndpoint, apiKey, network string, metricsPerBatch uint, compre
 			Timeout:   clientTimeout,
 		},
 		metricsPerBatch: metricsPerBatch,
+		requestSem:      make(chan struct{}, maxRequests),
 		compressPayload: compressPayload,
 		now:             time.Now,
 	}, nil
