@@ -7,9 +7,11 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"sync/atomic"
 	"time"
 
 	"github.com/atlassian/gostatsd"
+	stats "github.com/atlassian/gostatsd/pkg/statser"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
@@ -32,9 +34,33 @@ const (
 
 // Provider represents an AWS provider.
 type Provider struct {
+	describeInstanceCount     uint64 // The cumulative number of times DescribeInstancesPagesWithContext has been called
+	describeInstanceInstances uint64 // The cumulative number of instances which have been fed in to DescribeInstancesPagesWithContext
+	describeInstancePages     uint64 // The cumulative number of pages from DescribeInstancesPagesWithContext
+	describeInstanceErrors    uint64 // The cumulative number of errors seen from DescribeInstancesPagesWithContext
+	describeInstanceFound     uint64 // The cumulative number of instances successfully found via DescribeInstancesPagesWithContext
+
 	Metadata     *ec2metadata.EC2Metadata
 	Ec2          *ec2.EC2
 	MaxInstances int
+}
+
+func (p *Provider) RunMetrics(ctx context.Context, statser stats.Statser) {
+	ticker := time.NewTicker(1 * time.Second)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			// These are namespaced not tagged because they're very specific
+			statser.Gauge("cloudprovider.aws.describeinstancecount", float64(atomic.LoadUint64(&p.describeInstanceCount)), nil)
+			statser.Gauge("cloudprovider.aws.describeinstanceinstances", float64(atomic.LoadUint64(&p.describeInstanceInstances)), nil)
+			statser.Gauge("cloudprovider.aws.describeinstancepages", float64(atomic.LoadUint64(&p.describeInstancePages)), nil)
+			statser.Gauge("cloudprovider.aws.describeinstanceerrors", float64(atomic.LoadUint64(&p.describeInstanceErrors)), nil)
+			statser.Gauge("cloudprovider.aws.describeinstancefound", float64(atomic.LoadUint64(&p.describeInstanceFound)), nil)
+		}
+	}
 }
 
 // Instance returns instances details from AWS.
@@ -55,7 +81,13 @@ func (p *Provider) Instance(ctx context.Context, IP ...gostatsd.IP) (map[gostats
 			},
 		},
 	}
+
+	atomic.AddUint64(&p.describeInstanceCount, 1)
+	atomic.AddUint64(&p.describeInstanceInstances, uint64(len(IP)))
+	instancesFound := uint64(0)
+	pages := uint64(0)
 	err := p.Ec2.DescribeInstancesPagesWithContext(ctx, input, func(page *ec2.DescribeInstancesOutput, lastPage bool) bool {
+		pages++
 		for _, reservation := range page.Reservations {
 			for _, instance := range reservation.Instances {
 				ip := getInterestingInstanceIP(instance, instances)
@@ -63,6 +95,7 @@ func (p *Provider) Instance(ctx context.Context, IP ...gostatsd.IP) (map[gostats
 					log.Warnf("AWS returned unexpected EC2 instance: %#v", instance)
 					continue
 				}
+				instancesFound++
 				region, err := azToRegion(aws.StringValue(instance.Placement.AvailabilityZone))
 				if err != nil {
 					log.Errorf("Error getting instance region: %v", err)
@@ -82,7 +115,13 @@ func (p *Provider) Instance(ctx context.Context, IP ...gostatsd.IP) (map[gostats
 		}
 		return true
 	})
+
+	atomic.AddUint64(&p.describeInstancePages, pages)
+	atomic.AddUint64(&p.describeInstanceFound, instancesFound)
+
 	if err != nil {
+		atomic.AddUint64(&p.describeInstanceErrors, 1)
+
 		// Avoid spamming logs if instance id is not visible yet due to eventual consistency.
 		// https://docs.aws.amazon.com/AWSEC2/latest/APIReference/errors-overview.html#CommonErrors
 		if awsErr, ok := err.(awserr.Error); ok && awsErr.Code() == "InvalidInstanceID.NotFound" {
