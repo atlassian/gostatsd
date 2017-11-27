@@ -108,9 +108,9 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 
 	// 3. Start the cloud handler
 	ip := gostatsd.UnknownIP
-
+	var ch *CloudHandler
 	if s.CloudProvider != nil {
-		ch := NewCloudHandler(s.CloudProvider, metrics, events, s.Limiter, &s.CacheOptions)
+		ch = NewCloudHandler(s.CloudProvider, metrics, events, s.Limiter, &s.CacheOptions)
 		metrics = ch
 		events = ch
 		stage = stgr.NextStage()
@@ -146,6 +146,14 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 	stage.StartWithContext(func(ctx context.Context) {
 		backendHandler.RunMetrics(ctx, statser)
 	})
+
+	// 5b. Attach the statser to the cloudhandler if present
+	if ch != nil {
+		stage = stgr.NextStage()
+		stage.StartWithContext(func(ctx context.Context) {
+			ch.RunMetrics(ctx, statser)
+		})
+	}
 
 	// 6. Start the heartbeat
 	if s.HeartbeatInterval != 0 {

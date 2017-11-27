@@ -1,3 +1,7 @@
+4.1.x
+-----
+- New internal metrics around the cloud provider cache and AWS cloud provider, see METRICS.md for details.
+
 4.1.0
 -----
 - Add new flag `--conn-per-reader` adding support for a separate connection per
