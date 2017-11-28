@@ -23,7 +23,7 @@ type Cluster struct {
 func newCluster() *Cluster {
 	local, err := nodes.LocalAddress("1.1.1.1:1")
 
-	if err == nil {
+	if err != nil {
 		return nil
 	}
 
