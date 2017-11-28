@@ -3,6 +3,7 @@ package statsd
 import (
 	"context"
 	"errors"
+	"runtime"
 	"sort"
 	"sync"
 	"testing"
@@ -14,6 +15,44 @@ import (
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/time/rate"
 )
+
+// BenchmarkCloudHandlerDispatchMetric is a benchmark intended to (manually) test
+// the impact of the CloudHandler.statsCacheHit field.
+func BenchmarkCloudHandlerDispatchMetric(b *testing.B) {
+	fp := &fakeProviderIP{
+		Region: "us-west-3",
+	}
+	nh := &nopHandler{}
+	ch := NewCloudHandler(fp, nh, nh, rate.NewLimiter(100, 120), &CacheOptions{
+		CacheRefreshPeriod:        100 * time.Millisecond,
+		CacheEvictAfterIdlePeriod: 700 * time.Millisecond,
+		CacheTTL:                  500 * time.Millisecond,
+		CacheNegativeTTL:          500 * time.Millisecond,
+	})
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go ch.Run(ctx)
+
+	var wg sync.WaitGroup
+
+	workers := runtime.NumCPU()
+	wg.Add(workers)
+	defer wg.Wait()
+
+	b.ReportAllocs()
+	b.ResetTimer()
+
+	for c := 0; c < workers; c++ {
+		go func() {
+			for n := 0; n < b.N; n++ {
+				m := sm1()
+				ch.DispatchMetric(context.Background(), &m)
+			}
+			wg.Done()
+		}()
+	}
+}
 
 func TestCloudHandlerExpirationAndRefresh(t *testing.T) {
 	t.Parallel()
@@ -214,6 +253,19 @@ func se2() gostatsd.Event {
 		Hostname: "some_random_host",
 		SourceIP: "4.3.2.1",
 	}
+}
+
+type nopHandler struct{}
+
+func (nh *nopHandler) DispatchMetric(ctx context.Context, m *gostatsd.Metric) error {
+	return nil
+}
+
+func (nh *nopHandler) DispatchEvent(ctx context.Context, e *gostatsd.Event) error {
+	return nil
+}
+
+func (nh *nopHandler) WaitForEvents() {
 }
 
 type countingHandler struct {

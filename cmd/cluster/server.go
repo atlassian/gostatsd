@@ -21,7 +21,11 @@ type Cluster struct {
 
 // newCluster will create a new Cluster with default values.
 func newCluster() *Cluster {
-	local, _ := nodes.LocalAddress("1.1.1.1:1")
+	local, err := nodes.LocalAddress("1.1.1.1:1")
+
+	if err != nil {
+		return nil
+	}
 
 	return &Cluster{
 		RedisAddr:      "127.0.0.1:6379",

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/atlassian/gostatsd"
+	stats "github.com/atlassian/gostatsd/pkg/statser"
 
 	"github.com/ash2k/stager/wait"
 	log "github.com/sirupsen/logrus"
@@ -23,6 +24,11 @@ type instanceHolder struct {
 	lastAccessNano int64
 	expires        time.Time          // When this record expires.
 	instance       *gostatsd.Instance // Can be nil if the lookup resulted in an error or instance was not found
+}
+
+// This will be cleaned up later
+type MetricEmitter interface {
+	RunMetrics(ctx context.Context, statser stats.Statser)
 }
 
 func (ih *instanceHolder) updateAccess() {
@@ -43,6 +49,24 @@ type CacheOptions struct {
 
 // CloudHandler enriches metrics and events with additional information fetched from cloud provider.
 type CloudHandler struct {
+	// statsCacheHit is accessed by any go routine, must use atomic ops
+	statsCacheHit uint64 // Cumulative number of cache hits
+
+	// All other stats fields may only be read or written by the main CloudHandler.Run goroutine
+	statsCacheLateHit         uint64 // Cumulative number of late cache hits
+	statsCacheMiss            uint64 // Cumulative number of cache misses
+	statsCachePositive        uint64 // Absolute number of positive entries in cache
+	statsCacheNegative        uint64 // Absolute number of negative entries in cache
+	statsCacheRefreshPositive uint64 // Cumulative number of positive refreshes (ie, a refresh which succeeded)
+	statsCacheRefreshNegative uint64 // Cumulative number of negative refreshes (ie, a refresh which failed and used old data)
+	statsMetricItemsQueued    uint64 // Absolute number of metrics queued, waiting for a CP to respond
+	statsMetricHostsQueued    uint64 // Absolute number of IPs waiting for a CP to respond for metrics
+	statsEventItemsQueued     uint64 // Absolute number of events queued, waiting for a CP to respond
+	statsEventHostsQueued     uint64 // Absolute number of IPs waiting for a CP to respond for events
+
+	// emitChan triggers a write of all the current stats when it is given a Statser
+	emitChan chan stats.Statser
+
 	cacheOpts       CacheOptions
 	cloud           gostatsd.CloudProvider // Cloud provider interface
 	metrics         MetricHandler
@@ -69,6 +93,7 @@ func NewCloudHandler(cloud gostatsd.CloudProvider, metrics MetricHandler, events
 		limiter:         limiter,
 		metricSource:    make(chan *gostatsd.Metric),
 		eventSource:     make(chan *gostatsd.Event),
+		emitChan:        make(chan stats.Statser),
 		awaitingEvents:  make(map[gostatsd.IP][]*gostatsd.Event),
 		awaitingMetrics: make(map[gostatsd.IP][]*gostatsd.Metric),
 		cache:           make(map[gostatsd.IP]*instanceHolder),
@@ -77,6 +102,7 @@ func NewCloudHandler(cloud gostatsd.CloudProvider, metrics MetricHandler, events
 
 func (ch *CloudHandler) DispatchMetric(ctx context.Context, m *gostatsd.Metric) error {
 	if ch.updateTagsAndHostname(m.SourceIP, &m.Tags, &m.Hostname) {
+		atomic.AddUint64(&ch.statsCacheHit, 1)
 		return ch.metrics.DispatchMetric(ctx, m)
 	}
 	select {
@@ -89,6 +115,7 @@ func (ch *CloudHandler) DispatchMetric(ctx context.Context, m *gostatsd.Metric) 
 
 func (ch *CloudHandler) DispatchEvent(ctx context.Context, e *gostatsd.Event) error {
 	if ch.updateTagsAndHostname(e.SourceIP, &e.Tags, &e.Hostname) {
+		atomic.AddUint64(&ch.statsCacheHit, 1)
 		return ch.events.DispatchEvent(ctx, e)
 	}
 	ch.wg.Add(1) // Increment before sending to the channel
@@ -105,6 +132,52 @@ func (ch *CloudHandler) DispatchEvent(ctx context.Context, e *gostatsd.Event) er
 func (ch *CloudHandler) WaitForEvents() {
 	ch.wg.Wait()
 	ch.events.WaitForEvents()
+}
+
+func (ch *CloudHandler) RunMetrics(ctx context.Context, statser stats.Statser) {
+	// This will be cleaned up later
+	if me, ok := ch.cloud.(MetricEmitter); ok {
+		var wg wait.Group
+		defer wg.Wait()
+		wg.Start(func() {
+			me.RunMetrics(ctx, statser)
+		})
+	}
+
+	// All the channels are unbuffered, so no CSWs
+	ticker := time.NewTicker(1 * time.Second)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			select {
+			case ch.emitChan <- statser:
+				// success
+			default:
+				// we tried
+			}
+		}
+	}
+}
+
+func (ch *CloudHandler) emit(statser stats.Statser) {
+	// atomic
+	statser.Gauge("cloudprovider.cache_hit", float64(atomic.LoadUint64(&ch.statsCacheHit)), nil)
+	// regular
+	statser.Gauge("cloudprovider.cache_late_hit", float64(ch.statsCacheLateHit), nil)
+	statser.Gauge("cloudprovider.cache_miss", float64(ch.statsCacheMiss), nil)
+	statser.Gauge("cloudprovider.cache_positive", float64(ch.statsCachePositive), nil)
+	statser.Gauge("cloudprovider.cache_negative", float64(ch.statsCacheNegative), nil)
+	statser.Gauge("cloudprovider.cache_refresh_positive", float64(ch.statsCacheRefreshPositive), nil)
+	statser.Gauge("cloudprovider.cache_refresh_negative", float64(ch.statsCacheRefreshNegative), nil)
+	t := gostatsd.Tags{"type:metric"}
+	statser.Gauge("cloudprovider.hosts_queued", float64(ch.statsMetricHostsQueued), t)
+	statser.Gauge("cloudprovider.items_queued", float64(ch.statsMetricItemsQueued), t)
+	t = gostatsd.Tags{"type:event"}
+	statser.Gauge("cloudprovider.hosts_queued", float64(ch.statsEventHostsQueued), t)
+	statser.Gauge("cloudprovider.items_queued", float64(ch.statsEventItemsQueued), t)
 }
 
 func (ch *CloudHandler) Run(ctx context.Context) {
@@ -151,6 +224,8 @@ func (ch *CloudHandler) Run(ctx context.Context) {
 			ch.handleMetric(ctx, m)
 		case e := <-ch.eventSource:
 			ch.handleEvent(ctx, e)
+		case statser := <-ch.emitChan:
+			ch.emit(statser)
 		}
 		if toLookupC == nil && len(ch.toLookupIPs) > 0 {
 			last := len(ch.toLookupIPs) - 1
@@ -166,15 +241,22 @@ func (ch *CloudHandler) doRefresh(ctx context.Context, t time.Time) {
 	var toDelete []gostatsd.IP
 	now := t.UnixNano()
 	idleNano := ch.cacheOpts.CacheEvictAfterIdlePeriod.Nanoseconds()
+
 	for ip, holder := range ch.cache {
 		if now-holder.lastAccess() > idleNano {
 			// Entry was not used recently, remove it.
 			toDelete = append(toDelete, ip)
+			if holder.instance == nil {
+				ch.statsCacheNegative--
+			} else {
+				ch.statsCachePositive--
+			}
 		} else if t.After(holder.expires) {
 			// Entry needs a refresh.
 			ch.toLookupIPs = append(ch.toLookupIPs, ip)
 		}
 	}
+
 	if len(toDelete) > 0 {
 		ch.rw.Lock()
 		defer ch.rw.Unlock()
@@ -199,12 +281,22 @@ func (ch *CloudHandler) handleLookupResult(ctx context.Context, lr *lookupResult
 	}
 	currentHolder := ch.cache[lr.ip]
 	if currentHolder == nil {
+		// Not in cache, count it
+		if lr.err != nil {
+			ch.statsCachePositive++
+		} else {
+			ch.statsCacheNegative++
+		}
 		newHolder.lastAccessNano = now.UnixNano()
 	} else {
+		// In cache, don't count it
 		newHolder.lastAccessNano = currentHolder.lastAccess()
 		if lr.err != nil {
 			// Use the old instance if there was a lookup error.
 			newHolder.instance = currentHolder.instance
+			ch.statsCacheRefreshNegative++
+		} else {
+			ch.statsCacheRefreshPositive++
 		}
 	}
 	func() {
@@ -215,11 +307,15 @@ func (ch *CloudHandler) handleLookupResult(ctx context.Context, lr *lookupResult
 	metrics := ch.awaitingMetrics[lr.ip]
 	if metrics != nil {
 		delete(ch.awaitingMetrics, lr.ip)
+		ch.statsMetricItemsQueued -= uint64(len(metrics))
+		ch.statsMetricHostsQueued--
 		go ch.updateAndDispatchMetrics(ctx, lr.instance, metrics...)
 	}
 	events := ch.awaitingEvents[lr.ip]
 	if events != nil {
 		delete(ch.awaitingEvents, lr.ip)
+		ch.statsEventItemsQueued -= uint64(len(events))
+		ch.statsEventHostsQueued--
 		go ch.updateAndDispatchEvents(ctx, lr.instance, events...)
 	}
 }
@@ -229,6 +325,7 @@ func (ch *CloudHandler) handleMetric(ctx context.Context, m *gostatsd.Metric) {
 	if ok {
 		// While metric was in the queue the cache was primed. Use the value.
 		holder.updateAccess()
+		ch.statsCacheLateHit++
 		go ch.updateAndDispatchMetrics(ctx, holder.instance, m)
 	} else {
 		// Still nothing in the cache.
@@ -237,7 +334,10 @@ func (ch *CloudHandler) handleMetric(ctx context.Context, m *gostatsd.Metric) {
 		if len(queue) == 0 {
 			// This is the first metric in the queue
 			ch.toLookupIPs = append(ch.toLookupIPs, m.SourceIP)
+			ch.statsMetricHostsQueued++
 		}
+		ch.statsMetricItemsQueued++
+		ch.statsCacheMiss++
 	}
 }
 
@@ -258,6 +358,7 @@ func (ch *CloudHandler) handleEvent(ctx context.Context, e *gostatsd.Event) {
 	if ok {
 		// While event was in the queue the cache was primed. Use the value.
 		holder.updateAccess()
+		ch.statsCacheLateHit++
 		go ch.updateAndDispatchEvents(ctx, holder.instance, e)
 	} else {
 		// Still nothing in the cache.
@@ -266,7 +367,10 @@ func (ch *CloudHandler) handleEvent(ctx context.Context, e *gostatsd.Event) {
 		if len(queue) == 0 {
 			// This is the first event in the queue
 			ch.toLookupIPs = append(ch.toLookupIPs, e.SourceIP)
+			ch.statsEventHostsQueued++
 		}
+		ch.statsEventItemsQueued++
+		ch.statsCacheMiss++
 	}
 }
 
@@ -314,7 +418,7 @@ func updateInplace(tags *gostatsd.Tags, hostname *string, instance *gostatsd.Ins
 		// Update hostname inplace
 		*hostname = instance.ID
 		// Update tag list inplace
-		*tags = append(*tags, "region:"+instance.Region)
+		*tags = append(*tags, "region:"+instance.Region) // TODO: memory allocation cleanup
 		*tags = append(*tags, instance.Tags...)
 	}
 }
