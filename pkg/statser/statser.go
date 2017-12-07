@@ -8,7 +8,10 @@ import (
 
 // Statser is the interface for sending metrics
 type Statser interface {
+	// NotifyFlush is called when a flush occurs.  It signals all known subscribers.
 	NotifyFlush(d time.Duration)
+	// RegisterFlush returns a channel which is notified when a flush occurs, and a function to perform cleanup of the
+	// registration for clean shutdown.
 	RegisterFlush() (<-chan time.Duration, func())
 
 	Gauge(name string, value float64, tags gostatsd.Tags)
