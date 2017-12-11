@@ -10,9 +10,10 @@ type flushNotifier struct {
 	flushTargets []chan<- time.Duration
 }
 
-// RegisterFlush registers a channel which will receive a notification after every flush. If
-// the channel blocks, the notification will be silently dropped.  Thread-safe.
-func (fn *flushNotifier) RegisterFlush() (<-chan time.Duration, func()) {
+// RegisterFlush returns a channel which will receive a notification after every flush, and a cleanup
+// function which should be called to signal the channel is no longer being monitored.  If the channel
+// blocks, the notification will be silently dropped.  Thread-safe.
+func (fn *flushNotifier) RegisterFlush() (ch <-chan time.Duration, unregister func()) {
 	f := make(chan time.Duration)
 	fn.lock.Lock()
 	defer fn.lock.Unlock()

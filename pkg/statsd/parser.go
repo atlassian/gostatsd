@@ -89,7 +89,7 @@ func (dp *DatagramParser) Run(ctx context.Context) {
 
 // handleDatagram handles the contents of a datagram and calls Handler.DispatchMetric()
 // for each line that successfully parses into a types.Metric and Handler.DispatchEvent() for each event.
-func (dp *DatagramParser) handleDatagram(ctx context.Context, ip gostatsd.IP, msg []byte) (uint64, uint64, uint64, error) {
+func (dp *DatagramParser) handleDatagram(ctx context.Context, ip gostatsd.IP, msg []byte) (metricCount, eventCount, badLineCount uint64, err error) {
 	var numMetrics, numEvents, numBad uint64
 	var exitError error
 	for {

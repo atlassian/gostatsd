@@ -153,7 +153,7 @@ func (ch *CloudHandler) RunMetrics(ctx context.Context, statser stats.Statser) {
 }
 
 // scheduleEmit is used to push a request to the main goroutine requesting metrics
-// be emtited.  This is done so we can skip atomic operations on most of our metric
+// be emitted.  This is done so we can skip atomic operations on most of our metric
 // counters.  In line with the flush notifier, it is fire and forget and won't block
 func (ch *CloudHandler) scheduleEmit(ctx context.Context, statser stats.Statser) {
 	select {
