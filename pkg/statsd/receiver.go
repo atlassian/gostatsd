@@ -26,6 +26,8 @@ type DatagramReceiver struct {
 	batchesRead            uint64
 	cumulDatagramsReceived uint64
 
+	bufPool *bufferPool
+
 	receiveBatchSize int // The number of datagrams to read in each batch
 
 	out chan<- []*Datagram // Output chan of read datagram batches
@@ -36,6 +38,7 @@ func NewDatagramReceiver(out chan<- []*Datagram, receiveBatchSize int) *Datagram
 	return &DatagramReceiver{
 		out:              out,
 		receiveBatchSize: receiveBatchSize,
+		bufPool:          newBufferPool(),
 	}
 }
 
@@ -67,10 +70,9 @@ func (dr *DatagramReceiver) RunMetrics(ctx context.Context, statser stats.Statse
 func (dr *DatagramReceiver) Receive(ctx context.Context, c net.PacketConn) {
 	br := NewBatchReader(c)
 	messages := make([]Message, dr.receiveBatchSize)
-	bufPool := newBufferPool()
 
 	for i := 0; i < dr.receiveBatchSize; i++ {
-		messages[i].Buffers = bufPool.get()
+		messages[i].Buffers = dr.bufPool.get()
 	}
 	for {
 
@@ -96,14 +98,14 @@ func (dr *DatagramReceiver) Receive(ctx context.Context, c net.PacketConn) {
 			nbytes := messages[i].N
 			buf := messages[i].Buffers
 			doneFn := func() {
-				bufPool.put(buf)
+				dr.bufPool.put(buf)
 			}
 			dgs[i] = &Datagram{
 				IP:       getIP(addr),
 				Msg:      buf[0][:nbytes],
 				DoneFunc: doneFn,
 			}
-			messages[i].Buffers = bufPool.get()
+			messages[i].Buffers = dr.bufPool.get()
 		}
 		select {
 		case dr.out <- dgs:
