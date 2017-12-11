@@ -26,9 +26,8 @@ func TestStatsdThroughput(t *testing.T) {
 		Backends: []gostatsd.Backend{backend},
 		CloudProvider: &fakeProvider{
 			instance: &gostatsd.Instance{
-				ID:     "i-13123123",
-				Region: "us-west-3",
-				Tags:   gostatsd.Tags{"tag1", "tag2:234"},
+				ID:   "i-13123123",
+				Tags: gostatsd.Tags{"region:us-west-3", "tag1", "tag2:234"},
 			},
 		},
 		Limiter:          rate.NewLimiter(DefaultMaxCloudRequests, DefaultBurstCloudRequests),
