@@ -67,15 +67,11 @@ func (dr *DatagramReceiver) RunMetrics(ctx context.Context, statser stats.Statse
 func (dr *DatagramReceiver) Receive(ctx context.Context, c net.PacketConn) {
 	br := NewBatchReader(c)
 	messages := make([]Message, dr.receiveBatchSize)
-	bufPool := sync.Pool{
-		New: func() interface{} {
-			b := make([]byte, packetSizeUDP)
-			return &b
-		},
-	}
+	bufPool := newBufferPool()
+
 	for {
 		for i := 0; i < dr.receiveBatchSize; i++ {
-			messages[i].Buffers = [][]byte{*bufPool.Get().(*[]byte)}
+			messages[i].Buffers = [][]byte{bufPool.get()}
 		}
 
 		datagramCount, err := br.ReadBatch(messages)
@@ -100,7 +96,7 @@ func (dr *DatagramReceiver) Receive(ctx context.Context, c net.PacketConn) {
 			nbytes := messages[i].N
 			buf := messages[i].Buffers[0]
 			doneFn := func() {
-				bufPool.Put(&buf)
+				bufPool.put(buf)
 			}
 			dgs[i] = &Datagram{
 				IP:       getIP(addr),
@@ -123,4 +119,27 @@ func getIP(addr net.Addr) gostatsd.IP {
 	}
 	log.Errorf("Cannot get source address %q of type %T", addr, addr)
 	return gostatsd.UnknownIP
+}
+
+// bufferPool is a strongly typed wrapper around a sync.Pool for [][]byte
+type bufferPool struct {
+	p sync.Pool
+}
+
+func newBufferPool() *bufferPool {
+	return &bufferPool{
+		p: sync.Pool{
+			New: func() interface{} {
+				return make([]byte, packetSizeUDP)
+			},
+		},
+	}
+}
+
+func (p *bufferPool) get() []byte {
+	return p.p.Get().([]byte)
+}
+
+func (p *bufferPool) put(b []byte) {
+	p.p.Put(b)
 }

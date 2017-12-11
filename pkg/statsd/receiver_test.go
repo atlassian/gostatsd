@@ -19,7 +19,7 @@ func BenchmarkReceive(b *testing.B) {
 	//
 	// ... so this is pretty arbitrary.
 	ch := make(chan []*Datagram, 5000)
-	mr := NewDatagramReceiver(ch, 1)
+	mr := NewDatagramReceiver(ch, DefaultReceiveBatchSize)
 	c, done := fakesocket.NewCountedFakePacketConn(uint64(b.N))
 
 	var wg sync.WaitGroup
