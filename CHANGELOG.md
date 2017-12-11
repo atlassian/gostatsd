@@ -1,4 +1,4 @@
-x.x.x
+5.0.0
 -----
 - More metrics rework.  Internal metrics are now in-phase with flushing.
 - Better distribution of metrics between aggregators when received from multiple hosts.
