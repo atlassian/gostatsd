@@ -287,9 +287,9 @@ func (ch *CloudHandler) handleLookupResult(ctx context.Context, lr *lookupResult
 	if currentHolder == nil {
 		// Not in cache, count it
 		if lr.err != nil {
-			ch.statsCachePositive++
-		} else {
 			ch.statsCacheNegative++
+		} else {
+			ch.statsCachePositive++
 		}
 		newHolder.lastAccessNano = now.UnixNano()
 	} else {
