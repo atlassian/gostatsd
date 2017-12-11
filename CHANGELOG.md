@@ -1,3 +1,15 @@
+x.x.x
+-----
+- More metrics rework.  Internal metrics are now in-phase with flushing.
+- Better distribution of metrics between aggregators when received from multiple hosts.
+- New Datadog option: `max_requests`, the maximum number of metric http requests that can be made by the Datadog
+  backend.
+- BREAKING: Additional and renamed metrics in the flusher, see METRICS.md
+- BREAKING: Heartbeat changes:
+    - `--heartbeat-interval` changed to `--heartbeat-enabled`.
+    - Heartbeat is in-phase with the flush.
+    - Heartbeat sends a value of 1, so a sum aggregation can be applied.
+
 4.1.1
 -----
 - New internal metrics around the cloud provider cache and AWS cloud provider, see METRICS.md for details.

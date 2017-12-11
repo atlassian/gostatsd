@@ -29,8 +29,6 @@ type Server struct {
 	DefaultTags         gostatsd.Tags
 	ExpiryInterval      time.Duration
 	FlushInterval       time.Duration
-	IgnoreHost          bool
-	ConnPerReader       bool
 	MaxReaders          int
 	MaxParsers          int
 	MaxWorkers          int
@@ -40,7 +38,9 @@ type Server struct {
 	MetricsAddr         string
 	Namespace           string
 	PercentThreshold    []float64
-	HeartbeatInterval   time.Duration
+	IgnoreHost          bool
+	ConnPerReader       bool
+	HeartbeatEnabled    bool
 	HeartbeatTags       gostatsd.Tags
 	ReceiveBatchSize    int
 	CacheOptions
@@ -108,13 +108,13 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 
 	// 3. Start the cloud handler
 	ip := gostatsd.UnknownIP
-	var ch *CloudHandler
+	var cloudHandler *CloudHandler
 	if s.CloudProvider != nil {
-		ch = NewCloudHandler(s.CloudProvider, metrics, events, s.Limiter, &s.CacheOptions)
-		metrics = ch
-		events = ch
+		cloudHandler = NewCloudHandler(s.CloudProvider, metrics, events, s.Limiter, &s.CacheOptions)
+		metrics = cloudHandler
+		events = cloudHandler
 		stage = stgr.NextStage()
-		stage.StartWithContext(ch.Run)
+		stage.StartWithContext(cloudHandler.Run)
 		selfIP, err := s.CloudProvider.SelfIP()
 		if err != nil {
 			log.Warnf("Failed to get self ip: %v", err)
@@ -141,23 +141,27 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 	stage = stgr.NextStage()
 	stage.StartWithContext(statser.Run)
 
-	// 5. Attach the statser to the backend handler
+	// 5. Attach the statser to anything that needs it
 	stage = stgr.NextStage()
 	stage.StartWithContext(func(ctx context.Context) {
 		backendHandler.RunMetrics(ctx, statser)
 	})
-
-	// 5b. Attach the statser to the cloudhandler if present
-	if ch != nil {
-		stage = stgr.NextStage()
+	for _, backend := range s.Backends {
+		if metricEmitter, ok := backend.(MetricEmitter); ok {
+			stage.StartWithContext(func(ctx context.Context) {
+				metricEmitter.RunMetrics(ctx, statser)
+			})
+		}
+	}
+	if cloudHandler != nil {
 		stage.StartWithContext(func(ctx context.Context) {
-			ch.RunMetrics(ctx, statser)
+			cloudHandler.RunMetrics(ctx, statser)
 		})
 	}
 
 	// 6. Start the heartbeat
-	if s.HeartbeatInterval != 0 {
-		hb := stats.NewHeartBeater(statser, "heartbeat", s.HeartbeatTags, s.HeartbeatInterval)
+	if s.HeartbeatEnabled {
+		hb := stats.NewHeartBeater(statser, "heartbeat", s.HeartbeatTags)
 		stage = stgr.NextStage()
 		stage.StartWithContext(hb.Run)
 	}
@@ -174,9 +178,11 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 	}
 
 	// 8. Start the Receiver
-	receiver := NewDatagramReceiver(datagrams, s.ReceiveBatchSize, statser)
+	receiver := NewDatagramReceiver(datagrams, s.ReceiveBatchSize)
 	stage = stgr.NextStage()
-	stage.StartWithContext(receiver.RunMetrics)
+	stage.StartWithContext(func(ctx context.Context) {
+		receiver.RunMetrics(ctx, statser)
+	})
 	for r := 0; r < s.MaxReaders; r++ {
 		// Open socket
 		c, err := sf()
@@ -196,7 +202,7 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 	}
 
 	// 9. Start the Flusher
-	flusher := NewMetricFlusher(s.FlushInterval, backendHandler, s.Backends, ip, hostname, statser)
+	flusher := NewMetricFlusher(s.FlushInterval, backendHandler, s.Backends, hostname, statser)
 	stage = stgr.NextStage()
 	stage.StartWithContext(flusher.Run)
 

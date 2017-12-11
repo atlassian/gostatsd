@@ -45,16 +45,17 @@ func NewDatagramParser(in <-chan []*Datagram, ns string, ignoreHost bool, metric
 }
 
 func (dp *DatagramParser) RunMetrics(ctx context.Context) {
-	ticker := time.NewTicker(1 * time.Second) // TODO: Make configurable
-	defer ticker.Stop()
+	flushed, unregister := dp.statser.RegisterFlush()
+	defer unregister()
+
 	for {
 		select {
 		case <-ctx.Done():
 			return
-		case <-ticker.C:
-			dp.statser.Count("metrics_received", float64(atomic.SwapUint64(&dp.metricsReceived, 0)), nil)
-			dp.statser.Count("events_received", float64(atomic.SwapUint64(&dp.eventsReceived, 0)), nil)
-			dp.statser.Count("bad_lines_seen", float64(atomic.SwapUint64(&dp.badLines, 0)), nil)
+		case <-flushed:
+			dp.statser.Gauge("parser.metrics_received", float64(atomic.LoadUint64(&dp.metricsReceived)), nil)
+			dp.statser.Gauge("parser.events_received", float64(atomic.LoadUint64(&dp.eventsReceived)), nil)
+			dp.statser.Gauge("parser.bad_lines_seen", float64(atomic.LoadUint64(&dp.badLines)), nil)
 		}
 	}
 }
@@ -65,24 +66,31 @@ func (dp *DatagramParser) Run(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case dgs := <-dp.in:
+			accumM, accumE, accumB := uint64(0), uint64(0), uint64(0)
 			for _, dg := range dgs {
-				err := dp.handlePacket(ctx, dg.IP, dg.Msg)
+				m, e, b, err := dp.handleDatagram(ctx, dg.IP, dg.Msg)
 				dg.DoneFunc()
 				if err != nil {
 					if err == context.Canceled || err == context.DeadlineExceeded {
 						return
 					}
-					log.Warnf("Failed to handle packet: %v", err)
+					log.Warnf("Failed to handle datagram: %v", err)
 				}
+				accumM += m
+				accumE += e
+				accumB += b
 			}
+			atomic.AddUint64(&dp.metricsReceived, accumM)
+			atomic.AddUint64(&dp.eventsReceived, accumE)
+			atomic.AddUint64(&dp.badLines, accumB)
 		}
 	}
 }
 
-// handlePacket handles the contents of a datagram and calls Handler.DispatchMetric()
+// handleDatagram handles the contents of a datagram and calls Handler.DispatchMetric()
 // for each line that successfully parses into a types.Metric and Handler.DispatchEvent() for each event.
-func (dp *DatagramParser) handlePacket(ctx context.Context, ip gostatsd.IP, msg []byte) error {
-	var numMetrics, numEvents uint16
+func (dp *DatagramParser) handleDatagram(ctx context.Context, ip gostatsd.IP, msg []byte) (metricCount, eventCount, badLineCount uint64, err error) {
+	var numMetrics, numEvents, numBad uint64
 	var exitError error
 	for {
 		idx := bytes.IndexByte(msg, '\n')
@@ -103,7 +111,7 @@ func (dp *DatagramParser) handlePacket(ctx context.Context, ip gostatsd.IP, msg 
 			// logging as debug to avoid spamming logs when a bad actor sends
 			// badly formatted messages
 			log.Debugf("Error parsing line %q from %s: %v", line, ip, err)
-			atomic.AddUint64(&dp.badLines, 1)
+			numBad++
 			continue
 		}
 		if metric != nil {
@@ -143,9 +151,7 @@ func (dp *DatagramParser) handlePacket(ctx context.Context, ip gostatsd.IP, msg 
 			log.Warnf("Error dispatching metric/event %q from %s: %v", line, ip, err)
 		}
 	}
-	atomic.AddUint64(&dp.metricsReceived, uint64(numMetrics))
-	atomic.AddUint64(&dp.eventsReceived, uint64(numEvents))
-	return exitError
+	return numMetrics, numEvents, numBad, exitError
 }
 
 // parseLine with lexer idpl.

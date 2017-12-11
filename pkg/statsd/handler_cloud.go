@@ -26,11 +26,6 @@ type instanceHolder struct {
 	instance       *gostatsd.Instance // Can be nil if the lookup resulted in an error or instance was not found
 }
 
-// This will be cleaned up later
-type MetricEmitter interface {
-	RunMetrics(ctx context.Context, statser stats.Statser)
-}
-
 func (ih *instanceHolder) updateAccess() {
 	atomic.StoreInt64(&ih.lastAccessNano, time.Now().UnixNano())
 }
@@ -135,7 +130,6 @@ func (ch *CloudHandler) WaitForEvents() {
 }
 
 func (ch *CloudHandler) RunMetrics(ctx context.Context, statser stats.Statser) {
-	// This will be cleaned up later
 	if me, ok := ch.cloud.(MetricEmitter); ok {
 		var wg wait.Group
 		defer wg.Wait()
@@ -145,20 +139,30 @@ func (ch *CloudHandler) RunMetrics(ctx context.Context, statser stats.Statser) {
 	}
 
 	// All the channels are unbuffered, so no CSWs
-	ticker := time.NewTicker(1 * time.Second)
-	defer ticker.Stop()
+	flushed, unregister := statser.RegisterFlush()
+	defer unregister()
+
 	for {
 		select {
 		case <-ctx.Done():
 			return
-		case <-ticker.C:
-			select {
-			case ch.emitChan <- statser:
-				// success
-			default:
-				// we tried
-			}
+		case <-flushed:
+			ch.scheduleEmit(ctx, statser)
 		}
+	}
+}
+
+// scheduleEmit is used to push a request to the main goroutine requesting metrics
+// be emitted.  This is done so we can skip atomic operations on most of our metric
+// counters.  In line with the flush notifier, it is fire and forget and won't block
+func (ch *CloudHandler) scheduleEmit(ctx context.Context, statser stats.Statser) {
+	select {
+	case ch.emitChan <- statser:
+		// success
+	case <-ctx.Done():
+		// success-ish
+	default:
+		// at least we tried
 	}
 }
 
@@ -283,9 +287,9 @@ func (ch *CloudHandler) handleLookupResult(ctx context.Context, lr *lookupResult
 	if currentHolder == nil {
 		// Not in cache, count it
 		if lr.err != nil {
-			ch.statsCachePositive++
-		} else {
 			ch.statsCacheNegative++
+		} else {
+			ch.statsCachePositive++
 		}
 		newHolder.lastAccessNano = now.UnixNano()
 	} else {

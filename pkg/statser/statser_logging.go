@@ -10,6 +10,8 @@ import (
 
 // LoggingStatser is a Statser which emits logs
 type LoggingStatser struct {
+	flushNotifier
+
 	tags   gostatsd.Tags
 	logger *log.Entry
 }
