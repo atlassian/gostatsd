@@ -3,7 +3,6 @@ package statsd
 import (
 	"context"
 	"errors"
-	"runtime"
 	"sort"
 	"sync"
 	"testing"
@@ -34,24 +33,16 @@ func BenchmarkCloudHandlerDispatchMetric(b *testing.B) {
 	defer cancel()
 	go ch.Run(ctx)
 
-	var wg sync.WaitGroup
-
-	workers := runtime.NumCPU()
-	wg.Add(workers)
-	defer wg.Wait()
-
 	b.ReportAllocs()
 	b.ResetTimer()
 
-	for c := 0; c < workers; c++ {
-		go func() {
-			for n := 0; n < b.N; n++ {
-				m := sm1()
-				ch.DispatchMetric(context.Background(), &m)
-			}
-			wg.Done()
-		}()
-	}
+	ctxBackground := context.Background()
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
+			m := sm1()
+			ch.DispatchMetric(ctxBackground, &m)
+		}
+	})
 }
 
 func TestCloudHandlerExpirationAndRefresh(t *testing.T) {
