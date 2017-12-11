@@ -70,7 +70,7 @@ func (dr *DatagramReceiver) Receive(ctx context.Context, c net.PacketConn) {
 	bufPool := newBufferPool()
 
 	for i := 0; i < dr.receiveBatchSize; i++ {
-		messages[i].Buffers = [][]byte{bufPool.get()}
+		messages[i].Buffers = bufPool.get()
 	}
 	for {
 
@@ -94,16 +94,16 @@ func (dr *DatagramReceiver) Receive(ctx context.Context, c net.PacketConn) {
 		for i := 0; i < datagramCount; i++ {
 			addr := messages[i].Addr
 			nbytes := messages[i].N
-			buf := messages[i].Buffers[0]
+			buf := messages[i].Buffers
 			doneFn := func() {
 				bufPool.put(buf)
 			}
 			dgs[i] = &Datagram{
 				IP:       getIP(addr),
-				Msg:      buf[:nbytes],
+				Msg:      buf[0][:nbytes],
 				DoneFunc: doneFn,
 			}
-			messages[i].Buffers = [][]byte{bufPool.get()}
+			messages[i].Buffers = bufPool.get()
 		}
 		select {
 		case dr.out <- dgs:
@@ -131,16 +131,16 @@ func newBufferPool() *bufferPool {
 	return &bufferPool{
 		p: sync.Pool{
 			New: func() interface{} {
-				return make([]byte, packetSizeUDP)
+				return [][]byte{make([]byte, packetSizeUDP)}
 			},
 		},
 	}
 }
 
-func (p *bufferPool) get() []byte {
-	return p.p.Get().([]byte)
+func (p *bufferPool) get() [][]byte {
+	return p.p.Get().([][]byte)
 }
 
-func (p *bufferPool) put(b []byte) {
+func (p *bufferPool) put(b [][]byte) {
 	p.p.Put(b)
 }
