@@ -69,10 +69,10 @@ func (dr *DatagramReceiver) Receive(ctx context.Context, c net.PacketConn) {
 	messages := make([]Message, dr.receiveBatchSize)
 	bufPool := newBufferPool()
 
+	for i := 0; i < dr.receiveBatchSize; i++ {
+		messages[i].Buffers = [][]byte{bufPool.get()}
+	}
 	for {
-		for i := 0; i < dr.receiveBatchSize; i++ {
-			messages[i].Buffers = [][]byte{bufPool.get()}
-		}
 
 		datagramCount, err := br.ReadBatch(messages)
 		if err != nil {
@@ -103,6 +103,7 @@ func (dr *DatagramReceiver) Receive(ctx context.Context, c net.PacketConn) {
 				Msg:      buf[:nbytes],
 				DoneFunc: doneFn,
 			}
+			messages[i].Buffers = [][]byte{bufPool.get()}
 		}
 		select {
 		case dr.out <- dgs:
