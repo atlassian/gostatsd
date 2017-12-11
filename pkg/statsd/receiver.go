@@ -7,6 +7,7 @@ import (
 	"sync/atomic"
 
 	"github.com/atlassian/gostatsd"
+	"github.com/atlassian/gostatsd/pkg/fakesocket"
 	stats "github.com/atlassian/gostatsd/pkg/statser"
 
 	log "github.com/sirupsen/logrus"
@@ -84,7 +85,9 @@ func (dr *DatagramReceiver) Receive(ctx context.Context, c net.PacketConn) {
 				return
 			default:
 			}
-			log.Warnf("Error reading from socket: %v", err)
+			if err != fakesocket.ErrClosedConnection {
+				log.Warnf("Error reading from socket: %v", err)
+			}
 			continue
 		}
 

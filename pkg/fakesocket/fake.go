@@ -4,8 +4,10 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"math"
 	"math/rand"
 	"net"
+	"sync/atomic"
 	"time"
 )
 
@@ -23,16 +25,14 @@ var ErrAlreadyClosedConnection = errors.New("Connection is already closed")
 
 // FakePacketConn is a fake net.PacketConn (and net.Conn) providing FakeMetric when read from.
 type FakePacketConn struct {
-	closed chan struct{}
+	closedFlag uint64
+	closedChan chan struct{}
+	count      uint64
+	limit      uint64
 }
 
 func (fpc *FakePacketConn) isClosed() bool {
-	select {
-	case <-fpc.closed:
-		return true
-	default:
-		return false
-	}
+	return atomic.LoadUint64(&fpc.closedFlag) != 0
 }
 
 // ReadFrom copies FakeMetric into b.
@@ -40,6 +40,12 @@ func (fpc *FakePacketConn) ReadFrom(b []byte) (int, net.Addr, error) {
 	if fpc.isClosed() {
 		return 0, nil, ErrClosedConnection
 	}
+
+	if atomic.AddUint64(&fpc.count, 1) >= fpc.limit {
+		_ = fpc.Close()
+		return 0, nil, ErrClosedConnection
+	}
+
 	n := copy(b, FakeMetric)
 	return n, FakeAddr, nil
 }
@@ -54,12 +60,14 @@ func (fpc *FakePacketConn) WriteTo(b []byte, addr net.Addr) (int, error) {
 
 // Close dummy impl.
 func (fpc *FakePacketConn) Close() error {
-	if fpc.isClosed() {
+	if atomic.SwapUint64(&fpc.closedFlag, 1) == 0 {
+		// Was open, now closed
+		close(fpc.closedChan)
+		return nil
+	} else {
+		// Already closed
 		return ErrAlreadyClosedConnection
 	}
-	// Potential race, but it's a test fixture anyway
-	close(fpc.closed)
-	return nil
 }
 
 // LocalAddr dummy impl.
@@ -129,7 +137,7 @@ func (frpc *FakeRandomPacketConn) ReadFrom(b []byte) (int, net.Addr, error) {
 func Factory() (net.PacketConn, error) {
 	frpc := &FakeRandomPacketConn{
 		FakePacketConn: FakePacketConn{
-			closed: make(chan struct{}),
+			closedChan: make(chan struct{}),
 		},
 	}
 	return frpc, nil
@@ -137,6 +145,15 @@ func Factory() (net.PacketConn, error) {
 
 func NewFakePacketConn() net.PacketConn {
 	return &FakePacketConn{
-		closed: make(chan struct{}),
+		limit:      math.MaxInt64, // not Uint64, it needs room to overflow without wrapping
+		closedChan: make(chan struct{}),
 	}
+}
+
+func NewCountedFakePacketConn(limit uint64) (net.PacketConn, chan struct{}) {
+	ch := make(chan struct{})
+	return &FakePacketConn{
+		limit:      limit,
+		closedChan: ch,
+	}, ch
 }
