@@ -1,3 +1,7 @@
+5.1.0
+-----
+- Performance work
+
 5.0.0
 -----
 - More metrics rework.  Internal metrics are now in-phase with flushing.
