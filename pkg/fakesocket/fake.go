@@ -42,7 +42,7 @@ func (fpc *FakePacketConn) ReadFrom(b []byte) (int, net.Addr, error) {
 	}
 
 	if atomic.AddUint64(&fpc.count, 1) >= fpc.limit {
-		_ = fpc.Close()
+		_ = fpc.Close() // nolint:gas
 		return 0, nil, ErrClosedConnection
 	}
 

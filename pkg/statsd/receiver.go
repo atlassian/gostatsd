@@ -133,16 +133,17 @@ func newBufferPool() *bufferPool {
 	return &bufferPool{
 		p: sync.Pool{
 			New: func() interface{} {
-				return [][]byte{make([]byte, packetSizeUDP)}
+				b := [][]byte{make([]byte, packetSizeUDP)}
+				return &b
 			},
 		},
 	}
 }
 
 func (p *bufferPool) get() [][]byte {
-	return p.p.Get().([][]byte)
+	return *p.p.Get().(*[][]byte)
 }
 
 func (p *bufferPool) put(b [][]byte) {
-	p.p.Put(b)
+	p.p.Put(&b)
 }
