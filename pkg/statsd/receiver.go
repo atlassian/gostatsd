@@ -70,9 +70,11 @@ func (dr *DatagramReceiver) RunMetrics(ctx context.Context, statser stats.Statse
 func (dr *DatagramReceiver) Receive(ctx context.Context, c net.PacketConn) {
 	br := NewBatchReader(c)
 	messages := make([]Message, dr.receiveBatchSize)
+	retBuffers := make([]*[][]byte, dr.receiveBatchSize)
 
 	for i := 0; i < dr.receiveBatchSize; i++ {
-		messages[i].Buffers = dr.bufPool.get()
+		retBuffers[i] = dr.bufPool.get()
+		messages[i].Buffers = *retBuffers[i]
 	}
 	for {
 
@@ -96,16 +98,20 @@ func (dr *DatagramReceiver) Receive(ctx context.Context, c net.PacketConn) {
 		for i := 0; i < datagramCount; i++ {
 			addr := messages[i].Addr
 			nbytes := messages[i].N
-			buf := messages[i].Buffers
+			buf := messages[i].Buffers[0][:nbytes]
+
+			retBuf := retBuffers[i]
 			doneFn := func() {
-				dr.bufPool.put(buf)
+				dr.bufPool.put(retBuf)
 			}
+
 			dgs[i] = &Datagram{
 				IP:       getIP(addr),
-				Msg:      buf[0][:nbytes],
+				Msg:      buf,
 				DoneFunc: doneFn,
 			}
-			messages[i].Buffers = dr.bufPool.get()
+			retBuffers[i] = dr.bufPool.get()
+			messages[i].Buffers = *retBuffers[i]
 		}
 		select {
 		case dr.out <- dgs:
@@ -124,7 +130,7 @@ func getIP(addr net.Addr) gostatsd.IP {
 	return gostatsd.UnknownIP
 }
 
-// bufferPool is a strongly typed wrapper around a sync.Pool for [][]byte
+// bufferPool is a strongly typed wrapper around a sync.Pool for *[][]byte
 type bufferPool struct {
 	p sync.Pool
 }
@@ -140,10 +146,10 @@ func newBufferPool() *bufferPool {
 	}
 }
 
-func (p *bufferPool) get() [][]byte {
-	return *p.p.Get().(*[][]byte)
+func (p *bufferPool) get() *[][]byte {
+	return p.p.Get().(*[][]byte)
 }
 
-func (p *bufferPool) put(b [][]byte) {
-	p.p.Put(&b)
+func (p *bufferPool) put(b *[][]byte) {
+	p.p.Put(b)
 }
