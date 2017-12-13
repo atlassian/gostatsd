@@ -1,3 +1,7 @@
+5.1.1
+-----
+- Fix index out of range error and tag corruption in AWS CP
+
 5.1.0
 -----
 - Performance work
