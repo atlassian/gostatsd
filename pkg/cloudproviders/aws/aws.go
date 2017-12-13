@@ -107,7 +107,7 @@ func (p *Provider) Instance(ctx context.Context, IP ...gostatsd.IP) (map[gostats
 						gostatsd.NormalizeTagKey(aws.StringValue(tag.Key)),
 						aws.StringValue(tag.Value))
 				}
-				tags[len(instance.Tags)-1] = "region:" + region
+				tags[len(tags)-1] = "region:" + region
 				instances[ip] = &gostatsd.Instance{
 					ID:   aws.StringValue(instance.InstanceId),
 					Tags: tags,
