@@ -7,6 +7,7 @@ import (
 	"sync/atomic"
 
 	"github.com/atlassian/gostatsd"
+	"github.com/atlassian/gostatsd/pkg/fakesocket"
 	stats "github.com/atlassian/gostatsd/pkg/statser"
 
 	log "github.com/sirupsen/logrus"
@@ -25,6 +26,8 @@ type DatagramReceiver struct {
 	batchesRead            uint64
 	cumulDatagramsReceived uint64
 
+	bufPool *bufferPool
+
 	receiveBatchSize int // The number of datagrams to read in each batch
 
 	out chan<- []*Datagram // Output chan of read datagram batches
@@ -35,6 +38,7 @@ func NewDatagramReceiver(out chan<- []*Datagram, receiveBatchSize int) *Datagram
 	return &DatagramReceiver{
 		out:              out,
 		receiveBatchSize: receiveBatchSize,
+		bufPool:          newBufferPool(),
 	}
 }
 
@@ -66,16 +70,13 @@ func (dr *DatagramReceiver) RunMetrics(ctx context.Context, statser stats.Statse
 func (dr *DatagramReceiver) Receive(ctx context.Context, c net.PacketConn) {
 	br := NewBatchReader(c)
 	messages := make([]Message, dr.receiveBatchSize)
-	bufPool := sync.Pool{
-		New: func() interface{} {
-			b := make([]byte, packetSizeUDP)
-			return &b
-		},
+	retBuffers := make([]*[][]byte, dr.receiveBatchSize)
+
+	for i := 0; i < dr.receiveBatchSize; i++ {
+		retBuffers[i] = dr.bufPool.get()
+		messages[i].Buffers = *retBuffers[i]
 	}
 	for {
-		for i := 0; i < dr.receiveBatchSize; i++ {
-			messages[i].Buffers = [][]byte{*bufPool.Get().(*[]byte)}
-		}
 
 		datagramCount, err := br.ReadBatch(messages)
 		if err != nil {
@@ -84,7 +85,9 @@ func (dr *DatagramReceiver) Receive(ctx context.Context, c net.PacketConn) {
 				return
 			default:
 			}
-			log.Warnf("Error reading from socket: %v", err)
+			if err != fakesocket.ErrClosedConnection {
+				log.Warnf("Error reading from socket: %v", err)
+			}
 			continue
 		}
 
@@ -95,15 +98,20 @@ func (dr *DatagramReceiver) Receive(ctx context.Context, c net.PacketConn) {
 		for i := 0; i < datagramCount; i++ {
 			addr := messages[i].Addr
 			nbytes := messages[i].N
-			buf := messages[i].Buffers[0]
+			buf := messages[i].Buffers[0][:nbytes]
+
+			retBuf := retBuffers[i]
 			doneFn := func() {
-				bufPool.Put(&buf)
+				dr.bufPool.put(retBuf)
 			}
+
 			dgs[i] = &Datagram{
 				IP:       getIP(addr),
-				Msg:      buf[:nbytes],
+				Msg:      buf,
 				DoneFunc: doneFn,
 			}
+			retBuffers[i] = dr.bufPool.get()
+			messages[i].Buffers = *retBuffers[i]
 		}
 		select {
 		case dr.out <- dgs:
@@ -120,4 +128,28 @@ func getIP(addr net.Addr) gostatsd.IP {
 	}
 	log.Errorf("Cannot get source address %q of type %T", addr, addr)
 	return gostatsd.UnknownIP
+}
+
+// bufferPool is a strongly typed wrapper around a sync.Pool for *[][]byte
+type bufferPool struct {
+	p sync.Pool
+}
+
+func newBufferPool() *bufferPool {
+	return &bufferPool{
+		p: sync.Pool{
+			New: func() interface{} {
+				b := [][]byte{make([]byte, packetSizeUDP)}
+				return &b
+			},
+		},
+	}
+}
+
+func (p *bufferPool) get() *[][]byte {
+	return p.p.Get().(*[][]byte)
+}
+
+func (p *bufferPool) put(b *[][]byte) {
+	p.p.Put(b)
 }

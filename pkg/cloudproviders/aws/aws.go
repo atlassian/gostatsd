@@ -101,16 +101,16 @@ func (p *Provider) Instance(ctx context.Context, IP ...gostatsd.IP) (map[gostats
 				if err != nil {
 					log.Errorf("Error getting instance region: %v", err)
 				}
-				tags := make(gostatsd.Tags, len(instance.Tags))
+				tags := make(gostatsd.Tags, len(instance.Tags)+1)
 				for idx, tag := range instance.Tags {
 					tags[idx] = fmt.Sprintf("%s:%s",
 						gostatsd.NormalizeTagKey(aws.StringValue(tag.Key)),
 						aws.StringValue(tag.Value))
 				}
+				tags[len(instance.Tags)-1] = "region:" + region
 				instances[ip] = &gostatsd.Instance{
-					ID:     aws.StringValue(instance.InstanceId),
-					Region: region,
-					Tags:   tags,
+					ID:   aws.StringValue(instance.InstanceId),
+					Tags: tags,
 				}
 			}
 		}

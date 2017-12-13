@@ -11,9 +11,8 @@ type CloudProviderFactory func(*viper.Viper) (CloudProvider, error)
 
 // Instance represents a cloud instance.
 type Instance struct {
-	ID     string
-	Region string
-	Tags   Tags
+	ID   string
+	Tags Tags
 }
 
 // CloudProvider represents a cloud provider.

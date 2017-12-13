@@ -3,7 +3,6 @@ package statsd
 import (
 	"context"
 	"errors"
-	"runtime"
 	"sort"
 	"sync"
 	"testing"
@@ -19,9 +18,7 @@ import (
 // BenchmarkCloudHandlerDispatchMetric is a benchmark intended to (manually) test
 // the impact of the CloudHandler.statsCacheHit field.
 func BenchmarkCloudHandlerDispatchMetric(b *testing.B) {
-	fp := &fakeProviderIP{
-		Region: "us-west-3",
-	}
+	fp := &fakeProviderIP{}
 	nh := &nopHandler{}
 	ch := NewCloudHandler(fp, nh, nh, rate.NewLimiter(100, 120), &CacheOptions{
 		CacheRefreshPeriod:        100 * time.Millisecond,
@@ -34,24 +31,16 @@ func BenchmarkCloudHandlerDispatchMetric(b *testing.B) {
 	defer cancel()
 	go ch.Run(ctx)
 
-	var wg sync.WaitGroup
-
-	workers := runtime.NumCPU()
-	wg.Add(workers)
-	defer wg.Wait()
-
 	b.ReportAllocs()
 	b.ResetTimer()
 
-	for c := 0; c < workers; c++ {
-		go func() {
-			for n := 0; n < b.N; n++ {
-				m := sm1()
-				ch.DispatchMetric(context.Background(), &m)
-			}
-			wg.Done()
-		}()
-	}
+	ctxBackground := context.Background()
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
+			m := sm1()
+			ch.DispatchMetric(ctxBackground, &m)
+		}
+	})
 }
 
 func TestCloudHandlerExpirationAndRefresh(t *testing.T) {
@@ -72,9 +61,7 @@ func TestCloudHandlerExpirationAndRefresh(t *testing.T) {
 
 func testExpire(t *testing.T, expectedIps []gostatsd.IP, f func(*CloudHandler) error) {
 	t.Parallel()
-	fp := &fakeProviderIP{
-		Region: "us-west-3",
-	}
+	fp := &fakeProviderIP{}
 	counting := &countingHandler{}
 	ch := NewCloudHandler(fp, counting, counting, rate.NewLimiter(100, 120), &CacheOptions{
 		CacheRefreshPeriod:        100 * time.Millisecond,
@@ -102,8 +89,7 @@ func testExpire(t *testing.T, expectedIps []gostatsd.IP, f func(*CloudHandler) e
 func TestCloudHandlerDispatch(t *testing.T) {
 	t.Parallel()
 	fp := &fakeProviderIP{
-		Region: "us-west-3",
-		Tags:   gostatsd.Tags{"tag1", "tag2:234"},
+		Tags: gostatsd.Tags{"region:us-west-3", "tag1", "tag2:234"},
 	}
 
 	expectedIps := []gostatsd.IP{"1.2.3.4", "4.3.2.1"}
@@ -337,9 +323,8 @@ func (fp *fakeProviderIP) Instance(ctx context.Context, ips ...gostatsd.IP) (map
 	instances := make(map[gostatsd.IP]*gostatsd.Instance, len(ips))
 	for _, ip := range ips {
 		instances[ip] = &gostatsd.Instance{
-			ID:     "i-" + string(ip),
-			Region: fp.Region,
-			Tags:   fp.Tags,
+			ID:   "i-" + string(ip),
+			Tags: fp.Tags,
 		}
 	}
 	return instances, nil

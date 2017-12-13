@@ -422,7 +422,6 @@ func updateInplace(tags *gostatsd.Tags, hostname *string, instance *gostatsd.Ins
 		// Update hostname inplace
 		*hostname = instance.ID
 		// Update tag list inplace
-		*tags = append(*tags, "region:"+instance.Region) // TODO: memory allocation cleanup
 		*tags = append(*tags, instance.Tags...)
 	}
 }
