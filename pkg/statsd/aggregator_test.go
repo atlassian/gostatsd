@@ -271,7 +271,7 @@ func TestIsExpired(t *testing.T) {
 	now := gostatsd.Nanotime(time.Now().UnixNano())
 
 	ma := &MetricAggregator{expiryInterval: 0}
-	assrt.Equal(false, ma.isExpired(now, now))
+	assrt.Equal(true, ma.isExpired(now, now))
 
 	ma.expiryInterval = 10 * time.Second
 
