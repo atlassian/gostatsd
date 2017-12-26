@@ -50,15 +50,16 @@ func (f *MetricFlusher) Run(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-flushTicker.C: // Time to flush to the backends
-			f.flushData(ctx)
 			thisFlush := time.Now()
-			f.statser.NotifyFlush(thisFlush.Sub(lastFlush))
+			flushDelta := thisFlush.Sub(lastFlush)
+			f.flushData(ctx, flushDelta)
+			f.statser.NotifyFlush(flushDelta)
 			lastFlush = thisFlush
 		}
 	}
 }
 
-func (f *MetricFlusher) flushData(ctx context.Context) {
+func (f *MetricFlusher) flushData(ctx context.Context, flushInterval time.Duration) {
 	var sendWg sync.WaitGroup
 	timerTotal := f.statser.NewTimer("flusher.total_time", nil)
 	processWait := f.aggregateProcesser.Process(ctx, func(workerId int, aggr Aggregator) {
@@ -66,7 +67,7 @@ func (f *MetricFlusher) flushData(ctx context.Context) {
 		tags := gostatsd.Tags{fmt.Sprintf("aggregator_id:%d", workerId)}
 
 		timerFlush := f.statser.NewTimer("aggregator.aggregation_time", tags)
-		aggr.Flush(f.flushInterval)
+		aggr.Flush(flushInterval)
 		timerFlush.SendGauge()
 
 		timerProcess := f.statser.NewTimer("aggregator.process_time", tags)

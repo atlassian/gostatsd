@@ -1,3 +1,8 @@
+5.4.0
+-----
+- BREAKING: The way "per second" rates are calculated has changed from "value / configured flush interval"
+  to "value / actual flush interval".
+
 5.3.0
 -----
 - Uses the default EC2 credentials

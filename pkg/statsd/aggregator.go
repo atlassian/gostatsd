@@ -73,7 +73,6 @@ func round(v float64) float64 {
 func (a *MetricAggregator) Flush(flushInterval time.Duration) {
 	a.statser.Gauge("aggregator.metrics_received", float64(a.metricsReceived), nil)
 
-	a.FlushInterval = flushInterval
 	flushInSeconds := float64(flushInterval) / float64(time.Second)
 
 	a.Counters.Each(func(key, tagsKey string, counter gostatsd.Counter) {
