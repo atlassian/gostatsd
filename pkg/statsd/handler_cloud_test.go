@@ -261,6 +261,7 @@ type countingHandler struct {
 }
 
 func (ch *countingHandler) DispatchMetric(ctx context.Context, m *gostatsd.Metric) error {
+	m.DoneFunc = nil // Clear DoneFunc because it contains non-predictable variable data
 	ch.mu.Lock()
 	defer ch.mu.Unlock()
 	ch.metrics = append(ch.metrics, *m)

@@ -20,7 +20,7 @@ type Timer struct {
 
 // NewTimer initialises a new timer.
 func NewTimer(timestamp Nanotime, values []float64, hostname string, tags Tags) Timer {
-	return Timer{Values: values, Timestamp: timestamp, Hostname: hostname, Tags: tags}
+	return Timer{Values: values, Timestamp: timestamp, Hostname: hostname, Tags: tags.Copy()}
 }
 
 // Timers stores a map of timers by tags.

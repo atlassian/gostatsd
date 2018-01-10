@@ -323,6 +323,7 @@ func (a *MetricAggregator) Receive(m *gostatsd.Metric, now time.Time) {
 	default:
 		log.Errorf("Unknow metric type %s for %s", m.Type, m.Name)
 	}
+	m.Done()
 }
 
 func formatTagsKey(tags gostatsd.Tags, hostname string) string {

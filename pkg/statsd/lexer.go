@@ -7,6 +7,7 @@ import (
 	"strconv"
 
 	"github.com/atlassian/gostatsd"
+	"github.com/atlassian/gostatsd/pkg/pool"
 )
 
 type lexer struct {
@@ -22,6 +23,8 @@ type lexer struct {
 	namespace     string
 	err           error
 	sampling      float64
+
+	metricPool *pool.MetricPool
 }
 
 // assumes we don't have \x00 bytes in input.
@@ -106,7 +109,7 @@ func lexSpecial(l *lexer) stateFn {
 		return nil
 	default:
 		l.pos--
-		l.m = new(gostatsd.Metric)
+		l.m = l.metricPool.Get()
 		return lexKeySep
 	}
 }

@@ -45,6 +45,7 @@ type Metric struct {
 	Hostname    string     // Hostname of the source of the metric
 	SourceIP    IP         // IP of the source of the metric
 	Type        MetricType // The type of metric
+	DoneFunc    func()     // Returns the metric to the pool. May be nil. Call Metric.Done(), not this.
 }
 
 // Bucket will pick a distribution bucket for this metric to land in.  max is exclusive.
@@ -58,6 +59,13 @@ func (m *Metric) Bucket(max int) int {
 
 func (m *Metric) String() string {
 	return fmt.Sprintf("{%s, %s, %f, %s, %v}", m.Type, m.Name, m.Value, m.StringValue, m.Tags)
+}
+
+// Done invokes DoneFunc if it's set, returning the metric to the pool.
+func (m *Metric) Done() {
+	if m.DoneFunc != nil {
+		m.DoneFunc()
+	}
 }
 
 // AggregatedMetrics is an interface for aggregated metrics.
