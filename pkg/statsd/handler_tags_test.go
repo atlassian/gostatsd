@@ -13,6 +13,10 @@ type TagCapturingHandler struct {
 	e []*gostatsd.Event
 }
 
+func (tch *TagCapturingHandler) EstimatedTags() int {
+	return 0
+}
+
 func (tch *TagCapturingHandler) DispatchMetric(ctx context.Context, m *gostatsd.Metric) error {
 	tch.m = append(tch.m, m)
 	return nil

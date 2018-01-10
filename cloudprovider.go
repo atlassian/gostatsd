@@ -27,4 +27,6 @@ type CloudProvider interface {
 	MaxInstancesBatch() int
 	// SelfIP returns host's IPv4 address.
 	SelfIP() (IP, error)
+	// EstimatedTags returns a guess of how many tags are likely to be added by the CloudProvider
+	EstimatedTags() int
 }

@@ -110,6 +110,10 @@ type fakeProvider struct {
 	instance *gostatsd.Instance
 }
 
+func (fp *fakeProvider) EstimatedTags() int {
+	return 0
+}
+
 func (fp *fakeProvider) Name() string {
 	return "fakeProvider"
 }

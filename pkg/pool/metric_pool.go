@@ -11,16 +11,18 @@ import (
 // of the tags buffer
 type MetricPool struct {
 	p             sync.Pool
+	estimatedTags int
 }
 
 // NewMetricPool returns a new metric pool.
-func NewMetricPool() *MetricPool {
+func NewMetricPool(estimatedTags int) *MetricPool {
 	return &MetricPool{
 		p: sync.Pool{
 			New: func() interface{} {
 				return &gostatsd.Metric{}
 			},
 		},
+		estimatedTags: estimatedTags,
 	}
 }
 
@@ -39,6 +41,9 @@ func (mp *MetricPool) Get() *gostatsd.Metric {
 	} else {
 		m.DoneFunc = func() {
 			mp.p.Put(m)
+		}
+		if mp.estimatedTags != 0 {
+			m.Tags = make(gostatsd.Tags, 0, mp.estimatedTags)
 		}
 	}
 	return m

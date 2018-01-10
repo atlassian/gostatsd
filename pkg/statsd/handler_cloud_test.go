@@ -243,6 +243,10 @@ func se2() gostatsd.Event {
 
 type nopHandler struct{}
 
+func (nh *nopHandler) EstimatedTags() int {
+	return 0
+}
+
 func (nh *nopHandler) DispatchMetric(ctx context.Context, m *gostatsd.Metric) error {
 	return nil
 }
@@ -258,6 +262,10 @@ type countingHandler struct {
 	mu      sync.Mutex
 	metrics []gostatsd.Metric
 	events  gostatsd.Events
+}
+
+func (ch *countingHandler) EstimatedTags() int {
+	return 0
 }
 
 func (ch *countingHandler) DispatchMetric(ctx context.Context, m *gostatsd.Metric) error {
@@ -286,6 +294,10 @@ type fakeCountingProvider struct {
 	mu          sync.Mutex
 	ips         []gostatsd.IP
 	invocations uint64
+}
+
+func (fp *fakeCountingProvider) EstimatedTags() int {
+	return 0
 }
 
 func (fp *fakeCountingProvider) MaxInstancesBatch() int {

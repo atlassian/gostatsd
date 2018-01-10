@@ -45,6 +45,10 @@ type Provider struct {
 	MaxInstances int
 }
 
+func (p *Provider) EstimatedTags() int {
+	return 10 + 1 // 10 for EC2 tags, 1 for the region
+}
+
 func (p *Provider) RunMetrics(ctx context.Context, statser stats.Statser) {
 	flushed, unregister := statser.RegisterFlush()
 	defer unregister()

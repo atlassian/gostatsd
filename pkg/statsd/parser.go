@@ -44,7 +44,7 @@ func NewDatagramParser(in <-chan []*Datagram, ns string, ignoreHost bool, metric
 		events:     events,
 		namespace:  ns,
 		statser:    statser,
-		metricPool: pool.NewMetricPool(),
+		metricPool: pool.NewMetricPool(metrics.EstimatedTags()),
 	}
 }
 

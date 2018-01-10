@@ -7,18 +7,25 @@ import (
 )
 
 type TagHandler struct {
-	metrics MetricHandler
-	events  EventHandler
-	tags    gostatsd.Tags // Tags to add to all metrics
+	metrics       MetricHandler
+	events        EventHandler
+	tags          gostatsd.Tags // Tags to add to all metrics
+	estimatedTags int
 }
 
 // NewTagHandler initialises a new handler which adds tags and sends metrics/events to the next handler
 func NewTagHandler(metrics MetricHandler, events EventHandler, tags gostatsd.Tags) *TagHandler {
 	return &TagHandler{
-		metrics: metrics,
-		events:  events,
-		tags:    tags,
+		metrics:       metrics,
+		events:        events,
+		tags:          tags,
+		estimatedTags: len(tags) + metrics.EstimatedTags(),
 	}
+}
+
+// EstimatedTags returns a guess for how many tags to pre-allocate
+func (th *TagHandler) EstimatedTags() int {
+	return th.estimatedTags
 }
 
 // DispatchMetric adds the tags from the TagHandler to the metric and passes it to the next stage in the pipeline

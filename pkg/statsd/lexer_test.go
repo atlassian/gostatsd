@@ -141,7 +141,7 @@ func TestInvalidEventsLexer(t *testing.T) {
 
 func parseLine(input []byte, namespace string) (*gostatsd.Metric, *gostatsd.Event, error) {
 	l := lexer{
-		metricPool: pool.NewMetricPool(),
+		metricPool: pool.NewMetricPool(0),
 	}
 	return l.run(input, namespace)
 }
@@ -165,7 +165,7 @@ var parselineBlackhole *gostatsd.Metric
 func benchmarkLexer(dp *DatagramParser, input string, b *testing.B) {
 	slice := []byte(input)
 	var r *gostatsd.Metric
-	dp.metricPool = pool.NewMetricPool()
+	dp.metricPool = pool.NewMetricPool(0)
 	b.ReportAllocs()
 	b.ResetTimer()
 	for n := 0; n < b.N; n++ {
