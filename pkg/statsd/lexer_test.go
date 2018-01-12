@@ -153,7 +153,7 @@ func compareMetric(t *testing.T, tests map[string]gostatsd.Metric, namespace str
 		t.Run(input, func(t *testing.T) {
 			t.Parallel()
 			result, _, err := parseLine([]byte(input), namespace)
-			result.DoneFunc = nil // Clear DoneFunc because it contains non-predictable variable data
+			result.DoneFunc = nil // Clear DoneFunc because it contains non-predictable variable data which interferes with the tests
 			require.NoError(t, err)
 			assert.Equal(t, &expected, result)
 		})

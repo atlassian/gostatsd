@@ -269,7 +269,7 @@ func (ch *countingHandler) EstimatedTags() int {
 }
 
 func (ch *countingHandler) DispatchMetric(ctx context.Context, m *gostatsd.Metric) error {
-	m.DoneFunc = nil // Clear DoneFunc because it contains non-predictable variable data
+	m.DoneFunc = nil // Clear DoneFunc because it contains non-predictable variable data which interferes with the tests
 	ch.mu.Lock()
 	defer ch.mu.Unlock()
 	ch.metrics = append(ch.metrics, *m)
