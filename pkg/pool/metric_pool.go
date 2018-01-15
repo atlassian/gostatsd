@@ -27,17 +27,15 @@ func NewMetricPool(estimatedTags int) *MetricPool {
 }
 
 // Get returns a *gostatsd.Metric suitable for holding a metric.  The DoneFunc should be called
-// when the metric is no longer required.  It must not be called earlier, and the Tags field may
-// be reused.
+// when the metric is no longer required, it must not be called earlier.  The Tags field may be
+// reused, so any usage of tags must be be Tags.Copy()'d before calling Metric.Done()
 func (mp *MetricPool) Get() *gostatsd.Metric {
 	m := mp.p.Get().(*gostatsd.Metric)
-	if m.DoneFunc != nil { // it was re-used, and the data needs cleaning
-		m.Name = ""
-		m.Value = 0
-		m.Tags = m.Tags[:0]
-		m.StringValue = ""
-		m.Hostname = ""
-		m.SourceIP = ""
+	if m.DoneFunc != nil { // it was re-used, and the data needs resetting.
+		// Reset is done on dirty-Get() rather than Put(), because a Pool is (implementation
+		// detail) flushed every GC, and it would be wasted work.  This should be re-assessed
+		// with any major version bump of the runtime.
+		m.Reset()
 	} else {
 		m.DoneFunc = func() {
 			mp.p.Put(m)

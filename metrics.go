@@ -48,6 +48,17 @@ type Metric struct {
 	DoneFunc    func()     // Returns the metric to the pool. May be nil. Call Metric.Done(), not this.
 }
 
+// Reset is used to reset a metric to as clean state, called on re-use from the pool.
+func (m *Metric) Reset() {
+	m.Name = ""
+	m.Value = 0
+	m.Tags = m.Tags[:0]
+	m.StringValue = ""
+	m.Hostname = ""
+	m.SourceIP = ""
+	m.Type = 0
+}
+
 // Bucket will pick a distribution bucket for this metric to land in.  max is exclusive.
 func (m *Metric) Bucket(max int) int {
 	bucket := adler32.Checksum([]byte(m.Name))
