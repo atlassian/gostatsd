@@ -120,6 +120,7 @@ func constructServer(v *viper.Viper) (*statsd.Server, error) {
 		MaxWorkers:          v.GetInt(statsd.ParamMaxWorkers),
 		MaxQueueSize:        v.GetInt(statsd.ParamMaxQueueSize),
 		MaxConcurrentEvents: v.GetInt(statsd.ParamMaxConcurrentEvents),
+		EstimatedTags:       v.GetInt(statsd.ParamEstimatedTags),
 		MetricsAddr:         v.GetString(statsd.ParamMetricsAddr),
 		Namespace:           v.GetString(statsd.ParamNamespace),
 		PercentThreshold:    pt,

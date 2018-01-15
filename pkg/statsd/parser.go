@@ -36,7 +36,7 @@ type DatagramParser struct {
 }
 
 // NewDatagramParser initialises a new DatagramParser.
-func NewDatagramParser(in <-chan []*Datagram, ns string, ignoreHost bool, metrics MetricHandler, events EventHandler, statser statser.Statser) *DatagramParser {
+func NewDatagramParser(in <-chan []*Datagram, ns string, ignoreHost bool, estimatedTags int, metrics MetricHandler, events EventHandler, statser statser.Statser) *DatagramParser {
 	return &DatagramParser{
 		in:         in,
 		ignoreHost: ignoreHost,
@@ -44,7 +44,7 @@ func NewDatagramParser(in <-chan []*Datagram, ns string, ignoreHost bool, metric
 		events:     events,
 		namespace:  ns,
 		statser:    statser,
-		metricPool: pool.NewMetricPool(metrics.EstimatedTags()),
+		metricPool: pool.NewMetricPool(estimatedTags + metrics.EstimatedTags()),
 	}
 }
 

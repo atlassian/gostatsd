@@ -35,6 +35,7 @@ type Server struct {
 	MaxQueueSize        int
 	MaxConcurrentEvents int
 	MaxEventQueueSize   int
+	EstimatedTags       int
 	MetricsAddr         string
 	Namespace           string
 	PercentThreshold    []float64
@@ -170,7 +171,7 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 	// Open receiver <-> parser chan
 	datagrams := make(chan []*Datagram)
 
-	parser := NewDatagramParser(datagrams, s.Namespace, s.IgnoreHost, metrics, events, statser)
+	parser := NewDatagramParser(datagrams, s.Namespace, s.IgnoreHost, s.EstimatedTags, metrics, events, statser)
 	stage = stgr.NextStage()
 	stage.StartWithContext(parser.RunMetrics)
 	for r := 0; r < s.MaxParsers; r++ {
