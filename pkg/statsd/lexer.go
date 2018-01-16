@@ -110,7 +110,7 @@ func lexSpecial(l *lexer) stateFn {
 	default:
 		l.pos--
 		l.m = l.metricPool.Get()
-		// Pull the tags from the metric, because it may have a buffer we can reuse.
+		// Pull the tags from the metric, because it may have an empty buffer we can reuse.
 		l.tags = l.m.Tags
 		return lexKeySep
 	}
