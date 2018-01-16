@@ -62,6 +62,8 @@ const (
 	DefaultHeartbeatEnabled = false
 	// DefaultReceiveBatchSize is the number of datagrams to read in each receive batch
 	DefaultReceiveBatchSize = 50
+	// DefaultEstimatedTags is the estimated number of expected tags on an individual metric submitted externally
+	DefaultEstimatedTags = 4
 	// DefaultConnPerReader is the default for whether to create a connection per reader
 	DefaultConnPerReader = false
 )
@@ -97,6 +99,8 @@ const (
 	ParamMaxQueueSize = "max-queue-size"
 	// ParamMaxConcurrentEvents is the name of parameter with maximum number of events sent concurrently.
 	ParamMaxConcurrentEvents = "max-concurrent-events"
+	// ParamEstimatedTags is the name of parameter with estimated number of tags per metric
+	ParamEstimatedTags = "estimated-tags"
 	// ParamCacheRefreshPeriod is the name of parameter with cache refresh period.
 	ParamCacheRefreshPeriod = "cloud-cache-refresh-period"
 	// ParamCacheEvictAfterIdlePeriod is the name of parameter with idle cache eviction period.
@@ -130,6 +134,7 @@ func AddFlags(fs *pflag.FlagSet) {
 	fs.Int(ParamMaxWorkers, DefaultMaxWorkers, "Maximum number of workers to process metrics")
 	fs.Int(ParamMaxQueueSize, DefaultMaxQueueSize, "Maximum number of buffered metrics per worker")
 	fs.Int(ParamMaxConcurrentEvents, DefaultMaxConcurrentEvents, "Maximum number of events sent concurrently")
+	fs.Int(ParamEstimatedTags, DefaultEstimatedTags, "Estimated number of expected tags on an individual metric submitted externally")
 	fs.Duration(ParamCacheRefreshPeriod, DefaultCacheRefreshPeriod, "Cloud cache refresh period")
 	fs.Duration(ParamCacheEvictAfterIdlePeriod, DefaultCacheEvictAfterIdlePeriod, "Idle cloud cache eviction period")
 	fs.Duration(ParamCacheTTL, DefaultCacheTTL, "Cloud cache TTL for successful lookups")

@@ -38,6 +38,7 @@ func TestStatsdThroughput(t *testing.T) {
 		MaxParsers:       DefaultMaxParsers,
 		MaxWorkers:       DefaultMaxWorkers,
 		MaxQueueSize:     DefaultMaxQueueSize,
+		EstimatedTags:    1, // Travis has limited memory
 		PercentThreshold: DefaultPercentThreshold,
 		HeartbeatEnabled: DefaultHeartbeatEnabled,
 		ReceiveBatchSize: DefaultReceiveBatchSize,
@@ -111,7 +112,7 @@ type fakeProvider struct {
 }
 
 func (fp *fakeProvider) EstimatedTags() int {
-	return 0
+	return len(fp.instance.Tags)
 }
 
 func (fp *fakeProvider) Name() string {
