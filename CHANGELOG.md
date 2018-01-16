@@ -1,3 +1,8 @@
+5.x.x
+-----
+- Performance work, round 2
+- Add new flag `--estimated-tags`, pre-allocates the Tags array.  Defaults to `4`.
+
 5.1.1
 -----
 - Fix index out of range error and tag corruption in AWS CP

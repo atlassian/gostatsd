@@ -3,11 +3,11 @@ package statsd
 import (
 	"context"
 	"net"
-	"sync"
 	"sync/atomic"
 
 	"github.com/atlassian/gostatsd"
 	"github.com/atlassian/gostatsd/pkg/fakesocket"
+	"github.com/atlassian/gostatsd/pkg/pool"
 	stats "github.com/atlassian/gostatsd/pkg/statser"
 
 	log "github.com/sirupsen/logrus"
@@ -26,7 +26,7 @@ type DatagramReceiver struct {
 	batchesRead            uint64
 	cumulDatagramsReceived uint64
 
-	bufPool *bufferPool
+	bufPool *pool.DatagramBufferPool
 
 	receiveBatchSize int // The number of datagrams to read in each batch
 
@@ -38,7 +38,7 @@ func NewDatagramReceiver(out chan<- []*Datagram, receiveBatchSize int) *Datagram
 	return &DatagramReceiver{
 		out:              out,
 		receiveBatchSize: receiveBatchSize,
-		bufPool:          newBufferPool(),
+		bufPool:          pool.NewDatagramBufferPool(packetSizeUDP),
 	}
 }
 
@@ -73,7 +73,7 @@ func (dr *DatagramReceiver) Receive(ctx context.Context, c net.PacketConn) {
 	retBuffers := make([]*[][]byte, dr.receiveBatchSize)
 
 	for i := 0; i < dr.receiveBatchSize; i++ {
-		retBuffers[i] = dr.bufPool.get()
+		retBuffers[i] = dr.bufPool.Get()
 		messages[i].Buffers = *retBuffers[i]
 	}
 	for {
@@ -102,7 +102,7 @@ func (dr *DatagramReceiver) Receive(ctx context.Context, c net.PacketConn) {
 
 			retBuf := retBuffers[i]
 			doneFn := func() {
-				dr.bufPool.put(retBuf)
+				dr.bufPool.Put(retBuf)
 			}
 
 			dgs[i] = &Datagram{
@@ -110,7 +110,7 @@ func (dr *DatagramReceiver) Receive(ctx context.Context, c net.PacketConn) {
 				Msg:      buf,
 				DoneFunc: doneFn,
 			}
-			retBuffers[i] = dr.bufPool.get()
+			retBuffers[i] = dr.bufPool.Get()
 			messages[i].Buffers = *retBuffers[i]
 		}
 		select {
@@ -128,28 +128,4 @@ func getIP(addr net.Addr) gostatsd.IP {
 	}
 	log.Errorf("Cannot get source address %q of type %T", addr, addr)
 	return gostatsd.UnknownIP
-}
-
-// bufferPool is a strongly typed wrapper around a sync.Pool for *[][]byte
-type bufferPool struct {
-	p sync.Pool
-}
-
-func newBufferPool() *bufferPool {
-	return &bufferPool{
-		p: sync.Pool{
-			New: func() interface{} {
-				b := [][]byte{make([]byte, packetSizeUDP)}
-				return &b
-			},
-		},
-	}
-}
-
-func (p *bufferPool) get() *[][]byte {
-	return p.p.Get().(*[][]byte)
-}
-
-func (p *bufferPool) put(b *[][]byte) {
-	p.p.Put(b)
 }

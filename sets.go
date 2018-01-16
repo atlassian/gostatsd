@@ -10,7 +10,7 @@ type Set struct {
 
 // NewSet initialises a new set.
 func NewSet(timestamp Nanotime, values map[string]struct{}, hostname string, tags Tags) Set {
-	return Set{Values: values, Timestamp: timestamp, Hostname: hostname, Tags: tags}
+	return Set{Values: values, Timestamp: timestamp, Hostname: hostname, Tags: tags.Copy()}
 }
 
 // Sets stores a map of sets by tags.

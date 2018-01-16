@@ -11,7 +11,7 @@ type Counter struct {
 
 // NewCounter initialises a new counter.
 func NewCounter(timestamp Nanotime, value int64, hostname string, tags Tags) Counter {
-	return Counter{Value: value, Timestamp: timestamp, Hostname: hostname, Tags: tags}
+	return Counter{Value: value, Timestamp: timestamp, Hostname: hostname, Tags: tags.Copy()}
 }
 
 // Counters stores a map of counters by tags.

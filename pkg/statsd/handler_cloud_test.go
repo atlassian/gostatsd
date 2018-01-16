@@ -243,6 +243,10 @@ func se2() gostatsd.Event {
 
 type nopHandler struct{}
 
+func (nh *nopHandler) EstimatedTags() int {
+	return 0
+}
+
 func (nh *nopHandler) DispatchMetric(ctx context.Context, m *gostatsd.Metric) error {
 	return nil
 }
@@ -260,7 +264,12 @@ type countingHandler struct {
 	events  gostatsd.Events
 }
 
+func (ch *countingHandler) EstimatedTags() int {
+	return 0
+}
+
 func (ch *countingHandler) DispatchMetric(ctx context.Context, m *gostatsd.Metric) error {
+	m.DoneFunc = nil // Clear DoneFunc because it contains non-predictable variable data which interferes with the tests
 	ch.mu.Lock()
 	defer ch.mu.Unlock()
 	ch.metrics = append(ch.metrics, *m)
@@ -285,6 +294,10 @@ type fakeCountingProvider struct {
 	mu          sync.Mutex
 	ips         []gostatsd.IP
 	invocations uint64
+}
+
+func (fp *fakeCountingProvider) EstimatedTags() int {
+	return 0
 }
 
 func (fp *fakeCountingProvider) MaxInstancesBatch() int {

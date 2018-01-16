@@ -103,6 +103,11 @@ func (bh *BackendHandler) RunMetrics(ctx context.Context, statser stats.Statser)
 	wg.StartWithContext(ctx, csw.Run)
 }
 
+// EstimatedTags returns a guess for how many tags to pre-allocate
+func (bh *BackendHandler) EstimatedTags() int {
+	return 0
+}
+
 // DispatchMetric dispatches metric to a corresponding Aggregator.
 func (bh *BackendHandler) DispatchMetric(ctx context.Context, m *gostatsd.Metric) error {
 	w := bh.workers[m.Bucket(bh.numWorkers)]

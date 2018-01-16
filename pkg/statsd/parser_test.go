@@ -30,7 +30,7 @@ func TestParseEmptyDatagram(t *testing.T) {
 		t.Run(strconv.Itoa(pos), func(t *testing.T) {
 			t.Parallel()
 			ch := &countingHandler{}
-			mr := NewDatagramParser(nil, "", false, ch, ch, statser.NewNullStatser())
+			mr := NewDatagramParser(nil, "", false, 0, ch, ch, statser.NewNullStatser())
 			_, _, _, err := mr.handleDatagram(context.Background(), gostatsd.UnknownIP, inp)
 			require.NoError(t, err)
 			assert.Zero(t, len(ch.events), ch.events)
@@ -89,7 +89,7 @@ func TestParseDatagram(t *testing.T) {
 		t.Run(datagram, func(t *testing.T) {
 			t.Parallel()
 			ch := &countingHandler{}
-			mr := NewDatagramParser(nil, "", false, ch, ch, statser.NewNullStatser())
+			mr := NewDatagramParser(nil, "", false, 0, ch, ch, statser.NewNullStatser())
 			_, _, _, err := mr.handleDatagram(context.Background(), fakeIP, []byte(datagram))
 			assert.NoError(t, err)
 			for i, e := range ch.events {
@@ -159,7 +159,7 @@ func TestParseDatagramIgnoreHost(t *testing.T) {
 		t.Run(datagram, func(t *testing.T) {
 			t.Parallel()
 			ch := &countingHandler{}
-			mr := NewDatagramParser(nil, "", true, ch, ch, statser.NewNullStatser())
+			mr := NewDatagramParser(nil, "", true, 0, ch, ch, statser.NewNullStatser())
 			_, _, _, err := mr.handleDatagram(context.Background(), fakeIP, []byte(datagram))
 			assert.NoError(t, err)
 			for i, e := range ch.events {

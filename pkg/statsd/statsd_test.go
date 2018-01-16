@@ -38,6 +38,7 @@ func TestStatsdThroughput(t *testing.T) {
 		MaxParsers:       DefaultMaxParsers,
 		MaxWorkers:       DefaultMaxWorkers,
 		MaxQueueSize:     DefaultMaxQueueSize,
+		EstimatedTags:    1, // Travis has limited memory
 		PercentThreshold: DefaultPercentThreshold,
 		HeartbeatEnabled: DefaultHeartbeatEnabled,
 		ReceiveBatchSize: DefaultReceiveBatchSize,
@@ -108,6 +109,10 @@ func (cb *countingBackend) SendEvent(ctx context.Context, e *gostatsd.Event) err
 
 type fakeProvider struct {
 	instance *gostatsd.Instance
+}
+
+func (fp *fakeProvider) EstimatedTags() int {
+	return len(fp.instance.Tags)
 }
 
 func (fp *fakeProvider) Name() string {

@@ -45,6 +45,9 @@ func (tags Tags) Concat(additional Tags) Tags {
 
 // Copy returns a copy of the Tags
 func (tags Tags) Copy() Tags {
+	if tags == nil {
+		return nil
+	}
 	tagCopy := make(Tags, len(tags))
 	copy(tagCopy, tags)
 	return tagCopy

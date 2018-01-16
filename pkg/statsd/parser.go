@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/atlassian/gostatsd"
+	"github.com/atlassian/gostatsd/pkg/pool"
 	"github.com/atlassian/gostatsd/pkg/statser"
 
 	log "github.com/sirupsen/logrus"
@@ -29,11 +30,13 @@ type DatagramParser struct {
 	namespace  string // Namespace to prefix all metrics
 	statser    statser.Statser
 
+	metricPool *pool.MetricPool
+
 	in <-chan []*Datagram // Input chan of datagram batches to parse
 }
 
 // NewDatagramParser initialises a new DatagramParser.
-func NewDatagramParser(in <-chan []*Datagram, ns string, ignoreHost bool, metrics MetricHandler, events EventHandler, statser statser.Statser) *DatagramParser {
+func NewDatagramParser(in <-chan []*Datagram, ns string, ignoreHost bool, estimatedTags int, metrics MetricHandler, events EventHandler, statser statser.Statser) *DatagramParser {
 	return &DatagramParser{
 		in:         in,
 		ignoreHost: ignoreHost,
@@ -41,6 +44,7 @@ func NewDatagramParser(in <-chan []*Datagram, ns string, ignoreHost bool, metric
 		events:     events,
 		namespace:  ns,
 		statser:    statser,
+		metricPool: pool.NewMetricPool(estimatedTags + metrics.EstimatedTags()),
 	}
 }
 
@@ -156,6 +160,8 @@ func (dp *DatagramParser) handleDatagram(ctx context.Context, ip gostatsd.IP, ms
 
 // parseLine with lexer idpl.
 func (dp *DatagramParser) parseLine(line []byte) (*gostatsd.Metric, *gostatsd.Event, error) {
-	l := lexer{}
+	l := lexer{
+		metricPool: dp.metricPool,
+	}
 	return l.run(line, dp.namespace)
 }

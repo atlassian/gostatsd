@@ -76,6 +76,8 @@ type CloudHandler struct {
 
 	rw    sync.RWMutex // Protects cache
 	cache map[gostatsd.IP]*instanceHolder
+
+	estimatedTags int
 }
 
 // NewCloudHandler initialises a new cloud handler.
@@ -92,7 +94,13 @@ func NewCloudHandler(cloud gostatsd.CloudProvider, metrics MetricHandler, events
 		awaitingEvents:  make(map[gostatsd.IP][]*gostatsd.Event),
 		awaitingMetrics: make(map[gostatsd.IP][]*gostatsd.Metric),
 		cache:           make(map[gostatsd.IP]*instanceHolder),
+		estimatedTags:   metrics.EstimatedTags() + cloud.EstimatedTags(),
 	}
+}
+
+// EstimatedTags returns a guess for how many tags to pre-allocate
+func (ch *CloudHandler) EstimatedTags() int {
+	return ch.estimatedTags
 }
 
 func (ch *CloudHandler) DispatchMetric(ctx context.Context, m *gostatsd.Metric) error {

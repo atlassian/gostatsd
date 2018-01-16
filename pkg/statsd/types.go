@@ -10,6 +10,8 @@ import (
 
 // MetricHandler can be used to handle metrics
 type MetricHandler interface {
+	// EstimatedTags returns a guess for how many tags to pre-allocate
+	EstimatedTags() int
 	// DispatchMetric dispatches a metric to the next step in a pipeline.
 	DispatchMetric(ctx context.Context, m *gostatsd.Metric) error
 }

@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/atlassian/gostatsd"
+	"github.com/atlassian/gostatsd/pkg/pool"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -139,7 +140,9 @@ func TestInvalidEventsLexer(t *testing.T) {
 }
 
 func parseLine(input []byte, namespace string) (*gostatsd.Metric, *gostatsd.Event, error) {
-	l := lexer{}
+	l := lexer{
+		metricPool: pool.NewMetricPool(0),
+	}
 	return l.run(input, namespace)
 }
 
@@ -150,6 +153,7 @@ func compareMetric(t *testing.T, tests map[string]gostatsd.Metric, namespace str
 		t.Run(input, func(t *testing.T) {
 			t.Parallel()
 			result, _, err := parseLine([]byte(input), namespace)
+			result.DoneFunc = nil // Clear DoneFunc because it contains non-predictable variable data which interferes with the tests
 			require.NoError(t, err)
 			assert.Equal(t, &expected, result)
 		})
@@ -161,10 +165,12 @@ var parselineBlackhole *gostatsd.Metric
 func benchmarkLexer(dp *DatagramParser, input string, b *testing.B) {
 	slice := []byte(input)
 	var r *gostatsd.Metric
+	dp.metricPool = pool.NewMetricPool(0)
 	b.ReportAllocs()
 	b.ResetTimer()
 	for n := 0; n < b.N; n++ {
 		r, _, _ = dp.parseLine(slice)
+		r.Done()
 	}
 	parselineBlackhole = r
 }

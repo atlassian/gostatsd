@@ -10,7 +10,7 @@ type Gauge struct {
 
 // NewGauge initialises a new gauge.
 func NewGauge(timestamp Nanotime, value float64, hostname string, tags Tags) Gauge {
-	return Gauge{Value: value, Timestamp: timestamp, Hostname: hostname, Tags: tags}
+	return Gauge{Value: value, Timestamp: timestamp, Hostname: hostname, Tags: tags.Copy()}
 }
 
 // Gauges stores a map of gauges by tags.
