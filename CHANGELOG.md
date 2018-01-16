@@ -1,4 +1,4 @@
-5.x.x
+5.2.0
 -----
 - Performance work, round 2
 - Add new flag `--estimated-tags`, pre-allocates the Tags array.  Defaults to `4`.
