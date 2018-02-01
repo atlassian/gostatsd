@@ -292,7 +292,7 @@ func TestIsExpired(t *testing.T) {
 }
 
 func metricsFixtures() []gostatsd.Metric {
-	return []gostatsd.Metric{
+	ms := []gostatsd.Metric{
 		{Name: "foo.bar.baz", Value: 2, Type: gostatsd.COUNTER},
 		{Name: "abc.def.g", Value: 3, Type: gostatsd.GAUGE},
 		{Name: "abc.def.g", Value: 8, Type: gostatsd.GAUGE, Tags: gostatsd.Tags{"foo:bar", "baz"}},
@@ -307,6 +307,10 @@ func metricsFixtures() []gostatsd.Metric {
 		{Name: "uniq.usr", StringValue: "john", Type: gostatsd.SET},
 		{Name: "uniq.usr", StringValue: "john", Type: gostatsd.SET, Tags: gostatsd.Tags{"foo:bar", "baz"}},
 	}
+	for i, m := range ms {
+		ms[i].TagsKey = formatTagsKey(m.Tags, m.Hostname)
+	}
+	return ms
 }
 
 func TestReceive(t *testing.T) {

@@ -308,7 +308,7 @@ func (a *MetricAggregator) receiveSet(m *gostatsd.Metric, tagsKey string, now go
 // Receive aggregates an incoming metric.
 func (a *MetricAggregator) Receive(m *gostatsd.Metric, now time.Time) {
 	a.metricsReceived++
-	tagsKey := formatTagsKey(m.Tags, m.Hostname)
+	tagsKey := m.TagsKey
 	nowNano := gostatsd.Nanotime(now.UnixNano())
 
 	switch m.Type {
@@ -324,12 +324,4 @@ func (a *MetricAggregator) Receive(m *gostatsd.Metric, now time.Time) {
 		log.Errorf("Unknow metric type %s for %s", m.Type, m.Name)
 	}
 	m.Done()
-}
-
-func formatTagsKey(tags gostatsd.Tags, hostname string) string {
-	t := tags.SortedString()
-	if hostname == "" {
-		return t
-	}
-	return t + "," + gostatsd.StatsdSourceID + ":" + hostname
 }

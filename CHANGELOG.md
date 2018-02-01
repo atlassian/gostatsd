@@ -1,3 +1,7 @@
+5.2.1
+-----
+- Performance work, round 3
+
 5.2.0
 -----
 - Performance work, round 2
