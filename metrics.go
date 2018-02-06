@@ -41,6 +41,7 @@ type Metric struct {
 	Name        string     // The name of the metric
 	Value       float64    // The numeric value of the metric
 	Tags        Tags       // The tags for the metric
+	TagsKey     string     // The tags rendered as a string to uniquely identify the tagset in a map
 	StringValue string     // The string value for some metrics e.g. Set
 	Hostname    string     // Hostname of the source of the metric
 	SourceIP    IP         // IP of the source of the metric
@@ -53,6 +54,7 @@ func (m *Metric) Reset() {
 	m.Name = ""
 	m.Value = 0
 	m.Tags = m.Tags[:0]
+	m.TagsKey = ""
 	m.StringValue = ""
 	m.Hostname = ""
 	m.SourceIP = ""

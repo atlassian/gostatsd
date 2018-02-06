@@ -1,12 +1,15 @@
 package statsd
 
 import (
+	"context"
+	"runtime"
 	"testing"
 	"time"
 
-	"github.com/atlassian/gostatsd"
-
+	"github.com/ash2k/stager"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/atlassian/gostatsd"
 )
 
 func newFakeAggregator() *MetricAggregator {
@@ -14,6 +17,12 @@ func newFakeAggregator() *MetricAggregator {
 		[]float64{90},
 		5*time.Minute,
 	)
+}
+
+type fakeAggregatorFactory struct{}
+
+func (faf *fakeAggregatorFactory) Create() Aggregator {
+	return newFakeAggregator()
 }
 
 func TestNewAggregator(t *testing.T) {
@@ -283,7 +292,7 @@ func TestIsExpired(t *testing.T) {
 }
 
 func metricsFixtures() []gostatsd.Metric {
-	return []gostatsd.Metric{
+	ms := []gostatsd.Metric{
 		{Name: "foo.bar.baz", Value: 2, Type: gostatsd.COUNTER},
 		{Name: "abc.def.g", Value: 3, Type: gostatsd.GAUGE},
 		{Name: "abc.def.g", Value: 8, Type: gostatsd.GAUGE, Tags: gostatsd.Tags{"foo:bar", "baz"}},
@@ -298,6 +307,10 @@ func metricsFixtures() []gostatsd.Metric {
 		{Name: "uniq.usr", StringValue: "john", Type: gostatsd.SET},
 		{Name: "uniq.usr", StringValue: "john", Type: gostatsd.SET, Tags: gostatsd.Tags{"foo:bar", "baz"}},
 	}
+	for i, m := range ms {
+		ms[i].TagsKey = formatTagsKey(m.Tags, m.Hostname)
+	}
+	return ms
 }
 
 func TestReceive(t *testing.T) {
@@ -360,6 +373,42 @@ func TestReceive(t *testing.T) {
 		},
 	}
 	assrt.Equal(expectedSets, ma.Sets)
+}
+
+func BenchmarkHotMetric(b *testing.B) {
+	beh := NewBackendHandler(
+		nil,
+		1000,
+		runtime.NumCPU(),
+		10000,
+		&fakeAggregatorFactory{},
+	)
+
+	stgr := stager.New()
+	stage := stgr.NextStage()
+	stage.StartWithContext(beh.Run)
+	stage = stgr.NextStage()
+
+	ctx := context.Background()
+	b.ReportAllocs()
+	b.ResetTimer()
+
+	for i := 0; i < runtime.NumCPU(); i++ {
+		stage.Start(func() {
+			for n := 0; n < b.N; n++ {
+				m := &gostatsd.Metric{
+					Name:     "metric.name",
+					Value:    5,
+					Tags:     gostatsd.Tags{"aaaa:aaaa", "aaab:aaab", "aaac:aaac", "aaad:aaad", "aaae:aaae", "aaaf:aaaf"},
+					Hostname: "local",
+					Type:     gostatsd.GAUGE,
+				}
+				beh.DispatchMetric(ctx, m)
+			}
+		})
+	}
+
+	stgr.Shutdown()
 }
 
 func benchmarkReceive(metric gostatsd.Metric, b *testing.B) {
