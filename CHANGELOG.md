@@ -1,3 +1,7 @@
+5.2.2
+-----
+- Build -race on ubuntu:16.04 instead of 16.10
+
 5.2.1
 -----
 - Performance work, round 3
