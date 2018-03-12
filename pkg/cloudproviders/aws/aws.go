@@ -15,8 +15,6 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
-	"github.com/aws/aws-sdk-go/aws/credentials"
-	"github.com/aws/aws-sdk-go/aws/credentials/ec2rolecreds"
 	"github.com/aws/aws-sdk-go/aws/ec2metadata"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/ec2"
@@ -240,14 +238,6 @@ func NewProviderFromViper(v *viper.Viper) (gostatsd.CloudProvider, error) {
 		return nil, fmt.Errorf("error getting AWS region: %v", err)
 	}
 	ec2config := sharedConfig.Copy().
-		WithCredentials(credentials.NewChainCredentials(
-			[]credentials.Provider{
-				&credentials.EnvProvider{},
-				&ec2rolecreds.EC2RoleProvider{
-					Client: metadata,
-				},
-				&credentials.SharedCredentialsProvider{},
-			})).
 		WithRegion(region)
 	ec2Session, err := session.NewSession(ec2config)
 	if err != nil {
