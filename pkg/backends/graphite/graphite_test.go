@@ -26,7 +26,7 @@ func TestPreparePayload(t *testing.T) {
 	input := []testData{
 		{
 			config: &Config{
-			// Use defaults
+				// Use defaults
 			},
 			result: []byte("stats_counts.stat1 5 1234\n" +
 				"stats.stat1 1.100000 1234\n" +
@@ -98,7 +98,7 @@ func TestPreparePayload(t *testing.T) {
 		td := td
 		t.Run(strconv.Itoa(i), func(t *testing.T) {
 			t.Parallel()
-			cl, err := NewClient(td.config)
+			cl, err := NewClient(td.config, gostatsd.TimerSubtypes{})
 			require.NoError(t, err)
 			b := cl.preparePayload(metrics, time.Unix(1234, 0))
 			assert.Equal(t, string(td.result), b.String(), "test %d", i)
@@ -114,7 +114,7 @@ func TestSendMetricsAsync(t *testing.T) {
 	addr := l.Addr().String()
 	c, err := NewClient(&Config{
 		Address: &addr,
-	})
+	}, gostatsd.TimerSubtypes{})
 	require.NoError(t, err)
 
 	var acceptWg sync.WaitGroup

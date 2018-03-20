@@ -59,6 +59,62 @@ are interested in. Configuration file might look like this:
 	max_retries = 4
 ```
 
+
+Configuring timer sub-metrics
+-----------------------------
+By default, timer metrics will result in aggregated metrics of the form (exact name varies by backend):
+```
+<base>.Count
+<base>.CountPerSecond
+<base>.Mean
+<base>.Median
+<base>.Lower
+<base>.Upper
+<base>.StdDev
+<base>.Sum
+<base>.SumSquares
+```
+
+
+In addition, the following aggregated metrics will be emitted for each configured percentile:
+```
+<base>.Count_XX
+<base>.Mean_XX
+<base>.Sum_XX
+<base>.SumSquares_XX
+<base>.Upper_XX - for positive only
+<base>.Lower_-XX - for negative only
+```
+
+
+These can be controlled through the `disabled-sub-metrics` configuration section:
+```
+[disabled-sub-metrics]
+# Regular metrics
+count=false
+count-per-second=false
+mean=false
+median=false
+lower=false
+upper=false
+stddev=false
+sum=false
+sum-squares=false
+
+# Percentile metrics
+count-pct=false
+mean-pct=false
+sum-pct=false
+sum-squares-pct=false
+lower-pct=false
+upper-pct=false
+```
+
+
+By default (for compatibility), they are all false and the metrics will be emitted.
+
+
+
 Sending metrics
 ---------------
 The server listens for UDP packets on the address given by the `--metrics-addr` flag,
@@ -99,13 +155,8 @@ A simple way to test your installation or send metrics from a script is to use
 
 Monitoring
 ----------
-Currently you can get some basic idea of the status of the server by visiting the
-address given by the `--console-addr` option with your web browser.
-
-Load balancing and scaling out
-------------------------------
-It is possible to run multiple versions of `gostatsd` behind a load balancer by having them
-send their metrics to another `gostatsd` backend which will then send to the final backends.
+Many metrics for the internal processes are emitted.  See METRICS.md for details.  Go expvar is also
+exposed if the `--profile` flag is used.
 
 Memory allocation for read buffers
 ----------------------------------

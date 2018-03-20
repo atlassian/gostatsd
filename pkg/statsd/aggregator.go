@@ -30,11 +30,12 @@ type MetricAggregator struct {
 	percentThresholds map[float64]percentStruct
 	now               func() time.Time // Returns current time. Useful for testing.
 	statser           statser.Statser
+	disabledSubtypes  gostatsd.TimerSubtypes
 	gostatsd.MetricMap
 }
 
 // NewMetricAggregator creates a new MetricAggregator object.
-func NewMetricAggregator(percentThresholds []float64, expiryInterval time.Duration) *MetricAggregator {
+func NewMetricAggregator(percentThresholds []float64, expiryInterval time.Duration, disabled gostatsd.TimerSubtypes) *MetricAggregator {
 	a := MetricAggregator{
 		expiryInterval:    expiryInterval,
 		percentThresholds: make(map[float64]percentStruct, len(percentThresholds)),
@@ -46,6 +47,7 @@ func NewMetricAggregator(percentThresholds []float64, expiryInterval time.Durati
 			Gauges:   gostatsd.Gauges{},
 			Sets:     gostatsd.Sets{},
 		},
+		disabledSubtypes: disabled,
 	}
 	for _, pct := range percentThresholds {
 		sPct := strconv.Itoa(int(pct))
@@ -120,14 +122,26 @@ func (a *MetricAggregator) Flush(flushInterval time.Duration) {
 					mean = sum / float64(numInThreshold)
 				}
 
-				timer.Percentiles.Set(pctStruct.count, float64(numInThreshold))
-				timer.Percentiles.Set(pctStruct.mean, mean)
-				timer.Percentiles.Set(pctStruct.sum, sum)
-				timer.Percentiles.Set(pctStruct.sumSquares, sumSquares)
+				if !a.disabledSubtypes.CountPct {
+					timer.Percentiles.Set(pctStruct.count, float64(numInThreshold))
+				}
+				if !a.disabledSubtypes.MeanPct {
+					timer.Percentiles.Set(pctStruct.mean, mean)
+				}
+				if !a.disabledSubtypes.SumPct {
+					timer.Percentiles.Set(pctStruct.sum, sum)
+				}
+				if !a.disabledSubtypes.SumSquaresPct {
+					timer.Percentiles.Set(pctStruct.sumSquares, sumSquares)
+				}
 				if pct > 0 {
-					timer.Percentiles.Set(pctStruct.upper, thresholdBoundary)
+					if !a.disabledSubtypes.UpperPct {
+						timer.Percentiles.Set(pctStruct.upper, thresholdBoundary)
+					}
 				} else {
-					timer.Percentiles.Set(pctStruct.lower, thresholdBoundary)
+					if !a.disabledSubtypes.LowerPct {
+						timer.Percentiles.Set(pctStruct.lower, thresholdBoundary)
+					}
 				}
 			}
 

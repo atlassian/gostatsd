@@ -76,6 +76,7 @@ type Client struct {
 	setsNamespace    string
 	globalSuffix     string
 	legacyNamespace  bool
+	disabledSubtypes gostatsd.TimerSubtypes
 }
 
 func (client *Client) Run(ctx context.Context) {
@@ -114,15 +115,33 @@ func (client *Client) preparePayload(metrics *gostatsd.MetricMap, ts time.Time) 
 	}
 	metrics.Timers.Each(func(key, tagsKey string, timer gostatsd.Timer) {
 		k := sk(key)
-		fmt.Fprintf(buf, "%s%s.lower%s %f %d\n", client.timerNamespace, k, client.globalSuffix, timer.Min, now)              // #nosec
-		fmt.Fprintf(buf, "%s%s.upper%s %f %d\n", client.timerNamespace, k, client.globalSuffix, timer.Max, now)              // #nosec
-		fmt.Fprintf(buf, "%s%s.count%s %d %d\n", client.timerNamespace, k, client.globalSuffix, timer.Count, now)            // #nosec
-		fmt.Fprintf(buf, "%s%s.count_ps%s %f %d\n", client.timerNamespace, k, client.globalSuffix, timer.PerSecond, now)     // #nosec
-		fmt.Fprintf(buf, "%s%s.mean%s %f %d\n", client.timerNamespace, k, client.globalSuffix, timer.Mean, now)              // #nosec
-		fmt.Fprintf(buf, "%s%s.median%s %f %d\n", client.timerNamespace, k, client.globalSuffix, timer.Median, now)          // #nosec
-		fmt.Fprintf(buf, "%s%s.std%s %f %d\n", client.timerNamespace, k, client.globalSuffix, timer.StdDev, now)             // #nosec
-		fmt.Fprintf(buf, "%s%s.sum%s %f %d\n", client.timerNamespace, k, client.globalSuffix, timer.Sum, now)                // #nosec
-		fmt.Fprintf(buf, "%s%s.sum_squares%s %f %d\n", client.timerNamespace, k, client.globalSuffix, timer.SumSquares, now) // #nosec
+		if !client.disabledSubtypes.Lower {
+			fmt.Fprintf(buf, "%s%s.lower%s %f %d\n", client.timerNamespace, k, client.globalSuffix, timer.Min, now) // #nosec
+		}
+		if !client.disabledSubtypes.Upper {
+			fmt.Fprintf(buf, "%s%s.upper%s %f %d\n", client.timerNamespace, k, client.globalSuffix, timer.Max, now) // #nosec
+		}
+		if !client.disabledSubtypes.Count {
+			fmt.Fprintf(buf, "%s%s.count%s %d %d\n", client.timerNamespace, k, client.globalSuffix, timer.Count, now) // #nosec
+		}
+		if !client.disabledSubtypes.CountPerSecond {
+			fmt.Fprintf(buf, "%s%s.count_ps%s %f %d\n", client.timerNamespace, k, client.globalSuffix, timer.PerSecond, now) // #nosec
+		}
+		if !client.disabledSubtypes.Mean {
+			fmt.Fprintf(buf, "%s%s.mean%s %f %d\n", client.timerNamespace, k, client.globalSuffix, timer.Mean, now) // #nosec
+		}
+		if !client.disabledSubtypes.Median {
+			fmt.Fprintf(buf, "%s%s.median%s %f %d\n", client.timerNamespace, k, client.globalSuffix, timer.Median, now) // #nosec
+		}
+		if !client.disabledSubtypes.StdDev {
+			fmt.Fprintf(buf, "%s%s.std%s %f %d\n", client.timerNamespace, k, client.globalSuffix, timer.StdDev, now) // #nosec
+		}
+		if !client.disabledSubtypes.Sum {
+			fmt.Fprintf(buf, "%s%s.sum%s %f %d\n", client.timerNamespace, k, client.globalSuffix, timer.Sum, now) // #nosec
+		}
+		if !client.disabledSubtypes.SumSquares {
+			fmt.Fprintf(buf, "%s%s.sum_squares%s %f %d\n", client.timerNamespace, k, client.globalSuffix, timer.SumSquares, now) // #nosec
+		}
 		for _, pct := range timer.Percentiles {
 			fmt.Fprintf(buf, "%s%s.%s%s %f %d\n", client.timerNamespace, k, pct.Str, client.globalSuffix, pct.Float, now) // #nosec
 		}
@@ -170,11 +189,11 @@ func NewClientFromViper(v *viper.Viper) (gostatsd.Backend, error) {
 		PrefixSet:       addr(g.GetString("prefix_set")),
 		GlobalSuffix:    addr(g.GetString("global_suffix")),
 		LegacyNamespace: addrB(g.GetBool("legacy_namespace")),
-	})
+	}, gostatsd.DisabledSubMetrics(v))
 }
 
 // NewClient constructs a Graphite backend object.
-func NewClient(config *Config) (*Client, error) {
+func NewClient(config *Config, disabled gostatsd.TimerSubtypes) (*Client, error) {
 	address := getOrDefaultStr(config.Address, DefaultAddress)
 	if address == "" {
 		return nil, fmt.Errorf("[%s] address is required", BackendName)
@@ -232,6 +251,7 @@ func NewClient(config *Config) (*Client, error) {
 		setsNamespace:    setsNamespace,
 		globalSuffix:     globalSuffix,
 		legacyNamespace:  legacyNamespace,
+		disabledSubtypes: disabled,
 	}, nil
 }
 

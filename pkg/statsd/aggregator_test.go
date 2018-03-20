@@ -16,6 +16,7 @@ func newFakeAggregator() *MetricAggregator {
 	return NewMetricAggregator(
 		[]float64{90},
 		5*time.Minute,
+		gostatsd.TimerSubtypes{},
 	)
 }
 
@@ -289,6 +290,88 @@ func TestIsExpired(t *testing.T) {
 
 	ts = gostatsd.Nanotime(time.Now().Add(-1 * time.Second).UnixNano())
 	assrt.Equal(false, ma.isExpired(now, ts))
+}
+
+func TestDisabledCount(t *testing.T) {
+	t.Parallel()
+	ma := newFakeAggregator()
+	ma.disabledSubtypes.CountPct = true
+	ma.Receive(&gostatsd.Metric{Name: "x", Value: 1, Type: gostatsd.TIMER}, time.Now())
+	ma.Flush(1 * time.Second)
+	for _, pct := range ma.Timers["x"][""].Percentiles {
+		if pct.Str == "count_90" {
+			t.Error("count not disabled")
+		}
+	}
+}
+
+func TestDisabledMean(t *testing.T) {
+	t.Parallel()
+	ma := newFakeAggregator()
+	ma.disabledSubtypes.MeanPct = true
+	ma.Receive(&gostatsd.Metric{Name: "x", Value: 1, Type: gostatsd.TIMER}, time.Now())
+	ma.Flush(1 * time.Second)
+	for _, pct := range ma.Timers["x"][""].Percentiles {
+		if pct.Str == "mean_90" {
+			t.Error("mean not disabled")
+		}
+	}
+}
+
+func TestDisabledSum(t *testing.T) {
+	t.Parallel()
+	ma := newFakeAggregator()
+	ma.disabledSubtypes.SumPct = true
+	ma.Receive(&gostatsd.Metric{Name: "x", Value: 1, Type: gostatsd.TIMER}, time.Now())
+	ma.Flush(1 * time.Second)
+	for _, pct := range ma.Timers["x"][""].Percentiles {
+		if pct.Str == "sum_90" {
+			t.Error("sum not disabled")
+		}
+	}
+}
+
+func TestDisabledSumSquares(t *testing.T) {
+	t.Parallel()
+	ma := newFakeAggregator()
+	ma.disabledSubtypes.SumSquaresPct = true
+	ma.Receive(&gostatsd.Metric{Name: "x", Value: 1, Type: gostatsd.TIMER}, time.Now())
+	ma.Flush(1 * time.Second)
+	for _, pct := range ma.Timers["x"][""].Percentiles {
+		if pct.Str == "sum_squares_90" {
+			t.Error("sum_squares not disabled")
+		}
+	}
+}
+
+func TestDisabledUpper(t *testing.T) {
+	t.Parallel()
+	ma := newFakeAggregator()
+	ma.disabledSubtypes.UpperPct = true
+	ma.Receive(&gostatsd.Metric{Name: "x", Value: 1, Type: gostatsd.TIMER}, time.Now())
+	ma.Flush(1 * time.Second)
+	for _, pct := range ma.Timers["x"][""].Percentiles {
+		if pct.Str == "upper_90" {
+			t.Error("upper not disabled")
+		}
+	}
+}
+
+func TestDisabledLower(t *testing.T) {
+	t.Parallel()
+	ma := NewMetricAggregator(
+		[]float64{-90},
+		5*time.Minute,
+		gostatsd.TimerSubtypes{},
+	)
+	ma.disabledSubtypes.LowerPct = true
+	ma.Receive(&gostatsd.Metric{Name: "x", Value: 1, Type: gostatsd.TIMER}, time.Now())
+	ma.Flush(1 * time.Second)
+	for _, pct := range ma.Timers["x"][""].Percentiles {
+		if pct.Str == "lower_-90" { // lower_-90?
+			t.Error("lower not disabled")
+		}
+	}
 }
 
 func metricsFixtures() []gostatsd.Metric {

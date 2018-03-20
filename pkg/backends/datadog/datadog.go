@@ -18,9 +18,9 @@ import (
 
 	"github.com/atlassian/gostatsd"
 	stats "github.com/atlassian/gostatsd/pkg/statser"
-	jsoniter "github.com/json-iterator/go"
 
 	"github.com/cenkalti/backoff"
+	jsoniter "github.com/json-iterator/go"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 )
@@ -58,6 +58,8 @@ type Client struct {
 	requestSem            chan struct{}
 	now                   func() time.Time // Returns current time. Useful for testing.
 	compressPayload       bool
+
+	disabledSubtypes gostatsd.TimerSubtypes
 }
 
 // event represents an event data structure for Datadog.
@@ -154,15 +156,33 @@ func (d *Client) processMetrics(metrics *gostatsd.MetricMap, cb func(*timeSeries
 	})
 
 	metrics.Timers.Each(func(key, tagsKey string, timer gostatsd.Timer) {
-		fl.addMetricf(gauge, timer.Min, timer.Hostname, timer.Tags, "%s.lower", key)
-		fl.addMetricf(gauge, timer.Max, timer.Hostname, timer.Tags, "%s.upper", key)
-		fl.addMetricf(gauge, float64(timer.Count), timer.Hostname, timer.Tags, "%s.count", key)
-		fl.addMetricf(rate, timer.PerSecond, timer.Hostname, timer.Tags, "%s.count_ps", key)
-		fl.addMetricf(gauge, timer.Mean, timer.Hostname, timer.Tags, "%s.mean", key)
-		fl.addMetricf(gauge, timer.Median, timer.Hostname, timer.Tags, "%s.median", key)
-		fl.addMetricf(gauge, timer.StdDev, timer.Hostname, timer.Tags, "%s.std", key)
-		fl.addMetricf(gauge, timer.Sum, timer.Hostname, timer.Tags, "%s.sum", key)
-		fl.addMetricf(gauge, timer.SumSquares, timer.Hostname, timer.Tags, "%s.sum_squares", key)
+		if !d.disabledSubtypes.Lower {
+			fl.addMetricf(gauge, timer.Min, timer.Hostname, timer.Tags, "%s.lower", key)
+		}
+		if !d.disabledSubtypes.Upper {
+			fl.addMetricf(gauge, timer.Max, timer.Hostname, timer.Tags, "%s.upper", key)
+		}
+		if !d.disabledSubtypes.Count {
+			fl.addMetricf(gauge, float64(timer.Count), timer.Hostname, timer.Tags, "%s.count", key)
+		}
+		if !d.disabledSubtypes.CountPerSecond {
+			fl.addMetricf(rate, timer.PerSecond, timer.Hostname, timer.Tags, "%s.count_ps", key)
+		}
+		if !d.disabledSubtypes.Mean {
+			fl.addMetricf(gauge, timer.Mean, timer.Hostname, timer.Tags, "%s.mean", key)
+		}
+		if !d.disabledSubtypes.Median {
+			fl.addMetricf(gauge, timer.Median, timer.Hostname, timer.Tags, "%s.median", key)
+		}
+		if !d.disabledSubtypes.StdDev {
+			fl.addMetricf(gauge, timer.StdDev, timer.Hostname, timer.Tags, "%s.std", key)
+		}
+		if !d.disabledSubtypes.Sum {
+			fl.addMetricf(gauge, timer.Sum, timer.Hostname, timer.Tags, "%s.sum", key)
+		}
+		if !d.disabledSubtypes.SumSquares {
+			fl.addMetricf(gauge, timer.SumSquares, timer.Hostname, timer.Tags, "%s.sum_squares", key)
+		}
 		for _, pct := range timer.Percentiles {
 			fl.addMetricf(gauge, pct.Float, timer.Hostname, timer.Tags, "%s.%s", key, pct.Str)
 		}
@@ -322,11 +342,12 @@ func NewClientFromViper(v *viper.Viper) (gostatsd.Backend, error) {
 		dd.GetBool("compress_payload"),
 		dd.GetDuration("client_timeout"),
 		dd.GetDuration("max_request_elapsed_time"),
+		gostatsd.DisabledSubMetrics(v),
 	)
 }
 
 // NewClient returns a new Datadog API client.
-func NewClient(apiEndpoint, apiKey, network string, metricsPerBatch, maxRequests uint, compressPayload bool, clientTimeout, maxRequestElapsedTime time.Duration) (*Client, error) {
+func NewClient(apiEndpoint, apiKey, network string, metricsPerBatch, maxRequests uint, compressPayload bool, clientTimeout, maxRequestElapsedTime time.Duration, disabled gostatsd.TimerSubtypes) (*Client, error) {
 	if apiEndpoint == "" {
 		return nil, fmt.Errorf("[%s] apiEndpoint is required", BackendName)
 	}
@@ -376,10 +397,11 @@ func NewClient(apiEndpoint, apiKey, network string, metricsPerBatch, maxRequests
 			Transport: transport,
 			Timeout:   clientTimeout,
 		},
-		metricsPerBatch: metricsPerBatch,
-		requestSem:      make(chan struct{}, maxRequests),
-		compressPayload: compressPayload,
-		now:             time.Now,
+		metricsPerBatch:  metricsPerBatch,
+		requestSem:       make(chan struct{}, maxRequests),
+		compressPayload:  compressPayload,
+		now:              time.Now,
+		disabledSubtypes: disabled,
 	}, nil
 }
 
