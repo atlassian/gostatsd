@@ -49,8 +49,7 @@ func (f *MetricFlusher) Run(ctx context.Context) {
 		select {
 		case <-ctx.Done():
 			return
-		case <-flushTicker.C: // Time to flush to the backends
-			thisFlush := time.Now()
+		case thisFlush := <-flushTicker.C: // Time to flush to the backends
 			flushDelta := thisFlush.Sub(lastFlush)
 			f.flushData(ctx, flushDelta)
 			f.statser.NotifyFlush(flushDelta)

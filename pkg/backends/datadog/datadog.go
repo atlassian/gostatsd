@@ -60,7 +60,7 @@ type Client struct {
 	compressPayload       bool
 
 	disabledSubtypes gostatsd.TimerSubtypes
-	flushInterval time.Duration
+	flushInterval    time.Duration
 }
 
 // event represents an event data structure for Datadog.
