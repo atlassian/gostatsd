@@ -1,3 +1,8 @@
+5.3.0
+-----
+- Uses the default EC2 credentials
+- Timer sub-metrics now have a configuration option for opt-out.  See README.md for details.
+
 5.2.2
 -----
 - Build -race on ubuntu:16.04 instead of 16.10

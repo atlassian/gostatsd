@@ -12,3 +12,21 @@ type IP string
 const UnknownIP IP = ""
 
 type Wait func()
+
+type TimerSubtypes struct {
+	Lower          bool
+	LowerPct       bool // pct
+	Upper          bool
+	UpperPct       bool // pct
+	Count          bool
+	CountPct       bool // pct
+	CountPerSecond bool
+	Mean           bool
+	MeanPct        bool // pct
+	Median         bool
+	StdDev         bool
+	Sum            bool
+	SumPct         bool // pct
+	SumSquares     bool
+	SumSquaresPct  bool // pct
+}

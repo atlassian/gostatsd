@@ -1,5 +1,7 @@
 package gostatsd
 
+import "github.com/spf13/viper"
+
 // Timer is used for storing aggregated values for timers.
 type Timer struct {
 	Count       int         // The number of timers in the series
@@ -53,4 +55,46 @@ func (t Timers) Each(f func(string, string, Timer)) {
 			f(key, tags, timer)
 		}
 	}
+}
+
+func DisabledSubMetrics(viper *viper.Viper) TimerSubtypes {
+	subViper := viper.Sub("disabled-sub-metrics")
+	if subViper == nil {
+		return TimerSubtypes{}
+	}
+
+	subViper.SetDefault("lower", false)
+	subViper.SetDefault("lower-pct", false)
+	subViper.SetDefault("upper", false)
+	subViper.SetDefault("upper-pct", false)
+	subViper.SetDefault("count", false)
+	subViper.SetDefault("count-pct", false)
+	subViper.SetDefault("count-per-second", false)
+	subViper.SetDefault("mean", false)
+	subViper.SetDefault("mean-pct", false)
+	subViper.SetDefault("median", false)
+	subViper.SetDefault("std", false)
+	subViper.SetDefault("sum", false)
+	subViper.SetDefault("sum-pct", false)
+	subViper.SetDefault("sum-squares", false)
+	subViper.SetDefault("sum-squares-pct", false)
+
+	return TimerSubtypes{
+		Lower:          subViper.GetBool("lower"),
+		LowerPct:       subViper.GetBool("lower-pct"),
+		Upper:          subViper.GetBool("upper"),
+		UpperPct:       subViper.GetBool("upper-pct"),
+		Count:          subViper.GetBool("count"),
+		CountPct:       subViper.GetBool("count-pct"),
+		CountPerSecond: subViper.GetBool("count-per-second"),
+		Mean:           subViper.GetBool("mean"),
+		MeanPct:        subViper.GetBool("mean-pct"),
+		Median:         subViper.GetBool("median"),
+		StdDev:         subViper.GetBool("stddev"),
+		Sum:            subViper.GetBool("sum"),
+		SumPct:         subViper.GetBool("sum-pct"),
+		SumSquares:     subViper.GetBool("sum-squares"),
+		SumSquaresPct:  subViper.GetBool("sum-squares-pct"),
+	}
+
 }

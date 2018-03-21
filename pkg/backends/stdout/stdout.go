@@ -17,16 +17,22 @@ import (
 const BackendName = "stdout"
 
 // Client is an object that is used to send messages to stdout.
-type Client struct{}
+type Client struct {
+	disabledSubtypes gostatsd.TimerSubtypes
+}
 
 // NewClientFromViper constructs a stdout backend.
 func NewClientFromViper(v *viper.Viper) (gostatsd.Backend, error) {
-	return NewClient()
+	return NewClient(
+		gostatsd.DisabledSubMetrics(v),
+	)
 }
 
 // NewClient constructs a stdout backend.
-func NewClient() (*Client, error) {
-	return &Client{}, nil
+func NewClient(disabled gostatsd.TimerSubtypes) (*Client, error) {
+	return &Client{
+		disabledSubtypes: disabled,
+	}, nil
 }
 
 // composeMetricName adds the key and the tags to compose the metric name.
@@ -47,7 +53,7 @@ func tagToMetricName(tag string) string {
 
 // SendMetricsAsync prints the metrics in a MetricsMap to the stdout, preparing payload synchronously but doing the send asynchronously.
 func (client Client) SendMetricsAsync(ctx context.Context, metrics *gostatsd.MetricMap, cb gostatsd.SendCallback) {
-	buf := preparePayload(metrics)
+	buf := preparePayload(metrics, &client.disabledSubtypes)
 	go func() {
 		cb([]error{writePayload(buf)})
 	}()
@@ -64,7 +70,7 @@ func writePayload(buf *bytes.Buffer) (retErr error) {
 	return err
 }
 
-func preparePayload(metrics *gostatsd.MetricMap) *bytes.Buffer {
+func preparePayload(metrics *gostatsd.MetricMap, disabled *gostatsd.TimerSubtypes) *bytes.Buffer {
 	buf := new(bytes.Buffer)
 	now := time.Now().Unix()
 	metrics.Counters.Each(func(key, tagsKey string, counter gostatsd.Counter) {
@@ -74,15 +80,33 @@ func preparePayload(metrics *gostatsd.MetricMap) *bytes.Buffer {
 	})
 	metrics.Timers.Each(func(key, tagsKey string, timer gostatsd.Timer) {
 		nk := composeMetricName(key, tagsKey)
-		fmt.Fprintf(buf, "stats.timers.%s.lower %f %d\n", nk, timer.Min, now)              // #nosec
-		fmt.Fprintf(buf, "stats.timers.%s.upper %f %d\n", nk, timer.Max, now)              // #nosec
-		fmt.Fprintf(buf, "stats.timers.%s.count %d %d\n", nk, timer.Count, now)            // #nosec
-		fmt.Fprintf(buf, "stats.timers.%s.count_ps %f %d\n", nk, timer.PerSecond, now)     // #nosec
-		fmt.Fprintf(buf, "stats.timers.%s.mean %f %d\n", nk, timer.Mean, now)              // #nosec
-		fmt.Fprintf(buf, "stats.timers.%s.median %f %d\n", nk, timer.Median, now)          // #nosec
-		fmt.Fprintf(buf, "stats.timers.%s.std %f %d\n", nk, timer.StdDev, now)             // #nosec
-		fmt.Fprintf(buf, "stats.timers.%s.sum %f %d\n", nk, timer.Sum, now)                // #nosec
-		fmt.Fprintf(buf, "stats.timers.%s.sum_squares %f %d\n", nk, timer.SumSquares, now) // #nosec
+		if !disabled.Lower {
+			fmt.Fprintf(buf, "stats.timers.%s.lower %f %d\n", nk, timer.Min, now) // #nosec
+		}
+		if !disabled.Upper {
+			fmt.Fprintf(buf, "stats.timers.%s.upper %f %d\n", nk, timer.Max, now) // #nosec
+		}
+		if !disabled.Count {
+			fmt.Fprintf(buf, "stats.timers.%s.count %d %d\n", nk, timer.Count, now) // #nosec
+		}
+		if !disabled.CountPerSecond {
+			fmt.Fprintf(buf, "stats.timers.%s.count_ps %f %d\n", nk, timer.PerSecond, now) // #nosec
+		}
+		if !disabled.Mean {
+			fmt.Fprintf(buf, "stats.timers.%s.mean %f %d\n", nk, timer.Mean, now) // #nosec
+		}
+		if !disabled.Median {
+			fmt.Fprintf(buf, "stats.timers.%s.median %f %d\n", nk, timer.Median, now) // #nosec
+		}
+		if !disabled.StdDev {
+			fmt.Fprintf(buf, "stats.timers.%s.std %f %d\n", nk, timer.StdDev, now) // #nosec
+		}
+		if !disabled.Sum {
+			fmt.Fprintf(buf, "stats.timers.%s.sum %f %d\n", nk, timer.Sum, now) // #nosec
+		}
+		if !disabled.SumSquares {
+			fmt.Fprintf(buf, "stats.timers.%s.sum_squares %f %d\n", nk, timer.SumSquares, now) // #nosec
+		}
 		for _, pct := range timer.Percentiles {
 			fmt.Fprintf(buf, "stats.timers.%s.%s %f %d\n", nk, pct.Str, pct.Float, now) // #nosec
 		}

@@ -44,6 +44,7 @@ type Server struct {
 	HeartbeatEnabled    bool
 	HeartbeatTags       gostatsd.Tags
 	ReceiveBatchSize    int
+	DisabledSubTypes    gostatsd.TimerSubtypes
 	CacheOptions
 	Viper *viper.Viper
 }
@@ -93,6 +94,7 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 	factory := agrFactory{
 		percentThresholds: s.PercentThreshold,
 		expiryInterval:    s.ExpiryInterval,
+		disabledSubtypes:  s.DisabledSubTypes,
 	}
 
 	backendHandler := NewBackendHandler(s.Backends, uint(s.MaxConcurrentEvents), s.MaxWorkers, s.MaxQueueSize, &factory)
@@ -260,10 +262,11 @@ func getHost() string {
 type agrFactory struct {
 	percentThresholds []float64
 	expiryInterval    time.Duration
+	disabledSubtypes  gostatsd.TimerSubtypes
 }
 
 func (af *agrFactory) Create() Aggregator {
-	return NewMetricAggregator(af.percentThresholds, af.expiryInterval)
+	return NewMetricAggregator(af.percentThresholds, af.expiryInterval, af.disabledSubtypes)
 }
 
 func toStringSlice(fs []float64) []string {
