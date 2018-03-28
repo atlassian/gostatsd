@@ -37,7 +37,7 @@ func TestRetries(t *testing.T) {
 	ts := httptest.NewServer(mux)
 	defer ts.Close()
 
-	client, err := NewClient(ts.URL, "apiKey123", "tcp", defaultMetricsPerBatch, defaultMaxRequests, true, 1*time.Second, 2*time.Second, gostatsd.TimerSubtypes{})
+	client, err := NewClient(ts.URL, "apiKey123", "tcp", defaultMetricsPerBatch, defaultMaxRequests, true, 1*time.Second, 2*time.Second, 1*time.Second, gostatsd.TimerSubtypes{})
 	require.NoError(t, err)
 	res := make(chan []error, 1)
 	client.SendMetricsAsync(context.Background(), twoCounters(), func(errs []error) {
@@ -66,7 +66,7 @@ func TestSendMetricsInMultipleBatches(t *testing.T) {
 	ts := httptest.NewServer(mux)
 	defer ts.Close()
 
-	client, err := NewClient(ts.URL, "apiKey123", "tcp", 1, defaultMaxRequests, true, 1*time.Second, 2*time.Second, gostatsd.TimerSubtypes{})
+	client, err := NewClient(ts.URL, "apiKey123", "tcp", 1, defaultMaxRequests, true, 1*time.Second, 2*time.Second, 1*time.Second, gostatsd.TimerSubtypes{})
 	require.NoError(t, err)
 	res := make(chan []error, 1)
 	client.SendMetricsAsync(context.Background(), twoCounters(), func(errs []error) {
@@ -118,7 +118,7 @@ func TestSendMetrics(t *testing.T) {
 	ts := httptest.NewServer(mux)
 	defer ts.Close()
 
-	cli, err := NewClient(ts.URL, "apiKey123", "tcp", 1000, defaultMaxRequests, true, 1*time.Second, 2*time.Second, gostatsd.TimerSubtypes{})
+	cli, err := NewClient(ts.URL, "apiKey123", "tcp", 1000, defaultMaxRequests, true, 1*time.Second, 2*time.Second, 1100*time.Millisecond, gostatsd.TimerSubtypes{})
 	require.NoError(t, err)
 	cli.now = func() time.Time {
 		return time.Unix(100, 0)
@@ -149,7 +149,6 @@ func twoCounters() *gostatsd.MetricMap {
 
 func metricsOneOfEach() *gostatsd.MetricMap {
 	return &gostatsd.MetricMap{
-		FlushInterval: 1100 * time.Millisecond,
 		Counters: gostatsd.Counters{
 			"c1": map[string]gostatsd.Counter{
 				"tag1": {PerSecond: 1.1, Value: 5, Timestamp: gostatsd.Nanotime(100), Hostname: "h1", Tags: gostatsd.Tags{"tag1"}},

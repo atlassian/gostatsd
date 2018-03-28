@@ -60,6 +60,7 @@ type Client struct {
 	compressPayload       bool
 
 	disabledSubtypes gostatsd.TimerSubtypes
+	flushInterval    time.Duration
 }
 
 // event represents an event data structure for Datadog.
@@ -144,7 +145,7 @@ func (d *Client) processMetrics(metrics *gostatsd.MetricMap, cb func(*timeSeries
 			Series: make([]metric, 0, d.metricsPerBatch),
 		},
 		timestamp:        float64(d.now().Unix()),
-		flushIntervalSec: metrics.FlushInterval.Seconds(),
+		flushIntervalSec: d.flushInterval.Seconds(),
 		metricsPerBatch:  d.metricsPerBatch,
 		cb:               cb,
 	}
@@ -342,12 +343,13 @@ func NewClientFromViper(v *viper.Viper) (gostatsd.Backend, error) {
 		dd.GetBool("compress_payload"),
 		dd.GetDuration("client_timeout"),
 		dd.GetDuration("max_request_elapsed_time"),
+		v.GetDuration("flush-interval"), // Main viper, not sub-viper
 		gostatsd.DisabledSubMetrics(v),
 	)
 }
 
 // NewClient returns a new Datadog API client.
-func NewClient(apiEndpoint, apiKey, network string, metricsPerBatch, maxRequests uint, compressPayload bool, clientTimeout, maxRequestElapsedTime time.Duration, disabled gostatsd.TimerSubtypes) (*Client, error) {
+func NewClient(apiEndpoint, apiKey, network string, metricsPerBatch, maxRequests uint, compressPayload bool, clientTimeout, maxRequestElapsedTime, flushInterval time.Duration, disabled gostatsd.TimerSubtypes) (*Client, error) {
 	if apiEndpoint == "" {
 		return nil, fmt.Errorf("[%s] apiEndpoint is required", BackendName)
 	}
@@ -401,6 +403,7 @@ func NewClient(apiEndpoint, apiKey, network string, metricsPerBatch, maxRequests
 		requestSem:       make(chan struct{}, maxRequests),
 		compressPayload:  compressPayload,
 		now:              time.Now,
+		flushInterval:    flushInterval,
 		disabledSubtypes: disabled,
 	}, nil
 }

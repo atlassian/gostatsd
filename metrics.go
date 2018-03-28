@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"hash/adler32"
-	"time"
 )
 
 // MetricType is an enumeration of all the possible types of Metric.
@@ -92,11 +91,10 @@ type AggregatedMetrics interface {
 // MetricMap is used for storing aggregated Metric values.
 // The keys of each map are metric names.
 type MetricMap struct {
-	FlushInterval time.Duration
-	Counters      Counters
-	Timers        Timers
-	Gauges        Gauges
-	Sets          Sets
+	Counters Counters
+	Timers   Timers
+	Gauges   Gauges
+	Sets     Sets
 }
 
 func (m *MetricMap) String() string {
