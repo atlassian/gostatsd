@@ -39,9 +39,17 @@ const (
 	maxResponseSize = 10 * 1024
 )
 
-// defaultMaxRequests is the number of parallel outgoing requests to Datadog.  As this mixes both
-// CPU (JSON encoding, TLS) and network bound operations, balancing may require some experimentation.
-var defaultMaxRequests = uint(2 * runtime.NumCPU())
+var (
+	// defaultMaxRequests is the number of parallel outgoing requests to Datadog.  As this mixes both
+	// CPU (JSON encoding, TLS) and network bound operations, balancing may require some experimentation.
+	defaultMaxRequests = uint(2 * runtime.NumCPU())
+
+	// It already does not sort map keys by default, but it does HTML escaping which we don't need.
+	jsonConfig = jsoniter.Config{
+		EscapeHTML:  false,
+		SortMapKeys: false,
+	}.Froze()
+)
 
 // Client represents a Datadog client.
 type Client struct {
@@ -228,24 +236,15 @@ func (d *Client) Name() string {
 }
 
 func (d *Client) post(ctx context.Context, path, typeOfPost string, data interface{}) error {
-	tsBytes, err := jsoniter.Marshal(data)
+	post, free, err := d.constructPost(ctx, path, typeOfPost, data)
 	if err != nil {
-		return fmt.Errorf("[%s] unable to marshal %s: %v", BackendName, typeOfPost, err)
+		atomic.AddUint64(&d.batchesDropped, 1)
+		return err
 	}
-	log.Debugf("[%s] %s json: %s", BackendName, typeOfPost, tsBytes)
+	defer free()
 
 	b := backoff.NewExponentialBackOff()
 	b.MaxElapsedTime = d.maxRequestElapsedTime
-	authenticatedURL := d.authenticatedURL(path)
-
-	// Selectively compress payload based on knowledge of whether the endpoint supports deflate encoding.
-	// The metrics endpoint does, the events endpoint does not.
-	compressPayload := false
-	if d.compressPayload && typeOfPost == "metrics" {
-		compressPayload = true
-	}
-
-	post := d.constructPost(ctx, authenticatedURL, tsBytes, compressPayload)
 	for {
 		if err = post(); err == nil {
 			atomic.AddUint64(&d.batchesSent, 1)
@@ -272,14 +271,42 @@ func (d *Client) post(ctx context.Context, path, typeOfPost string, data interfa
 	}
 }
 
-func (d *Client) constructPost(ctx context.Context, authenticatedURL string, body []byte, compressPayload bool) func() error {
+func (d *Client) constructPost(ctx context.Context, path, typeOfPost string, data interface{}) (func() error /*doPost*/, func() /*free*/, error) {
+	authenticatedURL := d.authenticatedURL(path)
+	// Selectively compress payload based on knowledge of whether the endpoint supports deflate encoding.
+	// The metrics endpoint does, the events endpoint does not.
+	compressPayload := false
+	if d.compressPayload && typeOfPost == "metrics" {
+		compressPayload = true
+	}
+	returnStream := true
+	stream := jsonConfig.BorrowStream(nil)
+	defer func() {
+		if returnStream {
+			jsonConfig.ReturnStream(stream)
+		}
+	}()
+	stream.WriteVal(data)
+	if stream.Error != nil {
+		return nil, nil, fmt.Errorf("[%s] unable to marshal %s: %v", BackendName, typeOfPost, stream.Error)
+	}
+	body := stream.Buffer()
+	log.Debugf("[%s] %s json: %s", BackendName, typeOfPost, body)
+	var free func()
 	if compressPayload {
 		// Use deflate (zlib, since DD requires the zlib headers)
 		compressed, err := deflate(body)
 		if err != nil {
-			return func() error { return err }
+			return nil, nil, fmt.Errorf("[%s] unable to compress %s: %v", BackendName, typeOfPost, err)
 		}
 		body = compressed
+		free = func() {
+		}
+	} else {
+		returnStream = false
+		free = func() {
+			jsonConfig.ReturnStream(stream)
+		}
 	}
 
 	return func() error {
@@ -313,7 +340,7 @@ func (d *Client) constructPost(ctx context.Context, authenticatedURL string, bod
 		}
 		_, _ = io.Copy(ioutil.Discard, body)
 		return nil
-	}
+	}, free, nil
 }
 
 func (d *Client) authenticatedURL(path string) string {
