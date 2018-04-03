@@ -308,6 +308,11 @@ func (ch *CloudHandler) handleLookupResult(ctx context.Context, lr *lookupResult
 			newHolder.instance = currentHolder.instance
 			ch.statsCacheRefreshNegative++
 		} else {
+			if currentHolder.instance == nil && newHolder.instance != nil {
+				// An entry has flipped from invalid to valid
+				ch.statsCacheNegative--
+				ch.statsCachePositive++
+			}
 			ch.statsCacheRefreshPositive++
 		}
 	}
