@@ -1,6 +1,7 @@
 package statser
 
 import (
+	"context"
 	"time"
 
 	"github.com/atlassian/gostatsd"
@@ -14,7 +15,7 @@ type Statser interface {
 	// function which should be called to signal the channel is no longer being monitored.  If the channel
 	// blocks, the notification will be silently dropped.
 	RegisterFlush() (ch <-chan time.Duration, unregister func())
-
+	Run(ctx context.Context)
 	Gauge(name string, value float64, tags gostatsd.Tags)
 	Count(name string, amount float64, tags gostatsd.Tags)
 	Increment(name string, tags gostatsd.Tags)
