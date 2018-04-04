@@ -12,6 +12,7 @@ import (
 	stats "github.com/atlassian/gostatsd/pkg/statser"
 
 	"github.com/ash2k/stager"
+	"github.com/jbenet/go-reuseport"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"golang.org/x/time/rate"
