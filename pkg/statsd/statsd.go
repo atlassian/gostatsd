@@ -10,7 +10,6 @@ import (
 
 	"github.com/atlassian/gostatsd"
 	stats "github.com/atlassian/gostatsd/pkg/statser"
-	"github.com/gostatsd/pkg/statser"
 
 	"github.com/ash2k/stager"
 	log "github.com/sirupsen/logrus"
@@ -139,7 +138,7 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 	}
 
 	bufferSize := 1000 // Estimating this is hard, and tends to cause loss under adverse conditions
-	var statser statser.Statser
+	var statser stats.Statser
 	if s.DisableInternalMetrics {
 		statser = stats.NewNullStatser()
 	} else {
