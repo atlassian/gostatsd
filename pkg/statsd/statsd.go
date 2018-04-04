@@ -10,9 +10,9 @@ import (
 
 	"github.com/atlassian/gostatsd"
 	stats "github.com/atlassian/gostatsd/pkg/statser"
+	"github.com/gostatsd/pkg/statser"
 
 	"github.com/ash2k/stager"
-	"github.com/jbenet/go-reuseport"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"golang.org/x/time/rate"
@@ -21,30 +21,31 @@ import (
 // Server encapsulates all of the parameters necessary for starting up
 // the statsd server. These can either be set via command line or directly.
 type Server struct {
-	Backends            []gostatsd.Backend
-	CloudProvider       gostatsd.CloudProvider
-	Limiter             *rate.Limiter
-	InternalTags        gostatsd.Tags
-	InternalNamespace   string
-	DefaultTags         gostatsd.Tags
-	ExpiryInterval      time.Duration
-	FlushInterval       time.Duration
-	MaxReaders          int
-	MaxParsers          int
-	MaxWorkers          int
-	MaxQueueSize        int
-	MaxConcurrentEvents int
-	MaxEventQueueSize   int
-	EstimatedTags       int
-	MetricsAddr         string
-	Namespace           string
-	PercentThreshold    []float64
-	IgnoreHost          bool
-	ConnPerReader       bool
-	HeartbeatEnabled    bool
-	HeartbeatTags       gostatsd.Tags
-	ReceiveBatchSize    int
-	DisabledSubTypes    gostatsd.TimerSubtypes
+	Backends               []gostatsd.Backend
+	CloudProvider          gostatsd.CloudProvider
+	DisableInternalMetrics bool
+	Limiter                *rate.Limiter
+	InternalTags           gostatsd.Tags
+	InternalNamespace      string
+	DefaultTags            gostatsd.Tags
+	ExpiryInterval         time.Duration
+	FlushInterval          time.Duration
+	MaxReaders             int
+	MaxParsers             int
+	MaxWorkers             int
+	MaxQueueSize           int
+	MaxConcurrentEvents    int
+	MaxEventQueueSize      int
+	EstimatedTags          int
+	MetricsAddr            string
+	Namespace              string
+	PercentThreshold       []float64
+	IgnoreHost             bool
+	ConnPerReader          bool
+	HeartbeatEnabled       bool
+	HeartbeatTags          gostatsd.Tags
+	ReceiveBatchSize       int
+	DisabledSubTypes       gostatsd.TimerSubtypes
 	CacheOptions
 	Viper *viper.Viper
 }
@@ -138,8 +139,12 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 	}
 
 	bufferSize := 1000 // Estimating this is hard, and tends to cause loss under adverse conditions
-	statser := stats.NewInternalStatser(bufferSize, s.InternalTags, namespace, hostname, metrics, events)
-	// TODO: Make internal metric dispatch configurable
+	var statser statser.Statser
+	if s.DisableInternalMetrics {
+		statser = stats.NewNullStatser()
+	} else {
+		statser = stats.NewInternalStatser(bufferSize, s.InternalTags, namespace, hostname, metrics, events)
+	}
 	// statser := stats.NewLoggingStatser(s.InternalTags, log.NewEntry(log.New()))
 	stage = stgr.NextStage()
 	stage.StartWithContext(statser.Run)

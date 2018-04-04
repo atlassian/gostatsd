@@ -36,6 +36,8 @@ const (
 	DefaultMaxCloudRequests = 10
 	// DefaultBurstCloudRequests is the burst number of cloud provider requests per second.
 	DefaultBurstCloudRequests = DefaultMaxCloudRequests + 5
+	// DefaultDisableInternalMetrics is the default value for whether internal metrics should be disabled.
+	DefaultDisableInternalMetrics = false
 	// DefaultExpiryInterval is the default expiry interval for metrics.
 	DefaultExpiryInterval = 5 * time.Minute
 	// DefaultFlushInterval is the default metrics flush interval.
@@ -73,6 +75,8 @@ const (
 	ParamBackends = "backends"
 	// ParamCloudProvider is the name of parameter with the name of cloud provider.
 	ParamCloudProvider = "cloud-provider"
+	// ParamDisableInternalMetrics is the name of parameter indicating if internal metrics should be disabled.
+	ParamDisableInternalMetrics = "disable-internal-metrics"
 	// ParamMaxCloudRequests is the name of parameter with maximum number of cloud provider requests per second.
 	ParamMaxCloudRequests = "max-cloud-requests"
 	// ParamBurstCloudRequests is the name of parameter with burst number of cloud provider requests per second.
@@ -126,6 +130,7 @@ const (
 // AddFlags adds flags to the specified FlagSet.
 func AddFlags(fs *pflag.FlagSet) {
 	fs.String(ParamCloudProvider, "", "If set, use the cloud provider to retrieve metadata about the sender")
+	fs.Bool(ParamDisableInternalMetrics, DefaultDisableInternalMetrics, "Disable internal metrics from being collected")
 	fs.Duration(ParamExpiryInterval, DefaultExpiryInterval, "After how long do we expire metrics (0 to disable)")
 	fs.Duration(ParamFlushInterval, DefaultFlushInterval, "How often to flush metrics to the backends")
 	fs.Bool(ParamIgnoreHost, DefaultIgnoreHost, "Ignore the source for populating the hostname field of metrics")
