@@ -1,6 +1,7 @@
 package statser
 
 import (
+	"context"
 	"time"
 
 	"github.com/atlassian/gostatsd"
@@ -16,6 +17,9 @@ type NullStatser struct {
 func NewNullStatser() Statser {
 	return &NullStatser{}
 }
+
+// Run does nothing
+func (ns *NullStatser) Run(ctx context.Context) {}
 
 // Gauge does nothing
 func (ns *NullStatser) Gauge(name string, value float64, tags gostatsd.Tags) {}
