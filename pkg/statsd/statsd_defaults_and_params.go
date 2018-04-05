@@ -126,8 +126,8 @@ const (
 	ParamMetricsAddr = "metrics-addr"
 	// ParamNamespace is the name of parameter with namespace for all metrics.
 	ParamNamespace = "namespace"
-	// StatserType is the name of parameter with type of statser.
-	StatserType = "statser-type"
+	// ParamStatserType is the name of parameter with type of statser.
+	ParamStatserType = "statser-type"
 	// ParamPercentThreshold is the name of parameter with list of applied percentiles.
 	ParamPercentThreshold = "percent-threshold"
 	// ParamHeartbeatEnabled is the name of the parameter with the heartbeat enabled
