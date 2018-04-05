@@ -1,7 +1,6 @@
 package statser
 
 import (
-	"context"
 	"time"
 
 	"github.com/atlassian/gostatsd"
@@ -25,9 +24,6 @@ func NewTaggedStatser(statser Statser, tags gostatsd.Tags) Statser {
 		tags:    tags,
 	}
 }
-
-// Run does nothing
-func (ts *TaggedStatser) Run(ctx context.Context) {}
 
 func (ts *TaggedStatser) NotifyFlush(d time.Duration) {
 	ts.statser.NotifyFlush(d)

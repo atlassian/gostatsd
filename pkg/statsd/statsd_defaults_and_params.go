@@ -32,12 +32,21 @@ var DefaultTags = gostatsd.Tags{}
 var DefaultInternalTags = gostatsd.Tags{}
 
 const (
+	// StatserInternal is the name used to indicate the use of the internal statser.
+	StatserInternal = "internal"
+	// StatserLogging is the name used to indicate the use of the logging statser.
+	StatserLogging = "logging"
+	// StatserNull is the name used to indicate the use of the null statser.
+	StatserNull = "null"
+	// StatserTagged is the name used to indicate the use of the tagged statser.
+	StatserTagged = "tagged"
+)
+
+const (
 	// DefaultMaxCloudRequests is the maximum number of cloud provider requests per second.
 	DefaultMaxCloudRequests = 10
 	// DefaultBurstCloudRequests is the burst number of cloud provider requests per second.
 	DefaultBurstCloudRequests = DefaultMaxCloudRequests + 5
-	// DefaultDisableInternalMetrics is the default value for whether internal metrics should be disabled.
-	DefaultDisableInternalMetrics = false
 	// DefaultExpiryInterval is the default expiry interval for metrics.
 	DefaultExpiryInterval = 5 * time.Minute
 	// DefaultFlushInterval is the default metrics flush interval.
@@ -68,6 +77,8 @@ const (
 	DefaultEstimatedTags = 4
 	// DefaultConnPerReader is the default for whether to create a connection per reader
 	DefaultConnPerReader = false
+	// DefaultStatserType is the default statser type
+	DefaultStatserType = StatserInternal
 )
 
 const (
@@ -75,8 +86,6 @@ const (
 	ParamBackends = "backends"
 	// ParamCloudProvider is the name of parameter with the name of cloud provider.
 	ParamCloudProvider = "cloud-provider"
-	// ParamDisableInternalMetrics is the name of parameter indicating if internal metrics should be disabled.
-	ParamDisableInternalMetrics = "disable-internal-metrics"
 	// ParamMaxCloudRequests is the name of parameter with maximum number of cloud provider requests per second.
 	ParamMaxCloudRequests = "max-cloud-requests"
 	// ParamBurstCloudRequests is the name of parameter with burst number of cloud provider requests per second.
@@ -117,6 +126,8 @@ const (
 	ParamMetricsAddr = "metrics-addr"
 	// ParamNamespace is the name of parameter with namespace for all metrics.
 	ParamNamespace = "namespace"
+	// StatserType is the name of parameter with type of statser.
+	StatserType = "statser-type"
 	// ParamPercentThreshold is the name of parameter with list of applied percentiles.
 	ParamPercentThreshold = "percent-threshold"
 	// ParamHeartbeatEnabled is the name of the parameter with the heartbeat enabled
@@ -130,7 +141,6 @@ const (
 // AddFlags adds flags to the specified FlagSet.
 func AddFlags(fs *pflag.FlagSet) {
 	fs.String(ParamCloudProvider, "", "If set, use the cloud provider to retrieve metadata about the sender")
-	fs.Bool(ParamDisableInternalMetrics, DefaultDisableInternalMetrics, "Disable internal metrics from being collected")
 	fs.Duration(ParamExpiryInterval, DefaultExpiryInterval, "After how long do we expire metrics (0 to disable)")
 	fs.Duration(ParamFlushInterval, DefaultFlushInterval, "How often to flush metrics to the backends")
 	fs.Bool(ParamIgnoreHost, DefaultIgnoreHost, "Ignore the source for populating the hostname field of metrics")
@@ -152,6 +162,7 @@ func AddFlags(fs *pflag.FlagSet) {
 	fs.String(ParamDefaultTags, strings.Join(DefaultTags, ","), "Comma-separated list of tags to add to all metrics")
 	fs.String(ParamInternalTags, strings.Join(DefaultInternalTags, ","), "Comma-separated list of tags to add to internal metrics")
 	fs.String(ParamInternalNamespace, DefaultInternalNamespace, "Namespace for internal metrics, may be \"\"")
+	fs.String(ParamStatserType, DefaultStatserType, "Statser type to be used for sending metrics")
 	fs.String(ParamPercentThreshold, strings.Join(toStringSlice(DefaultPercentThreshold), ","), "Comma-separated list of percentiles")
 	fs.Bool(ParamHeartbeatEnabled, DefaultHeartbeatEnabled, "Enables heartbeat")
 	fs.Int(ParamReceiveBatchSize, DefaultReceiveBatchSize, "The number of datagrams to read in each receive batch")
