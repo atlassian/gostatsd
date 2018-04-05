@@ -1,3 +1,8 @@
+5.4.1
+-----
+- Memory/GC optimisation with buffers being reused in the Datadog backend
+- Metrics in the cloud provider cache should now be correct
+
 5.4.0
 -----
 - BREAKING: The way "per second" rates are calculated has changed from "value / configured flush interval"
