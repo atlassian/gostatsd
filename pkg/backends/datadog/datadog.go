@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/atlassian/gostatsd"
+	"github.com/atlassian/gostatsd/pkg/pool"
 	stats "github.com/atlassian/gostatsd/pkg/statser"
 
 	"github.com/cenkalti/backoff"
@@ -69,6 +70,7 @@ type Client struct {
 
 	disabledSubtypes gostatsd.TimerSubtypes
 	flushInterval    time.Duration
+	bufferPool       *pool.BytesBuffer
 }
 
 // event represents an event data structure for Datadog.
@@ -275,39 +277,34 @@ func (d *Client) constructPost(ctx context.Context, path, typeOfPost string, dat
 	authenticatedURL := d.authenticatedURL(path)
 	// Selectively compress payload based on knowledge of whether the endpoint supports deflate encoding.
 	// The metrics endpoint does, the events endpoint does not.
-	compressPayload := false
-	if d.compressPayload && typeOfPost == "metrics" {
-		compressPayload = true
+	compressPayload := d.compressPayload && typeOfPost == "metrics"
+	returnBuffer := true
+	buffer := d.bufferPool.Get()
+	free := func() {
+		d.bufferPool.Put(buffer)
 	}
-	returnStream := true
-	stream := jsonConfig.BorrowStream(nil)
 	defer func() {
-		if returnStream {
-			jsonConfig.ReturnStream(stream)
+		if returnBuffer {
+			free()
 		}
 	}()
-	stream.WriteVal(data)
-	if stream.Error != nil {
-		return nil, nil, fmt.Errorf("[%s] unable to marshal %s: %v", BackendName, typeOfPost, stream.Error)
+	marshal := func(w io.Writer) error {
+		stream := jsonConfig.BorrowStream(w)
+		defer jsonConfig.ReturnStream(stream)
+		stream.WriteVal(data)
+		return stream.Flush()
 	}
-	body := stream.Buffer()
-	log.Debugf("[%s] %s json: %s", BackendName, typeOfPost, body)
-	var free func()
+	var err error
 	if compressPayload {
-		// Use deflate (zlib, since DD requires the zlib headers)
-		compressed, err := deflate(body)
-		if err != nil {
-			return nil, nil, fmt.Errorf("[%s] unable to compress %s: %v", BackendName, typeOfPost, err)
-		}
-		body = compressed
-		free = func() {
-		}
+		err = deflate(buffer, marshal)
 	} else {
-		returnStream = false
-		free = func() {
-			jsonConfig.ReturnStream(stream)
-		}
+		err = marshal(buffer)
 	}
+	if err != nil {
+		return nil, nil, fmt.Errorf("[%s] unable to marshal %s: %v", BackendName, typeOfPost, err)
+	}
+	body := buffer.Bytes()
+	returnBuffer = false
 
 	return func() error {
 		headers := map[string]string{
@@ -432,6 +429,7 @@ func NewClient(apiEndpoint, apiKey, network string, metricsPerBatch, maxRequests
 		now:              time.Now,
 		flushInterval:    flushInterval,
 		disabledSubtypes: disabled,
+		bufferPool:       pool.NewBytesBuffer(),
 	}, nil
 }
 
@@ -443,22 +441,18 @@ func getSubViper(v *viper.Viper, key string) *viper.Viper {
 	return n
 }
 
-func deflate(body []byte) ([]byte, error) {
-	var buf bytes.Buffer
-	compressor, err := zlib.NewWriterLevel(&buf, zlib.BestCompression)
+func deflate(w io.Writer, f func(io.Writer) error) error {
+	compressor, err := zlib.NewWriterLevel(w, zlib.BestCompression)
 	if err != nil {
-		return nil, fmt.Errorf("unable to create zlib writer: %v", err)
+		return fmt.Errorf("unable to create zlib writer: %v", err)
 	}
-	_, err = compressor.Write(body)
+	err = f(compressor)
 	if err != nil {
-		return nil, fmt.Errorf("unable to write compressed payload: %v", err)
+		return fmt.Errorf("unable to write compressed payload: %v", err)
 	}
 	err = compressor.Close()
 	if err != nil {
-		return nil, fmt.Errorf("unable to close compressor: %v", err)
+		return fmt.Errorf("unable to close compressor: %v", err)
 	}
-	sc := buf.Len()
-	sp := len(body)
-	log.Debugf("payload_size=%d, compressed_size=%d, compression_ration=%.3f", sp, sc, float32(sc)/float32(sp))
-	return buf.Bytes(), nil
+	return nil
 }
