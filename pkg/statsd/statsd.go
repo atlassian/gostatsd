@@ -144,11 +144,12 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 	case StatserNull:
 		statser = stats.NewNullStatser()
 	case StatserLogging:
-		statser := stats.NewLoggingStatser(s.InternalTags, log.NewEntry(log.New()))
+		statser = stats.NewLoggingStatser(s.InternalTags, log.NewEntry(log.New()))
 	default:
-		statser = stats.NewInternalStatser(bufferSize, s.InternalTags, namespace, hostname, metrics, events)
+		internalStatser := stats.NewInternalStatser(bufferSize, s.InternalTags, namespace, hostname, metrics, events)
 		stage = stgr.NextStage()
-		stage.StartWithContext(statser.Run)
+		stage.StartWithContext(internalStatser.Run)
+		statser = internalStatser
 	}
 
 	// 5. Attach the statser to anything that needs it
