@@ -83,7 +83,6 @@ func TestSendMetrics(t *testing.T) {
 	t.Parallel()
 	mux := http.NewServeMux()
 	mux.HandleFunc("/api/v1/series", func(w http.ResponseWriter, r *http.Request) {
-		defer r.Body.Close()
 		data, err := ioutil.ReadAll(r.Body)
 		if !assert.NoError(t, err) {
 			return
@@ -94,7 +93,6 @@ func TestSendMetrics(t *testing.T) {
 			if !assert.NoError(t, err) {
 				return
 			}
-			defer decompressor.Close()
 			data, err = ioutil.ReadAll(decompressor)
 			assert.NoError(t, err)
 		}
@@ -113,7 +111,7 @@ func TestSendMetrics(t *testing.T) {
 			`{"host":"h2","interval":1.1,"metric":"t1.count_90","points":[[100,0.1]],"tags":["tag2"],"type":"gauge"},` +
 			`{"host":"h3","interval":1.1,"metric":"g1","points":[[100,3]],"tags":["tag3"],"type":"gauge"},` +
 			`{"host":"h4","interval":1.1,"metric":"users","points":[[100,3]],"tags":["tag4"],"type":"gauge"}]}`
-		assert.Equal(t, []byte(expected), data)
+		assert.Equal(t, expected, string(data))
 	})
 	ts := httptest.NewServer(mux)
 	defer ts.Close()
