@@ -9,6 +9,7 @@ import (
 	"github.com/atlassian/gostatsd/pkg/statser"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/time/rate"
 )
 
 type metricAndEvent struct {
@@ -17,6 +18,11 @@ type metricAndEvent struct {
 }
 
 const fakeIP = gostatsd.IP("127.0.0.1")
+
+func newTestParser(ignoreHost bool) (*DatagramParser, *countingHandler) {
+	ch := &countingHandler{}
+	return NewDatagramParser(nil, "", ignoreHost, 0, ch, ch, statser.NewNullStatser(), rate.NewLimiter(0, 0)), ch
+}
 
 func TestParseEmptyDatagram(t *testing.T) {
 	t.Parallel()
@@ -29,8 +35,7 @@ func TestParseEmptyDatagram(t *testing.T) {
 		inp := inp
 		t.Run(strconv.Itoa(pos), func(t *testing.T) {
 			t.Parallel()
-			ch := &countingHandler{}
-			mr := NewDatagramParser(nil, "", false, 0, ch, ch, statser.NewNullStatser())
+			mr, ch := newTestParser(false)
 			_, _, _, err := mr.handleDatagram(context.Background(), gostatsd.UnknownIP, inp)
 			require.NoError(t, err)
 			assert.Zero(t, len(ch.events), ch.events)
@@ -88,8 +93,7 @@ func TestParseDatagram(t *testing.T) {
 		mAndE := mAndE
 		t.Run(datagram, func(t *testing.T) {
 			t.Parallel()
-			ch := &countingHandler{}
-			mr := NewDatagramParser(nil, "", false, 0, ch, ch, statser.NewNullStatser())
+			mr, ch := newTestParser(false)
 			_, _, _, err := mr.handleDatagram(context.Background(), fakeIP, []byte(datagram))
 			assert.NoError(t, err)
 			for i, e := range ch.events {
@@ -158,8 +162,7 @@ func TestParseDatagramIgnoreHost(t *testing.T) {
 		mAndE := mAndE
 		t.Run(datagram, func(t *testing.T) {
 			t.Parallel()
-			ch := &countingHandler{}
-			mr := NewDatagramParser(nil, "", true, 0, ch, ch, statser.NewNullStatser())
+			mr, ch := newTestParser(true)
 			_, _, _, err := mr.handleDatagram(context.Background(), fakeIP, []byte(datagram))
 			assert.NoError(t, err)
 			for i, e := range ch.events {

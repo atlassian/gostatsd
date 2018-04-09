@@ -1,3 +1,10 @@
+6.0.0
+-----
+- Parses histogram metrics as timers
+- Log bad lines with rate limit
+- Add new flag `--bad-lines-per-minute`, controls the rate limit on logging lines which fail to parse.  Defaults
+  to `0`.  Supports floats.
+
 5.4.1
 -----
 - Memory/GC optimisation with buffers being reused in the Datadog backend

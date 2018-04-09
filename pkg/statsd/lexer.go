@@ -375,6 +375,10 @@ func lexType(l *lexer) stateFn {
 		l.start = l.pos
 		l.m.Type = gostatsd.TIMER
 		return lexTypeSep
+	case 'h':
+		l.start = l.pos
+		l.m.Type = gostatsd.TIMER
+		return lexTypeSep
 	case 's':
 		l.m.Type = gostatsd.SET
 		l.start = l.pos

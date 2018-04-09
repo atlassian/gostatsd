@@ -21,30 +21,31 @@ import (
 // Server encapsulates all of the parameters necessary for starting up
 // the statsd server. These can either be set via command line or directly.
 type Server struct {
-	Backends            []gostatsd.Backend
-	CloudProvider       gostatsd.CloudProvider
-	Limiter             *rate.Limiter
-	InternalTags        gostatsd.Tags
-	InternalNamespace   string
-	DefaultTags         gostatsd.Tags
-	ExpiryInterval      time.Duration
-	FlushInterval       time.Duration
-	MaxReaders          int
-	MaxParsers          int
-	MaxWorkers          int
-	MaxQueueSize        int
-	MaxConcurrentEvents int
-	MaxEventQueueSize   int
-	EstimatedTags       int
-	MetricsAddr         string
-	Namespace           string
-	PercentThreshold    []float64
-	IgnoreHost          bool
-	ConnPerReader       bool
-	HeartbeatEnabled    bool
-	HeartbeatTags       gostatsd.Tags
-	ReceiveBatchSize    int
-	DisabledSubTypes    gostatsd.TimerSubtypes
+	Backends                  []gostatsd.Backend
+	CloudProvider             gostatsd.CloudProvider
+	Limiter                   *rate.Limiter
+	InternalTags              gostatsd.Tags
+	InternalNamespace         string
+	DefaultTags               gostatsd.Tags
+	ExpiryInterval            time.Duration
+	FlushInterval             time.Duration
+	MaxReaders                int
+	MaxParsers                int
+	MaxWorkers                int
+	MaxQueueSize              int
+	MaxConcurrentEvents       int
+	MaxEventQueueSize         int
+	EstimatedTags             int
+	MetricsAddr               string
+	Namespace                 string
+	PercentThreshold          []float64
+	IgnoreHost                bool
+	ConnPerReader             bool
+	HeartbeatEnabled          bool
+	HeartbeatTags             gostatsd.Tags
+	ReceiveBatchSize          int
+	DisabledSubTypes          gostatsd.TimerSubtypes
+	BadLineRateLimitPerSecond rate.Limit
 	CacheOptions
 	Viper *viper.Viper
 }
@@ -172,8 +173,9 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 	// 7. Start the Parser
 	// Open receiver <-> parser chan
 	datagrams := make(chan []*Datagram)
+	limiter := rate.NewLimiter(s.BadLineRateLimitPerSecond, 1)
 
-	parser := NewDatagramParser(datagrams, s.Namespace, s.IgnoreHost, s.EstimatedTags, metrics, events, statser)
+	parser := NewDatagramParser(datagrams, s.Namespace, s.IgnoreHost, s.EstimatedTags, metrics, events, statser, limiter)
 	stage = stgr.NextStage()
 	stage.StartWithContext(parser.RunMetrics)
 	for r := 0; r < s.MaxParsers; r++ {

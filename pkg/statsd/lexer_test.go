@@ -16,6 +16,8 @@ func TestMetricsLexer(t *testing.T) {
 		"foo.bar.baz:2|c":               {Name: "foo.bar.baz", Value: 2, Type: gostatsd.COUNTER},
 		"abc.def.g:3|g":                 {Name: "abc.def.g", Value: 3, Type: gostatsd.GAUGE},
 		"def.g:10|ms":                   {Name: "def.g", Value: 10, Type: gostatsd.TIMER},
+		"def.h:10|h":                    {Name: "def.h", Value: 10, Type: gostatsd.TIMER},
+		"def.i:10|h|#foo":               {Name: "def.i", Value: 10, Type: gostatsd.TIMER, Tags: gostatsd.Tags{"foo"}},
 		"smp.rte:5|c|@0.1":              {Name: "smp.rte", Value: 50, Type: gostatsd.COUNTER},
 		"smp.rte:5|c|@0.1|#foo:bar,baz": {Name: "smp.rte", Value: 50, Type: gostatsd.COUNTER, Tags: gostatsd.Tags{"foo:bar", "baz"}},
 		"smp.rte:5|c|#foo:bar,baz":      {Name: "smp.rte", Value: 5, Type: gostatsd.COUNTER, Tags: gostatsd.Tags{"foo:bar", "baz"}},
