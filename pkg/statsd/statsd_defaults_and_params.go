@@ -32,6 +32,17 @@ var DefaultTags = gostatsd.Tags{}
 var DefaultInternalTags = gostatsd.Tags{}
 
 const (
+	// StatserInternal is the name used to indicate the use of the internal statser.
+	StatserInternal = "internal"
+	// StatserLogging is the name used to indicate the use of the logging statser.
+	StatserLogging = "logging"
+	// StatserNull is the name used to indicate the use of the null statser.
+	StatserNull = "null"
+	// StatserTagged is the name used to indicate the use of the tagged statser.
+	StatserTagged = "tagged"
+)
+
+const (
 	// DefaultMaxCloudRequests is the maximum number of cloud provider requests per second.
 	DefaultMaxCloudRequests = 10
 	// DefaultBurstCloudRequests is the burst number of cloud provider requests per second.
@@ -66,6 +77,8 @@ const (
 	DefaultEstimatedTags = 4
 	// DefaultConnPerReader is the default for whether to create a connection per reader
 	DefaultConnPerReader = false
+	// DefaultStatserType is the default statser type
+	DefaultStatserType = StatserInternal
 )
 
 const (
@@ -113,6 +126,8 @@ const (
 	ParamMetricsAddr = "metrics-addr"
 	// ParamNamespace is the name of parameter with namespace for all metrics.
 	ParamNamespace = "namespace"
+	// ParamStatserType is the name of parameter with type of statser.
+	ParamStatserType = "statser-type"
 	// ParamPercentThreshold is the name of parameter with list of applied percentiles.
 	ParamPercentThreshold = "percent-threshold"
 	// ParamHeartbeatEnabled is the name of the parameter with the heartbeat enabled
@@ -147,6 +162,7 @@ func AddFlags(fs *pflag.FlagSet) {
 	fs.String(ParamDefaultTags, strings.Join(DefaultTags, ","), "Comma-separated list of tags to add to all metrics")
 	fs.String(ParamInternalTags, strings.Join(DefaultInternalTags, ","), "Comma-separated list of tags to add to internal metrics")
 	fs.String(ParamInternalNamespace, DefaultInternalNamespace, "Namespace for internal metrics, may be \"\"")
+	fs.String(ParamStatserType, DefaultStatserType, "Statser type to be used for sending metrics")
 	fs.String(ParamPercentThreshold, strings.Join(toStringSlice(DefaultPercentThreshold), ","), "Comma-separated list of percentiles")
 	fs.Bool(ParamHeartbeatEnabled, DefaultHeartbeatEnabled, "Enables heartbeat")
 	fs.Int(ParamReceiveBatchSize, DefaultReceiveBatchSize, "The number of datagrams to read in each receive batch")
