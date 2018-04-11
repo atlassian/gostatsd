@@ -66,6 +66,8 @@ const (
 	DefaultEstimatedTags = 4
 	// DefaultConnPerReader is the default for whether to create a connection per reader
 	DefaultConnPerReader = false
+	// DefaultBadLinesPerMinute is the default number of bad lines to allow to log per minute
+	DefaultBadLinesPerMinute = 0
 )
 
 const (
@@ -121,6 +123,8 @@ const (
 	ParamReceiveBatchSize = "receive-batch-size"
 	// ParamConnPerReader is the name of the parameter indicating whether to create a connection per reader
 	ParamConnPerReader = "conn-per-reader"
+	// ParamBadLineRateLimitPerMinute is the name of the parameter indicating how many bad lines can be logged per minute
+	ParamBadLinesPerMinute = "bad-lines-per-minute"
 )
 
 // AddFlags adds flags to the specified FlagSet.

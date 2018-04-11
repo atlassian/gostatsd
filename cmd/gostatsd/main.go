@@ -137,8 +137,9 @@ func constructServer(v *viper.Viper) (*statsd.Server, error) {
 			fmt.Sprintf("version:%s", Version),
 			fmt.Sprintf("commit:%s", GitCommit),
 		},
-		DisabledSubTypes: gostatsd.DisabledSubMetrics(v),
-		Viper:            v,
+		DisabledSubTypes:          gostatsd.DisabledSubMetrics(v),
+		BadLineRateLimitPerSecond: rate.Limit(v.GetFloat64(statsd.ParamBadLinesPerMinute) / 60.0),
+		Viper: v,
 	}, nil
 }
 

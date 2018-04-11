@@ -12,6 +12,7 @@ import (
 	"github.com/atlassian/gostatsd/pkg/statser"
 
 	log "github.com/sirupsen/logrus"
+	"golang.org/x/time/rate"
 )
 
 // DatagramParser receives datagrams and parses them into Metrics/Events
@@ -32,19 +33,22 @@ type DatagramParser struct {
 
 	metricPool *pool.MetricPool
 
+	badLineLimiter *rate.Limiter
+
 	in <-chan []*Datagram // Input chan of datagram batches to parse
 }
 
 // NewDatagramParser initialises a new DatagramParser.
-func NewDatagramParser(in <-chan []*Datagram, ns string, ignoreHost bool, estimatedTags int, metrics MetricHandler, events EventHandler, statser statser.Statser) *DatagramParser {
+func NewDatagramParser(in <-chan []*Datagram, ns string, ignoreHost bool, estimatedTags int, metrics MetricHandler, events EventHandler, statser statser.Statser, badLineLimiter *rate.Limiter) *DatagramParser {
 	return &DatagramParser{
-		in:         in,
-		ignoreHost: ignoreHost,
-		metrics:    metrics,
-		events:     events,
-		namespace:  ns,
-		statser:    statser,
-		metricPool: pool.NewMetricPool(estimatedTags + metrics.EstimatedTags()),
+		in:             in,
+		ignoreHost:     ignoreHost,
+		metrics:        metrics,
+		events:         events,
+		namespace:      ns,
+		statser:        statser,
+		metricPool:     pool.NewMetricPool(estimatedTags + metrics.EstimatedTags()),
+		badLineLimiter: badLineLimiter,
 	}
 }
 
@@ -91,6 +95,13 @@ func (dp *DatagramParser) Run(ctx context.Context) {
 	}
 }
 
+// logBadLineRateLimited will log a line which failed to decode, if the current rate limit has not been exceeded.
+func (dp *DatagramParser) logBadLineRateLimited(line []byte, ip gostatsd.IP, err error) {
+	if dp.badLineLimiter.Allow() {
+		log.Infof("Error parsing line %q from %s: %v", line, ip, err)
+	}
+}
+
 // handleDatagram handles the contents of a datagram and calls Handler.DispatchMetric()
 // for each line that successfully parses into a types.Metric and Handler.DispatchEvent() for each event.
 func (dp *DatagramParser) handleDatagram(ctx context.Context, ip gostatsd.IP, msg []byte) (metricCount, eventCount, badLineCount uint64, err error) {
@@ -114,7 +125,7 @@ func (dp *DatagramParser) handleDatagram(ctx context.Context, ip gostatsd.IP, ms
 		if err != nil {
 			// logging as debug to avoid spamming logs when a bad actor sends
 			// badly formatted messages
-			log.Debugf("Error parsing line %q from %s: %v", line, ip, err)
+			dp.logBadLineRateLimited(line, ip, err)
 			numBad++
 			continue
 		}
