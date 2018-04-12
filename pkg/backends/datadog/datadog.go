@@ -36,7 +36,8 @@ const (
 	// defaultMetricsPerBatch is the default number of metrics to send in a single batch.
 	defaultMetricsPerBatch = 1000
 	// maxResponseSize is the maximum response size we are willing to read.
-	maxResponseSize = 10 * 1024
+	maxResponseSize     = 10 * 1024
+	maxConcurrentEvents = 20
 )
 
 var (
@@ -63,8 +64,9 @@ type Client struct {
 	maxRequestElapsedTime time.Duration
 	client                http.Client
 	metricsPerBatch       uint
-	requestSem            chan struct{}
-	now                   func() time.Time // Returns current time. Useful for testing.
+	metricsBufferSem      chan *bytes.Buffer // Two in one - a semaphore and a buffer pool
+	eventsBufferSem       chan *bytes.Buffer // Two in one - a semaphore and a buffer pool
+	now                   func() time.Time   // Returns current time. Useful for testing.
 	compressPayload       bool
 
 	disabledSubtypes gostatsd.TimerSubtypes
@@ -97,17 +99,17 @@ func (d *Client) SendMetricsAsync(ctx context.Context, metrics *gostatsd.MetricM
 			select {
 			case <-ctx.Done():
 				return
-			case d.requestSem <- struct{}{}:
+			case buffer := <-d.metricsBufferSem:
 				defer func() {
-					<-d.requestSem
+					buffer.Reset()
+					d.metricsBufferSem <- buffer
 				}()
-			}
+				err := d.postMetrics(ctx, buffer, ts)
 
-			err := d.postMetrics(ctx, ts)
-
-			select {
-			case <-ctx.Done():
-			case results <- err:
+				select {
+				case <-ctx.Done():
+				case results <- err:
+				}
 			}
 		}()
 		counter++
@@ -211,23 +213,32 @@ func (d *Client) processMetrics(metrics *gostatsd.MetricMap, cb func(*timeSeries
 	fl.finish()
 }
 
-func (d *Client) postMetrics(ctx context.Context, ts *timeSeries) error {
-	return d.post(ctx, "/api/v1/series", "metrics", ts)
+func (d *Client) postMetrics(ctx context.Context, buffer *bytes.Buffer, ts *timeSeries) error {
+	return d.post(ctx, buffer, "/api/v1/series", "metrics", ts)
 }
 
 // SendEvent sends an event to Datadog.
 func (d *Client) SendEvent(ctx context.Context, e *gostatsd.Event) error {
-	return d.post(ctx, "/api/v1/events", "events", &event{
-		Title:          e.Title,
-		Text:           e.Text,
-		DateHappened:   e.DateHappened,
-		Hostname:       e.Hostname,
-		AggregationKey: e.AggregationKey,
-		SourceTypeName: e.SourceTypeName,
-		Tags:           e.Tags,
-		Priority:       e.Priority.StringWithEmptyDefault(),
-		AlertType:      e.AlertType.StringWithEmptyDefault(),
-	})
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case buffer := <-d.eventsBufferSem:
+		defer func() {
+			buffer.Reset()
+			d.eventsBufferSem <- buffer
+		}()
+		return d.post(ctx, buffer, "/api/v1/events", "events", &event{
+			Title:          e.Title,
+			Text:           e.Text,
+			DateHappened:   e.DateHappened,
+			Hostname:       e.Hostname,
+			AggregationKey: e.AggregationKey,
+			SourceTypeName: e.SourceTypeName,
+			Tags:           e.Tags,
+			Priority:       e.Priority.StringWithEmptyDefault(),
+			AlertType:      e.AlertType.StringWithEmptyDefault(),
+		})
+	}
 }
 
 // Name returns the name of the backend.
@@ -235,13 +246,12 @@ func (d *Client) Name() string {
 	return BackendName
 }
 
-func (d *Client) post(ctx context.Context, path, typeOfPost string, data interface{}) error {
-	post, free, err := d.constructPost(ctx, path, typeOfPost, data)
+func (d *Client) post(ctx context.Context, buffer *bytes.Buffer, path, typeOfPost string, data interface{}) error {
+	post, err := d.constructPost(ctx, buffer, path, typeOfPost, data)
 	if err != nil {
 		atomic.AddUint64(&d.batchesDropped, 1)
 		return err
 	}
-	defer free()
 
 	b := backoff.NewExponentialBackOff()
 	b.MaxElapsedTime = d.maxRequestElapsedTime
@@ -271,43 +281,27 @@ func (d *Client) post(ctx context.Context, path, typeOfPost string, data interfa
 	}
 }
 
-func (d *Client) constructPost(ctx context.Context, path, typeOfPost string, data interface{}) (func() error /*doPost*/, func() /*free*/, error) {
+func (d *Client) constructPost(ctx context.Context, buffer *bytes.Buffer, path, typeOfPost string, data interface{}) (func() error /*doPost*/, error) {
 	authenticatedURL := d.authenticatedURL(path)
 	// Selectively compress payload based on knowledge of whether the endpoint supports deflate encoding.
 	// The metrics endpoint does, the events endpoint does not.
-	compressPayload := false
-	if d.compressPayload && typeOfPost == "metrics" {
-		compressPayload = true
+	compressPayload := d.compressPayload && typeOfPost == "metrics"
+	marshal := func(w io.Writer) error {
+		stream := jsonConfig.BorrowStream(w)
+		defer jsonConfig.ReturnStream(stream)
+		stream.WriteVal(data)
+		return stream.Flush()
 	}
-	returnStream := true
-	stream := jsonConfig.BorrowStream(nil)
-	defer func() {
-		if returnStream {
-			jsonConfig.ReturnStream(stream)
-		}
-	}()
-	stream.WriteVal(data)
-	if stream.Error != nil {
-		return nil, nil, fmt.Errorf("[%s] unable to marshal %s: %v", BackendName, typeOfPost, stream.Error)
-	}
-	body := stream.Buffer()
-	log.Debugf("[%s] %s json: %s", BackendName, typeOfPost, body)
-	var free func()
+	var err error
 	if compressPayload {
-		// Use deflate (zlib, since DD requires the zlib headers)
-		compressed, err := deflate(body)
-		if err != nil {
-			return nil, nil, fmt.Errorf("[%s] unable to compress %s: %v", BackendName, typeOfPost, err)
-		}
-		body = compressed
-		free = func() {
-		}
+		err = deflate(buffer, marshal)
 	} else {
-		returnStream = false
-		free = func() {
-			jsonConfig.ReturnStream(stream)
-		}
+		err = marshal(buffer)
 	}
+	if err != nil {
+		return nil, fmt.Errorf("[%s] unable to marshal %s: %v", BackendName, typeOfPost, err)
+	}
+	body := buffer.Bytes()
 
 	return func() error {
 		headers := map[string]string{
@@ -340,7 +334,7 @@ func (d *Client) constructPost(ctx context.Context, path, typeOfPost string, dat
 		}
 		_, _ = io.Copy(ioutil.Discard, body)
 		return nil
-	}, free, nil
+	}, nil
 }
 
 func (d *Client) authenticatedURL(path string) string {
@@ -418,6 +412,14 @@ func NewClient(apiEndpoint, apiKey, network string, metricsPerBatch, maxRequests
 		// https://golang.org/doc/go1.6#http2
 		TLSNextProto: map[string](func(string, *tls.Conn) http.RoundTripper){},
 	}
+	metricsBufferSem := make(chan *bytes.Buffer, maxRequests)
+	for i := uint(0); i < maxRequests; i++ {
+		metricsBufferSem <- &bytes.Buffer{}
+	}
+	eventsBufferSem := make(chan *bytes.Buffer, maxConcurrentEvents)
+	for i := uint(0); i < maxConcurrentEvents; i++ {
+		eventsBufferSem <- &bytes.Buffer{}
+	}
 	return &Client{
 		apiKey:                apiKey,
 		apiEndpoint:           apiEndpoint,
@@ -427,7 +429,8 @@ func NewClient(apiEndpoint, apiKey, network string, metricsPerBatch, maxRequests
 			Timeout:   clientTimeout,
 		},
 		metricsPerBatch:  metricsPerBatch,
-		requestSem:       make(chan struct{}, maxRequests),
+		metricsBufferSem: metricsBufferSem,
+		eventsBufferSem:  eventsBufferSem,
 		compressPayload:  compressPayload,
 		now:              time.Now,
 		flushInterval:    flushInterval,
@@ -443,22 +446,18 @@ func getSubViper(v *viper.Viper, key string) *viper.Viper {
 	return n
 }
 
-func deflate(body []byte) ([]byte, error) {
-	var buf bytes.Buffer
-	compressor, err := zlib.NewWriterLevel(&buf, zlib.BestCompression)
+func deflate(w io.Writer, f func(io.Writer) error) error {
+	compressor, err := zlib.NewWriterLevel(w, zlib.BestCompression)
 	if err != nil {
-		return nil, fmt.Errorf("unable to create zlib writer: %v", err)
+		return fmt.Errorf("unable to create zlib writer: %v", err)
 	}
-	_, err = compressor.Write(body)
+	err = f(compressor)
 	if err != nil {
-		return nil, fmt.Errorf("unable to write compressed payload: %v", err)
+		return fmt.Errorf("unable to write compressed payload: %v", err)
 	}
 	err = compressor.Close()
 	if err != nil {
-		return nil, fmt.Errorf("unable to close compressor: %v", err)
+		return fmt.Errorf("unable to close compressor: %v", err)
 	}
-	sc := buf.Len()
-	sp := len(body)
-	log.Debugf("payload_size=%d, compressed_size=%d, compression_ration=%.3f", sp, sc, float32(sc)/float32(sp))
-	return buf.Bytes(), nil
+	return nil
 }
