@@ -1,3 +1,7 @@
+6.0.1
+-----
+- Fixes rate limiter on bad lines.  A value <= 0 will disable entirely.
+
 6.0.0
 -----
 - Parses histogram metrics as timers

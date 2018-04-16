@@ -173,7 +173,10 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 	// 7. Start the Parser
 	// Open receiver <-> parser chan
 	datagrams := make(chan []*Datagram)
-	limiter := rate.NewLimiter(s.BadLineRateLimitPerSecond, 1)
+	limiter := &rate.Limiter{}
+	if s.BadLineRateLimitPerSecond > 0 {
+		limiter = rate.NewLimiter(s.BadLineRateLimitPerSecond, 1)
+	}
 
 	parser := NewDatagramParser(datagrams, s.Namespace, s.IgnoreHost, s.EstimatedTags, metrics, events, statser, limiter)
 	stage = stgr.NextStage()
