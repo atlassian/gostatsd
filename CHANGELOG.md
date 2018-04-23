@@ -1,3 +1,8 @@
+6.1.0
+-----
+- Add new flag `--statser-type` to make internal metric destination configurable.  Defaults to `internal`,
+  also supports `logging` and `null`
+
 6.0.1
 -----
 - Fixes rate limiter on bad lines.  A value <= 0 will disable entirely.

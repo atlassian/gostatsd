@@ -38,7 +38,7 @@ type Server struct {
 	EstimatedTags             int
 	MetricsAddr               string
 	Namespace                 string
-  StatserType               string
+	StatserType               string
 	PercentThreshold          []float64
 	IgnoreHost                bool
 	ConnPerReader             bool
