@@ -38,6 +38,7 @@ type Server struct {
 	EstimatedTags             int
 	MetricsAddr               string
 	Namespace                 string
+  StatserType               string
 	PercentThreshold          []float64
 	IgnoreHost                bool
 	ConnPerReader             bool
@@ -139,11 +140,18 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 	}
 
 	bufferSize := 1000 // Estimating this is hard, and tends to cause loss under adverse conditions
-	statser := stats.NewInternalStatser(bufferSize, s.InternalTags, namespace, hostname, metrics, events)
-	// TODO: Make internal metric dispatch configurable
-	// statser := stats.NewLoggingStatser(s.InternalTags, log.NewEntry(log.New()))
-	stage = stgr.NextStage()
-	stage.StartWithContext(statser.Run)
+	var statser stats.Statser
+	switch s.StatserType {
+	case StatserNull:
+		statser = stats.NewNullStatser()
+	case StatserLogging:
+		statser = stats.NewLoggingStatser(s.InternalTags, log.NewEntry(log.New()))
+	default:
+		internalStatser := stats.NewInternalStatser(bufferSize, s.InternalTags, namespace, hostname, metrics, events)
+		stage = stgr.NextStage()
+		stage.StartWithContext(internalStatser.Run)
+		statser = internalStatser
+	}
 
 	// 5. Attach the statser to anything that needs it
 	stage = stgr.NextStage()
