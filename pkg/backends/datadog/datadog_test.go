@@ -13,6 +13,7 @@ import (
 
 	"github.com/atlassian/gostatsd"
 
+	"github.com/ash2k/stager"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -39,6 +40,10 @@ func TestRetries(t *testing.T) {
 
 	client, err := NewClient(ts.URL, "apiKey123", "agent", "tcp", defaultMetricsPerBatch, defaultMaxRequests, true, false, 1*time.Second, 2*time.Second, 1*time.Second, gostatsd.TimerSubtypes{})
 	require.NoError(t, err)
+	stgr := stager.New()
+	defer stgr.Shutdown()
+	stage := stgr.NextStage()
+	stage.StartWithContext(client.Run)
 	res := make(chan []error, 1)
 	client.SendMetricsAsync(context.Background(), twoCounters(), func(errs []error) {
 		res <- errs
@@ -68,6 +73,10 @@ func TestSendMetricsInMultipleBatches(t *testing.T) {
 
 	client, err := NewClient(ts.URL, "apiKey123", "agent", "tcp", 1, defaultMaxRequests, true, false, 1*time.Second, 2*time.Second, 1*time.Second, gostatsd.TimerSubtypes{})
 	require.NoError(t, err)
+	stgr := stager.New()
+	defer stgr.Shutdown()
+	stage := stgr.NextStage()
+	stage.StartWithContext(client.Run)
 	res := make(chan []error, 1)
 	client.SendMetricsAsync(context.Background(), twoCounters(), func(errs []error) {
 		res <- errs
@@ -116,13 +125,17 @@ func TestSendMetrics(t *testing.T) {
 	ts := httptest.NewServer(mux)
 	defer ts.Close()
 
-	cli, err := NewClient(ts.URL, "apiKey123", "agent", "tcp", 1000, defaultMaxRequests, true, false, 1*time.Second, 2*time.Second, 1100*time.Millisecond, gostatsd.TimerSubtypes{})
+	client, err := NewClient(ts.URL, "apiKey123", "agent", "tcp", 1000, defaultMaxRequests, true, false, 1*time.Second, 2*time.Second, 1100*time.Millisecond, gostatsd.TimerSubtypes{})
 	require.NoError(t, err)
-	cli.now = func() time.Time {
+	stgr := stager.New()
+	defer stgr.Shutdown()
+	stage := stgr.NextStage()
+	stage.StartWithContext(client.Run)
+	client.now = func() time.Time {
 		return time.Unix(100, 0)
 	}
 	res := make(chan []error, 1)
-	cli.SendMetricsAsync(context.Background(), metricsOneOfEach(), func(errs []error) {
+	client.SendMetricsAsync(context.Background(), metricsOneOfEach(), func(errs []error) {
 		res <- errs
 	})
 	errs := <-res
