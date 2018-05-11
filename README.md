@@ -25,6 +25,8 @@ server based on load. The server can also be run HA and be scaled out, see
 
 Building the server
 -------------------
+Gostatsd currently targets Go 1.10.2.  There are no known hard dependencies in the code beween 1.9 and 1.10.2, but some may be introduced in future.
+
 From the `gostatsd` directory run `make build`. The binary will be built in `build/bin/<arch>/gostatsd`.
 
 You will need to install the build dependencies by running `make setup` in the `gostatsd` directory. This must be done before the first build, and again if the dependencies change.
