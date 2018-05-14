@@ -39,6 +39,9 @@ to display info on screen.
 You can also run through `docker` by running `make run-docker` which will use `docker-compose`
 to run `gostatsd` with a graphite backend and a grafana dashboard.
 
+While not generally tested on Windows, it should work.  Maximum throughput is likely to be better on
+a linux system, however.
+
 Configuring backends and cloud providers
 ----------------------------------------
 Backends and cloud providers are configured using `toml`, `json` or `yaml` configuration file

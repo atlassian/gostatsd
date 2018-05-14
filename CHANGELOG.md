@@ -1,3 +1,7 @@
+6.1.1
+-----
+- Fixed a bug making the service not work on Windows.
+
 6.1.0
 -----
 - Add new flag `--statser-type` to make internal metric destination configurable.  Defaults to `internal`,
