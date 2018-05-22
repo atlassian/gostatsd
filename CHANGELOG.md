@@ -1,3 +1,7 @@
+6.1.2
+-----
+- Build with Go 1.10.2
+
 6.1.1
 -----
 - Fixed a bug making the service not work on Windows.
