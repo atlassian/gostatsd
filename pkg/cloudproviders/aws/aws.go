@@ -18,7 +18,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/ec2metadata"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/ec2"
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"golang.org/x/net/http2"
 )
@@ -37,6 +37,8 @@ type Provider struct {
 	describeInstancePages     uint64 // The cumulative number of pages from DescribeInstancesPagesWithContext
 	describeInstanceErrors    uint64 // The cumulative number of errors seen from DescribeInstancesPagesWithContext
 	describeInstanceFound     uint64 // The cumulative number of instances successfully found via DescribeInstancesPagesWithContext
+
+	logger logrus.FieldLogger
 
 	Metadata     *ec2metadata.EC2Metadata
 	Ec2          *ec2.EC2
@@ -89,19 +91,21 @@ func (p *Provider) Instance(ctx context.Context, IP ...gostatsd.IP) (map[gostats
 	atomic.AddUint64(&p.describeInstanceInstances, uint64(len(IP)))
 	instancesFound := uint64(0)
 	pages := uint64(0)
+
+	p.logger.WithField("ips", IP).Debug("Looking up instances")
 	err := p.Ec2.DescribeInstancesPagesWithContext(ctx, input, func(page *ec2.DescribeInstancesOutput, lastPage bool) bool {
 		pages++
 		for _, reservation := range page.Reservations {
 			for _, instance := range reservation.Instances {
 				ip := getInterestingInstanceIP(instance, instances)
 				if ip == gostatsd.UnknownIP {
-					log.Warnf("AWS returned unexpected EC2 instance: %#v", instance)
+					p.logger.Warnf("AWS returned unexpected EC2 instance: %#v", instance)
 					continue
 				}
 				instancesFound++
 				region, err := azToRegion(aws.StringValue(instance.Placement.AvailabilityZone))
 				if err != nil {
-					log.Errorf("Error getting instance region: %v", err)
+					p.logger.Errorf("Error getting instance region: %v", err)
 				}
 				tags := make(gostatsd.Tags, len(instance.Tags)+1)
 				for idx, tag := range instance.Tags {
@@ -114,10 +118,21 @@ func (p *Provider) Instance(ctx context.Context, IP ...gostatsd.IP) (map[gostats
 					ID:   aws.StringValue(instance.InstanceId),
 					Tags: tags,
 				}
+				p.logger.WithFields(logrus.Fields{
+					"instance": instance.InstanceId,
+					"ip":       ip,
+					"tags":     tags,
+				}).Debug("Added tags")
 			}
 		}
 		return true
 	})
+
+	for ip, instance := range instances {
+		if instance == nil {
+			p.logger.WithField("ip", ip).Debug("No results looking up instance")
+		}
+	}
 
 	atomic.AddUint64(&p.describeInstancePages, pages)
 	atomic.AddUint64(&p.describeInstanceFound, instancesFound)
@@ -188,7 +203,7 @@ func azToRegion(az string) (string, error) {
 }
 
 // NewProviderFromViper returns a new aws provider.
-func NewProviderFromViper(v *viper.Viper) (gostatsd.CloudProvider, error) {
+func NewProviderFromViper(v *viper.Viper, logger logrus.FieldLogger) (gostatsd.CloudProvider, error) {
 	a := getSubViper(v, "aws")
 	a.SetDefault("max_retries", 3)
 	a.SetDefault("client_timeout", defaultClientTimeout)
@@ -247,6 +262,7 @@ func NewProviderFromViper(v *viper.Viper) (gostatsd.CloudProvider, error) {
 		Metadata:     metadata,
 		Ec2:          ec2.New(ec2Session),
 		MaxInstances: maxInstances,
+		logger:       logger,
 	}, nil
 }
 
