@@ -12,7 +12,7 @@ import (
 
 // All registered cloud providers.
 var providers = map[string]gostatsd.CloudProviderFactory{
-	aws.ProviderName:  aws.NewProviderFromViper,
+	aws.ProviderName: aws.NewProviderFromViper,
 }
 
 // Get creates an instance of the named provider, or nil if

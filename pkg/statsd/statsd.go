@@ -115,7 +115,7 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 	ip := gostatsd.UnknownIP
 	var cloudHandler *CloudHandler
 	if s.CloudProvider != nil {
-		cloudHandler = NewCloudHandler(s.CloudProvider, metrics, events, s.Limiter, &s.CacheOptions)
+		cloudHandler = NewCloudHandler(s.CloudProvider, metrics, events, log.StandardLogger(), s.Limiter, &s.CacheOptions)
 		metrics = cloudHandler
 		events = cloudHandler
 		stage = stgr.NextStage()

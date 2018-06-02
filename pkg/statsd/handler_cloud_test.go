@@ -12,6 +12,7 @@ import (
 	"github.com/atlassian/gostatsd"
 
 	"github.com/ash2k/stager/wait"
+	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/time/rate"
 )
@@ -21,7 +22,7 @@ import (
 func BenchmarkCloudHandlerDispatchMetric(b *testing.B) {
 	fp := &fakeProviderIP{}
 	nh := &nopHandler{}
-	ch := NewCloudHandler(fp, nh, nh, rate.NewLimiter(100, 120), &CacheOptions{
+	ch := NewCloudHandler(fp, nh, nh, logrus.StandardLogger(), rate.NewLimiter(100, 120), &CacheOptions{
 		CacheRefreshPeriod:        100 * time.Millisecond,
 		CacheEvictAfterIdlePeriod: 700 * time.Millisecond,
 		CacheTTL:                  500 * time.Millisecond,
@@ -55,7 +56,7 @@ func TestTransientInstanceFailure(t *testing.T) {
 
 	counting := &countingHandler{}
 
-	ch := NewCloudHandler(fpt, counting, counting, rate.NewLimiter(100, 120), &CacheOptions{
+	ch := NewCloudHandler(fpt, counting, counting, logrus.StandardLogger(), rate.NewLimiter(100, 120), &CacheOptions{
 		CacheRefreshPeriod:        50 * time.Millisecond,
 		CacheEvictAfterIdlePeriod: 1 * time.Minute,
 		CacheTTL:                  1 * time.Millisecond,
@@ -95,7 +96,9 @@ func TestTransientInstanceFailure(t *testing.T) {
 	}
 
 	expectedMetrics[0].Tags = gostatsd.Tags{"a1", "tag:value"}
+	expectedMetrics[0].Hostname = "1.2.3.4"
 	expectedMetrics[1].Tags = gostatsd.Tags{"a1", "tag:value"}
+	expectedMetrics[1].Hostname = "1.2.3.4"
 
 	assert.Equal(t, expectedMetrics, counting.metrics)
 }
@@ -120,7 +123,7 @@ func testExpire(t *testing.T, expectedIps []gostatsd.IP, f func(*CloudHandler) e
 	t.Parallel()
 	fp := &fakeProviderIP{}
 	counting := &countingHandler{}
-	ch := NewCloudHandler(fp, counting, counting, rate.NewLimiter(100, 120), &CacheOptions{
+	ch := NewCloudHandler(fp, counting, counting, logrus.StandardLogger(), rate.NewLimiter(100, 120), &CacheOptions{
 		CacheRefreshPeriod:        100 * time.Millisecond,
 		CacheEvictAfterIdlePeriod: 700 * time.Millisecond,
 		CacheTTL:                  500 * time.Millisecond,
@@ -219,7 +222,7 @@ func TestCloudHandlerFailingProvider(t *testing.T) {
 
 func doCheck(t *testing.T, cloud gostatsd.CloudProvider, m1 gostatsd.Metric, e1 gostatsd.Event, m2 gostatsd.Metric, e2 gostatsd.Event, ips *[]gostatsd.IP, expectedIps []gostatsd.IP, expectedM []gostatsd.Metric, expectedE gostatsd.Events) {
 	counting := &countingHandler{}
-	ch := NewCloudHandler(cloud, counting, counting, rate.NewLimiter(100, 120), &CacheOptions{
+	ch := NewCloudHandler(cloud, counting, counting, logrus.StandardLogger(), rate.NewLimiter(100, 120), &CacheOptions{
 		CacheRefreshPeriod:        DefaultCacheRefreshPeriod,
 		CacheEvictAfterIdlePeriod: DefaultCacheEvictAfterIdlePeriod,
 		CacheTTL:                  DefaultCacheTTL,

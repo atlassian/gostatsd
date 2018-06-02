@@ -10,12 +10,11 @@ import (
 	stats "github.com/atlassian/gostatsd/pkg/statser"
 
 	"github.com/ash2k/stager/wait"
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 	"golang.org/x/time/rate"
 )
 
 type lookupResult struct {
-	err      error
 	ip       gostatsd.IP
 	instance *gostatsd.Instance // Can be nil if lookup failed or instance was not found
 }
@@ -77,11 +76,13 @@ type CloudHandler struct {
 	rw    sync.RWMutex // Protects cache
 	cache map[gostatsd.IP]*instanceHolder
 
+	logger logrus.FieldLogger
+
 	estimatedTags int
 }
 
 // NewCloudHandler initialises a new cloud handler.
-func NewCloudHandler(cloud gostatsd.CloudProvider, metrics MetricHandler, events EventHandler, limiter *rate.Limiter, cacheOptions *CacheOptions) *CloudHandler {
+func NewCloudHandler(cloud gostatsd.CloudProvider, metrics MetricHandler, events EventHandler, logger logrus.FieldLogger, limiter *rate.Limiter, cacheOptions *CacheOptions) *CloudHandler {
 	return &CloudHandler{
 		cacheOpts:       *cacheOptions,
 		cloud:           cloud,
@@ -95,6 +96,7 @@ func NewCloudHandler(cloud gostatsd.CloudProvider, metrics MetricHandler, events
 		awaitingMetrics: make(map[gostatsd.IP][]*gostatsd.Metric),
 		cache:           make(map[gostatsd.IP]*instanceHolder),
 		estimatedTags:   metrics.EstimatedTags() + cloud.EstimatedTags(),
+		logger:          logger,
 	}
 }
 
@@ -205,6 +207,7 @@ func (ch *CloudHandler) Run(ctx context.Context) {
 		cloud:         ch.cloud,
 		toLookup:      toLookup,
 		lookupResults: lookupResults,
+		logger:        ch.logger,
 	}
 
 	var wg wait.Group
@@ -280,8 +283,7 @@ func (ch *CloudHandler) doRefresh(ctx context.Context, t time.Time) {
 
 func (ch *CloudHandler) handleLookupResult(ctx context.Context, lr *lookupResult) {
 	var ttl time.Duration
-	if lr.err != nil {
-		log.Infof("Error retrieving instance details from cloud provider for %s: %v", lr.ip, lr.err)
+	if lr.instance == nil {
 		ttl = ch.cacheOpts.CacheNegativeTTL
 	} else {
 		ttl = ch.cacheOpts.CacheTTL
@@ -294,7 +296,7 @@ func (ch *CloudHandler) handleLookupResult(ctx context.Context, lr *lookupResult
 	currentHolder := ch.cache[lr.ip]
 	if currentHolder == nil {
 		// Not in cache, count it
-		if lr.err != nil {
+		if lr.instance == nil {
 			ch.statsCacheNegative++
 		} else {
 			ch.statsCachePositive++
@@ -303,7 +305,7 @@ func (ch *CloudHandler) handleLookupResult(ctx context.Context, lr *lookupResult
 	} else {
 		// In cache, don't count it
 		newHolder.lastAccessNano = currentHolder.lastAccess()
-		if lr.err != nil {
+		if lr.instance == nil {
 			// Use the old instance if there was a lookup error.
 			newHolder.instance = currentHolder.instance
 			ch.statsCacheRefreshNegative++
@@ -365,7 +367,7 @@ func (ch *CloudHandler) updateAndDispatchMetrics(ctx context.Context, instance *
 			if err == context.Canceled || err == context.DeadlineExceeded {
 				return
 			}
-			log.Warnf("Failed to dispatch metric: %v", err)
+			ch.logger.Warnf("Failed to dispatch metric: %v", err)
 		}
 	}
 }
@@ -403,7 +405,7 @@ func (ch *CloudHandler) updateAndDispatchEvents(ctx context.Context, instance *g
 			if err == context.Canceled || err == context.DeadlineExceeded {
 				return
 			}
-			log.Warnf("Failed to dispatch event: %v", err)
+			ch.logger.Warnf("Failed to dispatch event: %v", err)
 		}
 	}
 }

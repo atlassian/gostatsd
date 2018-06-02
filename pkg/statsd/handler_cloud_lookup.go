@@ -6,7 +6,7 @@ import (
 
 	"github.com/atlassian/gostatsd"
 
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 	"golang.org/x/time/rate"
 )
 
@@ -20,6 +20,7 @@ type lookupDispatcher struct {
 	cloud         gostatsd.CloudProvider // Cloud provider interface
 	toLookup      <-chan gostatsd.IP
 	lookupResults chan<- *lookupResult
+	logger        logrus.FieldLogger
 }
 
 func (ld *lookupDispatcher) run(ctx context.Context) {
@@ -46,7 +47,7 @@ func (ld *lookupDispatcher) run(ctx context.Context) {
 			if err != context.Canceled && err != context.DeadlineExceeded {
 				// This could be an error caused by context signaling done.
 				// Or something nasty but it is very unlikely.
-				log.Warnf("Error from limiter: %v", err)
+				ld.logger.Warnf("Error from limiter: %v", err)
 			}
 			return
 		}
@@ -61,6 +62,10 @@ func (ld *lookupDispatcher) run(ctx context.Context) {
 func (ld *lookupDispatcher) doLookup(ctx context.Context, ips []gostatsd.IP) {
 	// instances may contain partial result even if err != nil
 	instances, err := ld.cloud.Instance(ctx, ips...)
+	if err != nil {
+		// Something bad happened, but process what we have still
+		ld.logger.Infof("Error retrieving instance details from cloud provider: %v", err)
+	}
 	for _, ip := range ips {
 		instance := instances[ip]
 		var res *lookupResult
@@ -72,8 +77,8 @@ func (ld *lookupDispatcher) doLookup(ctx context.Context, ips []gostatsd.IP) {
 
 		} else {
 			res = &lookupResult{
-				err: err,
-				ip:  ip,
+				ip:       ip,
+				instance: nil,
 			}
 		}
 		select {
