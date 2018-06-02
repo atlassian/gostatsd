@@ -5,6 +5,7 @@ import (
 	"errors"
 	"sort"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -41,6 +42,62 @@ func BenchmarkCloudHandlerDispatchMetric(b *testing.B) {
 			ch.DispatchMetric(ctxBackground, &m)
 		}
 	})
+}
+
+func TestTransientInstanceFailure(t *testing.T) {
+	t.Parallel()
+	fpt := &fakeProviderTransient{
+		failureMode: []int{
+			0, // success, prime the cache
+			1, // soft failure, data should remain in cache
+		},
+	}
+
+	counting := &countingHandler{}
+
+	ch := NewCloudHandler(fpt, counting, counting, rate.NewLimiter(100, 120), &CacheOptions{
+		CacheRefreshPeriod:        50 * time.Millisecond,
+		CacheEvictAfterIdlePeriod: 1 * time.Minute,
+		CacheTTL:                  1 * time.Millisecond,
+		CacheNegativeTTL:          1 * time.Millisecond,
+	})
+
+	// t+0: instance is queried, goes in cache
+	// t+50ms: instance refreshed (failure)
+	// t+100ms: instance is queried, must be in cache
+
+	var wg wait.Group
+	defer wg.Wait()
+	ctx, cancelFunc := context.WithCancel(context.Background())
+	defer cancelFunc()
+	wg.StartWithContext(ctx, ch.Run)
+	m1 := sm1()
+	m2 := sm1()
+
+	// t+0: prime the cache
+	if err := ch.DispatchMetric(ctx, &m1); err != nil {
+		t.Fatal(err)
+	}
+
+	time.Sleep(50 * time.Millisecond)
+	// t+50: refresh
+	time.Sleep(50 * time.Millisecond)
+
+	// t+100ms: read from cache, must still be valid
+	if err := ch.DispatchMetric(ctx, &m2); err != nil {
+		t.Fatal(err)
+	}
+	cancelFunc()
+	wg.Wait()
+
+	expectedMetrics := []gostatsd.Metric{
+		sm1(), sm1(),
+	}
+
+	expectedMetrics[0].Tags = gostatsd.Tags{"a1", "tag:value"}
+	expectedMetrics[1].Tags = gostatsd.Tags{"a1", "tag:value"}
+
+	assert.Equal(t, expectedMetrics, counting.metrics)
 }
 
 func TestCloudHandlerExpirationAndRefresh(t *testing.T) {
@@ -367,4 +424,60 @@ func (fp *fakeFailingProvider) Name() string {
 func (fp *fakeFailingProvider) Instance(ctx context.Context, ips ...gostatsd.IP) (map[gostatsd.IP]*gostatsd.Instance, error) {
 	fp.count(ips...)
 	return nil, errors.New("clear skies, no clouds available")
+}
+
+type fakeProviderTransient struct {
+	call        uint64
+	failureMode []int
+}
+
+func (fpt *fakeProviderTransient) Name() string {
+	return "fakeProviderTransient"
+}
+
+func (fpt *fakeProviderTransient) EstimatedTags() int {
+	return 1
+}
+
+func (fpt *fakeProviderTransient) MaxInstancesBatch() int {
+	return 1
+}
+
+func (fpt *fakeProviderTransient) SelfIP() (gostatsd.IP, error) {
+	return gostatsd.UnknownIP, nil
+}
+
+// Instance emulates a lookup based on the supplied criteria.
+// A failure mode of 0 is a successful lookup
+// A failure mode of 1 is nil instance, no error (lookup failure)
+// A failure mode of 2 is nil instance, with error
+// Repeats the last specified failure mode
+func (fpt *fakeProviderTransient) Instance(ctx context.Context, ips ...gostatsd.IP) (map[gostatsd.IP]*gostatsd.Instance, error) {
+	r := make(map[gostatsd.IP]*gostatsd.Instance)
+
+	c := atomic.AddUint64(&fpt.call, 1) - 1
+	if c >= uint64(len(fpt.failureMode)) {
+		c = uint64(len(fpt.failureMode) - 1)
+	}
+	switch fpt.failureMode[c] {
+	case 0:
+		for _, ip := range ips {
+			r[ip] = &gostatsd.Instance{
+				ID:   string(ip),
+				Tags: gostatsd.Tags{"tag:value"},
+			}
+		}
+		return r, nil
+	case 1:
+		for _, ip := range ips {
+			r[ip] = nil
+		}
+		return r, nil
+	case 2:
+		for _, ip := range ips {
+			r[ip] = nil
+		}
+		return r, errors.New("failure mode 2")
+	}
+	return nil, nil
 }
