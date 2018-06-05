@@ -3,11 +3,12 @@ package gostatsd
 import (
 	"context"
 
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 )
 
 // CloudProviderFactory is a function that returns a CloudProvider.
-type CloudProviderFactory func(*viper.Viper) (CloudProvider, error)
+type CloudProviderFactory func(v *viper.Viper, logger logrus.FieldLogger) (CloudProvider, error)
 
 // Instance represents a cloud instance.
 type Instance struct {

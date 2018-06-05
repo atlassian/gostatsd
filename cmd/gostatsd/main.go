@@ -19,7 +19,7 @@ import (
 	"github.com/atlassian/gostatsd/pkg/cloudproviders"
 	"github.com/atlassian/gostatsd/pkg/statsd"
 
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 	"golang.org/x/time/rate"
@@ -48,14 +48,14 @@ func main() {
 		if err == pflag.ErrHelp {
 			return
 		}
-		log.Fatalf("Error while parsing configuration: %v", err)
+		logrus.Fatalf("Error while parsing configuration: %v", err)
 	}
 	if version {
 		fmt.Printf("Version: %s - Commit: %s - Date: %s\n", Version, GitCommit, BuildDate)
 		return
 	}
 	if err := run(v); err != nil {
-		log.Fatalf("%v", err)
+		logrus.Fatalf("%v", err)
 	}
 }
 
@@ -63,11 +63,11 @@ func run(v *viper.Viper) error {
 	profileAddr := v.GetString(ParamProfile)
 	if profileAddr != "" {
 		go func() {
-			log.Errorf("Profiler server failed: %v", http.ListenAndServe(profileAddr, nil))
+			logrus.Errorf("Profiler server failed: %v", http.ListenAndServe(profileAddr, nil))
 		}()
 	}
 
-	log.Info("Starting server")
+	logrus.Info("Starting server")
 	s, err := constructServer(v)
 	if err != nil {
 		return err
@@ -84,8 +84,11 @@ func run(v *viper.Viper) error {
 }
 
 func constructServer(v *viper.Viper) (*statsd.Server, error) {
+	// Logger
+	logger := logrus.StandardLogger()
+
 	// Cloud provider
-	cloud, err := cloudproviders.Init(v.GetString(statsd.ParamCloudProvider), v)
+	cloud, err := cloudproviders.Init(v.GetString(statsd.ParamCloudProvider), v, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -211,9 +214,9 @@ func setupConfiguration() (*viper.Viper, bool, error) {
 
 func setupLogger(v *viper.Viper) {
 	if v.GetBool(ParamVerbose) {
-		log.SetLevel(log.DebugLevel)
+		logrus.SetLevel(logrus.DebugLevel)
 	}
 	if v.GetBool(ParamJSON) {
-		log.SetFormatter(&log.JSONFormatter{})
+		logrus.SetFormatter(&logrus.JSONFormatter{})
 	}
 }

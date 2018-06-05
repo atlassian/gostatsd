@@ -1,3 +1,9 @@
+7.0.0
+-----
+- Fix a bug in the cache provider where transient failures were replacing good cache
+- Started passing around a logger, not used everywhere yet
+- Documentation fixes
+
 6.2.0
 -----
 - Added `enable-http2` flag for Datadog backend to control HTTP/2 support, defaults to `false`

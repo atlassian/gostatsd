@@ -124,7 +124,7 @@ Sending metrics
 ---------------
 The server listens for UDP packets on the address given by the `--metrics-addr` flag,
 aggregates them, then sends them to the backend servers given by the `--backends`
-flag (comma separated list of backend names).
+flag (space separated list of backend names).
 
 Currently supported backends are:
 
