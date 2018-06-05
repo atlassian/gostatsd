@@ -1,3 +1,7 @@
+7.0.1
+-----
+- Roll back change to configuration, due to https://github.com/spf13/viper/issues/380.  Documentation is still valid.
+
 7.0.0
 -----
 - Fix a bug in the cache provider where transient failures were replacing good cache
