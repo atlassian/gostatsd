@@ -4,6 +4,10 @@
 - Started passing around a logger, not used everywhere yet
 - Documentation fixes
 
+6.2.0
+-----
+- Added `enable-http2` flag for Datadog backend to control HTTP/2 support, defaults to `false`
+
 6.1.2
 -----
 - Build with Go 1.10.2
