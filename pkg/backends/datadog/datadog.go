@@ -308,7 +308,7 @@ func (d *Client) constructPost(ctx context.Context, buffer *bytes.Buffer, path, 
 
 	return func() error {
 		headers := map[string]string{
-			"Content-Type": "application/json",
+			"Content-Type":         "application/json",
 			"DD-Dogstatsd-Version": dogstatsdVersion,
 			"User-Agent":           d.userAgent,
 		}
