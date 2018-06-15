@@ -1,3 +1,9 @@
+7.1.0
+-----
+- Datadog user-agent has changed to `gostatsd` by default.  Can now be configured.
+- New Datadog option: `user-agent`, configures the user agent supplied to Datadog.  Use `python-requests/2.6.0 CPython/2.7.10`
+  for old behavior.
+
 7.0.1
 -----
 - Roll back change to configuration, due to https://github.com/spf13/viper/issues/380.  Documentation is still valid.

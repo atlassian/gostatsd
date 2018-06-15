@@ -30,7 +30,7 @@ const (
 	// BackendName is the name of this backend.
 	BackendName                  = "datadog"
 	dogstatsdVersion             = "5.6.3"
-	dogstatsdUserAgent           = "python-requests/2.6.0 CPython/2.7.10"
+	defaultUserAgent             = "gostatsd"
 	defaultMaxRequestElapsedTime = 15 * time.Second
 	defaultClientTimeout         = 9 * time.Second
 	// defaultMetricsPerBatch is the default number of metrics to send in a single batch.
@@ -63,6 +63,7 @@ type Client struct {
 
 	apiKey                string
 	apiEndpoint           string
+	userAgent             string
 	maxRequestElapsedTime time.Duration
 	client                http.Client
 	metricsPerBatch       uint
@@ -308,9 +309,8 @@ func (d *Client) constructPost(ctx context.Context, buffer *bytes.Buffer, path, 
 	return func() error {
 		headers := map[string]string{
 			"Content-Type": "application/json",
-			// Mimic dogstatsd code
 			"DD-Dogstatsd-Version": dogstatsdVersion,
-			"User-Agent":           dogstatsdUserAgent,
+			"User-Agent":           d.userAgent,
 		}
 		if compressPayload {
 			headers["Content-Encoding"] = "deflate"
@@ -357,10 +357,12 @@ func NewClientFromViper(v *viper.Viper) (gostatsd.Backend, error) {
 	dd.SetDefault("max_request_elapsed_time", defaultMaxRequestElapsedTime)
 	dd.SetDefault("max_requests", defaultMaxRequests)
 	dd.SetDefault("enable-http2", defaultEnableHttp2)
+	dd.SetDefault("user-agent", defaultUserAgent)
 
 	return NewClient(
 		dd.GetString("api_endpoint"),
 		dd.GetString("api_key"),
+		dd.GetString("user-agent"),
 		dd.GetString("network"),
 		uint(dd.GetInt("metrics_per_batch")),
 		uint(dd.GetInt("max_requests")),
@@ -374,12 +376,15 @@ func NewClientFromViper(v *viper.Viper) (gostatsd.Backend, error) {
 }
 
 // NewClient returns a new Datadog API client.
-func NewClient(apiEndpoint, apiKey, network string, metricsPerBatch, maxRequests uint, compressPayload, enableHttp2 bool, clientTimeout, maxRequestElapsedTime, flushInterval time.Duration, disabled gostatsd.TimerSubtypes) (*Client, error) {
+func NewClient(apiEndpoint, apiKey, userAgent, network string, metricsPerBatch, maxRequests uint, compressPayload, enableHttp2 bool, clientTimeout, maxRequestElapsedTime, flushInterval time.Duration, disabled gostatsd.TimerSubtypes) (*Client, error) {
 	if apiEndpoint == "" {
 		return nil, fmt.Errorf("[%s] apiEndpoint is required", BackendName)
 	}
 	if apiKey == "" {
 		return nil, fmt.Errorf("[%s] apiKey is required", BackendName)
+	}
+	if userAgent == "" {
+		return nil, fmt.Errorf("[%s] user-agent is required", BackendName)
 	}
 	if metricsPerBatch <= 0 {
 		return nil, fmt.Errorf("[%s] metricsPerBatch must be positive", BackendName)
@@ -430,6 +435,7 @@ func NewClient(apiEndpoint, apiKey, network string, metricsPerBatch, maxRequests
 	return &Client{
 		apiKey:                apiKey,
 		apiEndpoint:           apiEndpoint,
+		userAgent:             userAgent,
 		maxRequestElapsedTime: maxRequestElapsedTime,
 		client: http.Client{
 			Transport: transport,
