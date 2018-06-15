@@ -30,7 +30,7 @@ const (
 	// BackendName is the name of this backend.
 	BackendName                  = "datadog"
 	dogstatsdVersion             = "5.6.3"
-	defaultDogstatsdUserAgent    = "gostatsd"
+	defaultUserAgent             = "gostatsd"
 	defaultMaxRequestElapsedTime = 15 * time.Second
 	defaultClientTimeout         = 9 * time.Second
 	// defaultMetricsPerBatch is the default number of metrics to send in a single batch.
@@ -357,7 +357,7 @@ func NewClientFromViper(v *viper.Viper) (gostatsd.Backend, error) {
 	dd.SetDefault("max_request_elapsed_time", defaultMaxRequestElapsedTime)
 	dd.SetDefault("max_requests", defaultMaxRequests)
 	dd.SetDefault("enable-http2", defaultEnableHttp2)
-	dd.SetDefault("user-agent", defaultDogstatsdUserAgent)
+	dd.SetDefault("user-agent", defaultUserAgent)
 
 	return NewClient(
 		dd.GetString("api_endpoint"),
