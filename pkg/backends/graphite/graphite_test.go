@@ -146,7 +146,7 @@ func TestSendMetricsAsync(t *testing.T) {
 	wg.StartWithContext(ctx, c.Run)
 	var swg sync.WaitGroup
 	swg.Add(1)
-	c.SendMetricsAsync(ctx, metrics(), func(errs []error) {
+	c.SendMetricsAsync(ctx, metrics(), time.Now(), func(errs []error) {
 		defer swg.Done()
 		for i, e := range errs {
 			assert.NoError(t, e, i)

@@ -2,6 +2,7 @@ package null
 
 import (
 	"context"
+	"time"
 
 	"github.com/atlassian/gostatsd"
 
@@ -25,7 +26,7 @@ func NewClient() (*Client, error) {
 }
 
 // SendMetricsAsync discards the metrics in a MetricsMap.
-func (Client) SendMetricsAsync(ctx context.Context, metrics *gostatsd.MetricMap, cb gostatsd.SendCallback) {
+func (Client) SendMetricsAsync(ctx context.Context, metrics *gostatsd.MetricMap, flushTime time.Time, cb gostatsd.SendCallback) {
 	cb(nil)
 }
 

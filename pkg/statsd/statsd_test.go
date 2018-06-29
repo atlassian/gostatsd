@@ -84,7 +84,7 @@ func (cb *countingBackend) Name() string {
 	return "countingBackend"
 }
 
-func (cb *countingBackend) SendMetricsAsync(ctx context.Context, m *gostatsd.MetricMap, callback gostatsd.SendCallback) {
+func (cb *countingBackend) SendMetricsAsync(ctx context.Context, m *gostatsd.MetricMap, flushTime time.Time, callback gostatsd.SendCallback) {
 	count := 0
 	m.Counters.Each(func(name, tagset string, c gostatsd.Counter) {
 		count++

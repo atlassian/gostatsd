@@ -90,7 +90,7 @@ type event struct {
 }
 
 // SendMetricsAsync flushes the metrics to Datadog, preparing payload synchronously but doing the send asynchronously.
-func (d *Client) SendMetricsAsync(ctx context.Context, metrics *gostatsd.MetricMap, cb gostatsd.SendCallback) {
+func (d *Client) SendMetricsAsync(ctx context.Context, metrics *gostatsd.MetricMap, flushTime time.Time, cb gostatsd.SendCallback) {
 	counter := 0
 	results := make(chan error)
 	d.processMetrics(metrics, func(ts *timeSeries) {

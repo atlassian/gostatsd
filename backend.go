@@ -2,6 +2,7 @@ package gostatsd
 
 import (
 	"context"
+	"time"
 
 	"github.com/spf13/viper"
 )
@@ -20,7 +21,7 @@ type Backend interface {
 	Name() string
 	// SendMetricsAsync flushes the metrics to the backend, preparing payload synchronously but doing the send asynchronously.
 	// Must not read/write MetricMap asynchronously.
-	SendMetricsAsync(context.Context, *MetricMap, SendCallback)
+	SendMetricsAsync(ctx context.Context, metrics *MetricMap, flushTime time.Time, done SendCallback)
 	// SendEvent sends event to the backend.
 	SendEvent(context.Context, *Event) error
 }

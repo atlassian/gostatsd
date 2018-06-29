@@ -52,7 +52,7 @@ func (client *Client) Run(ctx context.Context) {
 }
 
 // SendMetricsAsync flushes the metrics to the statsd server, preparing payload synchronously but doing the send asynchronously.
-func (client *Client) SendMetricsAsync(ctx context.Context, metrics *gostatsd.MetricMap, cb gostatsd.SendCallback) {
+func (client *Client) SendMetricsAsync(ctx context.Context, metrics *gostatsd.MetricMap, flushTime time.Time, cb gostatsd.SendCallback) {
 	sink := make(chan *bytes.Buffer, sendChannelSize)
 	select {
 	case <-ctx.Done():

@@ -40,7 +40,7 @@ func TestRetries(t *testing.T) {
 	client, err := NewClient(ts.URL, "apiKey123", "agent", "tcp", defaultMetricsPerBatch, defaultMaxRequests, true, false, 1*time.Second, 2*time.Second, 1*time.Second, gostatsd.TimerSubtypes{})
 	require.NoError(t, err)
 	res := make(chan []error, 1)
-	client.SendMetricsAsync(context.Background(), twoCounters(), func(errs []error) {
+	client.SendMetricsAsync(context.Background(), twoCounters(), time.Now(), func(errs []error) {
 		res <- errs
 	})
 	errs := <-res
@@ -69,7 +69,7 @@ func TestSendMetricsInMultipleBatches(t *testing.T) {
 	client, err := NewClient(ts.URL, "apiKey123", "agent", "tcp", 1, defaultMaxRequests, true, false, 1*time.Second, 2*time.Second, 1*time.Second, gostatsd.TimerSubtypes{})
 	require.NoError(t, err)
 	res := make(chan []error, 1)
-	client.SendMetricsAsync(context.Background(), twoCounters(), func(errs []error) {
+	client.SendMetricsAsync(context.Background(), twoCounters(), time.Now(), func(errs []error) {
 		res <- errs
 	})
 	errs := <-res
@@ -122,7 +122,7 @@ func TestSendMetrics(t *testing.T) {
 		return time.Unix(100, 0)
 	}
 	res := make(chan []error, 1)
-	cli.SendMetricsAsync(context.Background(), metricsOneOfEach(), func(errs []error) {
+	cli.SendMetricsAsync(context.Background(), metricsOneOfEach(), time.Now(), func(errs []error) {
 		res <- errs
 	})
 	errs := <-res

@@ -52,7 +52,7 @@ func tagToMetricName(tag string) string {
 }
 
 // SendMetricsAsync prints the metrics in a MetricsMap to the stdout, preparing payload synchronously but doing the send asynchronously.
-func (client Client) SendMetricsAsync(ctx context.Context, metrics *gostatsd.MetricMap, cb gostatsd.SendCallback) {
+func (client Client) SendMetricsAsync(ctx context.Context, metrics *gostatsd.MetricMap, flushTime time.Time, cb gostatsd.SendCallback) {
 	buf := preparePayload(metrics, &client.disabledSubtypes)
 	go func() {
 		cb([]error{writePayload(buf)})

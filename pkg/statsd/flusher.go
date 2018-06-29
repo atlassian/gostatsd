@@ -51,14 +51,14 @@ func (f *MetricFlusher) Run(ctx context.Context) {
 			return
 		case thisFlush := <-flushTicker.C: // Time to flush to the backends
 			flushDelta := thisFlush.Sub(lastFlush)
-			f.flushData(ctx, flushDelta)
+			f.flushData(ctx, thisFlush, flushDelta)
 			f.statser.NotifyFlush(flushDelta)
 			lastFlush = thisFlush
 		}
 	}
 }
 
-func (f *MetricFlusher) flushData(ctx context.Context, flushInterval time.Duration) {
+func (f *MetricFlusher) flushData(ctx context.Context, flushTime time.Time, flushInterval time.Duration) {
 	var sendWg sync.WaitGroup
 	timerTotal := f.statser.NewTimer("flusher.total_time", nil)
 	processWait := f.aggregateProcesser.Process(ctx, func(workerId int, aggr Aggregator) {
@@ -71,7 +71,7 @@ func (f *MetricFlusher) flushData(ctx context.Context, flushInterval time.Durati
 
 		timerProcess := f.statser.NewTimer("aggregator.process_time", tags)
 		aggr.Process(func(m *gostatsd.MetricMap) {
-			f.sendMetricsAsync(ctx, &sendWg, m)
+			f.sendMetricsAsync(ctx, &sendWg, flushTime, m)
 		})
 		timerProcess.SendGauge()
 
@@ -84,10 +84,10 @@ func (f *MetricFlusher) flushData(ctx context.Context, flushInterval time.Durati
 	timerTotal.SendGauge()
 }
 
-func (f *MetricFlusher) sendMetricsAsync(ctx context.Context, wg *sync.WaitGroup, m *gostatsd.MetricMap) {
+func (f *MetricFlusher) sendMetricsAsync(ctx context.Context, wg *sync.WaitGroup, flushTime time.Time, m *gostatsd.MetricMap) {
 	wg.Add(len(f.backends))
 	for _, backend := range f.backends {
-		backend.SendMetricsAsync(ctx, m, func(errs []error) {
+		backend.SendMetricsAsync(ctx, m, flushTime, func(errs []error) {
 			defer wg.Done()
 			f.handleSendResult(errs)
 		})
