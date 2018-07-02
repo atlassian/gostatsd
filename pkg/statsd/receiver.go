@@ -3,14 +3,15 @@ package statsd
 import (
 	"context"
 	"net"
+	"strings"
 	"sync/atomic"
+
+	log "github.com/sirupsen/logrus"
 
 	"github.com/atlassian/gostatsd"
 	"github.com/atlassian/gostatsd/pkg/fakesocket"
 	"github.com/atlassian/gostatsd/pkg/pool"
 	stats "github.com/atlassian/gostatsd/pkg/statser"
-
-	log "github.com/sirupsen/logrus"
 )
 
 // ip packet size is stored in two bytes and that is how big in theory the packet can be.
@@ -85,7 +86,7 @@ func (dr *DatagramReceiver) Receive(ctx context.Context, c net.PacketConn) {
 				return
 			default:
 			}
-			if err != fakesocket.ErrClosedConnection {
+			if err != fakesocket.ErrClosedConnection && !strings.Contains(err.Error(), "use of closed network connection") {
 				log.Warnf("Error reading from socket: %v", err)
 			}
 			continue

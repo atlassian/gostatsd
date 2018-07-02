@@ -57,6 +57,35 @@ func (t Timers) Each(f func(string, string, Timer)) {
 	}
 }
 
+// copy returns a deep-ish copy of this Timers object
+func (t Timers) copy() Timers {
+	tNew := Timers{}
+	for name, value := range t {
+		m := map[string]Timer{}
+		for tagsKey, timer := range value {
+			m[tagsKey] = Timer{
+				Count:      timer.Count,
+				PerSecond:  timer.PerSecond,
+				Mean:       timer.Mean,
+				Median:     timer.Median,
+				Min:        timer.Min,
+				Max:        timer.Max,
+				StdDev:     timer.StdDev,
+				Sum:        timer.Sum,
+				SumSquares: timer.SumSquares,
+				// Values: nil, // Values is not required
+				Percentiles: make([]Percentile, len(timer.Percentiles)),
+				// Timestamp: timer.Timestamp, // Timestamp is not required
+				Hostname: timer.Hostname,
+				Tags:     timer.Tags, // shallow copy is acceptable
+			}
+			copy(m[tagsKey].Percentiles, timer.Percentiles)
+		}
+		tNew[name] = m
+	}
+	return tNew
+}
+
 func DisabledSubMetrics(viper *viper.Viper) TimerSubtypes {
 	subViper := viper.Sub("disabled-sub-metrics")
 	if subViper == nil {

@@ -97,6 +97,18 @@ type MetricMap struct {
 	Sets     Sets
 }
 
+// Copy returns a deep-ish copy of the MetricMap.  It is not a complete copy, and only data required post-aggregation
+// is copied.
+func (m *MetricMap) Copy() *MetricMap {
+	mNew := &MetricMap{
+		Counters: m.Counters.copy(),
+		Timers:   m.Timers.copy(),
+		Gauges:   m.Gauges.copy(),
+		Sets:     m.Sets.copy(),
+	}
+	return mNew
+}
+
 func (m *MetricMap) String() string {
 	buf := new(bytes.Buffer)
 	m.Counters.Each(func(k, tags string, counter Counter) {

@@ -5,6 +5,7 @@ import (
 
 	"github.com/atlassian/gostatsd"
 	"github.com/atlassian/gostatsd/pkg/backends/datadog"
+	"github.com/atlassian/gostatsd/pkg/backends/datadogexp"
 	"github.com/atlassian/gostatsd/pkg/backends/graphite"
 	"github.com/atlassian/gostatsd/pkg/backends/null"
 	"github.com/atlassian/gostatsd/pkg/backends/statsdaemon"
@@ -17,6 +18,7 @@ import (
 // All known backends.
 var backends = map[string]gostatsd.BackendFactory{
 	datadog.BackendName:     datadog.NewClientFromViper,
+	datadogexp.BackendName:  datadogexp.NewClientFromViper,
 	graphite.BackendName:    graphite.NewClientFromViper,
 	null.BackendName:        null.NewClientFromViper,
 	statsdaemon.BackendName: statsdaemon.NewClientFromViper,

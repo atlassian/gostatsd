@@ -44,3 +44,21 @@ func (g Gauges) Each(f func(string, string, Gauge)) {
 		}
 	}
 }
+
+// copy returns a deep-ish copy of this Gauges object
+func (g Gauges) copy() Gauges {
+	gNew := Gauges{}
+	for name, value := range g {
+		g := map[string]Gauge{}
+		for tagsKey, gauge := range value {
+			g[tagsKey] = Gauge{
+				Value: gauge.Value,
+				// Timestamp: counter.Timestamp, // Timestamp is not required
+				Hostname: gauge.Hostname,
+				Tags:     gauge.Tags, // shallow copy is acceptable
+			}
+		}
+		gNew[name] = g
+	}
+	return gNew
+}

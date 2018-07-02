@@ -11,6 +11,8 @@ import (
 	"github.com/atlassian/gostatsd"
 	stats "github.com/atlassian/gostatsd/pkg/statser"
 
+	"strings"
+
 	"github.com/ash2k/stager"
 	"github.com/jbenet/go-reuseport"
 	log "github.com/sirupsen/logrus"
@@ -207,7 +209,7 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 		}
 		defer func(c net.PacketConn) {
 			// This makes receivers error out and stop
-			if e := c.Close(); e != nil {
+			if e := c.Close(); e != nil && !strings.Contains(e.Error(), "use of closed network connection") {
 				log.Warnf("Error closing socket: %v", e)
 			}
 		}(c)
