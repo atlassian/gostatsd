@@ -47,21 +47,21 @@ func (s Sets) Each(f func(string, string, Set)) {
 
 // copy returns a deep-ish copy of this Sets object
 func (s Sets) copy() Sets {
-	sNew := Sets{}
+	sNew := make(Sets, len(s))
 	for name, value := range s {
-		s := map[string]Set{}
+		m := make(map[string]Set, len(value))
 		for tagsKey, set := range value {
-			s[tagsKey] = Set{
+			m[tagsKey] = Set{
 				Values: make(map[string]struct{}),
 				// Timestamp: counter.Timestamp, // Timestamp is not required
 				Hostname: set.Hostname,
 				Tags:     set.Tags, // shallow copy is acceptable
 			}
 			for key := range set.Values {
-				s[tagsKey].Values[key] = struct{}{}
+				m[tagsKey].Values[key] = struct{}{}
 			}
 		}
-		sNew[name] = s
+		sNew[name] = m
 	}
 	return sNew
 }

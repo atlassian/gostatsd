@@ -59,9 +59,9 @@ func (t Timers) Each(f func(string, string, Timer)) {
 
 // copy returns a deep-ish copy of this Timers object
 func (t Timers) copy() Timers {
-	tNew := Timers{}
+	tNew := make(Timers, len(t))
 	for name, value := range t {
-		m := map[string]Timer{}
+		m := make(map[string]Timer, len(value))
 		for tagsKey, timer := range value {
 			m[tagsKey] = Timer{
 				Count:      timer.Count,

@@ -48,11 +48,11 @@ func (c Counters) Each(f func(string, string, Counter)) {
 
 // copy returns a deep-ish copy of this Counters object
 func (c Counters) copy() Counters {
-	cNew := Counters{}
+	cNew := make(Counters, len(c))
 	for name, value := range c {
-		c := map[string]Counter{}
+		m := make(map[string]Counter, len(value))
 		for tagsKey, counter := range value {
-			c[tagsKey] = Counter{
+			m[tagsKey] = Counter{
 				PerSecond: counter.PerSecond,
 				Value:     counter.Value,
 				// Timestamp: counter.Timestamp, // Timestamp is not required
@@ -60,7 +60,7 @@ func (c Counters) copy() Counters {
 				Tags:     counter.Tags, // shallow copy is acceptable
 			}
 		}
-		cNew[name] = c
+		cNew[name] = m
 	}
 	return cNew
 }
