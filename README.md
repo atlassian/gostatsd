@@ -130,7 +130,7 @@ Currently supported backends are:
 
 * graphite
 * datadog
-* statsd
+* statsdaemon
 * stdout
 
 The format of each metric is:
