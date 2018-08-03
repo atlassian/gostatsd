@@ -56,14 +56,14 @@ func uniqueTags(t1 gostatsd.Tags, t2 gostatsd.Tags) gostatsd.Tags {
 	seen := map[string]bool{}
 
 	for _, v := range t1 {
-		if seen[v] != true {
+		if !seen[v] {
 			tags = append(tags, v)
 			seen[v] = true
 		}
 	}
 
 	for _, v := range t2 {
-		if seen[v] != true {
+		if !seen[v] {
 			tags = append(tags, v)
 			seen[v] = true
 		}
