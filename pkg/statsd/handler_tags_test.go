@@ -148,15 +148,16 @@ func TestTagEventHandlerAddsDuplicateTags(t *testing.T) {
 
 func BenchmarkTagMetricHandlerAddsDuplicateTagsSmall(b *testing.B) {
 	tch := &TagCapturingHandler{}
+	th := NewTagHandler(tch, tch, gostatsd.Tags{
+		"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+		"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+		"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+	})
+
 	b.ReportAllocs()
 	b.ResetTimer()
 
 	for n := 0; n < b.N; n++ {
-		th := NewTagHandler(tch, tch, gostatsd.Tags{
-			"aaaaaaaaaaaaaaaa:aaaaaaaaaaaaaaaa",
-			"aaaaaaaaaaaaaaaa:aaaaaaaaaaaaaaaa",
-			"bbbbbbbbbbbbbbbb:bbbbbbbbbbbbbbbb",
-		})
 		m := &gostatsd.Metric{}
 		th.DispatchMetric(context.Background(), m)
 	}
@@ -164,22 +165,23 @@ func BenchmarkTagMetricHandlerAddsDuplicateTagsSmall(b *testing.B) {
 
 func BenchmarkTagMetricHandlerAddsDuplicateTagsLarge(b *testing.B) {
 	tch := &TagCapturingHandler{}
+	th := NewTagHandler(tch, tch, gostatsd.Tags{
+		"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+		"cccccccccccccccccccccccccccccccc:cccccccccccccccccccccccccccccccc",
+		"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+		"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+		"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+		"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+		"cccccccccccccccccccccccccccccccc:cccccccccccccccccccccccccccccccc",
+		"dddddddddddddddddddddddddddddddd:dddddddddddddddddddddddddddddddd",
+		"dddddddddddddddddddddddddddddddd:dddddddddddddddddddddddddddddddd",
+		"eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+	})
+
 	b.ReportAllocs()
 	b.ResetTimer()
 
 	for n := 0; n < b.N; n++ {
-		th := NewTagHandler(tch, tch, gostatsd.Tags{
-			"aaaaaaaaaaaaaaaa:aaaaaaaaaaaaaaaa",
-			"cccccccccccccccc:cccccccccccccccc",
-			"aaaaaaaaaaaaaaaa:aaaaaaaaaaaaaaaa",
-			"bbbbbbbbbbbbbbbb:bbbbbbbbbbbbbbbb",
-			"bbbbbbbbbbbbbbbb:bbbbbbbbbbbbbbbb",
-			"aaaaaaaaaaaaaaaa:aaaaaaaaaaaaaaaa",
-			"cccccccccccccccc:cccccccccccccccc",
-			"dddddddddddddddd:dddddddddddddddd",
-			"dddddddddddddddd:dddddddddddddddd",
-			"eeeeeeeeeeeeeeee:eeeeeeeeeeeeeeee",
-		})
 		m := &gostatsd.Metric{}
 		th.DispatchMetric(context.Background(), m)
 	}
@@ -187,15 +189,16 @@ func BenchmarkTagMetricHandlerAddsDuplicateTagsLarge(b *testing.B) {
 
 func BenchmarkTagEventHandlerAddsDuplicateTagsSmall(b *testing.B) {
 	tch := &TagCapturingHandler{}
+	th := NewTagHandler(tch, tch, gostatsd.Tags{
+		"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+		"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+		"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+	})
+
 	b.ReportAllocs()
 	b.ResetTimer()
 
 	for n := 0; n < b.N; n++ {
-		th := NewTagHandler(tch, tch, gostatsd.Tags{
-			"aaaaaaaaaaaaaaaa:aaaaaaaaaaaaaaaa",
-			"aaaaaaaaaaaaaaaa:aaaaaaaaaaaaaaaa",
-			"bbbbbbbbbbbbbbbb:bbbbbbbbbbbbbbbb",
-		})
 		e := &gostatsd.Event{}
 		th.DispatchEvent(context.Background(), e)
 	}
@@ -203,22 +206,23 @@ func BenchmarkTagEventHandlerAddsDuplicateTagsSmall(b *testing.B) {
 
 func BenchmarkTagEventHandlerAddsDuplicateTagsLarge(b *testing.B) {
 	tch := &TagCapturingHandler{}
+	th := NewTagHandler(tch, tch, gostatsd.Tags{
+		"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+		"cccccccccccccccccccccccccccccccc:cccccccccccccccccccccccccccccccc",
+		"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+		"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+		"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+		"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+		"cccccccccccccccccccccccccccccccc:cccccccccccccccccccccccccccccccc",
+		"dddddddddddddddddddddddddddddddd:dddddddddddddddddddddddddddddddd",
+		"dddddddddddddddddddddddddddddddd:dddddddddddddddddddddddddddddddd",
+		"eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+	})
+
 	b.ReportAllocs()
 	b.ResetTimer()
 
 	for n := 0; n < b.N; n++ {
-		th := NewTagHandler(tch, tch, gostatsd.Tags{
-			"aaaaaaaaaaaaaaaa:aaaaaaaaaaaaaaaa",
-			"cccccccccccccccc:cccccccccccccccc",
-			"aaaaaaaaaaaaaaaa:aaaaaaaaaaaaaaaa",
-			"bbbbbbbbbbbbbbbb:bbbbbbbbbbbbbbbb",
-			"bbbbbbbbbbbbbbbb:bbbbbbbbbbbbbbbb",
-			"aaaaaaaaaaaaaaaa:aaaaaaaaaaaaaaaa",
-			"cccccccccccccccc:cccccccccccccccc",
-			"dddddddddddddddd:dddddddddddddddd",
-			"dddddddddddddddd:dddddddddddddddd",
-			"eeeeeeeeeeeeeeee:eeeeeeeeeeeeeeee",
-		})
 		e := &gostatsd.Event{}
 		th.DispatchEvent(context.Background(), e)
 	}
