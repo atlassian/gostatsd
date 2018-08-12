@@ -5,11 +5,12 @@ import (
 	"strings"
 	"time"
 
-	log "github.com/sirupsen/logrus"
 	"github.com/atlassian/gostatsd"
+	log "github.com/sirupsen/logrus"
 
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/cloudwatch"
+	"github.com/aws/aws-sdk-go/service/cloudwatch/cloudwatchiface"
 	"github.com/spf13/viper"
 )
 
@@ -22,7 +23,7 @@ const BackendName = "cloudwatch"
 
 // Client is an object that is used to send messages to AWS CloudWatch.
 type Client struct {
-	cloudwatch *cloudwatch.CloudWatch
+	cloudwatch cloudwatchiface.CloudWatchAPI
 	namespace  string
 
 	disabledSubtypes gostatsd.TimerSubtypes
