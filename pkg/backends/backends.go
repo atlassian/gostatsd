@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/atlassian/gostatsd"
+	"github.com/atlassian/gostatsd/pkg/backends/cloudwatch"
 	"github.com/atlassian/gostatsd/pkg/backends/datadog"
 	"github.com/atlassian/gostatsd/pkg/backends/graphite"
 	"github.com/atlassian/gostatsd/pkg/backends/null"
@@ -21,6 +22,7 @@ var backends = map[string]gostatsd.BackendFactory{
 	null.BackendName:        null.NewClientFromViper,
 	statsdaemon.BackendName: statsdaemon.NewClientFromViper,
 	stdout.BackendName:      stdout.NewClientFromViper,
+	cloudwatch.BackendName:  cloudwatch.NewClientFromViper,
 }
 
 // GetBackend creates an instance of the named backend, or nil if
