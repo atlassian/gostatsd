@@ -40,7 +40,7 @@ func NewClientFromViper(v *viper.Viper) (gostatsd.Backend, error) {
 	)
 }
 
-// NewClient constructs a stdout backend.
+// NewClient constructs a AWS Cloudwatch backend.
 func NewClient(namespace string, disabled gostatsd.TimerSubtypes) (*Client, error) {
 	sess, err := session.NewSession()
 	if err != nil {
@@ -157,7 +157,8 @@ func (client Client) buildMetricData(metrics *gostatsd.MetricMap) (metricData []
 	return metricData
 }
 
-// SendMetricsAsync prints the metrics in a MetricsMap to the stdout, preparing payload synchronously but doing the send asynchronously.
+// SendMetricsAsync sends the metrics in a MetricsMap to AWS Cloudwatch,
+// preparing payload synchronously but doing the send asynchronously.
 func (client Client) SendMetricsAsync(ctx context.Context, metrics *gostatsd.MetricMap, cb gostatsd.SendCallback) {
 	api := client.cloudwatch
 	metricData := client.buildMetricData(metrics)
@@ -202,7 +203,7 @@ func (client Client) SendMetricsAsync(ctx context.Context, metrics *gostatsd.Met
 	}()
 }
 
-// SendEvent prints events to the stdout.
+// Events currently not supported.
 func (client Client) SendEvent(ctx context.Context, e *gostatsd.Event) (retErr error) {
 	return nil
 }
