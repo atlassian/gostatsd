@@ -71,7 +71,7 @@ check:
 	go install ./cmd/tester
 	gometalinter --concurrency=$(METALINTER_CONCURRENCY) --deadline=600s ./... --vendor \
 		--linter='errcheck:errcheck:-ignore=net:Close' --cyclo-over=20 \
-		--disable=interfacer --disable=golint --dupl-threshold=200
+		--disable=interfacer --disable=golint --disable=gosec --dupl-threshold=200
 
 check-all:
 	go install ./cmd/gostatsd
