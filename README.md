@@ -132,6 +132,7 @@ Currently supported backends are:
 * datadog
 * statsdaemon
 * stdout
+* AWS Cloudwatch
 
 The format of each metric is:
 
