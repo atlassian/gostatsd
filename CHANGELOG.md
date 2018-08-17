@@ -1,3 +1,10 @@
+7.2.0
+-----
+- New Cloudwatch backend contirubted by JorgenEvens
+    - Backend name is `cloudwatch`
+    - Contains the single option `namespace`, defaulting to `StatsD`
+- Duplicate tags are filtered out so they are aggregated correctly.
+
 7.1.0
 -----
 - Datadog user-agent has changed to `gostatsd` by default.  Can now be configured.
