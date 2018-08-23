@@ -76,14 +76,8 @@ func (dp *DatagramParser) Run(ctx context.Context) {
 		case dgs := <-dp.in:
 			accumM, accumE, accumB := uint64(0), uint64(0), uint64(0)
 			for _, dg := range dgs {
-				m, e, b, err := dp.handleDatagram(ctx, dg.IP, dg.Msg)
+				m, e, b := dp.handleDatagram(ctx, dg.IP, dg.Msg)
 				dg.DoneFunc()
-				if err != nil {
-					if err == context.Canceled || err == context.DeadlineExceeded {
-						return
-					}
-					log.Warnf("Failed to handle datagram: %v", err)
-				}
 				accumM += m
 				accumE += e
 				accumB += b
@@ -104,9 +98,8 @@ func (dp *DatagramParser) logBadLineRateLimited(line []byte, ip gostatsd.IP, err
 
 // handleDatagram handles the contents of a datagram and calls Handler.DispatchMetric()
 // for each line that successfully parses into a types.Metric and Handler.DispatchEvent() for each event.
-func (dp *DatagramParser) handleDatagram(ctx context.Context, ip gostatsd.IP, msg []byte) (metricCount, eventCount, badLineCount uint64, err error) {
+func (dp *DatagramParser) handleDatagram(ctx context.Context, ip gostatsd.IP, msg []byte) (metricCount, eventCount, badLineCount uint64) {
 	var numMetrics, numEvents, numBad uint64
-	var exitError error
 	for {
 		idx := bytes.IndexByte(msg, '\n')
 		var line []byte
@@ -146,30 +139,23 @@ func (dp *DatagramParser) handleDatagram(ctx context.Context, ip gostatsd.IP, ms
 			} else {
 				metric.SourceIP = ip
 			}
-			err = dp.metrics.DispatchMetric(ctx, metric)
+			dp.metrics.DispatchMetric(ctx, metric)
 		} else if event != nil {
 			numEvents++
 			event.SourceIP = ip // Always keep the source ip for events
 			if event.DateHappened == 0 {
 				event.DateHappened = time.Now().Unix()
 			}
-			err = dp.events.DispatchEvent(ctx, event)
+			dp.events.DispatchEvent(ctx, event)
 		} else {
 			// Should never happen.
 			log.Panic("Both event and metric are nil")
 		}
-		if err != nil {
-			if err == context.Canceled || err == context.DeadlineExceeded {
-				exitError = err
-				break
-			}
-			log.Warnf("Error dispatching metric/event %q from %s: %v", line, ip, err)
-		}
 	}
-	return numMetrics, numEvents, numBad, exitError
+	return numMetrics, numEvents, numBad
 }
 
-// parseLine with lexer idpl.
+// parseLine with lexer.
 func (dp *DatagramParser) parseLine(line []byte) (*gostatsd.Metric, *gostatsd.Event, error) {
 	l := lexer{
 		metricPool: dp.metricPool,

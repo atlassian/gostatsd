@@ -128,7 +128,7 @@ func TestDispatchMetricShouldDistributeMetrics(t *testing.T) {
 		}
 		go func() {
 			defer wg.Done()
-			assert.NoError(t, h.DispatchMetric(ctx, m))
+			h.DispatchMetric(ctx, m)
 		}()
 	}
 	wg.Wait()       // Wait for all metrics to be dispatched
@@ -172,9 +172,7 @@ func BenchmarkBackendHandler(b *testing.B) {
 				Tags:  nil,
 				Value: rand.Float64(),
 			}
-			if err := h.DispatchMetric(ctx, m); err != nil {
-				b.Errorf("unexpected error: %v", err)
-			}
+			h.DispatchMetric(ctx, m)
 		}
 	})
 	cancelFunc()    // After all metrics have been dispatched, we signal dispatcher to shut down

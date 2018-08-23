@@ -76,18 +76,15 @@ func TestTransientInstanceFailure(t *testing.T) {
 	m2 := sm1()
 
 	// t+0: prime the cache
-	if err := ch.DispatchMetric(ctx, &m1); err != nil {
-		t.Fatal(err)
-	}
+	ch.DispatchMetric(ctx, &m1)
 
 	time.Sleep(50 * time.Millisecond)
 	// t+50: refresh
 	time.Sleep(50 * time.Millisecond)
 
 	// t+100ms: read from cache, must still be valid
-	if err := ch.DispatchMetric(ctx, &m2); err != nil {
-		t.Fatal(err)
-	}
+	ch.DispatchMetric(ctx, &m2)
+
 	cancelFunc()
 	wg.Wait()
 
@@ -106,20 +103,20 @@ func TestTransientInstanceFailure(t *testing.T) {
 func TestCloudHandlerExpirationAndRefresh(t *testing.T) {
 	t.Parallel()
 	t.Run("4.3.2.1", func(t *testing.T) {
-		testExpire(t, []gostatsd.IP{"4.3.2.1", "4.3.2.1"}, func(h *CloudHandler) error {
+		testExpire(t, []gostatsd.IP{"4.3.2.1", "4.3.2.1"}, func(h *CloudHandler) {
 			e := se1()
-			return h.DispatchEvent(context.Background(), &e)
+			h.DispatchEvent(context.Background(), &e)
 		})
 	})
 	t.Run("1.2.3.4", func(t *testing.T) {
-		testExpire(t, []gostatsd.IP{"1.2.3.4", "1.2.3.4"}, func(h *CloudHandler) error {
+		testExpire(t, []gostatsd.IP{"1.2.3.4", "1.2.3.4"}, func(h *CloudHandler) {
 			m := sm1()
-			return h.DispatchMetric(context.Background(), &m)
+			h.DispatchMetric(context.Background(), &m)
 		})
 	})
 }
 
-func testExpire(t *testing.T, expectedIps []gostatsd.IP, f func(*CloudHandler) error) {
+func testExpire(t *testing.T, expectedIps []gostatsd.IP, f func(*CloudHandler)) {
 	t.Parallel()
 	fp := &fakeProviderIP{}
 	counting := &countingHandler{}
@@ -134,9 +131,7 @@ func testExpire(t *testing.T, expectedIps []gostatsd.IP, f func(*CloudHandler) e
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	defer cancelFunc()
 	wg.StartWithContext(ctx, ch.Run)
-	if err := f(ch); err != nil {
-		t.Fatal(err)
-	}
+	f(ch)
 	time.Sleep(900 * time.Millisecond) // Should be refreshed couple of times and evicted.
 
 	cancelFunc()
@@ -233,19 +228,11 @@ func doCheck(t *testing.T, cloud gostatsd.CloudProvider, m1 gostatsd.Metric, e1 
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	defer cancelFunc()
 	wg.StartWithContext(ctx, ch.Run)
-	if err := ch.DispatchMetric(ctx, &m1); err != nil {
-		t.Fatal(err)
-	}
-	if err := ch.DispatchEvent(ctx, &e1); err != nil {
-		t.Fatal(err)
-	}
+	ch.DispatchMetric(ctx, &m1)
+	ch.DispatchEvent(ctx, &e1)
 	time.Sleep(1 * time.Second)
-	if err := ch.DispatchMetric(ctx, &m2); err != nil {
-		t.Fatal(err)
-	}
-	if err := ch.DispatchEvent(ctx, &e2); err != nil {
-		t.Fatal(err)
-	}
+	ch.DispatchMetric(ctx, &m2)
+	ch.DispatchEvent(ctx, &e2)
 	time.Sleep(1 * time.Second)
 	cancelFunc()
 	wg.Wait()

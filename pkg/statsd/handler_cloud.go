@@ -105,31 +105,30 @@ func (ch *CloudHandler) EstimatedTags() int {
 	return ch.estimatedTags
 }
 
-func (ch *CloudHandler) DispatchMetric(ctx context.Context, m *gostatsd.Metric) error {
+func (ch *CloudHandler) DispatchMetric(ctx context.Context, m *gostatsd.Metric) {
 	if ch.updateTagsAndHostname(m.SourceIP, &m.Tags, &m.Hostname) {
 		atomic.AddUint64(&ch.statsCacheHit, 1)
-		return ch.metrics.DispatchMetric(ctx, m)
+		ch.metrics.DispatchMetric(ctx, m)
+		return
 	}
+
 	select {
 	case <-ctx.Done():
-		return ctx.Err()
 	case ch.metricSource <- m:
-		return nil
 	}
 }
 
-func (ch *CloudHandler) DispatchEvent(ctx context.Context, e *gostatsd.Event) error {
+func (ch *CloudHandler) DispatchEvent(ctx context.Context, e *gostatsd.Event) {
 	if ch.updateTagsAndHostname(e.SourceIP, &e.Tags, &e.Hostname) {
 		atomic.AddUint64(&ch.statsCacheHit, 1)
-		return ch.events.DispatchEvent(ctx, e)
+		ch.events.DispatchEvent(ctx, e)
+		return
 	}
 	ch.wg.Add(1) // Increment before sending to the channel
 	select {
 	case <-ctx.Done():
 		ch.wg.Done()
-		return ctx.Err()
 	case ch.eventSource <- e:
-		return nil
 	}
 }
 
@@ -363,12 +362,7 @@ func (ch *CloudHandler) handleMetric(ctx context.Context, m *gostatsd.Metric) {
 func (ch *CloudHandler) updateAndDispatchMetrics(ctx context.Context, instance *gostatsd.Instance, metrics ...*gostatsd.Metric) {
 	for _, m := range metrics {
 		updateInplace(&m.Tags, &m.Hostname, instance)
-		if err := ch.metrics.DispatchMetric(ctx, m); err != nil {
-			if err == context.Canceled || err == context.DeadlineExceeded {
-				return
-			}
-			ch.logger.Warnf("Failed to dispatch metric: %v", err)
-		}
+		ch.metrics.DispatchMetric(ctx, m)
 	}
 }
 
@@ -401,12 +395,7 @@ func (ch *CloudHandler) updateAndDispatchEvents(ctx context.Context, instance *g
 	for _, e := range events {
 		updateInplace(&e.Tags, &e.Hostname, instance)
 		dispatched++
-		if err := ch.events.DispatchEvent(ctx, e); err != nil {
-			if err == context.Canceled || err == context.DeadlineExceeded {
-				return
-			}
-			ch.logger.Warnf("Failed to dispatch event: %v", err)
-		}
+		ch.events.DispatchEvent(ctx, e)
 	}
 }
 

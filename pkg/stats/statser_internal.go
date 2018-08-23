@@ -11,13 +11,13 @@ import (
 // InternalMetricHandler is an interface to dispatch metrics to.  Exists
 // to break circular dependencies.
 type InternalMetricHandler interface {
-	DispatchMetric(ctx context.Context, m *gostatsd.Metric) error
+	DispatchMetric(ctx context.Context, m *gostatsd.Metric)
 }
 
 // InternalEventHandler is an interface to dispatch metrics to.  Exists
 // to break circular dependencies.
 type InternalEventHandler interface {
-	DispatchEvent(context.Context, *gostatsd.Event) error
+	DispatchEvent(context.Context, *gostatsd.Event)
 }
 
 // InternalStatser is a Statser which sends metrics to a handler on a best
@@ -146,5 +146,5 @@ func (is *InternalStatser) dispatchMetric(ctx context.Context, metric *gostatsd.
 		metric.Name = is.namespace + "." + metric.Name
 	}
 	metric.Tags = metric.Tags.Concat(is.tags)
-	_ = is.metrics.DispatchMetric(ctx, metric)
+	is.metrics.DispatchMetric(ctx, metric)
 }

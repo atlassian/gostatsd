@@ -53,14 +53,13 @@ func (th *TagHandler) EstimatedTags() int {
 }
 
 // DispatchMetric adds the unique tags from the TagHandler to the metric and passes it to the next stage in the pipeline
-func (th *TagHandler) DispatchMetric(ctx context.Context, m *gostatsd.Metric) error {
+func (th *TagHandler) DispatchMetric(ctx context.Context, m *gostatsd.Metric) {
 	if m.Hostname == "" {
 		m.Hostname = string(m.SourceIP)
 	}
 	if th.uniqueFilterMetricAndAddTags(m) {
-		return th.metrics.DispatchMetric(ctx, m)
+		th.metrics.DispatchMetric(ctx, m)
 	}
-	return nil
 }
 
 // uniqueFilterMetricAndAddTags will perform 3 tasks:
@@ -119,12 +118,12 @@ func (th *TagHandler) uniqueFilterMetricAndAddTags(m *gostatsd.Metric) bool {
 }
 
 // DispatchEvent adds the unique tags from the TagHandler to the event and passes it to the next stage in the pipeline
-func (th *TagHandler) DispatchEvent(ctx context.Context, e *gostatsd.Event) error {
+func (th *TagHandler) DispatchEvent(ctx context.Context, e *gostatsd.Event) {
 	if e.Hostname == "" {
 		e.Hostname = string(e.SourceIP)
 	}
 	e.Tags = uniqueTags(e.Tags, th.tags)
-	return th.events.DispatchEvent(ctx, e)
+	th.events.DispatchEvent(ctx, e)
 }
 
 // WaitForEvents waits for all event-dispatching goroutines to finish.
