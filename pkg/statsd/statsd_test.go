@@ -71,7 +71,7 @@ func TestStatsdThroughput(t *testing.T) {
 	Mallocs: %d (%d per metric)
 	NumGC: %d
 	GCCPUFraction: %f`,
-		numMetrics, float64(numMetrics) / duration,
+		numMetrics, float64(numMetrics)/duration,
 		totalAlloc, totalAlloc/numMetrics,
 		heapObjects,
 		mallocs, mallocs/numMetrics,

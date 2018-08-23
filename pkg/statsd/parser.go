@@ -9,7 +9,7 @@ import (
 
 	"github.com/atlassian/gostatsd"
 	"github.com/atlassian/gostatsd/pkg/pool"
-	"github.com/atlassian/gostatsd/pkg/statser"
+	"github.com/atlassian/gostatsd/pkg/stats"
 
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/time/rate"
@@ -29,7 +29,7 @@ type DatagramParser struct {
 	metrics    MetricHandler
 	events     EventHandler
 	namespace  string // Namespace to prefix all metrics
-	statser    statser.Statser
+	statser    stats.Statser
 
 	metricPool *pool.MetricPool
 
@@ -39,7 +39,7 @@ type DatagramParser struct {
 }
 
 // NewDatagramParser initialises a new DatagramParser.
-func NewDatagramParser(in <-chan []*Datagram, ns string, ignoreHost bool, estimatedTags int, metrics MetricHandler, events EventHandler, statser statser.Statser, badLineLimiter *rate.Limiter) *DatagramParser {
+func NewDatagramParser(in <-chan []*Datagram, ns string, ignoreHost bool, estimatedTags int, metrics MetricHandler, events EventHandler, statser stats.Statser, badLineLimiter *rate.Limiter) *DatagramParser {
 	return &DatagramParser{
 		in:             in,
 		ignoreHost:     ignoreHost,

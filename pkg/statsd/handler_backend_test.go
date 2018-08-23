@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/atlassian/gostatsd"
-	"github.com/atlassian/gostatsd/pkg/statser"
+	"github.com/atlassian/gostatsd/pkg/stats"
 
 	"github.com/ash2k/stager/wait"
 	"github.com/stretchr/testify/assert"
@@ -22,7 +22,7 @@ type testAggregator struct {
 	gostatsd.MetricMap
 }
 
-func (a *testAggregator) TrackMetrics(statser statser.Statser) {
+func (a *testAggregator) TrackMetrics(statser stats.Statser) {
 }
 
 func (a *testAggregator) Receive(m *gostatsd.Metric, t time.Time) {

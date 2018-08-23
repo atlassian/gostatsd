@@ -17,7 +17,7 @@ import (
 	"time"
 
 	"github.com/atlassian/gostatsd"
-	stats "github.com/atlassian/gostatsd/pkg/statser"
+	"github.com/atlassian/gostatsd/pkg/stats"
 
 	"github.com/cenkalti/backoff"
 	jsoniter "github.com/json-iterator/go"
