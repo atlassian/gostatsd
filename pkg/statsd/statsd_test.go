@@ -30,18 +30,19 @@ func TestStatsdThroughput(t *testing.T) {
 				Tags: gostatsd.Tags{"region:us-west-3", "tag1", "tag2:234"},
 			},
 		},
-		Limiter:          rate.NewLimiter(DefaultMaxCloudRequests, DefaultBurstCloudRequests),
-		DefaultTags:      DefaultTags,
-		ExpiryInterval:   DefaultExpiryInterval,
-		FlushInterval:    DefaultFlushInterval,
-		MaxReaders:       DefaultMaxReaders,
-		MaxParsers:       DefaultMaxParsers,
-		MaxWorkers:       DefaultMaxWorkers,
-		MaxQueueSize:     DefaultMaxQueueSize,
-		EstimatedTags:    1, // Travis has limited memory
-		PercentThreshold: DefaultPercentThreshold,
-		HeartbeatEnabled: DefaultHeartbeatEnabled,
-		ReceiveBatchSize: DefaultReceiveBatchSize,
+		Limiter:             rate.NewLimiter(DefaultMaxCloudRequests, DefaultBurstCloudRequests),
+		DefaultTags:         DefaultTags,
+		ExpiryInterval:      DefaultExpiryInterval,
+		FlushInterval:       DefaultFlushInterval,
+		MaxReaders:          DefaultMaxReaders,
+		MaxParsers:          DefaultMaxParsers,
+		MaxWorkers:          DefaultMaxWorkers,
+		MaxQueueSize:        DefaultMaxQueueSize,
+		EstimatedTags:       1, // Travis has limited memory
+		PercentThreshold:    DefaultPercentThreshold,
+		HeartbeatEnabled:    DefaultHeartbeatEnabled,
+		ReceiveBatchSize:    DefaultReceiveBatchSize,
+		MaxConcurrentEvents: 2,
 		CacheOptions: CacheOptions{
 			CacheRefreshPeriod:        DefaultCacheRefreshPeriod,
 			CacheEvictAfterIdlePeriod: DefaultCacheEvictAfterIdlePeriod,
@@ -52,22 +53,25 @@ func TestStatsdThroughput(t *testing.T) {
 	}
 	ctx, cancelFunc := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancelFunc()
+	start := time.Now()
 	err := s.RunWithCustomSocket(ctx, fakesocket.Factory)
 	if err != nil && err != context.Canceled && err != context.DeadlineExceeded {
 		t.Errorf("statsd run failed: %v", err)
 	}
+	duration := float64(time.Since(start)) / float64(time.Second)
+
 	runtime.ReadMemStats(&memStatsFinish)
 	totalAlloc := memStatsFinish.TotalAlloc - memStatsStart.TotalAlloc
 	heapObjects := memStatsFinish.HeapObjects - memStatsStart.HeapObjects
 	numMetrics := backend.metrics
 	mallocs := memStatsFinish.Mallocs - memStatsStart.Mallocs
-	t.Logf(`Processed metrics: %d
+	t.Logf(`Processed metrics: %d (%f per second)
 	TotalAlloc: %d (%d per metric)
 	HeapObjects: %d
 	Mallocs: %d (%d per metric)
 	NumGC: %d
 	GCCPUFraction: %f`,
-		numMetrics,
+		numMetrics, float64(numMetrics) / duration,
 		totalAlloc, totalAlloc/numMetrics,
 		heapObjects,
 		mallocs, mallocs/numMetrics,
