@@ -72,6 +72,7 @@ func TestFlush(t *testing.T) {
 
 	ma.Timers["some"] = make(map[string]gostatsd.Timer)
 	ma.Timers["some"]["thing"] = gostatsd.NewTimerValues([]float64{2, 4, 12})
+	ma.Timers["some"]["sampled"] = gostatsd.Timer{Values: []float64{2, 4, 12}, SampledCount: 30.0}
 	ma.Timers["some"]["empty"] = gostatsd.Timer{Values: []float64{}}
 
 	expPct := gostatsd.Percentiles{}
@@ -85,6 +86,11 @@ func TestFlush(t *testing.T) {
 		Values: []float64{2, 4, 12}, Count: 3, Min: 2, Max: 12, Mean: 6, Median: 4, Sum: 18,
 		PerSecond: 0.3, SumSquares: 164, StdDev: 4.320493798938574, Percentiles: expPct,
 		SampledCount: 3.0,
+	}
+	expected.Timers["some"]["sampled"] = gostatsd.Timer{
+		Values: []float64{2, 4, 12}, Count: 30, Min: 2, Max: 12, Mean: 6, Median: 4, Sum: 18,
+		PerSecond: 3.0, SumSquares: 164, StdDev: 4.320493798938574, Percentiles: expPct,
+		SampledCount: 30.0,
 	}
 	expected.Timers["some"]["empty"] = gostatsd.Timer{Values: []float64{}}
 
@@ -390,9 +396,16 @@ func metricsFixtures() []gostatsd.Metric {
 		{Name: "uniq.usr", StringValue: "bob", Type: gostatsd.SET},
 		{Name: "uniq.usr", StringValue: "john", Type: gostatsd.SET},
 		{Name: "uniq.usr", StringValue: "john", Type: gostatsd.SET, Tags: gostatsd.Tags{"foo:bar", "baz"}},
+		{Name: "timer_sampling", Value: 10, Type: gostatsd.TIMER, Rate: 0.1},
+		{Name: "timer_sampling", Value: 30, Type: gostatsd.TIMER, Rate: 0.1},
+		{Name: "timer_sampling", Value: 50, Type: gostatsd.TIMER, Rate: 0.1},
+		{Name: "counter_sampling", Value: 2, Type: gostatsd.COUNTER, Rate: 0.25},
+		{Name: "counter_sampling", Value: 5, Type: gostatsd.COUNTER, Rate: 0.25},
 	}
 	for i, m := range ms {
-		ms[i].Rate = 1.0
+		if ms[i].Rate == 0.0 {
+			ms[i].Rate = 1.0
+		}
 		ms[i].TagsKey = formatTagsKey(m.Tags, m.Hostname)
 	}
 	return ms
@@ -419,6 +432,9 @@ func TestReceive(t *testing.T) {
 			"":            {Value: 50, Timestamp: nowNano},
 			"baz,foo:bar": {Value: 55, Timestamp: nowNano, Tags: gostatsd.Tags{"baz", "foo:bar"}},
 		},
+		"counter_sampling": map[string]gostatsd.Counter{
+			"": {Value: 28, Timestamp: nowNano},
+		},
 	}
 	assrt.Equal(expectedCounters, ma.Counters)
 
@@ -434,6 +450,9 @@ func TestReceive(t *testing.T) {
 		"def.g": map[string]gostatsd.Timer{
 			"":            {Values: []float64{10}, Timestamp: nowNano, SampledCount: 1},
 			"baz,foo:bar": {Values: []float64{1}, Timestamp: nowNano, SampledCount: 1, Tags: gostatsd.Tags{"baz", "foo:bar"}},
+		},
+		"timer_sampling": map[string]gostatsd.Timer{
+			"": {Values: []float64{10,30,50}, Timestamp: nowNano, SampledCount: 30},
 		},
 	}
 	assrt.Equal(expectedTimers, ma.Timers)
