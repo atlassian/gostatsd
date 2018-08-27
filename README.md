@@ -145,7 +145,7 @@ respectively.
 
 A single packet can contain multiple metrics, each ending with a newline.
 
-Optionally, `gostatsd` supports sample rates and tags (unused):
+Optionally, `gostatsd` supports sample rates (for simple counters, and for timer counters) and tags (unused):
 
 * `<bucket name>:<value>|c|@<sample rate>\n` where `sample rate` is a float between 0 and 1
 * `<bucket name>:<value>|c|@<sample rate>|#<tags>\n` where `tags` is a comma separated list of tags

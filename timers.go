@@ -4,25 +4,31 @@ import "github.com/spf13/viper"
 
 // Timer is used for storing aggregated values for timers.
 type Timer struct {
-	Count       int         // The number of timers in the series
-	PerSecond   float64     // The calculated per second rate
-	Mean        float64     // The mean time of the series
-	Median      float64     // The median time of the series
-	Min         float64     // The minimum time of the series
-	Max         float64     // The maximum time of the series
-	StdDev      float64     // The standard deviation for the series
-	Sum         float64     // The sum for the series
-	SumSquares  float64     // The sum squares for the series
-	Values      []float64   // The numeric value of the metric
-	Percentiles Percentiles // The percentile aggregations of the metric
-	Timestamp   Nanotime    // Last time value was updated
-	Hostname    string      // Hostname of the source of the metric
-	Tags        Tags        // The tags for the timer
+	Count        int         // The number of timers in the series
+	SampledCount float64     // Number of timings received, divided by sampling rate
+	PerSecond    float64     // The calculated per second rate
+	Mean         float64     // The mean time of the series
+	Median       float64     // The median time of the series
+	Min          float64     // The minimum time of the series
+	Max          float64     // The maximum time of the series
+	StdDev       float64     // The standard deviation for the series
+	Sum          float64     // The sum for the series
+	SumSquares   float64     // The sum squares for the series
+	Values       []float64   // The numeric value of the metric
+	Percentiles  Percentiles // The percentile aggregations of the metric
+	Timestamp    Nanotime    // Last time value was updated
+	Hostname     string      // Hostname of the source of the metric
+	Tags         Tags        // The tags for the timer
 }
 
 // NewTimer initialises a new timer.
 func NewTimer(timestamp Nanotime, values []float64, hostname string, tags Tags) Timer {
-	return Timer{Values: values, Timestamp: timestamp, Hostname: hostname, Tags: tags.Copy()}
+	return Timer{Values: values, Timestamp: timestamp, Hostname: hostname, Tags: tags.Copy(), SampledCount: float64(len(values))}
+}
+
+// NewTimerValues initialises a new timer only from Values array
+func NewTimerValues(values []float64) Timer {
+	return NewTimer(Nanotime(0), values, "", nil)
 }
 
 // Timers stores a map of timers by tags.
