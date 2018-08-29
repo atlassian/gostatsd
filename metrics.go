@@ -39,6 +39,7 @@ func (m MetricType) String() string {
 type Metric struct {
 	Name        string     // The name of the metric
 	Value       float64    // The numeric value of the metric
+	Rate        float64    // The sampling rate of the metric
 	Tags        Tags       // The tags for the metric
 	TagsKey     string     // The tags rendered as a string to uniquely identify the tagset in a map
 	StringValue string     // The string value for some metrics e.g. Set
@@ -52,6 +53,7 @@ type Metric struct {
 func (m *Metric) Reset() {
 	m.Name = ""
 	m.Value = 0
+	m.Rate = 1
 	m.Tags = m.Tags[:0]
 	m.TagsKey = ""
 	m.StringValue = ""
