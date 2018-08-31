@@ -17,7 +17,7 @@ type Filter struct {
 
 // toStringMatch turns a []string in to a []gostatsd.StringMatch
 func toStringMatch(tests []string) []gostatsd.StringMatch {
-	var matches []gostatsd.StringMatch
+	matches := make([]gostatsd.StringMatch, 0, len(tests))
 	for _, test := range tests {
 		matches = append(matches, gostatsd.NewStringMatch(test))
 	}
@@ -25,7 +25,7 @@ func toStringMatch(tests []string) []gostatsd.StringMatch {
 }
 
 // NewFilterFromViper creates a new Filter given a *viper.Viper
-func NewFilterFromViper(name string, v *viper.Viper) Filter {
+func NewFilterFromViper(v *viper.Viper) Filter {
 	v.SetDefault("match-metrics", []string{})
 	v.SetDefault("exclude-metrics", []string{})
 	v.SetDefault("match-tags", []string{})

@@ -9,6 +9,7 @@ import (
 
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
+	"strings"
 )
 
 func TestFilterPassesNoFilters(t *testing.T) {
@@ -283,15 +284,56 @@ drop-tags='host:*'
 	nh := &nopHandler{}
 	th := NewTagHandlerFromViper(v, nh, nh, nil)
 
+	empty := gostatsd.StringMatchList{}
+
 	expected := []Filter{
-		{MatchMetrics: toStringMatch([]string{"noisy.*"}), DropMetric: true, DropHost: false},
-		{MatchMetrics: toStringMatch([]string{"noisy.*"}), MatchTags: toStringMatch([]string{"noisy-tag:*"}), DropMetric: true, DropHost: false},
-		{MatchMetrics: toStringMatch([]string{"noisy.*"}), DropTags: toStringMatch([]string{"noisy-tag:*"}), DropMetric: false, DropHost: false},
-		{MatchMetrics: toStringMatch([]string{"noisy.*"}), ExcludeMetrics: toStringMatch([]string{"noisy.quiet.*", "noisy.ok.*"}), DropMetric: true, DropHost: false},
-		{MatchMetrics: toStringMatch([]string{"global.*"}), DropTags: toStringMatch([]string{"host:*"}), DropMetric: false, DropHost: true},
+		{MatchMetrics: toStringMatch([]string{"noisy.*"}), ExcludeMetrics: empty, MatchTags: empty, DropTags: empty, DropMetric: true, DropHost: false},
+		{MatchMetrics: toStringMatch([]string{"noisy.*"}), ExcludeMetrics: empty, MatchTags: toStringMatch([]string{"noisy-tag:*"}), DropTags: empty, DropMetric: true, DropHost: false},
+		{MatchMetrics: toStringMatch([]string{"noisy.*"}), ExcludeMetrics: empty, MatchTags: empty, DropTags: toStringMatch([]string{"noisy-tag:*"}), DropMetric: false, DropHost: false},
+		{MatchMetrics: toStringMatch([]string{"noisy.*"}), ExcludeMetrics: toStringMatch([]string{"noisy.quiet.*", "noisy.ok.*"}), DropTags: empty, MatchTags: empty, DropMetric: true, DropHost: false},
+		{MatchMetrics: toStringMatch([]string{"global.*"}), ExcludeMetrics: empty, MatchTags: empty, DropTags: toStringMatch([]string{"host:*"}), DropMetric: false, DropHost: true},
 	}
 	assert.Equal(t, expected, th.filters)
 
+}
+
+func assertHasAllTags(t *testing.T, actual gostatsd.Tags, expected... string) {
+	assert.Equal(t, len(expected), len(actual))
+	seenActual := map[string]struct{}{}
+	for _, actualTag := range actual {
+		seenActual[actualTag] = struct{}{}
+	}
+	assert.Equal(t, len(actual), len(seenActual), "found duplicates in actual")
+	for _, expectedTag := range expected {
+		if _, ok := seenActual[expectedTag]; !ok {
+			assert.Fail(
+				t,
+				"missing tag",
+				"have tags: [%s], expected tags: [%s], missing tag: %v",
+				strings.Join(actual, ","),
+				strings.Join(expected, ","),
+				expectedTag,
+			)
+		}
+	}
+
+	seenExpected := map[string]struct{}{}
+	for _, expectedTag := range expected {
+		seenExpected[expectedTag] = struct{}{}
+	}
+	assert.Equal(t, len(expected), len(seenExpected), "found duplicates in expected")
+	for _, actualTag := range actual {
+		if _, ok := seenExpected[actualTag]; !ok {
+			assert.Fail(
+				t,
+				"extra tag",
+				"have tags: [%s], expected tags: [%s], extra tag: %s",
+				strings.Join(actual, ","),
+				strings.Join(expected, ","),
+				actualTag,
+			)
+		}
+	}
 }
 
 func TestTagMetricHandlerAddsNoTags(t *testing.T) {
@@ -300,7 +342,7 @@ func TestTagMetricHandlerAddsNoTags(t *testing.T) {
 	m := &gostatsd.Metric{}
 	th.DispatchMetric(context.Background(), m)
 	assert.Equal(t, 1, len(tch.m))         // Metric tracked
-	assert.Equal(t, 0, len(tch.m[0].Tags)) // No tags added
+	assertHasAllTags(t, tch.m[0].Tags)
 	assert.Equal(t, "", tch.m[0].Hostname) // No hostname added
 }
 
@@ -310,8 +352,7 @@ func TestTagMetricHandlerAddsSingleTag(t *testing.T) {
 	m := &gostatsd.Metric{}
 	th.DispatchMetric(context.Background(), m)
 	assert.Equal(t, 1, len(tch.m))            // Metric tracked
-	assert.Equal(t, 1, len(tch.m[0].Tags))    // 1 tag added
-	assert.Equal(t, "tag1", tch.m[0].Tags[0]) //  "tag1" added
+	assertHasAllTags(t, tch.m[0].Tags, "tag1")
 	assert.Equal(t, "", tch.m[0].Hostname)    // No hostname added
 }
 
@@ -321,9 +362,7 @@ func TestTagMetricHandlerAddsMultipleTags(t *testing.T) {
 	m := &gostatsd.Metric{}
 	th.DispatchMetric(context.Background(), m)
 	assert.Equal(t, 1, len(tch.m))            // Metric tracked
-	assert.Equal(t, 2, len(tch.m[0].Tags))    // 2 tag added
-	assert.Equal(t, "tag1", tch.m[0].Tags[0]) //  "tag1" added
-	assert.Equal(t, "tag2", tch.m[0].Tags[1]) //  "tag2" added
+	assertHasAllTags(t, tch.m[0].Tags, "tag1", "tag2")
 	assert.Equal(t, "", tch.m[0].Hostname)    // No hostname added
 }
 
@@ -345,10 +384,7 @@ func TestTagMetricHandlerAddsDuplicateTags(t *testing.T) {
 	m := &gostatsd.Metric{}
 	th.DispatchMetric(context.Background(), m)
 	assert.Equal(t, 1, len(tch.m))            // Metric tracked
-	assert.Equal(t, 3, len(tch.m[0].Tags))    // 3 tags added
-	assert.Equal(t, "tag1", tch.m[0].Tags[0]) //  "tag1" added
-	assert.Equal(t, "tag2", tch.m[0].Tags[1]) //  "tag2" added
-	assert.Equal(t, "tag3", tch.m[0].Tags[2]) //  "tag3" added
+	assertHasAllTags(t, tch.m[0].Tags, "tag1", "tag2", "tag3")
 	assert.Equal(t, "", tch.m[0].Hostname)    // No hostname added
 }
 
@@ -358,7 +394,7 @@ func TestTagEventHandlerAddsNoTags(t *testing.T) {
 	e := &gostatsd.Event{}
 	th.DispatchEvent(context.Background(), e)
 	assert.Equal(t, 1, len(tch.e))         // Metric tracked
-	assert.Equal(t, 0, len(tch.e[0].Tags)) // No tags added
+	assertHasAllTags(t, tch.e[0].Tags)
 	assert.Equal(t, "", tch.e[0].Hostname) // No hostname added
 }
 
@@ -368,8 +404,7 @@ func TestTagEventHandlerAddsSingleTag(t *testing.T) {
 	e := &gostatsd.Event{}
 	th.DispatchEvent(context.Background(), e)
 	assert.Equal(t, 1, len(tch.e))            // Metric tracked
-	assert.Equal(t, 1, len(tch.e[0].Tags))    // 1 tag added
-	assert.Equal(t, "tag1", tch.e[0].Tags[0]) //  "tag1" added
+	assertHasAllTags(t, tch.e[0].Tags, "tag1")
 	assert.Equal(t, "", tch.e[0].Hostname)    // No hostname added
 }
 
@@ -379,9 +414,7 @@ func TestTagEventHandlerAddsMultipleTags(t *testing.T) {
 	e := &gostatsd.Event{}
 	th.DispatchEvent(context.Background(), e)
 	assert.Equal(t, 1, len(tch.e))            // Metric tracked
-	assert.Equal(t, 2, len(tch.e[0].Tags))    // 2 tag added
-	assert.Equal(t, "tag1", tch.e[0].Tags[0]) //  "tag1" added
-	assert.Equal(t, "tag2", tch.e[0].Tags[1]) //  "tag2" added
+	assertHasAllTags(t, tch.e[0].Tags, "tag1", "tag2")
 	assert.Equal(t, "", tch.e[0].Hostname)    // No hostname added
 }
 
@@ -393,7 +426,7 @@ func TestTagEventHandlerAddsHostname(t *testing.T) {
 	}
 	th.DispatchEvent(context.Background(), e)
 	assert.Equal(t, 1, len(tch.e))                // Metric tracked
-	assert.Equal(t, 0, len(tch.e[0].Tags))        // No tags added
+	assertHasAllTags(t, tch.e[0].Tags)
 	assert.Equal(t, "1.2.3.4", tch.e[0].Hostname) // Hostname injected
 }
 
@@ -403,10 +436,7 @@ func TestTagEventHandlerAddsDuplicateTags(t *testing.T) {
 	e := &gostatsd.Event{}
 	th.DispatchEvent(context.Background(), e)
 	assert.Equal(t, 1, len(tch.e))            // Metric tracked
-	assert.Equal(t, 3, len(tch.e[0].Tags))    // 3 tags added
-	assert.Equal(t, "tag1", tch.e[0].Tags[0]) //  "tag1" added
-	assert.Equal(t, "tag2", tch.e[0].Tags[1]) //  "tag2" added
-	assert.Equal(t, "tag3", tch.e[0].Tags[2]) //  "tag3" added
+	assertHasAllTags(t, tch.e[0].Tags, "tag1", "tag2", "tag3")
 	assert.Equal(t, "", tch.e[0].Hostname)    // No hostname added
 }
 
@@ -414,15 +444,25 @@ func BenchmarkTagMetricHandlerAddsDuplicateTagsSmall(b *testing.B) {
 	tch := &TagCapturingHandler{}
 	th := NewTagHandler(tch, tch, gostatsd.Tags{
 		"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-		"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 		"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+		"cccccccccccccccccccccccccccccccc:cccccccccccccccccccccccccccccccc",
 	}, nil)
 
 	b.ReportAllocs()
 	b.ResetTimer()
 
+	baseTags := gostatsd.Tags{
+		"cccccccccccccccccccccccccccccccc:cccccccccccccccccccccccccccccccc",
+		"dddddddddddddddddddddddddddddddd:dddddddddddddddddddddddddddddddd",
+		"eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+	}
+
 	for n := 0; n < b.N; n++ {
-		m := &gostatsd.Metric{}
+		metricTags := make(gostatsd.Tags, 0, len(baseTags) + th.EstimatedTags())
+		metricTags = append(metricTags, baseTags...)
+		m := &gostatsd.Metric{
+			Tags: metricTags,
+		}
 		th.DispatchMetric(context.Background(), m)
 	}
 }
@@ -431,22 +471,35 @@ func BenchmarkTagMetricHandlerAddsDuplicateTagsLarge(b *testing.B) {
 	tch := &TagCapturingHandler{}
 	th := NewTagHandler(tch, tch, gostatsd.Tags{
 		"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-		"cccccccccccccccccccccccccccccccc:cccccccccccccccccccccccccccccccc",
-		"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 		"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-		"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-		"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 		"cccccccccccccccccccccccccccccccc:cccccccccccccccccccccccccccccccc",
-		"dddddddddddddddddddddddddddddddd:dddddddddddddddddddddddddddddddd",
 		"dddddddddddddddddddddddddddddddd:dddddddddddddddddddddddddddddddd",
 		"eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+		"ffffffffffffffffffffffffffffffff:ffffffffffffffffffffffffffffffff",
+		"gggggggggggggggggggggggggggggggg:gggggggggggggggggggggggggggggggg",
+		"hhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh:hhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh",
+		"iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii:iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii",
+		"jjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjj:jjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjj",
 	}, nil)
+
 
 	b.ReportAllocs()
 	b.ResetTimer()
 
+	baseTags := gostatsd.Tags{
+		"hhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh:hhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh",
+		"iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii:iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii",
+		"jjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjj:jjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjj",
+		"kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk:kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+		"llllllllllllllllllllllllllllllll:llllllllllllllllllllllllllllllll",
+	}
+
 	for n := 0; n < b.N; n++ {
-		m := &gostatsd.Metric{}
+		metricTags := make(gostatsd.Tags, 0, len(baseTags) + th.EstimatedTags())
+		metricTags = append(metricTags, baseTags...)
+		m := &gostatsd.Metric{
+			Tags: metricTags,
+		}
 		th.DispatchMetric(context.Background(), m)
 	}
 }
@@ -455,15 +508,23 @@ func BenchmarkTagEventHandlerAddsDuplicateTagsSmall(b *testing.B) {
 	tch := &TagCapturingHandler{}
 	th := NewTagHandler(tch, tch, gostatsd.Tags{
 		"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-		"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 		"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+		"cccccccccccccccccccccccccccccccc:cccccccccccccccccccccccccccccccc",
 	}, nil)
+
+	eventTags := gostatsd.Tags{
+		"cccccccccccccccccccccccccccccccc:cccccccccccccccccccccccccccccccc",
+		"dddddddddddddddddddddddddddddddd:dddddddddddddddddddddddddddddddd",
+		"eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+	}
 
 	b.ReportAllocs()
 	b.ResetTimer()
 
 	for n := 0; n < b.N; n++ {
-		e := &gostatsd.Event{}
+		e := &gostatsd.Event{
+			Tags: eventTags.Copy(),
+		}
 		th.DispatchEvent(context.Background(), e)
 	}
 }
@@ -472,22 +533,32 @@ func BenchmarkTagEventHandlerAddsDuplicateTagsLarge(b *testing.B) {
 	tch := &TagCapturingHandler{}
 	th := NewTagHandler(tch, tch, gostatsd.Tags{
 		"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-		"cccccccccccccccccccccccccccccccc:cccccccccccccccccccccccccccccccc",
-		"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 		"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-		"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-		"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 		"cccccccccccccccccccccccccccccccc:cccccccccccccccccccccccccccccccc",
-		"dddddddddddddddddddddddddddddddd:dddddddddddddddddddddddddddddddd",
 		"dddddddddddddddddddddddddddddddd:dddddddddddddddddddddddddddddddd",
 		"eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+		"ffffffffffffffffffffffffffffffff:ffffffffffffffffffffffffffffffff",
+		"gggggggggggggggggggggggggggggggg:gggggggggggggggggggggggggggggggg",
+		"hhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh:hhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh",
+		"iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii:iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii",
+		"jjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjj:jjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjj",
 	}, nil)
+
+	eventTags := gostatsd.Tags{
+		"hhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh:hhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh",
+		"iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii:iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii",
+		"jjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjj:jjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjj",
+		"kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk:kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+		"llllllllllllllllllllllllllllllll:llllllllllllllllllllllllllllllll",
+	}
 
 	b.ReportAllocs()
 	b.ResetTimer()
 
 	for n := 0; n < b.N; n++ {
-		e := &gostatsd.Event{}
+		e := &gostatsd.Event{
+			Tags: eventTags.Copy(),
+		}
 		th.DispatchEvent(context.Background(), e)
 	}
 }
