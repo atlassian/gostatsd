@@ -287,23 +287,25 @@ func (a *MetricAggregator) receiveGauge(m *gostatsd.Metric, tagsKey string, now 
 
 func (a *MetricAggregator) receiveTimer(m *gostatsd.Metric, tagsKey string, now gostatsd.Nanotime) {
 	v, ok := a.Timers[m.Name]
-	if !ok {
-		v = map[string]gostatsd.Timer{
-			tagsKey: gostatsd.NewTimer(now, []float64{}, m.Hostname, m.Tags),
-		}
-		a.Timers[m.Name] = v
-	}
-
-	t, ok := v[tagsKey]
 	if ok {
-		t.Values = append(t.Values, m.Value)
-		t.Timestamp = now
-		t.SampledCount += 1.0 / m.Rate
+		t, ok := v[tagsKey]
+		if ok {
+			t.Values = append(t.Values, m.Value)
+			t.Timestamp = now
+			t.SampledCount += 1.0 / m.Rate
+		} else {
+			t = gostatsd.NewTimer(now, []float64{m.Value}, m.Hostname, m.Tags)
+			t.SampledCount = 1.0 / m.Rate
+		}
+		v[tagsKey] = t
 	} else {
-		t = gostatsd.NewTimer(now, []float64{m.Value}, m.Hostname, m.Tags)
+		t := gostatsd.NewTimer(now, []float64{m.Value}, m.Hostname, m.Tags)
 		t.SampledCount = 1.0 / m.Rate
+
+		a.Timers[m.Name] = map[string]gostatsd.Timer{
+			tagsKey: t,
+		}
 	}
-	v[tagsKey] = t
 }
 
 func (a *MetricAggregator) receiveSet(m *gostatsd.Metric, tagsKey string, now gostatsd.Nanotime) {
