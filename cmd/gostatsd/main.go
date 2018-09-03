@@ -126,6 +126,7 @@ func constructServer(v *viper.Viper) (*statsd.Server, error) {
 		EstimatedTags:       v.GetInt(statsd.ParamEstimatedTags),
 		MetricsAddr:         v.GetString(statsd.ParamMetricsAddr),
 		Namespace:           v.GetString(statsd.ParamNamespace),
+		StatserType:         v.GetString(statsd.ParamStatserType),
 		PercentThreshold:    pt,
 		HeartbeatEnabled:    v.GetBool(statsd.ParamHeartbeatEnabled),
 		ReceiveBatchSize:    v.GetInt(statsd.ParamReceiveBatchSize),

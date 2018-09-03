@@ -106,8 +106,8 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 	stage = stgr.NextStage()
 	stage.StartWithContext(backendHandler.Run)
 
-	// 2. Start the default tag adder
-	th := NewTagHandler(metrics, events, s.DefaultTags)
+	// 2. Start the tag processor
+	th := NewTagHandlerFromViper(s.Viper, metrics, events, s.DefaultTags)
 	metrics = th
 	events = th
 

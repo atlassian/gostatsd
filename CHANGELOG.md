@@ -1,3 +1,8 @@
+x.x.x
+-----
+- Fixed `--statser-type` didn't apply
+- Added the ability to filter tags and metrics, see FILTERING.md for details
+
 7.2.0
 -----
 - New Cloudwatch backend contirubted by JorgenEvens
