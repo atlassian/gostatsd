@@ -1,3 +1,7 @@
+7.3.0
+-----
+- Added support for sampling timers to be compatible with original statsd.
+
 7.2.0
 -----
 - New Cloudwatch backend contirubted by JorgenEvens
