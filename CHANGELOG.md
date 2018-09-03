@@ -1,4 +1,4 @@
-x.x.x
+8.0.0
 -----
 - Fixed `--statser-type` didn't apply
 - Added the ability to filter tags and metrics, see FILTERING.md for details
