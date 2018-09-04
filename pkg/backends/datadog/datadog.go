@@ -19,6 +19,7 @@ import (
 	"github.com/atlassian/gostatsd"
 	stats "github.com/atlassian/gostatsd/pkg/statser"
 
+	"github.com/ash2k/stager"
 	"github.com/cenkalti/backoff"
 	jsoniter "github.com/json-iterator/go"
 	log "github.com/sirupsen/logrus"
@@ -66,8 +67,9 @@ type Client struct {
 	userAgent             string
 	maxRequestElapsedTime time.Duration
 	client                http.Client
-	metricsPerBatch       uint
-	metricsBufferSem      chan *bytes.Buffer // Two in one - a semaphore and a buffer pool
+	maxRequests           uint
+	sendJobs              chan func(*bytes.Buffer)
+	tsPool                chan *timeSeries   // Two in one - a semaphore and a buffer pool
 	eventsBufferSem       chan *bytes.Buffer // Two in one - a semaphore and a buffer pool
 	now                   func() time.Time   // Returns current time. Useful for testing.
 	compressPayload       bool
@@ -89,33 +91,53 @@ type event struct {
 	AlertType      string   `json:"alert_type,omitempty"`
 }
 
+func (d *Client) Run(ctx context.Context) {
+	stgr := stager.New()
+	defer stgr.Shutdown()
+	stage := stgr.NextStage()
+
+	for i := uint(0); i < d.maxRequests; i++ {
+		stage.StartWithContext(d.sender)
+	}
+	<-ctx.Done()
+}
+
+func (d *Client) sender(ctx context.Context) {
+	var buf bytes.Buffer
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case job := <-d.sendJobs:
+			job(&buf)
+			buf.Reset()
+		}
+	}
+}
+
 // SendMetricsAsync flushes the metrics to Datadog, preparing payload synchronously but doing the send asynchronously.
 func (d *Client) SendMetricsAsync(ctx context.Context, metrics *gostatsd.MetricMap, cb gostatsd.SendCallback) {
 	counter := 0
 	results := make(chan error)
 	d.processMetrics(metrics, func(ts *timeSeries) {
-		// This section would be likely be better if it pushed all ts's in to a single channel
-		// which n goroutines then read from.  Current behavior still spins up many goroutines
-		// and has them all hit the same channel.
+		if len(ts.Series) == 0 {
+			d.tsReturn(ts)
+			return
+		}
 		atomic.AddUint64(&d.batchesCreated, 1)
-		go func() {
+		job := func(buf *bytes.Buffer) {
+			err := d.postMetrics(ctx, buf, ts)
+			d.tsReturn(ts)
 			select {
 			case <-ctx.Done():
-				return
-			case buffer := <-d.metricsBufferSem:
-				defer func() {
-					buffer.Reset()
-					d.metricsBufferSem <- buffer
-				}()
-				err := d.postMetrics(ctx, buffer, ts)
-
-				select {
-				case <-ctx.Done():
-				case results <- err:
-				}
+			case results <- err:
 			}
-		}()
-		counter++
+		}
+		select {
+		case <-ctx.Done():
+		case d.sendJobs <- job:
+			counter++
+		}
 	})
 	go func() {
 		errs := make([]error, 0, counter)
@@ -152,15 +174,13 @@ func (d *Client) RunMetrics(ctx context.Context, statser stats.Statser) {
 	}
 }
 
-func (d *Client) processMetrics(metrics *gostatsd.MetricMap, cb func(*timeSeries)) {
+func (d *Client) processMetrics(metrics *gostatsd.MetricMap, tsSink func(*timeSeries)) {
 	fl := flush{
-		ts: &timeSeries{
-			Series: make([]metric, 0, d.metricsPerBatch),
-		},
+		ts:               d.tsBorrow(),
+		tsBorrow:         d.tsBorrow,
 		timestamp:        float64(d.now().Unix()),
 		flushIntervalSec: d.flushInterval.Seconds(),
-		metricsPerBatch:  d.metricsPerBatch,
-		cb:               cb,
+		tsSink:           tsSink,
 	}
 
 	metrics.Counters.Each(func(key, tagsKey string, counter gostatsd.Counter) {
@@ -346,6 +366,19 @@ func (d *Client) authenticatedURL(path string) string {
 	return fmt.Sprintf("%s%s?%s", d.apiEndpoint, path, q.Encode())
 }
 
+func (d *Client) tsBorrow() *timeSeries {
+	return <-d.tsPool
+}
+
+func (d *Client) tsReturn(ts *timeSeries) {
+	// Zero the slice's contents to remove references to strings so that GC can collect them
+	for i := range ts.Series {
+		ts.Series[i] = metric{}
+	}
+	ts.Series = ts.Series[:0]
+	d.tsPool <- ts
+}
+
 // NewClientFromViper returns a new Datadog API client.
 func NewClientFromViper(v *viper.Viper) (gostatsd.Backend, error) {
 	dd := getSubViper(v, "datadog")
@@ -423,14 +456,18 @@ func NewClient(apiEndpoint, apiKey, userAgent, network string, metricsPerBatch, 
 		// https://golang.org/doc/go1.6#http2
 		transport.TLSNextProto = map[string](func(string, *tls.Conn) http.RoundTripper){}
 	}
-
-	metricsBufferSem := make(chan *bytes.Buffer, maxRequests)
-	for i := uint(0); i < maxRequests; i++ {
-		metricsBufferSem <- &bytes.Buffer{}
-	}
 	eventsBufferSem := make(chan *bytes.Buffer, maxConcurrentEvents)
 	for i := uint(0); i < maxConcurrentEvents; i++ {
 		eventsBufferSem <- &bytes.Buffer{}
+	}
+	// tsPool is 2x maxRequests. The idea is that for each request in flight there can be another
+	// batch ready/being prepared. Also don't want to prepare too many batches in advance to consume too much
+	// memory. This also creates back pressure.
+	tsPool := make(chan *timeSeries, 2*maxRequests)
+	for i := uint(0); i < 2*maxRequests; i++ {
+		tsPool <- &timeSeries{
+			Series: make([]metric, 0, metricsPerBatch),
+		}
 	}
 	return &Client{
 		apiKey:                apiKey,
@@ -441,8 +478,9 @@ func NewClient(apiEndpoint, apiKey, userAgent, network string, metricsPerBatch, 
 			Transport: transport,
 			Timeout:   clientTimeout,
 		},
-		metricsPerBatch:  metricsPerBatch,
-		metricsBufferSem: metricsBufferSem,
+		maxRequests:      maxRequests,
+		sendJobs:         make(chan func(*bytes.Buffer)),
+		tsPool:           tsPool,
 		eventsBufferSem:  eventsBufferSem,
 		compressPayload:  compressPayload,
 		now:              time.Now,

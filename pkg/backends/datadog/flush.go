@@ -18,10 +18,10 @@ const (
 // flush represents a send operation.
 type flush struct {
 	ts               *timeSeries
+	tsBorrow         func() *timeSeries
 	timestamp        float64
 	flushIntervalSec float64
-	metricsPerBatch  uint
-	cb               func(*timeSeries)
+	tsSink           func(*timeSeries)
 }
 
 // timeSeries represents a time series data structure.
@@ -60,16 +60,12 @@ func (f *flush) addMetric(metricType metricType, value float64, hostname string,
 }
 
 func (f *flush) maybeFlush() {
-	if uint(len(f.ts.Series))+20 >= f.metricsPerBatch { // flush before it reaches max size and grows the slice
-		f.cb(f.ts)
-		f.ts = &timeSeries{
-			Series: make([]metric, 0, f.metricsPerBatch),
-		}
+	if len(f.ts.Series)+20 >= cap(f.ts.Series) { // flush before it reaches capacity and grows the slice
+		f.tsSink(f.ts)
+		f.ts = f.tsBorrow()
 	}
 }
 
 func (f *flush) finish() {
-	if len(f.ts.Series) > 0 {
-		f.cb(f.ts)
-	}
+	f.tsSink(f.ts)
 }
