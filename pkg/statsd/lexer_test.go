@@ -13,32 +13,32 @@ import (
 func TestMetricsLexer(t *testing.T) {
 	t.Parallel()
 	tests := map[string]gostatsd.Metric{
-		"foo.bar.baz:2|c":               {Name: "foo.bar.baz", Value: 2, Type: gostatsd.COUNTER},
-		"abc.def.g:3|g":                 {Name: "abc.def.g", Value: 3, Type: gostatsd.GAUGE},
-		"def.g:10|ms":                   {Name: "def.g", Value: 10, Type: gostatsd.TIMER},
-		"def.h:10|h":                    {Name: "def.h", Value: 10, Type: gostatsd.TIMER},
-		"def.i:10|h|#foo":               {Name: "def.i", Value: 10, Type: gostatsd.TIMER, Tags: gostatsd.Tags{"foo"}},
-		"smp.rte:5|c|@0.1":              {Name: "smp.rte", Value: 50, Type: gostatsd.COUNTER},
-		"smp.rte:5|c|@0.1|#foo:bar,baz": {Name: "smp.rte", Value: 50, Type: gostatsd.COUNTER, Tags: gostatsd.Tags{"foo:bar", "baz"}},
-		"smp.rte:5|c|#foo:bar,baz":      {Name: "smp.rte", Value: 5, Type: gostatsd.COUNTER, Tags: gostatsd.Tags{"foo:bar", "baz"}},
-		"uniq.usr:joe|s":                {Name: "uniq.usr", StringValue: "joe", Type: gostatsd.SET},
-		"fooBarBaz:2|c":                 {Name: "fooBarBaz", Value: 2, Type: gostatsd.COUNTER},
-		"smp.rte:5|c|#Foo:Bar,baz":      {Name: "smp.rte", Value: 5, Type: gostatsd.COUNTER, Tags: gostatsd.Tags{"Foo:Bar", "baz"}},
-		"smp.gge:1|g|#Foo:Bar":          {Name: "smp.gge", Value: 1, Type: gostatsd.GAUGE, Tags: gostatsd.Tags{"Foo:Bar"}},
-		"smp.gge:1|g|#fo_o:ba-r":        {Name: "smp.gge", Value: 1, Type: gostatsd.GAUGE, Tags: gostatsd.Tags{"fo_o:ba-r"}},
-		"smp gge:1|g":                   {Name: "smp_gge", Value: 1, Type: gostatsd.GAUGE},
-		"smp/gge:1|g":                   {Name: "smp-gge", Value: 1, Type: gostatsd.GAUGE},
-		"smp,gge$:1|g":                  {Name: "smpgge", Value: 1, Type: gostatsd.GAUGE},
-		"un1qu3:john|s":                 {Name: "un1qu3", StringValue: "john", Type: gostatsd.SET},
-		"un1qu3:john|s|#some:42":        {Name: "un1qu3", StringValue: "john", Type: gostatsd.SET, Tags: gostatsd.Tags{"some:42"}},
-		"da-sh:1|s":                     {Name: "da-sh", StringValue: "1", Type: gostatsd.SET},
-		"under_score:1|s":               {Name: "under_score", StringValue: "1", Type: gostatsd.SET},
-		"a:1|g|#f,,":                    {Name: "a", Value: 1, Type: gostatsd.GAUGE, Tags: gostatsd.Tags{"f"}},
-		"a:1|g|#,,f":                    {Name: "a", Value: 1, Type: gostatsd.GAUGE, Tags: gostatsd.Tags{"f"}},
-		"a:1|g|#f,,z":                   {Name: "a", Value: 1, Type: gostatsd.GAUGE, Tags: gostatsd.Tags{"f", "z"}},
-		"a:1|g|#":                       {Name: "a", Value: 1, Type: gostatsd.GAUGE},
-		"a:1|g|#,":                      {Name: "a", Value: 1, Type: gostatsd.GAUGE},
-		"a:1|g|#,,":                     {Name: "a", Value: 1, Type: gostatsd.GAUGE},
+		"foo.bar.baz:2|c":               {Name: "foo.bar.baz", Value: 2, Type: gostatsd.COUNTER, Rate: 1.0},
+		"abc.def.g:3|g":                 {Name: "abc.def.g", Value: 3, Type: gostatsd.GAUGE, Rate: 1.0},
+		"def.g:10|ms":                   {Name: "def.g", Value: 10, Type: gostatsd.TIMER, Rate: 1.0},
+		"def.h:10|h":                    {Name: "def.h", Value: 10, Type: gostatsd.TIMER, Rate: 1.0},
+		"def.i:10|h|#foo":               {Name: "def.i", Value: 10, Type: gostatsd.TIMER, Rate: 1.0, Tags: gostatsd.Tags{"foo"}},
+		"smp.rte:5|c|@0.1":              {Name: "smp.rte", Value: 5, Type: gostatsd.COUNTER, Rate: 0.1},
+		"smp.rte:5|c|@0.1|#foo:bar,baz": {Name: "smp.rte", Value: 5, Type: gostatsd.COUNTER, Rate: 0.1, Tags: gostatsd.Tags{"foo:bar", "baz"}},
+		"smp.rte:5|c|#foo:bar,baz":      {Name: "smp.rte", Value: 5, Type: gostatsd.COUNTER, Rate: 1.0, Tags: gostatsd.Tags{"foo:bar", "baz"}},
+		"uniq.usr:joe|s":                {Name: "uniq.usr", StringValue: "joe", Type: gostatsd.SET, Rate: 1.0},
+		"fooBarBaz:2|c":                 {Name: "fooBarBaz", Value: 2, Type: gostatsd.COUNTER, Rate: 1.0},
+		"smp.rte:5|c|#Foo:Bar,baz":      {Name: "smp.rte", Value: 5, Type: gostatsd.COUNTER, Rate: 1.0, Tags: gostatsd.Tags{"Foo:Bar", "baz"}},
+		"smp.gge:1|g|#Foo:Bar":          {Name: "smp.gge", Value: 1, Type: gostatsd.GAUGE, Rate: 1.0, Tags: gostatsd.Tags{"Foo:Bar"}},
+		"smp.gge:1|g|#fo_o:ba-r":        {Name: "smp.gge", Value: 1, Type: gostatsd.GAUGE, Rate: 1.0, Tags: gostatsd.Tags{"fo_o:ba-r"}},
+		"smp gge:1|g":                   {Name: "smp_gge", Value: 1, Type: gostatsd.GAUGE, Rate: 1.0},
+		"smp/gge:1|g":                   {Name: "smp-gge", Value: 1, Type: gostatsd.GAUGE, Rate: 1.0},
+		"smp,gge$:1|g":                  {Name: "smpgge", Value: 1, Type: gostatsd.GAUGE, Rate: 1.0},
+		"un1qu3:john|s":                 {Name: "un1qu3", StringValue: "john", Type: gostatsd.SET, Rate: 1.0},
+		"un1qu3:john|s|#some:42":        {Name: "un1qu3", StringValue: "john", Type: gostatsd.SET, Rate: 1.0, Tags: gostatsd.Tags{"some:42"}},
+		"da-sh:1|s":                     {Name: "da-sh", StringValue: "1", Type: gostatsd.SET, Rate: 1.0},
+		"under_score:1|s":               {Name: "under_score", StringValue: "1", Type: gostatsd.SET, Rate: 1.0},
+		"a:1|g|#f,,":                    {Name: "a", Value: 1, Type: gostatsd.GAUGE, Rate: 1.0, Tags: gostatsd.Tags{"f"}},
+		"a:1|g|#,,f":                    {Name: "a", Value: 1, Type: gostatsd.GAUGE, Rate: 1.0, Tags: gostatsd.Tags{"f"}},
+		"a:1|g|#f,,z":                   {Name: "a", Value: 1, Type: gostatsd.GAUGE, Rate: 1.0, Tags: gostatsd.Tags{"f", "z"}},
+		"a:1|g|#":                       {Name: "a", Value: 1, Type: gostatsd.GAUGE, Rate: 1.0},
+		"a:1|g|#,":                      {Name: "a", Value: 1, Type: gostatsd.GAUGE, Rate: 1.0},
+		"a:1|g|#,,":                     {Name: "a", Value: 1, Type: gostatsd.GAUGE, Rate: 1.0},
 	}
 
 	compareMetric(t, tests, "")
@@ -57,10 +57,10 @@ func TestInvalidMetricsLexer(t *testing.T) {
 	}
 
 	tests := map[string]gostatsd.Metric{
-		"foo.bar.baz:2|c": {Name: "stats.foo.bar.baz", Value: 2, Type: gostatsd.COUNTER},
-		"abc.def.g:3|g":   {Name: "stats.abc.def.g", Value: 3, Type: gostatsd.GAUGE},
-		"def.g:10|ms":     {Name: "stats.def.g", Value: 10, Type: gostatsd.TIMER},
-		"uniq.usr:joe|s":  {Name: "stats.uniq.usr", StringValue: "joe", Type: gostatsd.SET},
+		"foo.bar.baz:2|c": {Name: "stats.foo.bar.baz", Value: 2, Type: gostatsd.COUNTER, Rate: 1.0},
+		"abc.def.g:3|g":   {Name: "stats.abc.def.g", Value: 3, Type: gostatsd.GAUGE, Rate: 1.0},
+		"def.g:10|ms":     {Name: "stats.def.g", Value: 10, Type: gostatsd.TIMER, Rate: 1.0},
+		"uniq.usr:joe|s":  {Name: "stats.uniq.usr", StringValue: "joe", Type: gostatsd.SET, Rate: 1.0},
 	}
 
 	compareMetric(t, tests, "stats")

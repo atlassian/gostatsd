@@ -1,3 +1,7 @@
+9.0.0
+-----
+- Added support for sampling timers to be compatible with original statsd.
+
 8.0.0
 -----
 - Fixed `--statser-type` didn't apply

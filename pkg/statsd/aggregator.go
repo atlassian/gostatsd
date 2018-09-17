@@ -85,14 +85,14 @@ func (a *MetricAggregator) Flush(flushInterval time.Duration) {
 			sort.Float64s(timer.Values)
 			timer.Min = timer.Values[0]
 			timer.Max = timer.Values[count-1]
-			timer.Count = len(timer.Values)
-			count := float64(timer.Count)
+			n := len(timer.Values)
+			count := float64(n)
 
-			cumulativeValues := make([]float64, timer.Count)
-			cumulSumSquaresValues := make([]float64, timer.Count)
+			cumulativeValues := make([]float64, n)
+			cumulSumSquaresValues := make([]float64, n)
 			cumulativeValues[0] = timer.Min
 			cumulSumSquaresValues[0] = timer.Min * timer.Min
-			for i := 1; i < timer.Count; i++ {
+			for i := 1; i < n; i++ {
 				cumulativeValues[i] = timer.Values[i] + cumulativeValues[i-1]
 				cumulSumSquaresValues[i] = timer.Values[i]*timer.Values[i] + cumulSumSquaresValues[i-1]
 			}
@@ -103,8 +103,8 @@ func (a *MetricAggregator) Flush(flushInterval time.Duration) {
 			var thresholdBoundary = timer.Max
 
 			for pct, pctStruct := range a.percentThresholds {
-				numInThreshold := timer.Count
-				if timer.Count > 1 {
+				numInThreshold := n
+				if n > 1 {
 					numInThreshold = int(round(math.Abs(pct) / 100 * count))
 					if numInThreshold == 0 {
 						continue
@@ -114,9 +114,9 @@ func (a *MetricAggregator) Flush(flushInterval time.Duration) {
 						sum = cumulativeValues[numInThreshold-1]
 						sumSquares = cumulSumSquaresValues[numInThreshold-1]
 					} else {
-						thresholdBoundary = timer.Values[timer.Count-numInThreshold]
-						sum = cumulativeValues[timer.Count-1] - cumulativeValues[timer.Count-numInThreshold-1]
-						sumSquares = cumulSumSquaresValues[timer.Count-1] - cumulSumSquaresValues[timer.Count-numInThreshold-1]
+						thresholdBoundary = timer.Values[n-numInThreshold]
+						sum = cumulativeValues[n-1] - cumulativeValues[n-numInThreshold-1]
+						sumSquares = cumulSumSquaresValues[n-1] - cumulSumSquaresValues[n-numInThreshold-1]
 					}
 					mean = sum / float64(numInThreshold)
 				}
@@ -144,12 +144,12 @@ func (a *MetricAggregator) Flush(flushInterval time.Duration) {
 				}
 			}
 
-			sum = cumulativeValues[timer.Count-1]
-			sumSquares = cumulSumSquaresValues[timer.Count-1]
+			sum = cumulativeValues[n-1]
+			sumSquares = cumulSumSquaresValues[n-1]
 			mean = sum / count
 
 			var sumOfDiffs float64
-			for i := 0; i < timer.Count; i++ {
+			for i := 0; i < n; i++ {
 				sumOfDiffs += (timer.Values[i] - mean) * (timer.Values[i] - mean)
 			}
 
@@ -164,11 +164,14 @@ func (a *MetricAggregator) Flush(flushInterval time.Duration) {
 			timer.StdDev = math.Sqrt(sumOfDiffs / count)
 			timer.Sum = sum
 			timer.SumSquares = sumSquares
-			timer.PerSecond = count / flushInSeconds
+
+			timer.Count = int(round(timer.SampledCount))
+			timer.PerSecond = timer.SampledCount / flushInSeconds
 
 			a.Timers[key][tagsKey] = timer
 		} else {
 			timer.Count = 0
+			timer.SampledCount = 0
 			timer.PerSecond = 0
 		}
 	})
@@ -245,7 +248,7 @@ func (a *MetricAggregator) Reset() {
 }
 
 func (a *MetricAggregator) receiveCounter(m *gostatsd.Metric, tagsKey string, now gostatsd.Nanotime) {
-	value := int64(m.Value)
+	value := int64(m.Value / m.Rate)
 	v, ok := a.Counters[m.Name]
 	if ok {
 		c, ok := v[tagsKey]
@@ -289,13 +292,18 @@ func (a *MetricAggregator) receiveTimer(m *gostatsd.Metric, tagsKey string, now 
 		if ok {
 			t.Values = append(t.Values, m.Value)
 			t.Timestamp = now
+			t.SampledCount += 1.0 / m.Rate
 		} else {
 			t = gostatsd.NewTimer(now, []float64{m.Value}, m.Hostname, m.Tags)
+			t.SampledCount = 1.0 / m.Rate
 		}
 		v[tagsKey] = t
 	} else {
+		t := gostatsd.NewTimer(now, []float64{m.Value}, m.Hostname, m.Tags)
+		t.SampledCount = 1.0 / m.Rate
+
 		a.Timers[m.Name] = map[string]gostatsd.Timer{
-			tagsKey: gostatsd.NewTimer(now, []float64{m.Value}, m.Hostname, m.Tags),
+			tagsKey: t,
 		}
 	}
 }

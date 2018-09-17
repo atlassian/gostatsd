@@ -76,6 +76,7 @@ func (l *lexer) run(input []byte, namespace string) (*gostatsd.Metric, *gostatsd
 		return nil, nil, l.err
 	}
 	if l.m != nil {
+		l.m.Rate = l.sampling
 		if l.m.Type != gostatsd.SET {
 			v, err := strconv.ParseFloat(l.m.StringValue, 64)
 			if err != nil {
@@ -86,9 +87,6 @@ func (l *lexer) run(input []byte, namespace string) (*gostatsd.Metric, *gostatsd
 			}
 			l.m.Value = v
 			l.m.StringValue = ""
-		}
-		if l.m.Type == gostatsd.COUNTER {
-			l.m.Value = l.m.Value / l.sampling
 		}
 		l.m.Tags = l.tags
 	} else {

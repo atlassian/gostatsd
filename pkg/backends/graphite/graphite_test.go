@@ -26,7 +26,7 @@ func TestPreparePayload(t *testing.T) {
 	input := []testData{
 		{
 			config: &Config{
-				// Use defaults
+			// Use defaults
 			},
 			result: []byte("stats_counts.stat1 5 1234\n" +
 				"stats.stat1 1.100000 1234\n" +
