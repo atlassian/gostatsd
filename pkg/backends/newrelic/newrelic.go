@@ -69,7 +69,6 @@ type Client struct {
 	timerStdDev      string
 	timerSum         string
 	timerSumSquares  string
-	now              func() time.Time // Returns current time. Useful for testing.
 	disabledSubtypes gostatsd.TimerSubtypes
 }
 
@@ -206,7 +205,7 @@ func (client Client) sendPayload(metricSets []Metric, disabled *gostatsd.TimerSu
 			v2Payload := map[string]interface{}{
 				"name":                "com.nr.gostatsd-server",
 				"protocol_version":    "2",
-				"integration_version": "1.2.0",
+				"integration_version": "2.0.0",
 				"data": []interface{}{
 					map[string]interface{}{
 						"metrics": []interface{}{metrics},
@@ -217,14 +216,14 @@ func (client Client) sendPayload(metricSets []Metric, disabled *gostatsd.TimerSu
 			mJSON, _ := json.Marshal(v2Payload)
 
 			b := backoff.NewExponentialBackOff()
-			b.MaxElapsedTime = time.Duration(15 * time.Second)
+			b.MaxElapsedTime = 15 * time.Second
 			ticker := backoff.NewTicker(b)
 
 			for range ticker.C {
-				req, err := http.NewRequest("POST", "http://"+client.address+"/v1/data", bytes.NewBuffer(mJSON))
+				req, _ := http.NewRequest("POST", "http://"+client.address+"/v1/data", bytes.NewBuffer(mJSON))
 				req.Header.Set("Content-Type", "application/json")
 				hclient := &http.Client{}
-				_, err = hclient.Do(req)
+				_, err := hclient.Do(req)
 
 				if err != nil {
 					log.Debug("Failed to send payload:", err)
