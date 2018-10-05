@@ -62,6 +62,10 @@ are interested in. Configuration file might look like this:
 
 [aws]
 	max_retries = 4
+
+[newrelic] # Enable the http server on a host running New Relic Infrastructure
+	address = "localhost:8001"
+	event_type = "GoStatsD"
 ```
 
 
@@ -133,6 +137,7 @@ Currently supported backends are:
 * statsdaemon
 * stdout
 * cloudwatch
+* newrelic
 
 The format of each metric is:
 
