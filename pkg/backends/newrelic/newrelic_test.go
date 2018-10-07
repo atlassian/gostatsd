@@ -63,8 +63,8 @@ func TestSendMetricsInMultipleBatches(t *testing.T) {
 		}
 
 		assert.Equal(t, `{"name":"com.newrelic.gostatsd","protocol_version":"2","integration_version":"2.0.0","data":[{"metrics":[`+
-			`{"event_type":"StatsD","integration_version":"2.0.0","interval":1,"metric_name":"stat1","metric_type":"counter","metric_value":5,"per_second":0,"protocol_version":"2","timestamp":0},`+
-			`{"event_type":"StatsD","integration_version":"2.0.0","interval":1,"metric_name":"stat2","metric_type":"counter","metric_value":50,"per_second":0,"protocol_version":"2","timestamp":0}]}]}`,
+			`{"event_type":"StatsD","integration_version":"2.0.0","interval":1,"metric_name":"stat1","metric_per_second":0,"metric_type":"counter","metric_value":5,"protocol_version":"2","timestamp":0},`+
+			`{"event_type":"StatsD","integration_version":"2.0.0","interval":1,"metric_name":"stat2","metric_per_second":0,"metric_type":"counter","metric_value":50,"protocol_version":"2","timestamp":0}]}]}`,
 			string(data))
 		assert.NotEmpty(t, data)
 	})
@@ -96,7 +96,7 @@ func TestSendMetrics(t *testing.T) {
 		}
 		expected := `{"name":"com.newrelic.gostatsd","protocol_version":"2","integration_version":"2.0.0","data":[{"metrics":[` +
 			`{"event_type":"StatsD","integration_version":"2.0.0","interval":1,"metric_name":"g1","metric_type":"gauge","metric_value":3,"protocol_version":"2","timestamp":0},` +
-			`{"event_type":"StatsD","integration_version":"2.0.0","interval":1,"metric_name":"c1","metric_type":"counter","metric_value":5,"per_second":1.1,"protocol_version":"2","timestamp":0},` +
+			`{"event_type":"StatsD","integration_version":"2.0.0","interval":1,"metric_name":"c1","metric_per_second":1.1,"metric_type":"counter","metric_value":5,"protocol_version":"2","timestamp":0},` +
 			`{"event_type":"StatsD","integration_version":"2.0.0","interval":1,"metric_name":"users","metric_type":"set","metric_value":3,"protocol_version":"2","timestamp":0},` +
 			`{"count_90":0.1,"event_type":"StatsD","integration_version":"2.0.0","interval":1,"metric_name":"t1","metric_per_second":1.1,"metric_type":"timer","metric_value":1,"protocol_version":"2","samples_count":1,"samples_max":1,"samples_mean":0.5,"samples_median":0.5,"samples_min":0,"samples_std_dev":0.1,"samples_sum":1,"samples_sum_squares":1,"timestamp":0}]}]}`
 		assert.Equal(t, expected, string(data))
