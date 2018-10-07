@@ -59,7 +59,7 @@ type Metric struct {
 func (f *flush) addMetric(n *Client, metricType string, value float64, persecond float64, hostname string, tags gostatsd.Tags, name string, timestamp gostatsd.Nanotime) {
 	standardMetric := setDefaultMetricSet(n, f, name, metricType, value, tags, timestamp)
 	if metricType == "counter" {
-		standardMetric["per_second"] = persecond
+		standardMetric[n.metricPerSecond] = persecond
 	}
 
 	f.ts.Metrics = append(f.ts.Metrics, standardMetric)
