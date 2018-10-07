@@ -64,7 +64,7 @@ are interested in. Configuration file might look like this:
 	max_retries = 4
 
 [newrelic] # Enable the http server on a host running New Relic Infrastructure
-	address = "localhost:8001"
+	address = "http://localhost:8001/v1/data"
 	event_type = "GoStatsD"
 ```
 
