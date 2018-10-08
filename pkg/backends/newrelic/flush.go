@@ -19,7 +19,6 @@ type flush struct {
 // timeSeries represents a time series data structure.
 type timeSeries struct {
 	Metrics []interface{} `json:"metrics"`
-	// Metrics []NewRelicPayload `json:"metrics"`
 }
 
 // Tag struct

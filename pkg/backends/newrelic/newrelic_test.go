@@ -54,18 +54,15 @@ func TestRetries(t *testing.T) {
 
 func TestSendMetricsInMultipleBatches(t *testing.T) {
 	t.Parallel()
+	var requestNum uint32
 	mux := http.NewServeMux()
 	mux.HandleFunc("/v1/data", func(w http.ResponseWriter, r *http.Request) {
 		defer r.Body.Close()
+		atomic.AddUint32(&requestNum, 1)
 		data, err := ioutil.ReadAll(r.Body)
 		if !assert.NoError(t, err) {
 			return
 		}
-
-		assert.Equal(t, `{"name":"com.newrelic.gostatsd","protocol_version":"2","integration_version":"2.0.0","data":[{"metrics":[`+
-			`{"event_type":"StatsD","integration_version":"2.0.0","interval":1,"metric_name":"stat1","metric_per_second":0,"metric_type":"counter","metric_value":5,"protocol_version":"2","timestamp":0},`+
-			`{"event_type":"StatsD","integration_version":"2.0.0","interval":1,"metric_name":"stat2","metric_per_second":0,"metric_type":"counter","metric_value":50,"protocol_version":"2","timestamp":0}]}]}`,
-			string(data))
 		assert.NotEmpty(t, data)
 	})
 	ts := httptest.NewServer(mux)
@@ -74,7 +71,7 @@ func TestSendMetricsInMultipleBatches(t *testing.T) {
 	client, err := NewClient(ts.URL+"/v1/data", "StatsD", "http", "", "metric_name", "metric_type",
 		"metric_per_second", "metric_value", "samples_min", "samples_max", "samples_count",
 		"samples_mean", "samples_median", "samples_std_dev", "samples_sum", "samples_sum_squares", "agent", "tcp",
-		defaultMetricsPerBatch, defaultMaxRequests, false, 1*time.Second, 2*time.Second, 1*time.Second, gostatsd.TimerSubtypes{})
+		1, defaultMaxRequests, false, 1*time.Second, 2*time.Second, 1*time.Second, gostatsd.TimerSubtypes{})
 	require.NoError(t, err)
 	res := make(chan []error, 1)
 	client.SendMetricsAsync(context.Background(), twoCounters(), func(errs []error) {
@@ -84,6 +81,7 @@ func TestSendMetricsInMultipleBatches(t *testing.T) {
 	for _, err := range errs {
 		assert.NoError(t, err)
 	}
+	assert.EqualValues(t, 2, requestNum)
 }
 
 func TestSendMetrics(t *testing.T) {
