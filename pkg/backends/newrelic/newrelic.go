@@ -159,7 +159,6 @@ func (n *Client) processMetrics(metrics *gostatsd.MetricMap, cb func(*timeSeries
 	fl := flush{
 		ts: &timeSeries{
 			Metrics: make([]interface{}, 0, n.metricsPerBatch),
-			// Metrics: make([]NewRelicPayload, 0, n.metricsPerBatch),
 		},
 		timestamp:        float64(n.now().Unix()),
 		flushIntervalSec: n.flushInterval.Seconds(),
@@ -281,7 +280,7 @@ func (n *Client) constructPost(ctx context.Context, buffer *bytes.Buffer, typeOf
 
 // NewClientFromViper returns a new New Relic client.
 func NewClientFromViper(v *viper.Viper) (gostatsd.Backend, error) {
-	nr := getSubViper(v, "datadog")
+	nr := getSubViper(v, "newrelic")
 	nr.SetDefault("address", "http://localhost:8001/v1/data")
 	nr.SetDefault("event_type", "StatsD")
 	nr.SetDefault("flush_type", "http")
