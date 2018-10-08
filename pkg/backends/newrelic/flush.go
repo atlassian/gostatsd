@@ -135,9 +135,9 @@ func setDefaultMetricSet(n *Client, f *flush, metricName, Type string, Value flo
 				keyvalpair := strings.Split(tag, ":")
 				parsed, err := strconv.ParseFloat(keyvalpair[1], 64)
 				if err != nil || strings.EqualFold(keyvalpair[1], "infinity") {
-					defaultMetricSet[keyvalpair[0]] = keyvalpair[1]
+					defaultMetricSet[n.tagPrefix+keyvalpair[0]] = keyvalpair[1]
 				} else {
-					defaultMetricSet[keyvalpair[0]] = parsed
+					defaultMetricSet[n.tagPrefix+keyvalpair[0]] = parsed
 				}
 			}
 		}
