@@ -128,16 +128,14 @@ func setDefaultMetricSet(n *Client, f *flush, metricName, Type string, Value flo
 	defaultMetricSet["integration_version"] = integrationVersion
 	defaultMetricSet["protocol_version"] = protocolVersion
 
-	if len(tags) > 0 {
-		for _, tag := range tags {
-			if tag != "" && strings.Contains(tag, ":") {
-				keyvalpair := strings.Split(tag, ":")
-				parsed, err := strconv.ParseFloat(keyvalpair[1], 64)
-				if err != nil || strings.EqualFold(keyvalpair[1], "infinity") {
-					defaultMetricSet[n.tagPrefix+keyvalpair[0]] = keyvalpair[1]
-				} else {
-					defaultMetricSet[n.tagPrefix+keyvalpair[0]] = parsed
-				}
+	for _, tag := range tags {
+		if tag != "" && strings.Contains(tag, ":") {
+			keyvalpair := strings.Split(tag, ":")
+			parsed, err := strconv.ParseFloat(keyvalpair[1], 64)
+			if err != nil || strings.EqualFold(keyvalpair[1], "infinity") {
+				defaultMetricSet[n.tagPrefix+keyvalpair[0]] = keyvalpair[1]
+			} else {
+				defaultMetricSet[n.tagPrefix+keyvalpair[0]] = parsed
 			}
 		}
 	}
