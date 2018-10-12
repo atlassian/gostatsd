@@ -48,10 +48,11 @@ var (
 
 // Client represents a New Relic client.
 type Client struct {
-	address   string
-	eventType string
-	flushType string
-	tagPrefix string
+	address      string
+	eventType    string
+	flushType    string
+	metricPrefix string
+	tagPrefix    string
 	//Options to define your own field names to support other StatsD implementations
 	metricName      string
 	metricType      string
@@ -167,7 +168,7 @@ func (n *Client) processMetrics(metrics *gostatsd.MetricMap, cb func(*timeSeries
 	}
 
 	metrics.Gauges.Each(func(key, tagsKey string, g gostatsd.Gauge) {
-		fl.addMetric(n, "gauge", g.Value, Metric{}.PerSecond, g.Hostname, g.Tags, key, g.Timestamp)
+		fl.addMetric(n, "gauge", g.Value, 0, g.Hostname, g.Tags, key, g.Timestamp)
 		fl.maybeFlush()
 	})
 
@@ -177,7 +178,7 @@ func (n *Client) processMetrics(metrics *gostatsd.MetricMap, cb func(*timeSeries
 	})
 
 	metrics.Sets.Each(func(key, tagsKey string, set gostatsd.Set) {
-		fl.addMetric(n, "set", float64(len(set.Values)), Metric{}.PerSecond, set.Hostname, set.Tags, key, set.Timestamp)
+		fl.addMetric(n, "set", float64(len(set.Values)), 0, set.Hostname, set.Tags, key, set.Timestamp)
 		fl.maybeFlush()
 	})
 
@@ -284,6 +285,7 @@ func NewClientFromViper(v *viper.Viper) (gostatsd.Backend, error) {
 	nr.SetDefault("address", "http://localhost:8001/v1/data")
 	nr.SetDefault("event_type", "StatsD")
 	nr.SetDefault("flush_type", "http")
+	nr.SetDefault("metric_prefix", "")
 	nr.SetDefault("tag_prefix", "")
 	nr.SetDefault("metric_name", "metric_name")
 	nr.SetDefault("metric_type", "metric_type")
@@ -310,6 +312,7 @@ func NewClientFromViper(v *viper.Viper) (gostatsd.Backend, error) {
 		nr.GetString("address"),
 		nr.GetString("event_type"),
 		nr.GetString("flush_type"),
+		nr.GetString("metric_prefix"),
 		nr.GetString("tag_prefix"),
 		nr.GetString("metric_name"),
 		nr.GetString("metric_type"),
@@ -336,7 +339,7 @@ func NewClientFromViper(v *viper.Viper) (gostatsd.Backend, error) {
 }
 
 // NewClient returns a new New Relic client.
-func NewClient(address, eventType, flushType, tagPrefix,
+func NewClient(address, eventType, flushType, metricPrefix, tagPrefix,
 	metricName, metricType, metricPerSecond, metricValue,
 	timerMin, timerMax, timerCount, timerMean, timerMedian, timerStdDev, timerSum, timerSumSquares,
 	userAgent, network string, metricsPerBatch, maxRequests uint, enableHttp2 bool,
@@ -392,6 +395,7 @@ func NewClient(address, eventType, flushType, tagPrefix,
 		address:               address,
 		eventType:             eventType,
 		flushType:             flushType,
+		metricPrefix:          metricPrefix,
 		tagPrefix:             tagPrefix,
 		metricName:            metricName,
 		metricType:            metricType,
