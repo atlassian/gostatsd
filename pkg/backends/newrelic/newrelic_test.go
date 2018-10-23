@@ -35,7 +35,7 @@ func TestRetries(t *testing.T) {
 	ts := httptest.NewServer(mux)
 	defer ts.Close()
 
-	client, err := NewClient(ts.URL+"/v1/data", "StatsD", "http", "", "", "metric_name", "metric_type",
+	client, err := NewClient(ts.URL+"/v1/data", "GoStatsD", "http", "", "metric_name", "metric_type",
 		"metric_per_second", "metric_value", "samples_min", "samples_max", "samples_count",
 		"samples_mean", "samples_median", "samples_std_dev", "samples_sum", "samples_sum_squares", "agent", "tcp",
 		defaultMetricsPerBatch, defaultMaxRequests, false, 1*time.Second, 2*time.Second, 1*time.Second, gostatsd.TimerSubtypes{})
@@ -68,7 +68,7 @@ func TestSendMetricsInMultipleBatches(t *testing.T) {
 	ts := httptest.NewServer(mux)
 	defer ts.Close()
 
-	client, err := NewClient(ts.URL+"/v1/data", "StatsD", "http", "", "", "metric_name", "metric_type",
+	client, err := NewClient(ts.URL+"/v1/data", "GoStatsD", "http", "", "metric_name", "metric_type",
 		"metric_per_second", "metric_value", "samples_min", "samples_max", "samples_count",
 		"samples_mean", "samples_median", "samples_std_dev", "samples_sum", "samples_sum_squares", "agent", "tcp",
 		1, defaultMaxRequests, false, 1*time.Second, 2*time.Second, 1*time.Second, gostatsd.TimerSubtypes{})
@@ -92,17 +92,18 @@ func TestSendMetrics(t *testing.T) {
 		if !assert.NoError(t, err) {
 			return
 		}
-		expected := `{"name":"com.newrelic.gostatsd","protocol_version":"2","integration_version":"2.0.0","data":[{"metrics":[` +
-			`{"event_type":"StatsD","integration_version":"2.0.0","interval":1,"metric_name":"g1","metric_type":"gauge","metric_value":3,"protocol_version":"2","timestamp":0},` +
-			`{"event_type":"StatsD","integration_version":"2.0.0","interval":1,"metric_name":"c1","metric_per_second":1.1,"metric_type":"counter","metric_value":5,"protocol_version":"2","timestamp":0},` +
-			`{"event_type":"StatsD","integration_version":"2.0.0","interval":1,"metric_name":"users","metric_type":"set","metric_value":3,"protocol_version":"2","timestamp":0},` +
-			`{"count_90":0.1,"event_type":"StatsD","integration_version":"2.0.0","interval":1,"metric_name":"t1","metric_per_second":1.1,"metric_type":"timer","metric_value":1,"protocol_version":"2","samples_count":1,"samples_max":1,"samples_mean":0.5,"samples_median":0.5,"samples_min":0,"samples_std_dev":0.1,"samples_sum":1,"samples_sum_squares":1,"timestamp":0}]}]}`
+		expected := `{"name":"com.newrelic.gostatsd","protocol_version":"2","integration_version":"2.0.1","data":[{"metrics":` +
+			`[{"event_type":"GoStatsD","integration_version":"2.0.1","interval":1,"metric_name":"g1","metric_type":"gauge","metric_value":3,"tag3":"true","timestamp":0},` +
+			`{"event_type":"GoStatsD","integration_version":"2.0.1","interval":1,"metric_name":"c1","metric_per_second":1.1,"metric_type":"counter","metric_value":5,"tag1":"true","timestamp":0},` +
+			`{"event_type":"GoStatsD","integration_version":"2.0.1","interval":1,"metric_name":"users","metric_type":"set","metric_value":3,"tag4":"true","timestamp":0},` +
+			`{"count_90":0.1,"event_type":"GoStatsD","integration_version":"2.0.1","interval":1,"metric_name":"t1","metric_per_second":1.1,"metric_type":"timer","metric_value":1,` +
+			`"samples_count":1,"samples_max":1,"samples_mean":0.5,"samples_median":0.5,"samples_min":0,"samples_std_dev":0.1,"samples_sum":1,"samples_sum_squares":1,"tag2":"true","timestamp":0}]}]}`
 		assert.Equal(t, expected, string(data))
 	})
 	ts := httptest.NewServer(mux)
 	defer ts.Close()
 
-	client, err := NewClient(ts.URL+"/v1/data", "StatsD", "http", "", "", "metric_name", "metric_type",
+	client, err := NewClient(ts.URL+"/v1/data", "GoStatsD", "http", "", "metric_name", "metric_type",
 		"metric_per_second", "metric_value", "samples_min", "samples_max", "samples_count",
 		"samples_mean", "samples_median", "samples_std_dev", "samples_sum", "samples_sum_squares", "agent", "tcp",
 		defaultMetricsPerBatch, defaultMaxRequests, false, 1*time.Second, 2*time.Second, 1*time.Second, gostatsd.TimerSubtypes{})

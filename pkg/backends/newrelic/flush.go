@@ -23,46 +23,46 @@ type timeSeries struct {
 
 // addMetric adds a metric to the series.
 func (f *flush) addMetric(n *Client, metricType string, value float64, persecond float64, hostname string, tags gostatsd.Tags, name string, timestamp gostatsd.Nanotime) {
-	standardMetric := setDefaultMetricSet(n, f, name, metricType, value, tags, timestamp)
+	standardMetric := newMetricSet(n, f, name, metricType, value, tags, timestamp)
 	if metricType == "counter" {
-		standardMetric[n.metricPrefix+n.metricPerSecond] = persecond
+		standardMetric[n.metricPerSecond] = persecond
 	}
 	f.ts.Metrics = append(f.ts.Metrics, standardMetric)
 }
 
 // addMetric adds a timer metric to the series.
 func (f *flush) addTimerMetric(n *Client, metricType string, timer gostatsd.Timer, tagsKey, name string) {
-	timerMetric := setDefaultMetricSet(n, f, name, metricType, float64(timer.Count), timer.Tags, timer.Timestamp)
+	timerMetric := newMetricSet(n, f, name, metricType, float64(timer.Count), timer.Tags, timer.Timestamp)
 
 	if !n.disabledSubtypes.Lower {
-		timerMetric[n.metricPrefix+n.timerMin] = timer.Min
+		timerMetric[n.timerMin] = timer.Min
 	}
 	if !n.disabledSubtypes.Upper {
-		timerMetric[n.metricPrefix+n.timerMax] = timer.Max
+		timerMetric[n.timerMax] = timer.Max
 	}
 	if !n.disabledSubtypes.Count {
-		timerMetric[n.metricPrefix+n.timerCount] = float64(timer.Count)
+		timerMetric[n.timerCount] = float64(timer.Count)
 	}
 	if !n.disabledSubtypes.CountPerSecond {
-		timerMetric[n.metricPrefix+n.metricPerSecond] = timer.PerSecond
+		timerMetric[n.metricPerSecond] = timer.PerSecond
 	}
 	if !n.disabledSubtypes.Mean {
-		timerMetric[n.metricPrefix+n.timerMean] = timer.Mean
+		timerMetric[n.timerMean] = timer.Mean
 	}
 	if !n.disabledSubtypes.Median {
-		timerMetric[n.metricPrefix+n.timerMedian] = timer.Median
+		timerMetric[n.timerMedian] = timer.Median
 	}
 	if !n.disabledSubtypes.StdDev {
-		timerMetric[n.metricPrefix+n.timerStdDev] = timer.StdDev
+		timerMetric[n.timerStdDev] = timer.StdDev
 	}
 	if !n.disabledSubtypes.Sum {
-		timerMetric[n.metricPrefix+n.timerSum] = timer.Sum
+		timerMetric[n.timerSum] = timer.Sum
 	}
 	if !n.disabledSubtypes.SumSquares {
-		timerMetric[n.metricPrefix+n.timerSumSquares] = timer.SumSquares
+		timerMetric[n.timerSumSquares] = timer.SumSquares
 	}
 	for _, pct := range timer.Percentiles {
-		timerMetric[n.metricPrefix+pct.Str] = pct.Float
+		timerMetric[pct.Str] = pct.Float
 	}
 	f.ts.Metrics = append(f.ts.Metrics, timerMetric)
 }
@@ -82,29 +82,30 @@ func (f *flush) finish() {
 	}
 }
 
-func setDefaultMetricSet(n *Client, f *flush, metricName, Type string, Value float64, tags gostatsd.Tags, timestamp gostatsd.Nanotime) map[string]interface{} {
-	defaultMetricSet := map[string]interface{}{}
-	defaultMetricSet["interval"] = f.flushIntervalSec
-	defaultMetricSet["timestamp"] = timestamp
-	defaultMetricSet["event_type"] = n.eventType
-	defaultMetricSet["integration_version"] = integrationVersion
-	defaultMetricSet["protocol_version"] = protocolVersion
+func newMetricSet(n *Client, f *flush, metricName, Type string, Value float64, tags gostatsd.Tags, timestamp gostatsd.Nanotime) map[string]interface{} {
+	metricSet := map[string]interface{}{}
+	metricSet["interval"] = f.flushIntervalSec
+	metricSet["timestamp"] = timestamp
+	metricSet["event_type"] = n.eventType
+	metricSet["integration_version"] = integrationVersion
 
-	defaultMetricSet[n.metricPrefix+n.metricType] = Type
-	defaultMetricSet[n.metricPrefix+n.metricName] = metricName
-	defaultMetricSet[n.metricPrefix+n.metricValue] = Value
+	metricSet[n.metricType] = Type
+	metricSet[n.metricName] = metricName
+	metricSet[n.metricValue] = Value
 
 	for _, tag := range tags {
-		if tag != "" && strings.Contains(tag, ":") {
-			keyvalpair := strings.Split(tag, ":")
+		if strings.Contains(tag, ":") {
+			keyvalpair := strings.SplitN(tag, ":", 2)
 			parsed, err := strconv.ParseFloat(keyvalpair[1], 64)
 			if err != nil || strings.EqualFold(keyvalpair[1], "infinity") {
-				defaultMetricSet[n.tagPrefix+keyvalpair[0]] = keyvalpair[1]
+				metricSet[n.tagPrefix+keyvalpair[0]] = keyvalpair[1]
 			} else {
-				defaultMetricSet[n.tagPrefix+keyvalpair[0]] = parsed
+				metricSet[n.tagPrefix+keyvalpair[0]] = parsed
 			}
+		} else {
+			metricSet[n.tagPrefix+tag] = "true"
 		}
 	}
 
-	return defaultMetricSet
+	return metricSet
 }

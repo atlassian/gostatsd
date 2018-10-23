@@ -63,9 +63,42 @@ are interested in. Configuration file might look like this:
 [aws]
 	max_retries = 4
 
-[newrelic] # Enable the http server on a host running New Relic Infrastructure
+[newrelic] 
 	address = "http://localhost:8001/v1/data"
 	event_type = "GoStatsD"
+	#see full configuration options further below
+```
+
+New Relic Backend
+-----------------------------
+This backend sends a HTTP Payload to the [New Relic Infrastructure Agent](https://newrelic.com/products/infrastructure)
+ via it's inbuilt HTTP Server. Sending via the inbuilt HTTP server provides additional features, such as automatically applying additional metadata to the event the host may have such as AWS tags, instance type, host information, labels etc. 
+
+The payload structure required to be accepted by the agent can be viewed [here.](https://github.com/newrelic/infra-integrations-sdk/blob/master/docs/v2tov3.md#v2-json-full-sample)
+
+To enable the HTTP server, modify /etc/newrelic.yml to include the below, and restart the agent ([Step 1.2](https://docs.newrelic.com/docs/integrations/host-integrations/host-integrations-list/statsd-monitoring-integration#install)).
+```
+http_server_enabled: true		
+http_server_host: 127.0.0.1 #(default host)
+http_server_port: 8001 #(default port)
+```
+
+Additional options are available to rename attributes if required.
+```
+[newrelic]
+	tag-prefix = ""
+	metric-name = "name"
+	metric-type = "type"
+	per-second = "per_second"
+	value = "value"
+	timer-min = "min"
+	timer-max = "max"
+	timer-count = "samples_count"
+	timer-mean = "samples_mean"
+	timer-median = "samples_median"
+	timer-stddev = "samples_std_dev"
+	timer-sum = "samples_sum"
+	timer-sumsquare = "samples_sum_squares"
 ```
 
 

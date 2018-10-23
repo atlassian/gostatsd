@@ -26,7 +26,7 @@ const (
 	// BackendName is the name of this backend.
 	BackendName                  = "newrelic"
 	integrationName              = "com.newrelic.gostatsd"
-	integrationVersion           = "2.0.0"
+	integrationVersion           = "2.0.1"
 	protocolVersion              = "2"
 	defaultUserAgent             = "gostatsd"
 	defaultMaxRequestElapsedTime = 15 * time.Second
@@ -48,11 +48,10 @@ var (
 
 // Client represents a New Relic client.
 type Client struct {
-	address      string
-	eventType    string
-	flushType    string
-	metricPrefix string
-	tagPrefix    string
+	address   string
+	eventType string
+	flushType string
+	tagPrefix string
 	//Options to define your own field names to support other StatsD implementations
 	metricName      string
 	metricType      string
@@ -77,7 +76,6 @@ type Client struct {
 	client                http.Client
 	metricsPerBatch       uint
 	metricsBufferSem      chan *bytes.Buffer // Two in one - a semaphore and a buffer pool
-	eventsBufferSem       chan *bytes.Buffer // Two in one - a semaphore and a buffer pool
 	now                   func() time.Time   // Returns current time. Useful for testing.
 
 	disabledSubtypes gostatsd.TimerSubtypes
@@ -110,7 +108,7 @@ func (n *Client) SendMetricsAsync(ctx context.Context, metrics *gostatsd.MetricM
 					buffer.Reset()
 					n.metricsBufferSem <- buffer
 				}()
-				err := n.postMetrics(ctx, buffer, ts)
+				err := n.post(ctx, buffer, ts)
 
 				select {
 				case <-ctx.Done():
@@ -190,10 +188,6 @@ func (n *Client) processMetrics(metrics *gostatsd.MetricMap, cb func(*timeSeries
 	fl.finish()
 }
 
-func (n *Client) postMetrics(ctx context.Context, buffer *bytes.Buffer, ts *timeSeries) error {
-	return n.post(ctx, buffer, "metrics", ts)
-}
-
 // SendEvent sends an event to New Relic.
 func (n *Client) SendEvent(ctx context.Context, e *gostatsd.Event) error {
 	return nil
@@ -204,8 +198,8 @@ func (n *Client) Name() string {
 	return BackendName
 }
 
-func (n *Client) post(ctx context.Context, buffer *bytes.Buffer, typeOfPost string, data interface{}) error {
-	post, err := n.constructPost(ctx, buffer, typeOfPost, data)
+func (n *Client) post(ctx context.Context, buffer *bytes.Buffer, data interface{}) error {
+	post, err := n.constructPost(ctx, buffer, data)
 	if err != nil {
 		atomic.AddUint64(&n.batchesDropped, 1)
 		return err
@@ -225,7 +219,7 @@ func (n *Client) post(ctx context.Context, buffer *bytes.Buffer, typeOfPost stri
 			return fmt.Errorf("[%s] %v", BackendName, err)
 		}
 
-		log.Warnf("[%s] failed to send %s, sleeping for %s: %v", BackendName, typeOfPost, next, err)
+		log.Warnf("[%s] failed to send %s, sleeping for %s: %v", BackendName, next, err)
 
 		timer := time.NewTimer(next)
 		select {
@@ -239,14 +233,14 @@ func (n *Client) post(ctx context.Context, buffer *bytes.Buffer, typeOfPost stri
 	}
 }
 
-func (n *Client) constructPost(ctx context.Context, buffer *bytes.Buffer, typeOfPost string, data interface{}) (func() error /*doPost*/, error) {
+func (n *Client) constructPost(ctx context.Context, buffer *bytes.Buffer, data interface{}) (func() error /*doPost*/, error) {
 
-	NRPayload := setDefaultPayload()
+	NRPayload := newInfraPayload()
 	NRPayload.Data = append(NRPayload.Data, data)
 	mJSON, err := json.Marshal(NRPayload)
 
 	if err != nil {
-		return nil, fmt.Errorf("[%s] unable to marshal %s: %v", BackendName, typeOfPost, err)
+		return nil, fmt.Errorf("[%s] unable to marshal: %v", BackendName, err)
 	}
 
 	return func() error {
@@ -270,7 +264,10 @@ func (n *Client) constructPost(ctx context.Context, buffer *bytes.Buffer, typeOf
 		body := io.LimitReader(resp.Body, maxResponseSize)
 		if resp.StatusCode < http.StatusOK || resp.StatusCode > http.StatusNoContent {
 			b, _ := ioutil.ReadAll(body)
-			log.Infof("[%s] failed request status: %d\n%s", BackendName, resp.StatusCode, b)
+			log.WithFields(log.Fields{
+				"status": resp.StatusCode,
+				"body":   b,
+			}).Infof("[%s] failed request", BackendName)
 			return fmt.Errorf("received bad status code %d", resp.StatusCode)
 		}
 		_, _ = io.Copy(ioutil.Discard, body)
@@ -283,63 +280,61 @@ func (n *Client) constructPost(ctx context.Context, buffer *bytes.Buffer, typeOf
 func NewClientFromViper(v *viper.Viper) (gostatsd.Backend, error) {
 	nr := getSubViper(v, "newrelic")
 	nr.SetDefault("address", "http://localhost:8001/v1/data")
-	nr.SetDefault("event_type", "StatsD")
-	nr.SetDefault("flush_type", "http")
-	nr.SetDefault("metric_prefix", "")
-	nr.SetDefault("tag_prefix", "")
-	nr.SetDefault("metric_name", "metric_name")
-	nr.SetDefault("metric_type", "metric_type")
-	nr.SetDefault("metric_per_second", "metric_per_second")
-	nr.SetDefault("metric_value", "metric_value")
-	nr.SetDefault("timer_min", "samples_min")
-	nr.SetDefault("timer_max", "samples_max")
-	nr.SetDefault("timer_count", "samples_count")
-	nr.SetDefault("timer_mean", "samples_mean")
-	nr.SetDefault("timer_median", "samples_median")
-	nr.SetDefault("timer_std_dev", "samples_std_dev")
-	nr.SetDefault("timer_sum", "samples_sum")
-	nr.SetDefault("timer_sum_square", "samples_sum_squares")
+	nr.SetDefault("event-type", "GoStatsD")
+	nr.SetDefault("flush-type", "http")
+	nr.SetDefault("tag-prefix", "")
+	nr.SetDefault("metric-name", "name")
+	nr.SetDefault("metric-type", "type")
+	nr.SetDefault("per-second", "per_second")
+	nr.SetDefault("value", "value")
+	nr.SetDefault("timer-min", "min")
+	nr.SetDefault("timer-max", "max")
+	nr.SetDefault("timer-count", "count")
+	nr.SetDefault("timer-mean", "mean")
+	nr.SetDefault("timer-median", "median")
+	nr.SetDefault("timer-stddev", "std_dev")
+	nr.SetDefault("timer-sum", "sum")
+	nr.SetDefault("timer-sumsquare", "sum_squares")
 
-	nr.SetDefault("metrics_per_batch", defaultMetricsPerBatch)
+	nr.SetDefault("metrics-per-batch", defaultMetricsPerBatch)
 	nr.SetDefault("network", "tcp")
-	nr.SetDefault("client_timeout", defaultClientTimeout)
-	nr.SetDefault("max_request_elapsed_time", defaultMaxRequestElapsedTime)
-	nr.SetDefault("max_requests", defaultMaxRequests)
+	nr.SetDefault("client-timeout", defaultClientTimeout)
+	nr.SetDefault("max-request-elapsed-time", defaultMaxRequestElapsedTime)
+	nr.SetDefault("max-requests", defaultMaxRequests)
 	nr.SetDefault("enable-http2", defaultEnableHttp2)
 	nr.SetDefault("user-agent", defaultUserAgent)
 
 	return NewClient(
 		nr.GetString("address"),
-		nr.GetString("event_type"),
-		nr.GetString("flush_type"),
-		nr.GetString("metric_prefix"),
-		nr.GetString("tag_prefix"),
-		nr.GetString("metric_name"),
-		nr.GetString("metric_type"),
-		nr.GetString("metric_per_second"),
-		nr.GetString("metric_value"),
-		nr.GetString("timer_min"),
-		nr.GetString("timer_max"),
-		nr.GetString("timer_count"),
-		nr.GetString("timer_mean"),
-		nr.GetString("timer_median"),
-		nr.GetString("timer_std_dev"),
-		nr.GetString("timer_sum"),
-		nr.GetString("timer_sum_square"),
+		nr.GetString("event-type"),
+		nr.GetString("flush-type"),
+		nr.GetString("tag-prefix"),
+		nr.GetString("metric-name"),
+		nr.GetString("metric-type"),
+		nr.GetString("per-second"),
+		nr.GetString("value"),
+		nr.GetString("timer-min"),
+		nr.GetString("timer-max"),
+		nr.GetString("timer-count"),
+		nr.GetString("timer-mean"),
+		nr.GetString("timer-median"),
+		nr.GetString("timer-stddev"),
+		nr.GetString("timer-sum"),
+		nr.GetString("timer-sumsquare"),
 		nr.GetString("user-agent"),
 		nr.GetString("network"),
-		uint(nr.GetInt("metrics_per_batch")),
-		uint(nr.GetInt("max_requests")),
+		uint(nr.GetInt("metrics-per-batch")),
+		uint(nr.GetInt("max-requests")),
 		nr.GetBool("enable-http2"),
-		nr.GetDuration("client_timeout"),
-		nr.GetDuration("max_request_elapsed_time"),
+		nr.GetDuration("client-timeout"),
+		nr.GetDuration("max-request-elapsed-time"),
 		v.GetDuration("flush-interval"), // Main viper, not sub-viper
 		gostatsd.DisabledSubMetrics(v),
 	)
 }
 
 // NewClient returns a new New Relic client.
-func NewClient(address, eventType, flushType, metricPrefix, tagPrefix,
+func NewClient(address, eventType, flushType, tagPrefix,
 	metricName, metricType, metricPerSecond, metricValue,
 	timerMin, timerMax, timerCount, timerMean, timerMedian, timerStdDev, timerSum, timerSumSquares,
 	userAgent, network string, metricsPerBatch, maxRequests uint, enableHttp2 bool,
@@ -387,15 +382,10 @@ func NewClient(address, eventType, flushType, metricPrefix, tagPrefix,
 	for i := uint(0); i < maxRequests; i++ {
 		metricsBufferSem <- &bytes.Buffer{}
 	}
-	eventsBufferSem := make(chan *bytes.Buffer, maxConcurrentEvents)
-	for i := uint(0); i < maxConcurrentEvents; i++ {
-		eventsBufferSem <- &bytes.Buffer{}
-	}
 	return &Client{
 		address:               address,
 		eventType:             eventType,
 		flushType:             flushType,
-		metricPrefix:          metricPrefix,
 		tagPrefix:             tagPrefix,
 		metricName:            metricName,
 		metricType:            metricType,
@@ -417,7 +407,6 @@ func NewClient(address, eventType, flushType, metricPrefix, tagPrefix,
 		},
 		metricsPerBatch:  metricsPerBatch,
 		metricsBufferSem: metricsBufferSem,
-		eventsBufferSem:  eventsBufferSem,
 		now:              time.Now,
 		flushInterval:    flushInterval,
 		disabledSubtypes: disabled,
@@ -432,7 +421,7 @@ func getSubViper(v *viper.Viper, key string) *viper.Viper {
 	return n
 }
 
-func setDefaultPayload() NewRelicPayload {
+func newInfraPayload() NewRelicPayload {
 	return NewRelicPayload{
 		Name:               integrationName,
 		ProtocolVersion:    protocolVersion,
