@@ -218,7 +218,7 @@ func (n *Client) post(ctx context.Context, buffer *bytes.Buffer, data interface{
 			return fmt.Errorf("[%s] %v", BackendName, err)
 		}
 
-		log.Warnf("[%s] failed to send %s, sleeping for %s: %v", BackendName, next, err)
+		log.Warnf("[%s] failed to send, sleeping for %s: %v", BackendName, next, err)
 
 		timer := time.NewTimer(next)
 		select {
