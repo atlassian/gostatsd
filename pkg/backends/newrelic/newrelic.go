@@ -34,8 +34,7 @@ const (
 	// defaultMetricsPerBatch is the default number of metrics to send in a single batch.
 	defaultMetricsPerBatch = 1000
 	// maxResponseSize is the maximum response size we are willing to read.
-	maxResponseSize     = 10 * 1024
-	maxConcurrentEvents = 20
+	maxResponseSize = 10 * 1024
 
 	defaultEnableHttp2 = false
 )
