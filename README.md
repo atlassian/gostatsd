@@ -63,7 +63,7 @@ are interested in. Configuration file might look like this:
 [aws]
 	max_retries = 4
 
-[newrelic] 
+[newrelic]
 	address = "http://localhost:8001/v1/data"
 	event_type = "GoStatsD"
 	#see full configuration options further below
@@ -72,13 +72,13 @@ are interested in. Configuration file might look like this:
 New Relic Backend
 -----------------------------
 This backend sends a HTTP Payload to the [New Relic Infrastructure Agent](https://newrelic.com/products/infrastructure)
- via it's inbuilt HTTP Server. Sending via the inbuilt HTTP server provides additional features, such as automatically applying additional metadata to the event the host may have such as AWS tags, instance type, host information, labels etc. 
+ via it's inbuilt HTTP Server. Sending via the inbuilt HTTP server provides additional features, such as automatically applying additional metadata to the event the host may have such as AWS tags, instance type, host information, labels etc.
 
 The payload structure required to be accepted by the agent can be viewed [here.](https://github.com/newrelic/infra-integrations-sdk/blob/master/docs/v2tov3.md#v2-json-full-sample)
 
 To enable the HTTP server, modify /etc/newrelic.yml to include the below, and restart the agent ([Step 1.2](https://docs.newrelic.com/docs/integrations/host-integrations/host-integrations-list/statsd-monitoring-integration#install)).
 ```
-http_server_enabled: true		
+http_server_enabled: true
 http_server_host: 127.0.0.1 #(default host)
 http_server_port: 8001 #(default port)
 ```

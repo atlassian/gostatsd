@@ -1,3 +1,7 @@
+9.1.0
+-----
+- NewRelic backend added by Kav91, see README.md for options and details
+
 9.0.0
 -----
 - Added support for sampling timers to be compatible with original statsd.
