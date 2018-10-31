@@ -65,7 +65,7 @@ are interested in. Configuration file might look like this:
 
 [newrelic]
 	address = "http://localhost:8001/v1/data"
-	event_type = "GoStatsD"
+	event-type = "GoStatsD"
 	#see full configuration options further below
 ```
 
