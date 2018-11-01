@@ -1,9 +1,9 @@
 VERSION_VAR := main.Version
 GIT_VAR := main.GitCommit
 BUILD_DATE_VAR := main.BuildDate
-REPO_VERSION := $$(git describe --abbrev=0 --tags)
 BUILD_DATE := $$(date +%Y-%m-%d-%H:%M)
-GIT_HASH := $$(git rev-parse --short HEAD)
+REPO_VERSION ?= $$(git describe --abbrev=0 --tags)
+GIT_HASH ?= $$(git rev-parse --short HEAD)
 GOBUILD_VERSION_ARGS := -ldflags "-s -X $(VERSION_VAR)=$(REPO_VERSION) -X $(GIT_VAR)=$(GIT_HASH) -X $(BUILD_DATE_VAR)=$(BUILD_DATE)"
 GOBUILD_VERSION_ARGS_WITH_SYMS := -ldflags "-X $(VERSION_VAR)=$(REPO_VERSION) -X $(GIT_VAR)=$(GIT_HASH) -X $(BUILD_DATE_VAR)=$(BUILD_DATE)"
 BINARY_NAME := gostatsd
