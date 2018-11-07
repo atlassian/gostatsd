@@ -218,7 +218,7 @@ func NewClient(config *Config, disabled gostatsd.TimerSubtypes) (*Client, error)
 		legacyNamespace = DefaultLegacyNamespace
 	}
 	if legacyNamespace {
-		counterNamespace = DefaultGlobalPrefix + `.`
+		counterNamespace = DefaultGlobalPrefix + ".counters."
 		timerNamespace = DefaultGlobalPrefix + ".timers."
 		gaugesNamespace = DefaultGlobalPrefix + ".gauges."
 		setsNamespace = DefaultGlobalPrefix + ".sets."
