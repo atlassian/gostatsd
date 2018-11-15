@@ -18,7 +18,7 @@ declare -a packages=('' \
     'pkg/backends/statsdaemon' 'pkg/backends/stdout' \
     'pkg/cloudproviders' 'pkg/cloudproviders/aws' \
     'pkg/fakesocket' 'pkg/statsd' \
-    'pkg/statser' 'pkg/cluster/nodes' );
+    'pkg/stats' 'pkg/cluster/nodes' );
 
 # Test each package and append coverage profile info to coverage.out
 for pkg in "${packages[@]}"
