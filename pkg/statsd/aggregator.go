@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/atlassian/gostatsd"
-	"github.com/atlassian/gostatsd/pkg/statser"
+	"github.com/atlassian/gostatsd/pkg/stats"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -29,7 +29,7 @@ type MetricAggregator struct {
 	expiryInterval    time.Duration // How often to expire metrics
 	percentThresholds map[float64]percentStruct
 	now               func() time.Time // Returns current time. Useful for testing.
-	statser           statser.Statser
+	statser           stats.Statser
 	disabledSubtypes  gostatsd.TimerSubtypes
 	gostatsd.MetricMap
 }
@@ -40,7 +40,7 @@ func NewMetricAggregator(percentThresholds []float64, expiryInterval time.Durati
 		expiryInterval:    expiryInterval,
 		percentThresholds: make(map[float64]percentStruct, len(percentThresholds)),
 		now:               time.Now,
-		statser:           statser.NewNullStatser(), // Will probably be replaced via RunMetrics
+		statser:           stats.NewNullStatser(), // Will probably be replaced via RunMetrics
 		MetricMap: gostatsd.MetricMap{
 			Counters: gostatsd.Counters{},
 			Timers:   gostatsd.Timers{},
@@ -177,7 +177,7 @@ func (a *MetricAggregator) Flush(flushInterval time.Duration) {
 	})
 }
 
-func (a *MetricAggregator) RunMetrics(ctx context.Context, statser statser.Statser) {
+func (a *MetricAggregator) RunMetrics(ctx context.Context, statser stats.Statser) {
 	a.statser = statser
 }
 

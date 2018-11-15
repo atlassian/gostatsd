@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/atlassian/gostatsd"
-	"github.com/atlassian/gostatsd/pkg/statser"
+	"github.com/atlassian/gostatsd/pkg/stats"
 )
 
 // MetricHandler can be used to handle metrics
@@ -57,5 +57,5 @@ type Datagram struct {
 // MetricEmitter is an object that emits metrics.  Used to pass a Statser to the object
 // after initialization, as Statsers may be created after MetricEmitters
 type MetricEmitter interface {
-	RunMetrics(ctx context.Context, statser statser.Statser)
+	RunMetrics(ctx context.Context, statser stats.Statser)
 }

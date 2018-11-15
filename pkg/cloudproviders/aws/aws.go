@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/atlassian/gostatsd"
-	stats "github.com/atlassian/gostatsd/pkg/statser"
+	"github.com/atlassian/gostatsd/pkg/stats"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"

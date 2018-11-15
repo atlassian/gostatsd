@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/atlassian/gostatsd"
-	stats "github.com/atlassian/gostatsd/pkg/statser"
+	"github.com/atlassian/gostatsd/pkg/stats"
 )
 
 type processCommand struct {

@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/atlassian/gostatsd"
-	stats "github.com/atlassian/gostatsd/pkg/statser"
+	"github.com/atlassian/gostatsd/pkg/stats"
 
 	"github.com/ash2k/stager"
 	"github.com/jbenet/go-reuseport"

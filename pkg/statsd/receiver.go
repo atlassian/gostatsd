@@ -8,7 +8,7 @@ import (
 	"github.com/atlassian/gostatsd"
 	"github.com/atlassian/gostatsd/pkg/fakesocket"
 	"github.com/atlassian/gostatsd/pkg/pool"
-	stats "github.com/atlassian/gostatsd/pkg/statser"
+	"github.com/atlassian/gostatsd/pkg/stats"
 
 	log "github.com/sirupsen/logrus"
 )

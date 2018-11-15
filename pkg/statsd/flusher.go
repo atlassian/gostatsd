@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/atlassian/gostatsd"
-	"github.com/atlassian/gostatsd/pkg/statser"
+	"github.com/atlassian/gostatsd/pkg/stats"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -25,11 +25,11 @@ type MetricFlusher struct {
 	aggregateProcesser AggregateProcesser
 	backends           []gostatsd.Backend
 	hostname           string
-	statser            statser.Statser
+	statser            stats.Statser
 }
 
 // NewMetricFlusher creates a new MetricFlusher with provided configuration.
-func NewMetricFlusher(flushInterval time.Duration, aggregateProcesser AggregateProcesser, backends []gostatsd.Backend, hostname string, statser statser.Statser) *MetricFlusher {
+func NewMetricFlusher(flushInterval time.Duration, aggregateProcesser AggregateProcesser, backends []gostatsd.Backend, hostname string, statser stats.Statser) *MetricFlusher {
 	return &MetricFlusher{
 		flushInterval:      flushInterval,
 		aggregateProcesser: aggregateProcesser,
