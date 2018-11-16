@@ -7,8 +7,8 @@ import (
 
 	"github.com/atlassian/gostatsd"
 	"github.com/atlassian/gostatsd/pkg/stats"
+
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"golang.org/x/time/rate"
 )
 
@@ -36,8 +36,7 @@ func TestParseEmptyDatagram(t *testing.T) {
 		t.Run(strconv.Itoa(pos), func(t *testing.T) {
 			t.Parallel()
 			mr, ch := newTestParser(false)
-			_, _, _, err := mr.handleDatagram(context.Background(), gostatsd.UnknownIP, inp)
-			require.NoError(t, err)
+			_, _, _ = mr.handleDatagram(context.Background(), gostatsd.UnknownIP, inp)
 			assert.Zero(t, len(ch.events), ch.events)
 			assert.Zero(t, len(ch.metrics), ch.metrics)
 		})
@@ -94,8 +93,7 @@ func TestParseDatagram(t *testing.T) {
 		t.Run(datagram, func(t *testing.T) {
 			t.Parallel()
 			mr, ch := newTestParser(false)
-			_, _, _, err := mr.handleDatagram(context.Background(), fakeIP, []byte(datagram))
-			assert.NoError(t, err)
+			_, _, _ = mr.handleDatagram(context.Background(), fakeIP, []byte(datagram))
 			for i, e := range ch.events {
 				if e.DateHappened <= 0 {
 					t.Errorf("%q: DateHappened should be positive", e)
@@ -163,8 +161,7 @@ func TestParseDatagramIgnoreHost(t *testing.T) {
 		t.Run(datagram, func(t *testing.T) {
 			t.Parallel()
 			mr, ch := newTestParser(true)
-			_, _, _, err := mr.handleDatagram(context.Background(), fakeIP, []byte(datagram))
-			assert.NoError(t, err)
+			_, _, _ = mr.handleDatagram(context.Background(), fakeIP, []byte(datagram))
 			for i, e := range ch.events {
 				if e.DateHappened <= 0 {
 					t.Errorf("%q: DateHappened should be positive", e)

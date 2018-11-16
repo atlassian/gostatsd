@@ -294,7 +294,6 @@ drop-tags='host:*'
 		{MatchMetrics: toStringMatch([]string{"global.*"}), ExcludeMetrics: empty, MatchTags: empty, DropTags: toStringMatch([]string{"host:*"}), DropMetric: false, DropHost: true},
 	}
 	assert.Equal(t, expected, th.filters)
-
 }
 
 func assertHasAllTags(t *testing.T, actual gostatsd.Tags, expected... string) {

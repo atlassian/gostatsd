@@ -233,7 +233,7 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 }
 
 func sendStartEvent(ctx context.Context, events EventHandler, selfIP gostatsd.IP, hostname string) {
-	err := events.DispatchEvent(ctx, &gostatsd.Event{
+	events.DispatchEvent(ctx, &gostatsd.Event{
 		Title:        "Gostatsd started",
 		Text:         "Gostatsd started",
 		DateHappened: time.Now().Unix(),
@@ -241,15 +241,12 @@ func sendStartEvent(ctx context.Context, events EventHandler, selfIP gostatsd.IP
 		SourceIP:     selfIP,
 		Priority:     gostatsd.PriLow,
 	})
-	if unexpectedErr(err) {
-		log.Warnf("Failed to send start event: %v", err)
-	}
 }
 
 func sendStopEvent(events EventHandler, selfIP gostatsd.IP, hostname string) {
 	ctx, cancelFunc := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancelFunc()
-	err := events.DispatchEvent(ctx, &gostatsd.Event{
+	events.DispatchEvent(ctx, &gostatsd.Event{
 		Title:        "Gostatsd stopped",
 		Text:         "Gostatsd stopped",
 		DateHappened: time.Now().Unix(),
@@ -257,9 +254,6 @@ func sendStopEvent(events EventHandler, selfIP gostatsd.IP, hostname string) {
 		SourceIP:     selfIP,
 		Priority:     gostatsd.PriLow,
 	})
-	if unexpectedErr(err) {
-		log.Warnf("Failed to send stop event: %v", err)
-	}
 	events.WaitForEvents()
 }
 
@@ -288,8 +282,4 @@ func toStringSlice(fs []float64) []string {
 		s[i] = strconv.FormatFloat(f, 'f', -1, 64)
 	}
 	return s
-}
-
-func unexpectedErr(err error) bool {
-	return err != nil && err != context.Canceled && err != context.DeadlineExceeded
 }

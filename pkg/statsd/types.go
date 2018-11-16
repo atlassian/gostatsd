@@ -13,13 +13,13 @@ type MetricHandler interface {
 	// EstimatedTags returns a guess for how many tags to pre-allocate
 	EstimatedTags() int
 	// DispatchMetric dispatches a metric to the next step in a pipeline.
-	DispatchMetric(ctx context.Context, m *gostatsd.Metric) error
+	DispatchMetric(ctx context.Context, m *gostatsd.Metric)
 }
 
 // EventHandler can be used to handle events
 type EventHandler interface {
 	// DispatchEvent dispatches event to the next step in a pipeline.
-	DispatchEvent(ctx context.Context, e *gostatsd.Event) error
+	DispatchEvent(ctx context.Context, e *gostatsd.Event)
 	// WaitForEvents waits for all event-dispatching goroutines to finish.
 	WaitForEvents()
 }

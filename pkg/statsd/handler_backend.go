@@ -109,14 +109,12 @@ func (bh *BackendHandler) EstimatedTags() int {
 }
 
 // DispatchMetric dispatches metric to a corresponding Aggregator.
-func (bh *BackendHandler) DispatchMetric(ctx context.Context, m *gostatsd.Metric) error {
+func (bh *BackendHandler) DispatchMetric(ctx context.Context, m *gostatsd.Metric) {
 	m.TagsKey = formatTagsKey(m.Tags, m.Hostname)
 	w := bh.workers[m.Bucket(bh.numWorkers)]
 	select {
 	case <-ctx.Done():
-		return ctx.Err()
 	case w.metricsQueue <- m:
-		return nil
 	}
 }
 
@@ -145,7 +143,7 @@ loop:
 	return wg.Wait
 }
 
-func (bh *BackendHandler) DispatchEvent(ctx context.Context, e *gostatsd.Event) error {
+func (bh *BackendHandler) DispatchEvent(ctx context.Context, e *gostatsd.Event) {
 	eventsDispatched := 0
 	bh.eventWg.Add(len(bh.backends))
 	for _, backend := range bh.backends {
@@ -153,13 +151,12 @@ func (bh *BackendHandler) DispatchEvent(ctx context.Context, e *gostatsd.Event) 
 		case <-ctx.Done():
 			// Not all backends got the event, should decrement the wg counter
 			bh.eventWg.Add(eventsDispatched - len(bh.backends))
-			return ctx.Err()
+			return
 		case bh.concurrentEvents <- struct{}{}:
 			go bh.dispatchEvent(ctx, backend, e)
 			eventsDispatched++
 		}
 	}
-	return nil
 }
 
 // WaitForEvents waits for all event-dispatching goroutines to finish.
