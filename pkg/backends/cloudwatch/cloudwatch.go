@@ -3,6 +3,7 @@ package cloudwatch
 import (
 	"context"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/atlassian/gostatsd"
@@ -21,10 +22,23 @@ const MAX_DIMENSIONS = 10
 // BackendName is the name of this backend.
 const BackendName = "cloudwatch"
 
+type QueueItem struct {
+	metrics  []*cloudwatch.MetricDatum
+	callback *gostatsd.SendCallback
+}
+
 // Client is an object that is used to send messages to AWS CloudWatch.
 type Client struct {
 	cloudwatch cloudwatchiface.CloudWatchAPI
 	namespace  string
+
+	batchDuration time.Duration
+
+	queue      []*QueueItem
+	queueMutex sync.RWMutex
+
+	timer      *time.Timer
+	timerMutex sync.Mutex
 
 	disabledSubtypes gostatsd.TimerSubtypes
 }
@@ -33,22 +47,27 @@ type Client struct {
 func NewClientFromViper(v *viper.Viper) (gostatsd.Backend, error) {
 	g := getSubViper(v, "cloudwatch")
 	g.SetDefault("namespace", "StatsD")
+	g.SetDefault("batchDuration", "50ms")
 
 	return NewClient(
 		g.GetString("namespace"),
+		g.GetDuration("batchDuration"),
 		gostatsd.DisabledSubMetrics(v),
 	)
 }
 
 // NewClient constructs a AWS Cloudwatch backend.
-func NewClient(namespace string, disabled gostatsd.TimerSubtypes) (*Client, error) {
+func NewClient(namespace string, batchDuration time.Duration, disabled gostatsd.TimerSubtypes) (*Client, error) {
 	sess, err := session.NewSession()
 	if err != nil {
 		return nil, err
 	}
 
 	return &Client{
-		cloudwatch: cloudwatch.New(sess),
+		cloudwatch:    cloudwatch.New(sess),
+		batchDuration: batchDuration,
+
+		timer: nil,
 
 		namespace:        namespace,
 		disabledSubtypes: disabled,
@@ -84,7 +103,7 @@ func extractDimensions(tags gostatsd.Tags) (dimensions []*cloudwatch.Dimension) 
 	return dimensions
 }
 
-func (client Client) buildMetricData(metrics *gostatsd.MetricMap) (metricData []*cloudwatch.MetricDatum) {
+func (client *Client) buildMetricData(metrics *gostatsd.MetricMap) (metricData []*cloudwatch.MetricDatum) {
 	disabled := client.disabledSubtypes
 
 	metricData = []*cloudwatch.MetricDatum{}
@@ -157,10 +176,86 @@ func (client Client) buildMetricData(metrics *gostatsd.MetricMap) (metricData []
 	return metricData
 }
 
+func (client *Client) flush() {
+	client.timerMutex.Lock()
+
+	// If there already is a timer, we already have a function waiting to execute
+	if client.timer != nil {
+		client.timer.Reset(client.batchDuration)
+		client.timerMutex.Unlock()
+		return
+	}
+
+	client.timer = time.NewTimer(client.batchDuration)
+	client.timerMutex.Unlock()
+
+	timer := client.timer
+
+	// Wait until timer expires
+	<-timer.C
+
+	client.timerMutex.Lock()
+	client.timer = nil // Stop current timer
+	client.timerMutex.Unlock()
+
+	// Copy pending metric items and create new queue instance
+	// client.queue is protected by a Read-Write Lock such
+	// that execution is only blocked while replacing the queue
+	client.queueMutex.Lock()
+	queue := client.queue
+	client.queue = []*QueueItem{}
+	client.queueMutex.Unlock()
+
+	// Run actual function
+	metricData := []*cloudwatch.MetricDatum{}
+	for _, item := range queue {
+		metricData = append(metricData, item.metrics...)
+	}
+
+	start := 0
+	requests := 0
+	errors := []error{}
+	length := len(metricData)
+	api := client.cloudwatch
+
+	// Send metrics in batches of 20
+	// We are not allowed to add more to a single PutMetricData request
+	// https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/cloudwatch_limits.html
+	for start < length {
+		end := start + 20
+
+		if end > length {
+			end = length
+		}
+
+		if start >= end {
+			// No more metrics to sent
+			break
+		}
+
+		requests += 1
+
+		data := metricData[start:end]
+		start = end
+
+		_, err := api.PutMetricData(&cloudwatch.PutMetricDataInput{
+			MetricData: data,
+			Namespace:  &client.namespace,
+		})
+
+		errors = append(errors, err)
+	}
+
+	log.Infof("[%s] Pushed %d metrics in %d requests", BackendName, length, requests)
+
+	for _, q := range queue {
+		go (*q.callback)(errors)
+	}
+}
+
 // SendMetricsAsync sends the metrics in a MetricsMap to AWS Cloudwatch,
 // preparing payload synchronously but doing the send asynchronously.
-func (client Client) SendMetricsAsync(ctx context.Context, metrics *gostatsd.MetricMap, cb gostatsd.SendCallback) {
-	api := client.cloudwatch
+func (client *Client) SendMetricsAsync(ctx context.Context, metrics *gostatsd.MetricMap, cb gostatsd.SendCallback) {
 	metricData := client.buildMetricData(metrics)
 	length := len(metricData)
 	errors := []error{}
@@ -170,46 +265,26 @@ func (client Client) SendMetricsAsync(ctx context.Context, metrics *gostatsd.Met
 		return
 	}
 
-	go func() {
-		start := 0
+	// Protect queue
+	// We don't want to be inserting into an old queue instance
+	// The queue instance is replaced by Client.flush()
+	client.queueMutex.RLock()
+	client.queue = append(client.queue, &QueueItem{
+		metrics:  metricData,
+		callback: &cb,
+	})
+	client.queueMutex.RUnlock()
 
-		// Send metrics in batches of 20
-		// We are not allowed to add more to a single PutMetricData request
-		// https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/cloudwatch_limits.html
-		for start < length {
-			end := start + 20
-
-			if end > length {
-				end = length
-			}
-
-			if start >= end {
-				// No more metrics to sent
-				break
-			}
-
-			data := metricData[start:end]
-			start = end
-
-			_, err := api.PutMetricData(&cloudwatch.PutMetricDataInput{
-				MetricData: data,
-				Namespace:  &client.namespace,
-			})
-
-			errors = append(errors, err)
-		}
-
-		cb(errors)
-	}()
+	go client.flush()
 }
 
 // Events currently not supported.
-func (client Client) SendEvent(ctx context.Context, e *gostatsd.Event) (retErr error) {
+func (client *Client) SendEvent(ctx context.Context, e *gostatsd.Event) (retErr error) {
 	return nil
 }
 
 // Name returns the name of the backend.
-func (Client) Name() string {
+func (*Client) Name() string {
 	return BackendName
 }
 

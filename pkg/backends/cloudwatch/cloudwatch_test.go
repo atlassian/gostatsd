@@ -1,6 +1,7 @@
 package cloudwatch
 
 import (
+	"time"
 	"context"
 	"testing"
 
@@ -26,7 +27,8 @@ func (m *mockedCloudwatch) PutMetricData(input *cloudwatch.PutMetricDataInput) (
 func TestSendMetrics(t *testing.T) {
 	t.Parallel()
 
-	cli, err := NewClient("ns", gostatsd.TimerSubtypes{})
+	duration, _ := time.ParseDuration("50ms")
+	cli, err := NewClient("ns", duration, gostatsd.TimerSubtypes{})
 	require.NoError(t, err)
 
 	expected := []struct {
@@ -82,7 +84,8 @@ func TestSendMetrics(t *testing.T) {
 func TestSendMetricDimensions(t *testing.T) {
 	t.Parallel()
 
-	cli, err := NewClient("ns", gostatsd.TimerSubtypes{})
+	duration, _ := time.ParseDuration("50ms")
+	cli, err := NewClient("ns", duration, gostatsd.TimerSubtypes{})
 	require.NoError(t, err)
 
 	metricMap := &gostatsd.MetricMap{
