@@ -41,9 +41,11 @@ type InternalStatser struct {
 	dropped   uint64
 }
 
+const bufferSize = 1000 // estimating this is difficult and tends to cause problems if too small
+
 // NewInternalStatser creates a new Statser which sends metrics to the
 // supplied InternalHandler.
-func NewInternalStatser(bufferSize int, tags gostatsd.Tags, namespace, hostname string, metrics InternalMetricHandler, events InternalEventHandler) *InternalStatser {
+func NewInternalStatser(tags gostatsd.Tags, namespace, hostname string, metrics InternalMetricHandler, events InternalEventHandler) *InternalStatser {
 	return &InternalStatser{
 		buffer:    make(chan *gostatsd.Metric, bufferSize),
 		tags:      tags,

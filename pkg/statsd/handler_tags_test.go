@@ -3,13 +3,13 @@ package statsd
 import (
 	"bytes"
 	"context"
+	"strings"
 	"testing"
 
 	"github.com/atlassian/gostatsd"
 
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
-	"strings"
 )
 
 func TestFilterPassesNoFilters(t *testing.T) {
@@ -296,7 +296,7 @@ drop-tags='host:*'
 	assert.Equal(t, expected, th.filters)
 }
 
-func assertHasAllTags(t *testing.T, actual gostatsd.Tags, expected... string) {
+func assertHasAllTags(t *testing.T, actual gostatsd.Tags, expected ...string) {
 	assert.Equal(t, len(expected), len(actual))
 	seenActual := map[string]struct{}{}
 	for _, actualTag := range actual {
@@ -340,7 +340,7 @@ func TestTagMetricHandlerAddsNoTags(t *testing.T) {
 	th := NewTagHandler(tch, tch, gostatsd.Tags{}, nil)
 	m := &gostatsd.Metric{}
 	th.DispatchMetric(context.Background(), m)
-	assert.Equal(t, 1, len(tch.m))         // Metric tracked
+	assert.Equal(t, 1, len(tch.m)) // Metric tracked
 	assertHasAllTags(t, tch.m[0].Tags)
 	assert.Equal(t, "", tch.m[0].Hostname) // No hostname added
 }
@@ -350,9 +350,9 @@ func TestTagMetricHandlerAddsSingleTag(t *testing.T) {
 	th := NewTagHandler(tch, tch, gostatsd.Tags{"tag1"}, nil)
 	m := &gostatsd.Metric{}
 	th.DispatchMetric(context.Background(), m)
-	assert.Equal(t, 1, len(tch.m))            // Metric tracked
+	assert.Equal(t, 1, len(tch.m)) // Metric tracked
 	assertHasAllTags(t, tch.m[0].Tags, "tag1")
-	assert.Equal(t, "", tch.m[0].Hostname)    // No hostname added
+	assert.Equal(t, "", tch.m[0].Hostname) // No hostname added
 }
 
 func TestTagMetricHandlerAddsMultipleTags(t *testing.T) {
@@ -360,9 +360,9 @@ func TestTagMetricHandlerAddsMultipleTags(t *testing.T) {
 	th := NewTagHandler(tch, tch, gostatsd.Tags{"tag1", "tag2"}, nil)
 	m := &gostatsd.Metric{}
 	th.DispatchMetric(context.Background(), m)
-	assert.Equal(t, 1, len(tch.m))            // Metric tracked
+	assert.Equal(t, 1, len(tch.m)) // Metric tracked
 	assertHasAllTags(t, tch.m[0].Tags, "tag1", "tag2")
-	assert.Equal(t, "", tch.m[0].Hostname)    // No hostname added
+	assert.Equal(t, "", tch.m[0].Hostname) // No hostname added
 }
 
 func TestTagMetricHandlerAddsHostname(t *testing.T) {
@@ -382,9 +382,9 @@ func TestTagMetricHandlerAddsDuplicateTags(t *testing.T) {
 	th := NewTagHandler(tch, tch, gostatsd.Tags{"tag1", "tag2", "tag2", "tag3", "tag1"}, nil)
 	m := &gostatsd.Metric{}
 	th.DispatchMetric(context.Background(), m)
-	assert.Equal(t, 1, len(tch.m))            // Metric tracked
+	assert.Equal(t, 1, len(tch.m)) // Metric tracked
 	assertHasAllTags(t, tch.m[0].Tags, "tag1", "tag2", "tag3")
-	assert.Equal(t, "", tch.m[0].Hostname)    // No hostname added
+	assert.Equal(t, "", tch.m[0].Hostname) // No hostname added
 }
 
 func TestTagEventHandlerAddsNoTags(t *testing.T) {
@@ -392,7 +392,7 @@ func TestTagEventHandlerAddsNoTags(t *testing.T) {
 	th := NewTagHandler(tch, tch, gostatsd.Tags{}, nil)
 	e := &gostatsd.Event{}
 	th.DispatchEvent(context.Background(), e)
-	assert.Equal(t, 1, len(tch.e))         // Metric tracked
+	assert.Equal(t, 1, len(tch.e)) // Metric tracked
 	assertHasAllTags(t, tch.e[0].Tags)
 	assert.Equal(t, "", tch.e[0].Hostname) // No hostname added
 }
@@ -402,9 +402,9 @@ func TestTagEventHandlerAddsSingleTag(t *testing.T) {
 	th := NewTagHandler(tch, tch, gostatsd.Tags{"tag1"}, nil)
 	e := &gostatsd.Event{}
 	th.DispatchEvent(context.Background(), e)
-	assert.Equal(t, 1, len(tch.e))            // Metric tracked
+	assert.Equal(t, 1, len(tch.e)) // Metric tracked
 	assertHasAllTags(t, tch.e[0].Tags, "tag1")
-	assert.Equal(t, "", tch.e[0].Hostname)    // No hostname added
+	assert.Equal(t, "", tch.e[0].Hostname) // No hostname added
 }
 
 func TestTagEventHandlerAddsMultipleTags(t *testing.T) {
@@ -412,9 +412,9 @@ func TestTagEventHandlerAddsMultipleTags(t *testing.T) {
 	th := NewTagHandler(tch, tch, gostatsd.Tags{"tag1", "tag2"}, nil)
 	e := &gostatsd.Event{}
 	th.DispatchEvent(context.Background(), e)
-	assert.Equal(t, 1, len(tch.e))            // Metric tracked
+	assert.Equal(t, 1, len(tch.e)) // Metric tracked
 	assertHasAllTags(t, tch.e[0].Tags, "tag1", "tag2")
-	assert.Equal(t, "", tch.e[0].Hostname)    // No hostname added
+	assert.Equal(t, "", tch.e[0].Hostname) // No hostname added
 }
 
 func TestTagEventHandlerAddsHostname(t *testing.T) {
@@ -424,7 +424,7 @@ func TestTagEventHandlerAddsHostname(t *testing.T) {
 		SourceIP: "1.2.3.4",
 	}
 	th.DispatchEvent(context.Background(), e)
-	assert.Equal(t, 1, len(tch.e))                // Metric tracked
+	assert.Equal(t, 1, len(tch.e)) // Metric tracked
 	assertHasAllTags(t, tch.e[0].Tags)
 	assert.Equal(t, "1.2.3.4", tch.e[0].Hostname) // Hostname injected
 }
@@ -434,9 +434,9 @@ func TestTagEventHandlerAddsDuplicateTags(t *testing.T) {
 	th := NewTagHandler(tch, tch, gostatsd.Tags{"tag1", "tag2", "tag2", "tag3", "tag1"}, nil)
 	e := &gostatsd.Event{}
 	th.DispatchEvent(context.Background(), e)
-	assert.Equal(t, 1, len(tch.e))            // Metric tracked
+	assert.Equal(t, 1, len(tch.e)) // Metric tracked
 	assertHasAllTags(t, tch.e[0].Tags, "tag1", "tag2", "tag3")
-	assert.Equal(t, "", tch.e[0].Hostname)    // No hostname added
+	assert.Equal(t, "", tch.e[0].Hostname) // No hostname added
 }
 
 func BenchmarkTagMetricHandlerAddsDuplicateTagsSmall(b *testing.B) {
@@ -457,7 +457,7 @@ func BenchmarkTagMetricHandlerAddsDuplicateTagsSmall(b *testing.B) {
 	}
 
 	for n := 0; n < b.N; n++ {
-		metricTags := make(gostatsd.Tags, 0, len(baseTags) + th.EstimatedTags())
+		metricTags := make(gostatsd.Tags, 0, len(baseTags)+th.EstimatedTags())
 		metricTags = append(metricTags, baseTags...)
 		m := &gostatsd.Metric{
 			Tags: metricTags,
@@ -481,7 +481,6 @@ func BenchmarkTagMetricHandlerAddsDuplicateTagsLarge(b *testing.B) {
 		"jjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjj:jjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjj",
 	}, nil)
 
-
 	b.ReportAllocs()
 	b.ResetTimer()
 
@@ -494,7 +493,7 @@ func BenchmarkTagMetricHandlerAddsDuplicateTagsLarge(b *testing.B) {
 	}
 
 	for n := 0; n < b.N; n++ {
-		metricTags := make(gostatsd.Tags, 0, len(baseTags) + th.EstimatedTags())
+		metricTags := make(gostatsd.Tags, 0, len(baseTags)+th.EstimatedTags())
 		metricTags = append(metricTags, baseTags...)
 		m := &gostatsd.Metric{
 			Tags: metricTags,

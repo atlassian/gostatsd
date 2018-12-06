@@ -133,8 +133,8 @@ func (d *Client) SendMetricsAsync(ctx context.Context, metrics *gostatsd.MetricM
 	}()
 }
 
-func (d *Client) RunMetrics(ctx context.Context, statser stats.Statser) {
-	statser = statser.WithTags(gostatsd.Tags{"backend:datadog"})
+func (d *Client) Run(ctx context.Context) {
+	statser := stats.FromContext(ctx).WithTags(gostatsd.Tags{"backend:datadog"})
 
 	flushed, unregister := statser.RegisterFlush()
 	defer unregister()

@@ -29,7 +29,6 @@ type DatagramParser struct {
 	metrics    MetricHandler
 	events     EventHandler
 	namespace  string // Namespace to prefix all metrics
-	statser    stats.Statser
 
 	metricPool *pool.MetricPool
 
@@ -39,21 +38,26 @@ type DatagramParser struct {
 }
 
 // NewDatagramParser initialises a new DatagramParser.
-func NewDatagramParser(in <-chan []*Datagram, ns string, ignoreHost bool, estimatedTags int, metrics MetricHandler, events EventHandler, statser stats.Statser, badLineLimiter *rate.Limiter) *DatagramParser {
+func NewDatagramParser(in <-chan []*Datagram, ns string, ignoreHost bool, estimatedTags int, metrics MetricHandler, events EventHandler, badLineRateLimitPerSecond rate.Limit) *DatagramParser {
+	limiter := &rate.Limiter{}
+	if badLineRateLimitPerSecond > 0 {
+		limiter = rate.NewLimiter(badLineRateLimitPerSecond, 1)
+	}
+
 	return &DatagramParser{
 		in:             in,
 		ignoreHost:     ignoreHost,
 		metrics:        metrics,
 		events:         events,
 		namespace:      ns,
-		statser:        statser,
 		metricPool:     pool.NewMetricPool(estimatedTags + metrics.EstimatedTags()),
-		badLineLimiter: badLineLimiter,
+		badLineLimiter: limiter,
 	}
 }
 
 func (dp *DatagramParser) RunMetrics(ctx context.Context) {
-	flushed, unregister := dp.statser.RegisterFlush()
+	statser := stats.FromContext(ctx)
+	flushed, unregister := statser.RegisterFlush()
 	defer unregister()
 
 	for {
@@ -61,9 +65,9 @@ func (dp *DatagramParser) RunMetrics(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-flushed:
-			dp.statser.Gauge("parser.metrics_received", float64(atomic.LoadUint64(&dp.metricsReceived)), nil)
-			dp.statser.Gauge("parser.events_received", float64(atomic.LoadUint64(&dp.eventsReceived)), nil)
-			dp.statser.Gauge("parser.bad_lines_seen", float64(atomic.LoadUint64(&dp.badLines)), nil)
+			statser.Gauge("parser.metrics_received", float64(atomic.LoadUint64(&dp.metricsReceived)), nil)
+			statser.Gauge("parser.events_received", float64(atomic.LoadUint64(&dp.eventsReceived)), nil)
+			statser.Gauge("parser.bad_lines_seen", float64(atomic.LoadUint64(&dp.badLines)), nil)
 		}
 	}
 }

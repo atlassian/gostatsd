@@ -3,6 +3,7 @@ package statsd
 import (
 	"context"
 	"net"
+	"strings"
 	"sync/atomic"
 
 	"github.com/atlassian/gostatsd"
@@ -10,7 +11,8 @@ import (
 	"github.com/atlassian/gostatsd/pkg/pool"
 	"github.com/atlassian/gostatsd/pkg/stats"
 
-	log "github.com/sirupsen/logrus"
+	"github.com/ash2k/stager/wait"
+	"github.com/sirupsen/logrus"
 )
 
 // ip packet size is stored in two bytes and that is how big in theory the packet can be.
@@ -29,20 +31,25 @@ type DatagramReceiver struct {
 	bufPool *pool.DatagramBufferPool
 
 	receiveBatchSize int // The number of datagrams to read in each batch
+	numReaders       int
+	socketFactory    SocketFactory
 
 	out chan<- []*Datagram // Output chan of read datagram batches
 }
 
 // NewDatagramReceiver initialises a new DatagramReceiver.
-func NewDatagramReceiver(out chan<- []*Datagram, receiveBatchSize int) *DatagramReceiver {
+func NewDatagramReceiver(out chan<- []*Datagram, sf SocketFactory, numReaders, receiveBatchSize int) *DatagramReceiver {
 	return &DatagramReceiver{
 		out:              out,
 		receiveBatchSize: receiveBatchSize,
+		numReaders:       numReaders,
+		socketFactory:    sf,
 		bufPool:          pool.NewDatagramBufferPool(packetSizeUDP),
 	}
 }
 
-func (dr *DatagramReceiver) RunMetrics(ctx context.Context, statser stats.Statser) {
+func (dr *DatagramReceiver) RunMetrics(ctx context.Context) {
+	statser := stats.FromContext(ctx)
 	flushed, unregister := statser.RegisterFlush()
 	defer unregister()
 
@@ -66,6 +73,35 @@ func (dr *DatagramReceiver) RunMetrics(ctx context.Context, statser stats.Statse
 	}
 }
 
+func (dr *DatagramReceiver) Run(ctx context.Context) {
+	wg := wait.Group{}
+	var connections []net.PacketConn
+
+	for r := 0; r < dr.numReaders; r++ {
+		c, err := dr.socketFactory()
+		if err != nil {
+			logrus.WithError(err).Fatal("unable to create socket")
+		}
+		connections = append(connections, c)
+		wg.StartWithContext(ctx, func(ctx context.Context) {
+			dr.Receive(ctx, c)
+		})
+	}
+
+	// Work until done
+	<-ctx.Done()
+
+	// Close all the sockets, which will make the receivers error out and stop
+	for _, c := range connections {
+		if e := c.Close(); e != nil && !strings.Contains(e.Error(), "use of closed network connection") {
+			logrus.WithError(e).Warn("Error closing socket")
+		}
+	}
+
+	// Wait for everything to stop
+	wg.Wait()
+}
+
 // Receive accepts incoming datagrams on c, and passes them off to be parsed
 func (dr *DatagramReceiver) Receive(ctx context.Context, c net.PacketConn) {
 	br := NewBatchReader(c)
@@ -85,8 +121,8 @@ func (dr *DatagramReceiver) Receive(ctx context.Context, c net.PacketConn) {
 				return
 			default:
 			}
-			if err != fakesocket.ErrClosedConnection {
-				log.Warnf("Error reading from socket: %v", err)
+			if err != fakesocket.ErrClosedConnection && !strings.Contains(err.Error(), "use of closed network connection") {
+				logrus.Warnf("Error reading from socket: %v", err)
 			}
 			continue
 		}
@@ -126,6 +162,6 @@ func getIP(addr net.Addr) gostatsd.IP {
 	if a, ok := addr.(*net.UDPAddr); ok {
 		return gostatsd.IP(a.IP.String())
 	}
-	log.Errorf("Cannot get source address %q of type %T", addr, addr)
+	logrus.Errorf("Cannot get source address %q of type %T", addr, addr)
 	return gostatsd.UnknownIP
 }

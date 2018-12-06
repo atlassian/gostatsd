@@ -1,5 +1,9 @@
 package gostatsd
 
+import (
+	"context"
+)
+
 // Nanotime is the number of nanoseconds elapsed since January 1, 1970 UTC.
 // Get the value with time.Now().UnixNano().
 type Nanotime int64
@@ -29,4 +33,12 @@ type TimerSubtypes struct {
 	SumPct         bool // pct
 	SumSquares     bool
 	SumSquaresPct  bool // pct
+}
+
+// Runnable is a long running function intended to be launched in a goroutine.
+type Runnable func(ctx context.Context)
+
+// Runner exposes a Runnable through an interface
+type Runner interface {
+	Run(ctx context.Context)
 }
