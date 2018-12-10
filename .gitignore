@@ -6,4 +6,5 @@
 /test-report.xml
 build/dev/data/
 /.vscode
+/.idea
 *.toml

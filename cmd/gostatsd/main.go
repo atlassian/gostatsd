@@ -5,7 +5,6 @@ import (
 	_ "expvar"
 	"fmt"
 	"math/rand"
-	"net/http"
 	_ "net/http/pprof"
 	"os"
 	"os/signal"
@@ -30,6 +29,8 @@ const (
 	ParamVerbose = "verbose"
 	// ParamProfile enables profiler endpoint on the specified address and port.
 	ParamProfile = "profile"
+	// ParamProfileName sets the name of this service instance
+	ParamProfileName = "profile-name"
 	// ParamJSON makes logger log in JSON format.
 	ParamJSON = "json"
 	// ParamConfigPath provides file with configuration.
@@ -60,12 +61,7 @@ func main() {
 }
 
 func run(v *viper.Viper) error {
-	profileAddr := v.GetString(ParamProfile)
-	if profileAddr != "" {
-		go func() {
-			logrus.Errorf("Profiler server failed: %v", http.ListenAndServe(profileAddr, nil))
-		}()
-	}
+	go runHTTPServer(v)
 
 	logrus.Info("Starting server")
 	s, err := constructServer(v)
@@ -143,7 +139,7 @@ func constructServer(v *viper.Viper) (*statsd.Server, error) {
 		},
 		DisabledSubTypes:          gostatsd.DisabledSubMetrics(v),
 		BadLineRateLimitPerSecond: rate.Limit(v.GetFloat64(statsd.ParamBadLinesPerMinute) / 60.0),
-		Viper: v,
+		Viper:                     v,
 	}, nil
 }
 
@@ -188,6 +184,7 @@ func setupConfiguration() (*viper.Viper, bool, error) {
 	cmd.Bool(ParamVerbose, false, "Verbose")
 	cmd.Bool(ParamJSON, false, "Log in JSON format")
 	cmd.String(ParamProfile, "", "Enable profiler endpoint on the specified address and port")
+	cmd.String(ParamProfileName, "", "Set the name of this service instance. Default: system hostname")
 	cmd.String(ParamConfigPath, "", "Path to the configuration file")
 
 	statsd.AddFlags(cmd)
