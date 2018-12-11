@@ -139,7 +139,7 @@ func uniqueTags(t1 gostatsd.Tags, t2 gostatsd.Tags) gostatsd.Tags {
 // uniqueTags returns the set of (t1 | t2) - seen.  It may modify the contents of t1, t2, and seen.
 func uniqueTagsWithSeen(seen map[string]struct{}, t1 gostatsd.Tags, t2 gostatsd.Tags) gostatsd.Tags {
 	last := len(t1)
-	for idx := 0 ; idx < last ; {
+	for idx := 0; idx < last; {
 		tag := t1[idx]
 		if _, ok := seen[tag]; ok {
 			last--
