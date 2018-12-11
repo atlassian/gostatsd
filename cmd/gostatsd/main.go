@@ -27,10 +27,10 @@ import (
 const (
 	// ParamVerbose enables verbose logging.
 	ParamVerbose = "verbose"
-	// ParamProfile enables profiler endpoint on the specified address and port.
-	ParamProfile = "profile"
-	// ParamProfileName sets the name of this service instance
-	ParamProfileName = "profile-name"
+	// ParamEndpoint enables profiler endpoint on the specified address and port.
+	ParamEndpoint = "endpoint"
+	// ParamName sets the name of this service instance
+	ParamName = "name"
 	// ParamJSON makes logger log in JSON format.
 	ParamJSON = "json"
 	// ParamConfigPath provides file with configuration.
@@ -183,8 +183,8 @@ func setupConfiguration() (*viper.Viper, bool, error) {
 	cmd.BoolVar(&version, ParamVersion, false, "Print the version and exit")
 	cmd.Bool(ParamVerbose, false, "Verbose")
 	cmd.Bool(ParamJSON, false, "Log in JSON format")
-	cmd.String(ParamProfile, "", "Enable profiler endpoint on the specified address and port")
-	cmd.String(ParamProfileName, "", "Set the name of this service instance. Default: system hostname")
+	cmd.String(ParamEndpoint, "", "Enable the HTTP endpoint on the specified address and port")
+	cmd.String(ParamName, "", "Set the name of this service instance. Default: system hostname")
 	cmd.String(ParamConfigPath, "", "Path to the configuration file")
 
 	statsd.AddFlags(cmd)

@@ -31,17 +31,18 @@ func (status *httpStatus) handle(responseWriter http.ResponseWriter, _r *http.Re
 
 func runHTTPServer(v *viper.Viper) {
 	var err error
-	address := v.GetString(ParamProfile)
-	name := v.GetString(ParamProfileName)
+	address := v.GetString(ParamEndpoint)
+	name := v.GetString(ParamName)
+
+	if address == "" {
+		return
+	}
 
 	if name == "" {
 		name, err = os.Hostname()
 		if err != nil {
 			logrus.Errorf("Could not get the system hostname: %v", err)
 		}
-	}
-	if address == "" {
-		address = "127.0.0.1:8126"
 	}
 
 	status := httpStatus{
