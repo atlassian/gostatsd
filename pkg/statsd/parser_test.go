@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/atlassian/gostatsd"
-	"github.com/atlassian/gostatsd/pkg/stats"
 
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/time/rate"
@@ -21,7 +20,7 @@ const fakeIP = gostatsd.IP("127.0.0.1")
 
 func newTestParser(ignoreHost bool) (*DatagramParser, *countingHandler) {
 	ch := &countingHandler{}
-	return NewDatagramParser(nil, "", ignoreHost, 0, ch, ch, stats.NewNullStatser(), rate.NewLimiter(0, 0)), ch
+	return NewDatagramParser(nil, "", ignoreHost, 0, ch, ch, rate.Limit(0)), ch
 }
 
 func TestParseEmptyDatagram(t *testing.T) {

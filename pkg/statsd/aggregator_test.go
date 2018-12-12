@@ -452,7 +452,7 @@ func TestReceive(t *testing.T) {
 			"baz,foo:bar": {Values: []float64{1}, Timestamp: nowNano, SampledCount: 1, Tags: gostatsd.Tags{"baz", "foo:bar"}},
 		},
 		"timer_sampling": map[string]gostatsd.Timer{
-			"": {Values: []float64{10,30,50}, Timestamp: nowNano, SampledCount: 30},
+			"": {Values: []float64{10, 30, 50}, Timestamp: nowNano, SampledCount: 30},
 		},
 	}
 	assrt.Equal(expectedTimers, ma.Timers)

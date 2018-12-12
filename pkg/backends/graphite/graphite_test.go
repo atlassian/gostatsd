@@ -25,9 +25,7 @@ func TestPreparePayload(t *testing.T) {
 	metrics := metrics()
 	input := []testData{
 		{
-			config: &Config{
-			// Use defaults
-			},
+			config: &Config{}, // Use defaults
 			result: []byte("stats_counts.stat1 5 1234\n" +
 				"stats.stat1 1.100000 1234\n" +
 				"stats.timers.t1.lower 0.000000 1234\n" +
