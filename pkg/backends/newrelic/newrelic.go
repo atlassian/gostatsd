@@ -202,12 +202,18 @@ func (n *Client) SendEvent(ctx context.Context, e *gostatsd.Event) error {
 
 		m := make(map[string][]map[string]string)
 		new_event := make(map[string]string)
-		new_event["summary"] = e.Title
-		m["events"] = append(m["events"], new_event)
 
+		/*
+		* NewRelic Events support a summary and a category rather than a
+		* summary and a title. There isn't a clear mapping between these fields
+		* either. Rathern than losing all of the information about an event,
+		* send just the title as the summary of the event.
+		 */
+		new_event["summary"] = e.Title
+
+		m["events"] = append(m["events"], new_event)
 		return n.post(ctx, buffer, m)
 	}
-	return nil
 }
 
 // Name returns the name of the backend.
