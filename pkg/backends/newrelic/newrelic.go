@@ -34,7 +34,8 @@ const (
 	// defaultMetricsPerBatch is the default number of metrics to send in a single batch.
 	defaultMetricsPerBatch = 1000
 	// maxResponseSize is the maximum response size we are willing to read.
-	maxResponseSize = 10 * 1024
+	maxResponseSize     = 10 * 1024
+	maxConcurrentEvents = 20
 
 	defaultEnableHttp2 = false
 )
@@ -75,6 +76,7 @@ type Client struct {
 	client                http.Client
 	metricsPerBatch       uint
 	metricsBufferSem      chan *bytes.Buffer // Two in one - a semaphore and a buffer pool
+	eventsBufferSem       chan *bytes.Buffer // Two in one - a semaphore and a buffer pool
 	now                   func() time.Time   // Returns current time. Useful for testing.
 
 	disabledSubtypes gostatsd.TimerSubtypes
@@ -189,6 +191,22 @@ func (n *Client) processMetrics(metrics *gostatsd.MetricMap, cb func(*timeSeries
 
 // SendEvent sends an event to New Relic.
 func (n *Client) SendEvent(ctx context.Context, e *gostatsd.Event) error {
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case buffer := <-n.eventsBufferSem:
+		defer func() {
+			buffer.Reset()
+			n.eventsBufferSem <- buffer
+		}()
+
+		m := make(map[string][]map[string]string)
+		new_event := make(map[string]string)
+		new_event["summary"] = e.Title
+		m["events"] = append(m["events"], new_event)
+
+		return n.post(ctx, buffer, m)
+	}
 	return nil
 }
 
@@ -381,6 +399,12 @@ func NewClient(address, eventType, flushType, tagPrefix,
 	for i := uint(0); i < maxRequests; i++ {
 		metricsBufferSem <- &bytes.Buffer{}
 	}
+
+	eventsBufferSem := make(chan *bytes.Buffer, maxConcurrentEvents)
+	for i := uint(0); i < maxConcurrentEvents; i++ {
+		eventsBufferSem <- &bytes.Buffer{}
+	}
+
 	return &Client{
 		address:               address,
 		eventType:             eventType,
@@ -406,6 +430,7 @@ func NewClient(address, eventType, flushType, tagPrefix,
 		},
 		metricsPerBatch:  metricsPerBatch,
 		metricsBufferSem: metricsBufferSem,
+		eventsBufferSem:  eventsBufferSem,
 		now:              time.Now,
 		flushInterval:    flushInterval,
 		disabledSubtypes: disabled,
