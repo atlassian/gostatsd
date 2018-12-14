@@ -94,7 +94,7 @@ func newMetricSet(n *Client, f *flush, metricName, Type string, Value float64, t
 	//https://docs.newrelic.com/docs/insights/insights-data-sources/custom-data/send-custom-events-event-api#instrument
 	//https://github.com/newrelic/infra-integrations-sdk/blob/master/docs/v2tov3.md#v2-json-full-sample
 	switch n.flushType {
-	case "insights":
+	case insightsFlushType:
 		metricSet["eventType"] = n.eventType
 	default:
 		metricSet["event_type"] = n.eventType

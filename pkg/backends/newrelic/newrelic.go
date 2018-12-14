@@ -39,6 +39,7 @@ const (
 	maxResponseSize = 10 * 1024
 
 	defaultEnableHttp2 = false
+	insightsFlushType  = "insights"
 )
 
 var (
@@ -238,7 +239,7 @@ func (n *Client) constructPost(ctx context.Context, buffer *bytes.Buffer, data i
 
 	var mJSON []byte
 	var mErr error
-	if n.flushType == "insights" {
+	if n.flushType == insightsFlushType {
 		NRPayload := data.(*timeSeries).Metrics
 		mJSON, mErr = json.Marshal(NRPayload)
 	} else {
@@ -258,7 +259,7 @@ func (n *Client) constructPost(ctx context.Context, buffer *bytes.Buffer, data i
 		}
 
 		//Insights Event API requires gzip or deflate compression
-		if n.flushType == "insights" && n.apiKey != "" {
+		if n.flushType == insightsFlushType && n.apiKey != "" {
 			headers["X-Insert-Key"] = n.apiKey
 			headers["Content-Encoding"] = "deflate"
 			w := zlib.NewWriter(&b)
@@ -301,7 +302,7 @@ func NewClientFromViper(v *viper.Viper) (gostatsd.Backend, error) {
 	nr.SetDefault("address", "http://localhost:8001/v1/data")
 	nr.SetDefault("event-type", "GoStatsD")
 	if strings.Contains(nr.GetString("address"), "insights-collector.newrelic.com") {
-		nr.SetDefault("flush-type", "insights")
+		nr.SetDefault("flush-type", insightsFlushType)
 	} else {
 		nr.SetDefault("flush-type", "infra")
 	}
@@ -386,7 +387,7 @@ func NewClient(address, eventType, flushType, apiKey, tagPrefix,
 	if maxRequestElapsedTime <= 0 {
 		return nil, fmt.Errorf("[%s] maxRequestElapsedTime must be positive", BackendName)
 	}
-	if flushType == "insights" && apiKey == "" {
+	if flushType == insightsFlushType && apiKey == "" {
 		return nil, fmt.Errorf("[%s] api-key is required to flush to insights", BackendName)
 	}
 
