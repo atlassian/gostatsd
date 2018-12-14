@@ -239,10 +239,11 @@ func (n *Client) constructPost(ctx context.Context, buffer *bytes.Buffer, data i
 
 	var mJSON []byte
 	var mErr error
-	if n.flushType == insightsFlushType {
+	switch n.flushType {
+	case insightsFlushType:
 		NRPayload := data.(*timeSeries).Metrics
 		mJSON, mErr = json.Marshal(NRPayload)
-	} else {
+	default:
 		NRPayload := newInfraPayload(data)
 		mJSON, mErr = json.Marshal(NRPayload)
 	}
@@ -252,7 +253,6 @@ func (n *Client) constructPost(ctx context.Context, buffer *bytes.Buffer, data i
 	}
 
 	return func() error {
-		var b bytes.Buffer
 		headers := map[string]string{
 			"Content-Type": "application/json",
 			"User-Agent":   n.userAgent,
@@ -262,6 +262,7 @@ func (n *Client) constructPost(ctx context.Context, buffer *bytes.Buffer, data i
 		if n.flushType == insightsFlushType && n.apiKey != "" {
 			headers["X-Insert-Key"] = n.apiKey
 			headers["Content-Encoding"] = "deflate"
+			var b bytes.Buffer
 			w := zlib.NewWriter(&b)
 			w.Write(mJSON)
 			w.Close()
