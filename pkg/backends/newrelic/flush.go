@@ -85,9 +85,20 @@ func (f *flush) finish() {
 func newMetricSet(n *Client, f *flush, metricName, Type string, Value float64, tags gostatsd.Tags, timestamp gostatsd.Nanotime) map[string]interface{} {
 	metricSet := map[string]interface{}{}
 	metricSet["interval"] = f.flushIntervalSec
-	metricSet["timestamp"] = timestamp
-	metricSet["event_type"] = n.eventType
 	metricSet["integration_version"] = integrationVersion
+	//GoStatsD provides the timestamp in Nanotime, New Relic requires seconds or milliseconds, see under "Limits and restricted characters"
+	//https://docs.newrelic.com/docs/insights/insights-data-sources/custom-data/send-custom-events-event-api#instrument
+	metricSet["timestamp"] = timestamp / 1e9
+
+	//New Relic Insights Event API, expects the "Event Type" to be in camel case format as opposed to an underscore with the Infrastructure Payload
+	//https://docs.newrelic.com/docs/insights/insights-data-sources/custom-data/send-custom-events-event-api#instrument
+	//https://github.com/newrelic/infra-integrations-sdk/blob/master/docs/v2tov3.md#v2-json-full-sample
+	switch n.flushType {
+	case "insights":
+		metricSet["eventType"] = n.eventType
+	default:
+		metricSet["event_type"] = n.eventType
+	}
 
 	metricSet[n.metricType] = Type
 	metricSet[n.metricName] = metricName

@@ -2,6 +2,7 @@ package newrelic
 
 import (
 	"bytes"
+	"compress/zlib"
 	"context"
 	"crypto/tls"
 	"encoding/json"
@@ -11,6 +12,7 @@ import (
 	"net"
 	"net/http"
 	"runtime"
+	"strings"
 	"sync/atomic"
 	"time"
 
@@ -26,7 +28,7 @@ const (
 	// BackendName is the name of this backend.
 	BackendName                  = "newrelic"
 	integrationName              = "com.newrelic.gostatsd"
-	integrationVersion           = "2.0.1"
+	integrationVersion           = "2.1.0"
 	protocolVersion              = "2"
 	defaultUserAgent             = "gostatsd"
 	defaultMaxRequestElapsedTime = 15 * time.Second
@@ -50,6 +52,7 @@ type Client struct {
 	address   string
 	eventType string
 	flushType string
+	apiKey    string
 	tagPrefix string
 	//Options to define your own field names to support other StatsD implementations
 	metricName      string
@@ -81,8 +84,8 @@ type Client struct {
 	flushInterval    time.Duration
 }
 
-// NewRelicPayload struct
-type NewRelicPayload struct {
+// NewRelicInfraPayload struct
+type NewRelicInfraPayload struct {
 	Name               string        `json:"name"`
 	ProtocolVersion    string        `json:"protocol_version"`
 	IntegrationVersion string        `json:"integration_version"`
@@ -133,7 +136,6 @@ func (n *Client) SendMetricsAsync(ctx context.Context, metrics *gostatsd.MetricM
 	}()
 }
 
-// RunMetrics x
 func (n *Client) RunMetrics(ctx context.Context, statser stats.Statser) {
 	statser = statser.WithTags(gostatsd.Tags{"backend:newrelic"})
 
@@ -234,19 +236,37 @@ func (n *Client) post(ctx context.Context, buffer *bytes.Buffer, data interface{
 
 func (n *Client) constructPost(ctx context.Context, buffer *bytes.Buffer, data interface{}) (func() error /*doPost*/, error) {
 
-	NRPayload := newInfraPayload()
-	NRPayload.Data = append(NRPayload.Data, data)
-	mJSON, err := json.Marshal(NRPayload)
+	var mJSON []byte
+	var mErr error
+	if n.flushType == "insights" {
+		NRPayload := data.(*timeSeries).Metrics
+		mJSON, mErr = json.Marshal(NRPayload)
+	} else {
+		NRPayload := newInfraPayload(data)
+		mJSON, mErr = json.Marshal(NRPayload)
+	}
 
-	if err != nil {
-		return nil, fmt.Errorf("[%s] unable to marshal: %v", BackendName, err)
+	if mErr != nil {
+		return nil, fmt.Errorf("[%s] unable to marshal: %v", BackendName, mErr)
 	}
 
 	return func() error {
+		var b bytes.Buffer
 		headers := map[string]string{
 			"Content-Type": "application/json",
 			"User-Agent":   n.userAgent,
 		}
+
+		//Insights Event API requires gzip or deflate compression
+		if n.flushType == "insights" && n.apiKey != "" {
+			headers["X-Insert-Key"] = n.apiKey
+			headers["Content-Encoding"] = "deflate"
+			w := zlib.NewWriter(&b)
+			w.Write(mJSON)
+			w.Close()
+			mJSON = b.Bytes()
+		}
+
 		req, err := http.NewRequest("POST", n.address, bytes.NewBuffer(mJSON))
 		if err != nil {
 			return fmt.Errorf("unable to create http.Request: %v", err)
@@ -280,7 +300,12 @@ func NewClientFromViper(v *viper.Viper) (gostatsd.Backend, error) {
 	nr := getSubViper(v, "newrelic")
 	nr.SetDefault("address", "http://localhost:8001/v1/data")
 	nr.SetDefault("event-type", "GoStatsD")
-	nr.SetDefault("flush-type", "http")
+	if strings.Contains(nr.GetString("address"), "insights-collector.newrelic.com") {
+		nr.SetDefault("flush-type", "insights")
+	} else {
+		nr.SetDefault("flush-type", "infra")
+	}
+	nr.SetDefault("api-key", "")
 	nr.SetDefault("tag-prefix", "")
 	nr.SetDefault("metric-name", "name")
 	nr.SetDefault("metric-type", "type")
@@ -303,10 +328,23 @@ func NewClientFromViper(v *viper.Viper) (gostatsd.Backend, error) {
 	nr.SetDefault("enable-http2", defaultEnableHttp2)
 	nr.SetDefault("user-agent", defaultUserAgent)
 
+	//New Relic Config Defaults & Recommendations
+	v.SetDefault("statser-type", "null")
+	v.SetDefault("flush-interval", "10s")
+	if v.GetDuration("flush-interval").Seconds() < 10 {
+		log.Warnf("[%s] flush-interval below 10s, recommended to be >= 10s", BackendName)
+	} else if v.GetDuration("flush-interval").Seconds() == 10 {
+		log.Infof("[%s] flush-interval default 10s", BackendName)
+	}
+	if v.GetString("statser-type") == "null" {
+		log.Infof("[%s] internal metrics OFF, to enable set 'statser-type' to StatserInternal", BackendName)
+	}
+
 	return NewClient(
 		nr.GetString("address"),
 		nr.GetString("event-type"),
 		nr.GetString("flush-type"),
+		nr.GetString("api-key"),
 		nr.GetString("tag-prefix"),
 		nr.GetString("metric-name"),
 		nr.GetString("metric-type"),
@@ -333,7 +371,7 @@ func NewClientFromViper(v *viper.Viper) (gostatsd.Backend, error) {
 }
 
 // NewClient returns a new New Relic client.
-func NewClient(address, eventType, flushType, tagPrefix,
+func NewClient(address, eventType, flushType, apiKey, tagPrefix,
 	metricName, metricType, metricPerSecond, metricValue,
 	timerMin, timerMax, timerCount, timerMean, timerMedian, timerStdDev, timerSum, timerSumSquares,
 	userAgent, network string, metricsPerBatch, maxRequests uint, enableHttp2 bool,
@@ -347,6 +385,9 @@ func NewClient(address, eventType, flushType, tagPrefix,
 	}
 	if maxRequestElapsedTime <= 0 {
 		return nil, fmt.Errorf("[%s] maxRequestElapsedTime must be positive", BackendName)
+	}
+	if flushType == "insights" && apiKey == "" {
+		return nil, fmt.Errorf("[%s] api-key is required to flush to insights", BackendName)
 	}
 
 	log.Infof("[%s] maxRequestElapsedTime=%s maxRequests=%d clientTimeout=%s metricsPerBatch=%d", BackendName, maxRequestElapsedTime, maxRequests, clientTimeout, metricsPerBatch)
@@ -385,6 +426,7 @@ func NewClient(address, eventType, flushType, tagPrefix,
 		address:               address,
 		eventType:             eventType,
 		flushType:             flushType,
+		apiKey:                apiKey,
 		tagPrefix:             tagPrefix,
 		metricName:            metricName,
 		metricType:            metricType,
@@ -420,10 +462,13 @@ func getSubViper(v *viper.Viper, key string) *viper.Viper {
 	return n
 }
 
-func newInfraPayload() NewRelicPayload {
-	return NewRelicPayload{
+func newInfraPayload(data interface{}) NewRelicInfraPayload {
+	return NewRelicInfraPayload{
 		Name:               integrationName,
 		ProtocolVersion:    protocolVersion,
 		IntegrationVersion: integrationVersion,
+		Data: []interface{}{
+			data,
+		},
 	}
 }
