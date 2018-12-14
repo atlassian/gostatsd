@@ -332,13 +332,8 @@ func NewClientFromViper(v *viper.Viper) (gostatsd.Backend, error) {
 	//New Relic Config Defaults & Recommendations
 	v.SetDefault("statser-type", "null")
 	v.SetDefault("flush-interval", "10s")
-	if v.GetDuration("flush-interval").Seconds() < 10 {
-		log.Warnf("[%s] flush-interval below 10s, recommended to be >= 10s", BackendName)
-	} else if v.GetDuration("flush-interval").Seconds() == 10 {
-		log.Infof("[%s] flush-interval default 10s", BackendName)
-	}
 	if v.GetString("statser-type") == "null" {
-		log.Infof("[%s] internal metrics OFF, to enable set 'statser-type' to StatserInternal", BackendName)
+		log.Infof("[%s] internal metrics OFF, to enable set 'statser-type' to 'logging' or 'internal'", BackendName)
 	}
 
 	return NewClient(
@@ -389,6 +384,11 @@ func NewClient(address, eventType, flushType, apiKey, tagPrefix,
 	}
 	if flushType == insightsFlushType && apiKey == "" {
 		return nil, fmt.Errorf("[%s] api-key is required to flush to insights", BackendName)
+	}
+	if flushInterval.Seconds() < 10 {
+		log.Warnf("[%s] flush-interval below 10s, recommended to be >= 10s", BackendName)
+	} else {
+		log.Infof("[%s] flush-interval default 10s", BackendName)
 	}
 
 	log.Infof("[%s] maxRequestElapsedTime=%s maxRequests=%d clientTimeout=%s metricsPerBatch=%d", BackendName, maxRequestElapsedTime, maxRequests, clientTimeout, metricsPerBatch)
