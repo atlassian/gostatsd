@@ -63,8 +63,7 @@ type CloudHandler struct {
 
 	cacheOpts       CacheOptions
 	cloud           gostatsd.CloudProvider // Cloud provider interface
-	metrics         MetricHandler
-	events          EventHandler
+	handler         gostatsd.PipelineHandler
 	limiter         *rate.Limiter
 	metricSource    chan *gostatsd.Metric
 	eventSource     chan *gostatsd.Event
@@ -82,12 +81,11 @@ type CloudHandler struct {
 }
 
 // NewCloudHandler initialises a new cloud handler.
-func NewCloudHandler(cloud gostatsd.CloudProvider, metrics MetricHandler, events EventHandler, logger logrus.FieldLogger, limiter *rate.Limiter, cacheOptions *CacheOptions) *CloudHandler {
+func NewCloudHandler(cloud gostatsd.CloudProvider, handler gostatsd.PipelineHandler, logger logrus.FieldLogger, limiter *rate.Limiter, cacheOptions *CacheOptions) *CloudHandler {
 	return &CloudHandler{
 		cacheOpts:       *cacheOptions,
 		cloud:           cloud,
-		metrics:         metrics,
-		events:          events,
+		handler:         handler,
 		limiter:         limiter,
 		metricSource:    make(chan *gostatsd.Metric),
 		eventSource:     make(chan *gostatsd.Event),
@@ -95,7 +93,7 @@ func NewCloudHandler(cloud gostatsd.CloudProvider, metrics MetricHandler, events
 		awaitingEvents:  make(map[gostatsd.IP][]*gostatsd.Event),
 		awaitingMetrics: make(map[gostatsd.IP][]*gostatsd.Metric),
 		cache:           make(map[gostatsd.IP]*instanceHolder),
-		estimatedTags:   metrics.EstimatedTags() + cloud.EstimatedTags(),
+		estimatedTags:   handler.EstimatedTags() + cloud.EstimatedTags(),
 		logger:          logger,
 	}
 }
@@ -108,7 +106,7 @@ func (ch *CloudHandler) EstimatedTags() int {
 func (ch *CloudHandler) DispatchMetric(ctx context.Context, m *gostatsd.Metric) {
 	if ch.updateTagsAndHostname(m.SourceIP, &m.Tags, &m.Hostname) {
 		atomic.AddUint64(&ch.statsCacheHit, 1)
-		ch.metrics.DispatchMetric(ctx, m)
+		ch.handler.DispatchMetric(ctx, m)
 		return
 	}
 
@@ -121,7 +119,7 @@ func (ch *CloudHandler) DispatchMetric(ctx context.Context, m *gostatsd.Metric) 
 func (ch *CloudHandler) DispatchEvent(ctx context.Context, e *gostatsd.Event) {
 	if ch.updateTagsAndHostname(e.SourceIP, &e.Tags, &e.Hostname) {
 		atomic.AddUint64(&ch.statsCacheHit, 1)
-		ch.events.DispatchEvent(ctx, e)
+		ch.handler.DispatchEvent(ctx, e)
 		return
 	}
 	ch.wg.Add(1) // Increment before sending to the channel
@@ -135,7 +133,7 @@ func (ch *CloudHandler) DispatchEvent(ctx context.Context, e *gostatsd.Event) {
 // WaitForEvents waits for all event-dispatching goroutines to finish.
 func (ch *CloudHandler) WaitForEvents() {
 	ch.wg.Wait()
-	ch.events.WaitForEvents()
+	ch.handler.WaitForEvents()
 }
 
 func (ch *CloudHandler) RunMetrics(ctx context.Context, statser stats.Statser) {
@@ -362,7 +360,7 @@ func (ch *CloudHandler) handleMetric(ctx context.Context, m *gostatsd.Metric) {
 func (ch *CloudHandler) updateAndDispatchMetrics(ctx context.Context, instance *gostatsd.Instance, metrics ...*gostatsd.Metric) {
 	for _, m := range metrics {
 		updateInplace(&m.Tags, &m.Hostname, instance)
-		ch.metrics.DispatchMetric(ctx, m)
+		ch.handler.DispatchMetric(ctx, m)
 	}
 }
 
@@ -395,7 +393,7 @@ func (ch *CloudHandler) updateAndDispatchEvents(ctx context.Context, instance *g
 	for _, e := range events {
 		updateInplace(&e.Tags, &e.Hostname, instance)
 		dispatched++
-		ch.events.DispatchEvent(ctx, e)
+		ch.handler.DispatchEvent(ctx, e)
 	}
 }
 

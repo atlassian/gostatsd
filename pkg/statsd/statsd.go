@@ -83,8 +83,7 @@ func socketFactory(metricsAddr string, connPerReader bool) SocketFactory {
 // Listening socket is created using sf.
 func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) error {
 	var runnables []gostatsd.Runnable
-	var metrics MetricHandler
-	var events EventHandler
+	var handler gostatsd.PipelineHandler
 
 	for _, backend := range s.Backends {
 		if r, ok := backend.(gostatsd.Runner); ok {
@@ -100,22 +99,18 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 	}
 
 	backendHandler := NewBackendHandler(s.Backends, uint(s.MaxConcurrentEvents), s.MaxWorkers, s.MaxQueueSize, &factory)
-	metrics = backendHandler
-	events = backendHandler
+	handler = backendHandler
 	runnables = append(runnables, backendHandler.Run)
 
 	// Create the tag processor
-	th := NewTagHandlerFromViper(s.Viper, metrics, events, s.DefaultTags)
-	metrics = th
-	events = th
+	handler = NewTagHandlerFromViper(s.Viper, handler, s.DefaultTags)
 
 	// Create the cloud handler
 	ip := gostatsd.UnknownIP
 	if s.CloudProvider != nil {
-		cloudHandler := NewCloudHandler(s.CloudProvider, metrics, events, log.StandardLogger(), s.Limiter, &s.CacheOptions)
-		metrics = cloudHandler
-		events = cloudHandler
+		cloudHandler := NewCloudHandler(s.CloudProvider, handler, log.StandardLogger(), s.Limiter, &s.CacheOptions)
 		runnables = append(runnables, cloudHandler.Run)
+		handler = cloudHandler
 		selfIP, err := s.CloudProvider.SelfIP()
 		if err != nil {
 			log.Warnf("Failed to get self ip: %v", err)
@@ -134,7 +129,7 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 	datagrams := make(chan []*Datagram)
 
 	// Create the Parser
-	parser := NewDatagramParser(datagrams, s.Namespace, s.IgnoreHost, s.EstimatedTags, metrics, events, s.BadLineRateLimitPerSecond)
+	parser := NewDatagramParser(datagrams, s.Namespace, s.IgnoreHost, s.EstimatedTags, handler, s.BadLineRateLimitPerSecond)
 	runnables = append(runnables, parser.RunMetrics)
 	for i := 0; i < s.MaxParsers; i++ {
 		runnables = append(runnables, parser.Run)
@@ -151,7 +146,7 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 
 	// Create the Statser
 	hostname := getHost()
-	statser := s.createStatser(hostname, metrics, events)
+	statser := s.createStatser(hostname, handler)
 	if runner, ok := statser.(gostatsd.Runner); ok {
 		runnables = append(runnables, runner.Run)
 	}
@@ -166,15 +161,15 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 
 	// Send events on start and on stop
 	// TODO: Push these in to statser
-	defer sendStopEvent(events, ip, hostname)
-	sendStartEvent(runCtx, events, ip, hostname)
+	defer sendStopEvent(handler, ip, hostname)
+	sendStartEvent(runCtx, handler, ip, hostname)
 
 	// Listen until done
 	<-ctx.Done()
 	return ctx.Err()
 }
 
-func (s *Server) createStatser(hostname string, metrics MetricHandler, events EventHandler) stats.Statser {
+func (s *Server) createStatser(hostname string, handler gostatsd.PipelineHandler) stats.Statser {
 	switch s.StatserType {
 	case StatserNull:
 		return stats.NewNullStatser()
@@ -189,12 +184,12 @@ func (s *Server) createStatser(hostname string, metrics MetricHandler, events Ev
 				namespace = s.InternalNamespace
 			}
 		}
-		return stats.NewInternalStatser(s.InternalTags, namespace, hostname, metrics, events)
+		return stats.NewInternalStatser(s.InternalTags, namespace, hostname, handler)
 	}
 }
 
-func sendStartEvent(ctx context.Context, events EventHandler, selfIP gostatsd.IP, hostname string) {
-	events.DispatchEvent(ctx, &gostatsd.Event{
+func sendStartEvent(ctx context.Context, handler gostatsd.PipelineHandler, selfIP gostatsd.IP, hostname string) {
+	handler.DispatchEvent(ctx, &gostatsd.Event{
 		Title:        "Gostatsd started",
 		Text:         "Gostatsd started",
 		DateHappened: time.Now().Unix(),
@@ -204,10 +199,10 @@ func sendStartEvent(ctx context.Context, events EventHandler, selfIP gostatsd.IP
 	})
 }
 
-func sendStopEvent(events EventHandler, selfIP gostatsd.IP, hostname string) {
+func sendStopEvent(handler gostatsd.PipelineHandler, selfIP gostatsd.IP, hostname string) {
 	ctx, cancelFunc := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancelFunc()
-	events.DispatchEvent(ctx, &gostatsd.Event{
+	handler.DispatchEvent(ctx, &gostatsd.Event{
 		Title:        "Gostatsd stopped",
 		Text:         "Gostatsd stopped",
 		DateHappened: time.Now().Unix(),
@@ -215,7 +210,7 @@ func sendStopEvent(events EventHandler, selfIP gostatsd.IP, hostname string) {
 		SourceIP:     selfIP,
 		Priority:     gostatsd.PriLow,
 	})
-	events.WaitForEvents()
+	handler.WaitForEvents()
 }
 
 func getHost() string {

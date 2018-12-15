@@ -26,8 +26,7 @@ type DatagramParser struct {
 	eventsReceived  uint64
 
 	ignoreHost bool
-	metrics    MetricHandler
-	events     EventHandler
+	handler    gostatsd.PipelineHandler
 	namespace  string // Namespace to prefix all metrics
 
 	metricPool *pool.MetricPool
@@ -38,7 +37,7 @@ type DatagramParser struct {
 }
 
 // NewDatagramParser initialises a new DatagramParser.
-func NewDatagramParser(in <-chan []*Datagram, ns string, ignoreHost bool, estimatedTags int, metrics MetricHandler, events EventHandler, badLineRateLimitPerSecond rate.Limit) *DatagramParser {
+func NewDatagramParser(in <-chan []*Datagram, ns string, ignoreHost bool, estimatedTags int, handler gostatsd.PipelineHandler, badLineRateLimitPerSecond rate.Limit) *DatagramParser {
 	limiter := &rate.Limiter{}
 	if badLineRateLimitPerSecond > 0 {
 		limiter = rate.NewLimiter(badLineRateLimitPerSecond, 1)
@@ -47,10 +46,9 @@ func NewDatagramParser(in <-chan []*Datagram, ns string, ignoreHost bool, estima
 	return &DatagramParser{
 		in:             in,
 		ignoreHost:     ignoreHost,
-		metrics:        metrics,
-		events:         events,
+		handler:        handler,
 		namespace:      ns,
-		metricPool:     pool.NewMetricPool(estimatedTags + metrics.EstimatedTags()),
+		metricPool:     pool.NewMetricPool(estimatedTags + handler.EstimatedTags()),
 		badLineLimiter: limiter,
 	}
 }
@@ -143,14 +141,14 @@ func (dp *DatagramParser) handleDatagram(ctx context.Context, ip gostatsd.IP, ms
 			} else {
 				metric.SourceIP = ip
 			}
-			dp.metrics.DispatchMetric(ctx, metric)
+			dp.handler.DispatchMetric(ctx, metric)
 		} else if event != nil {
 			numEvents++
 			event.SourceIP = ip // Always keep the source ip for events
 			if event.DateHappened == 0 {
 				event.DateHappened = time.Now().Unix()
 			}
-			dp.events.DispatchEvent(ctx, event)
+			dp.handler.DispatchEvent(ctx, event)
 		} else {
 			// Should never happen.
 			log.Panic("Both event and metric are nil")

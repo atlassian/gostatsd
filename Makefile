@@ -38,6 +38,8 @@ build-race: fmt
 build-all:
 	go install -v $$(glide nv)
 
+test-all: fmt test test-race bench bench-race check cover
+
 fmt:
 	gofmt -w=true -s $$(find . -type f -name '*.go' -not -path "./vendor/*")
 	goimports -w=true -d $$(find . -type f -name '*.go' -not -path "./vendor/*")
