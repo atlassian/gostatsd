@@ -86,15 +86,15 @@ func newMetricSet(n *Client, f *flush, metricName, Type string, Value float64, t
 	metricSet := map[string]interface{}{}
 	metricSet["interval"] = f.flushIntervalSec
 	metricSet["integration_version"] = integrationVersion
-	//GoStatsD provides the timestamp in Nanotime, New Relic requires seconds or milliseconds, see under "Limits and restricted characters"
-	//https://docs.newrelic.com/docs/insights/insights-data-sources/custom-data/send-custom-events-event-api#instrument
+	// GoStatsD provides the timestamp in Nanotime, New Relic requires seconds or milliseconds, see under "Limits and restricted characters"
+	// https://docs.newrelic.com/docs/insights/insights-data-sources/custom-data/send-custom-events-event-api#instrument
 	metricSet["timestamp"] = timestamp / 1e9
 
-	//New Relic Insights Event API, expects the "Event Type" to be in camel case format as opposed to an underscore with the Infrastructure Payload
-	//https://docs.newrelic.com/docs/insights/insights-data-sources/custom-data/send-custom-events-event-api#instrument
-	//https://github.com/newrelic/infra-integrations-sdk/blob/master/docs/v2tov3.md#v2-json-full-sample
+	// New Relic Insights Event API, expects the "Event Type" to be in camel case format as opposed to an underscore with the Infrastructure Payload
+	// https://docs.newrelic.com/docs/insights/insights-data-sources/custom-data/send-custom-events-event-api#instrument
+	// https://github.com/newrelic/infra-integrations-sdk/blob/master/docs/v2tov3.md#v2-json-full-sample
 	switch n.flushType {
-	case insightsFlushType:
+	case flushTypeInsights:
 		metricSet["eventType"] = n.eventType
 	default:
 		metricSet["event_type"] = n.eventType

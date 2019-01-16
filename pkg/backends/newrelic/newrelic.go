@@ -39,10 +39,14 @@ const (
 	maxResponseSize = 10 * 1024
 
 	defaultEnableHttp2 = false
-	insightsFlushType  = "insights"
+	flushTypeInsights  = "insights"
+	flushTypeInfra     = "infra"
 )
 
 var (
+	// Available flushTypes
+	flushTypes = []string{flushTypeInsights, flushTypeInfra}
+
 	// defaultMaxRequests is the number of parallel outgoing requests to New Relic.  As this mixes both
 	// CPU (JSON encoding, TLS) and network bound operations, balancing may require some experimentation.
 	defaultMaxRequests = uint(2 * runtime.NumCPU())
@@ -55,7 +59,7 @@ type Client struct {
 	flushType string
 	apiKey    string
 	tagPrefix string
-	//Options to define your own field names to support other StatsD implementations
+	// Options to define your own field names to support other StatsD implementations
 	metricName      string
 	metricType      string
 	metricPerSecond string
@@ -95,6 +99,7 @@ type NewRelicInfraPayload struct {
 
 // SendMetricsAsync flushes the metrics to New Relic, preparing payload synchronously but doing the send asynchronously.
 func (n *Client) SendMetricsAsync(ctx context.Context, metrics *gostatsd.MetricMap, cb gostatsd.SendCallback) {
+
 	counter := 0
 	results := make(chan error)
 	n.processMetrics(metrics, func(ts *timeSeries) {
@@ -240,7 +245,7 @@ func (n *Client) constructPost(ctx context.Context, buffer *bytes.Buffer, data i
 	var mJSON []byte
 	var mErr error
 	switch n.flushType {
-	case insightsFlushType:
+	case flushTypeInsights:
 		NRPayload := data.(*timeSeries).Metrics
 		mJSON, mErr = json.Marshal(NRPayload)
 	default:
@@ -258,8 +263,8 @@ func (n *Client) constructPost(ctx context.Context, buffer *bytes.Buffer, data i
 			"User-Agent":   n.userAgent,
 		}
 
-		//Insights Event API requires gzip or deflate compression
-		if n.flushType == insightsFlushType && n.apiKey != "" {
+		// Insights Event API requires gzip or deflate compression
+		if n.flushType == flushTypeInsights && n.apiKey != "" {
 			headers["X-Insert-Key"] = n.apiKey
 			headers["Content-Encoding"] = "deflate"
 			var b bytes.Buffer
@@ -303,9 +308,9 @@ func NewClientFromViper(v *viper.Viper) (gostatsd.Backend, error) {
 	nr.SetDefault("address", "http://localhost:8001/v1/data")
 	nr.SetDefault("event-type", "GoStatsD")
 	if strings.Contains(nr.GetString("address"), "insights-collector.newrelic.com") {
-		nr.SetDefault("flush-type", insightsFlushType)
+		nr.SetDefault("flush-type", flushTypeInsights)
 	} else {
-		nr.SetDefault("flush-type", "infra")
+		nr.SetDefault("flush-type", flushTypeInfra)
 	}
 	nr.SetDefault("api-key", "")
 	nr.SetDefault("tag-prefix", "")
@@ -330,7 +335,7 @@ func NewClientFromViper(v *viper.Viper) (gostatsd.Backend, error) {
 	nr.SetDefault("enable-http2", defaultEnableHttp2)
 	nr.SetDefault("user-agent", defaultUserAgent)
 
-	//New Relic Config Defaults & Recommendations
+	// New Relic Config Defaults & Recommendations
 	v.SetDefault("statser-type", "null")
 	v.SetDefault("flush-interval", "10s")
 	if v.GetString("statser-type") == "null" {
@@ -383,13 +388,19 @@ func NewClient(address, eventType, flushType, apiKey, tagPrefix,
 	if maxRequestElapsedTime <= 0 {
 		return nil, fmt.Errorf("[%s] maxRequestElapsedTime must be positive", BackendName)
 	}
-	if flushType == insightsFlushType && apiKey == "" {
+	if !contains(flushTypes, flushType) {
+		return nil, fmt.Errorf("[%s] flushType (%s) is not supported", BackendName, flushType)
+	}
+	if flushType == flushTypeInsights && apiKey == "" {
 		return nil, fmt.Errorf("[%s] api-key is required to flush to insights", BackendName)
 	}
+	if flushType != flushTypeInsights && apiKey != "" {
+		log.Warnf("[%s] api-key is not required", BackendName)
+	}
 	if flushInterval.Seconds() < 10 {
-		log.Warnf("[%s] flush-interval below 10s, recommended to be >= 10s", BackendName)
+		log.Warnf("[%s] flushInterval (%s) is recommended to be >= 10s", BackendName, flushInterval)
 	} else {
-		log.Infof("[%s] flush-interval default 10s", BackendName)
+		log.Infof("[%s] flushInterval default (%s)", BackendName, flushInterval)
 	}
 
 	log.Infof("[%s] maxRequestElapsedTime=%s maxRequests=%d clientTimeout=%s metricsPerBatch=%d", BackendName, maxRequestElapsedTime, maxRequests, clientTimeout, metricsPerBatch)
@@ -473,4 +484,14 @@ func newInfraPayload(data interface{}) NewRelicInfraPayload {
 			data,
 		},
 	}
+}
+
+// contains checks if item is within slice
+func contains(s []string, e string) bool {
+	for _, a := range s {
+		if a == e {
+			return true
+		}
+	}
+	return false
 }
