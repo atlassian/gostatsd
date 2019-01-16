@@ -35,7 +35,7 @@ func TestRetries(t *testing.T) {
 	ts := httptest.NewServer(mux)
 	defer ts.Close()
 
-	client, err := NewClient(ts.URL+"/v1/data", "GoStatsD", "http", "", "", "metric_name", "metric_type",
+	client, err := NewClient(ts.URL+"/v1/data", "GoStatsD", "", "", "", "metric_name", "metric_type",
 		"metric_per_second", "metric_value", "samples_min", "samples_max", "samples_count",
 		"samples_mean", "samples_median", "samples_std_dev", "samples_sum", "samples_sum_squares", "agent", "tcp",
 		defaultMetricsPerBatch, defaultMaxRequests, false, 1*time.Second, 2*time.Second, 1*time.Second, gostatsd.TimerSubtypes{})
@@ -68,7 +68,7 @@ func TestSendMetricsInMultipleBatches(t *testing.T) {
 	ts := httptest.NewServer(mux)
 	defer ts.Close()
 
-	client, err := NewClient(ts.URL+"/v1/data", "GoStatsD", "http", "", "", "metric_name", "metric_type",
+	client, err := NewClient(ts.URL+"/v1/data", "GoStatsD", "", "", "", "metric_name", "metric_type",
 		"metric_per_second", "metric_value", "samples_min", "samples_max", "samples_count",
 		"samples_mean", "samples_median", "samples_std_dev", "samples_sum", "samples_sum_squares", "agent", "tcp",
 		1, defaultMaxRequests, false, 1*time.Second, 2*time.Second, 1*time.Second, gostatsd.TimerSubtypes{})
@@ -103,7 +103,7 @@ func TestSendMetrics(t *testing.T) {
 	ts := httptest.NewServer(mux)
 	defer ts.Close()
 
-	client, err := NewClient(ts.URL+"/v1/data", "GoStatsD", "http", "", "", "metric_name", "metric_type",
+	client, err := NewClient(ts.URL+"/v1/data", "GoStatsD", "", "", "", "metric_name", "metric_type",
 		"metric_per_second", "metric_value", "samples_min", "samples_max", "samples_count",
 		"samples_mean", "samples_median", "samples_std_dev", "samples_sum", "samples_sum_squares", "agent", "tcp",
 		defaultMetricsPerBatch, defaultMaxRequests, false, 1*time.Second, 2*time.Second, 1*time.Second, gostatsd.TimerSubtypes{})

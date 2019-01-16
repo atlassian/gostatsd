@@ -388,7 +388,7 @@ func NewClient(address, eventType, flushType, apiKey, tagPrefix,
 	if maxRequestElapsedTime <= 0 {
 		return nil, fmt.Errorf("[%s] maxRequestElapsedTime must be positive", BackendName)
 	}
-	if !contains(flushTypes, flushType) {
+	if !contains(flushTypes, flushType) && flushType != "" {
 		return nil, fmt.Errorf("[%s] flushType (%s) is not supported", BackendName, flushType)
 	}
 	if flushType == flushTypeInsights && apiKey == "" {
