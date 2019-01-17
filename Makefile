@@ -14,13 +14,19 @@ GOVERSION := 1.10.2
 GP := /gopath
 MAIN_PKG := github.com/atlassian/gostatsd/cmd/gostatsd
 CLUSTER_PKG := github.com/atlassian/gostatsd/cmd/cluster
+PROTOBUF_VERSION ?= 3.6.1
 
 setup: setup-ci
 	go get -u github.com/githubnemo/CompileDaemon
 	go get -u github.com/jstemmer/go-junit-report
 	go get -u golang.org/x/tools/cmd/goimports
 
-setup-ci:
+tools/bin/protoc:
+	curl -L -O https://github.com/protocolbuffers/protobuf/releases/download/v$(PROTOBUF_VERSION)/protoc-$(PROTOBUF_VERSION)-linux-x86_64.zip
+	unzip -d tools/ protoc-$(PROTOBUF_VERSION)-linux-x86_64.zip
+	rm protoc-$(PROTOBUF_VERSION)-linux-x86_64.zip
+
+setup-ci: tools/bin/protoc
 	go get -u github.com/Masterminds/glide
 	go get -u github.com/alecthomas/gometalinter
 	gometalinter --install
@@ -29,13 +35,18 @@ setup-ci:
 build-cluster: fmt
 	go build -i -v -o build/bin/$(ARCH)/cluster $(GOBUILD_VERSION_ARGS) $(CLUSTER_PKG)
 
-build: fmt
+pb/gostatsd.pb.go: pb/gostatsd.proto
+	go build -o protoc-gen-go github.com/golang/protobuf/protoc-gen-go/ && \
+	    tools/bin/protoc --go_out=. $< && \
+	    rm protoc-gen-go
+
+build: pb/gostatsd.pb.go fmt
 	go build -i -v -o build/bin/$(ARCH)/$(BINARY_NAME) $(GOBUILD_VERSION_ARGS) $(MAIN_PKG)
 
 build-race: fmt
 	go build -i -v -race -o build/bin/$(ARCH)/$(BINARY_NAME) $(GOBUILD_VERSION_ARGS) $(MAIN_PKG)
 
-build-all:
+build-all: pb/gostatsd.pb.go
 	go install -v $$(glide nv)
 
 test-all: fmt test test-race bench bench-race check cover
@@ -44,38 +55,38 @@ fmt:
 	gofmt -w=true -s $$(find . -type f -name '*.go' -not -path "./vendor/*")
 	goimports -w=true -d $$(find . -type f -name '*.go' -not -path "./vendor/*")
 
-test:
+test: pb/gostatsd.pb.go
 	go test $$(glide nv)
 
-test-race:
+test-race: pb/gostatsd.pb.go
 	go test -race $$(glide nv)
 
-bench:
+bench: pb/gostatsd.pb.go
 	go test -bench=. -run=XXX $$(glide nv)
 
-bench-race:
+bench-race: pb/gostatsd.pb.go
 	go test -race -bench=. -run=XXX $$(glide nv)
 
-cover:
+cover: pb/gostatsd.pb.go
 	./cover.sh
 	go tool cover -func=coverage.out
 	go tool cover -html=coverage.out
 
-coveralls:
+coveralls: pb/gostatsd.pb.go
 	./cover.sh
 	goveralls -coverprofile=coverage.out -service=travis-ci
 
 junit-test: build
 	go test -v $$(glide nv) | go-junit-report > test-report.xml
 
-check:
+check: pb/gostatsd.pb.go
 	go install ./cmd/gostatsd
 	go install ./cmd/tester
 	gometalinter --concurrency=$(METALINTER_CONCURRENCY) --deadline=600s ./... --vendor \
 		--linter='errcheck:errcheck:-ignore=net:Close' --cyclo-over=20 \
 		--disable=interfacer --disable=golint --disable=gosec --dupl-threshold=200
 
-check-all:
+check-all: pb/gostatsd.pb.go
 	go install ./cmd/gostatsd
 	go install ./cmd/tester
 	gometalinter --concurrency=$(METALINTER_CONCURRENCY) --deadline=600s ./... --vendor --cyclo-over=20 \
@@ -96,7 +107,7 @@ git-hook:
 	cp dev/push-hook.sh .git/hooks/pre-push
 
 # Compile a static binary. Cannot be used with -race
-docker:
+docker: pb/gostatsd.pb.go
 	docker pull golang:$(GOVERSION)
 	docker run \
 		--rm \
@@ -109,7 +120,7 @@ docker:
 	docker build --pull -t $(IMAGE_NAME):$(GIT_HASH) build
 
 # Compile a binary with -race. Needs to be run on a glibc-based system.
-docker-race:
+docker-race: pb/gostatsd.pb.go
 	docker pull golang:$(GOVERSION)
 	docker run \
 		--rm \
@@ -121,7 +132,7 @@ docker-race:
 	docker build --pull -t $(IMAGE_NAME):$(GIT_HASH)-race -f build/Dockerfile-glibc build
 
 # Compile a static binary with symbols. Cannot be used with -race
-docker-symbols:
+docker-symbols: pb/gostatsd.pb.go
 	docker pull golang:$(GOVERSION)
 	docker run \
 		--rm \

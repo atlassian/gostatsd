@@ -29,7 +29,10 @@ Gostatsd currently targets Go 1.10.2.  There are no known hard dependencies in t
 
 From the `gostatsd` directory run `make build`. The binary will be built in `build/bin/<arch>/gostatsd`.
 
-You will need to install the build dependencies by running `make setup` in the `gostatsd` directory. This must be done before the first build, and again if the dependencies change.
+You will need to install the Golang build dependencies by running `make setup` in the `gostatsd` directory. This must be done before the first build,
+and again if the dependencies change.  A [protobuf](https://github.com/protocolbuffers/protobuf) installation is expected to be found in the `tools/`
+directory.  Managing this in a platform agnostic way is difficult, but PRs are welcome. Hopefully it will be sufficient to use the generated protobuf
+files in the majority of cases.
 
 If you are unable to build `gostatsd` please try running `make setup` again before reporting a bug.
 
@@ -38,11 +41,82 @@ Running the server
 `gostatsd --help` gives a complete description of available options and their
 defaults. You can use `make run` to run the server with just the `stdout` backend
 to display info on screen.
+
 You can also run through `docker` by running `make run-docker` which will use `docker-compose`
 to run `gostatsd` with a graphite backend and a grafana dashboard.
 
 While not generally tested on Windows, it should work.  Maximum throughput is likely to be better on
 a linux system, however.
+
+Configuring the server mode
+---------------------------
+The server can currently run in two modes: `standalone` and `forwarder`.  It is configured through the top level
+`server-mode` configuration setting.  The default is `standalone`.
+
+In `standalone` mode, raw metrics are processed and aggregated as normal, and aggregated data is submitted to
+configured backends (see below)
+
+In `forwarder` mode, raw metrics are collected from a frontend, and instead of being aggregated they are sent via http
+to another gostatsd server after passing through the processing pipeline (cloud provider, static tags, filtering, etc).
+
+A `forwarder` server is intended to run on-host and collect metrics, forwarding them on to a central aggregation
+service.  At present the central aggregation service can only scale vertically, but horizontal scaling through
+clustering is planned.
+
+Configuring `forwarder` mode requires a configuration file, with a section named `http-transport`.  The raw version
+spoken is not configurable per server (see [HTTP.md] for version guarantees).  The configuration section allows the
+following configuration options:
+
+- `client-timeout`: duration for the http client timeout.  Defaults to `10s`
+- `compress`: boolean indicating if the payload should be compressed.  Defaults to `true`
+- `enable-http2`: boolean to enable the usage of http2 on the request.  There seems to be some incompatibility with the
+  golang http2 implementation and AWS ELB/ALBs.  If you experience strange timeouts and hangs, this should be the first
+  thing to disable.  Defaults to `false`
+- `endpoint`: configures the endpoint to submit raw metrics to.  This setting should be just a base URL, for example
+  `https://statsd-aggregator.private`, with no path.  Required, no default
+- `max-requests`: maximum number of requests in flight.  Defaults to `1000` (which is probably too high)
+- `max-request-elapsed-time`: duration for the maximum amount of time to try submitting data before giving up.  This
+  includes retries.  Defaults to `30s` (which is probably too high)
+- `network`: the network type to use, probably `tcp`, `tcp4`, or `tcp6`.  Defaults to `tcp`
+- `metrics-per-batch`: number of raw metrics to push in a single batch.  Less than 800 may impact performance, and if
+  a client is sending a lot of raw metrics, having this too low will cause additional load on the aggregator server
+  because it's spending more time processing http and less time processing metrics.
+- `flush-interval`: duration for how long to batch metrics before flushing. Should be an order of magnitude less than
+  the upstream flush interval. Defaults to `1s`
+
+Configuring HTTP servers
+------------------------
+The service supports multiple HTTP servers, with different configurations for different requirements.  All http servers
+are named in the top level `http-servers` setting.  It should be a space separated list of names.  Each server is then
+configured by creating a section in the configuration file named `http.<servername>`.  An http server section has the
+following configuration options:
+
+- `address`: the address to bind to
+- `enable-prof`: boolean indicating if profiler endpoints should be enabled. Default `false`
+- `enable-expvar`: boolean indicating if expvar endpoints should be enabled. Default `false`
+- `enable-ingestion`: boolean indicating if ingestion should be enabled. Default `false`
+- `enable-healthcheck`: boolean indicating if healthchecks should be enabled. Default `true`
+
+For example, to configure a server with a localhost only diagnostics endpoint, and a regular ingestion endpoint that
+can sit behind an ELB, the following configuration could be used:
+
+```config.toml
+backends='stdout'
+http-servers='receiver profiler'
+
+[http.receiver]
+address='0.0.0.0:8080'
+enable-ingestion=true
+
+[http.profiler]
+address='127.0.0.1:6060'
+enable-expvar=true
+enable-prof=true
+```
+
+There is no capability to run an https server at this point in time, and no auth (which is why you might want different
+addresses).  You could also put a reverse proxy in front of the service.  Documentation for the endpoints can be found
+under HTTP.md
 
 Configuring backends and cloud providers
 ----------------------------------------

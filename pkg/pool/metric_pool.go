@@ -43,6 +43,7 @@ func (mp *MetricPool) Get() *gostatsd.Metric {
 		if mp.estimatedTags != 0 {
 			m.Tags = make(gostatsd.Tags, 0, mp.estimatedTags)
 		}
+		m.Rate = 1
 	}
 	return m
 }

@@ -1,5 +1,6 @@
 /build/bin/
 /vendor/
+/tools/
 /coverage.out
 /profile.out
 /cmd/tester/statsd-tester*
