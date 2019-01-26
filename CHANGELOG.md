@@ -1,6 +1,10 @@
+10.0.0
+------
+- New Relic backend supports submitting directly to Insights Collector, refer to README.md for details.
+
 9.1.0
 -----
-- NewRelic backend added by Kav91, see README.md for options and details
+- New Relic backend added by Kav91, see README.md for options and details
 
 9.0.0
 -----
