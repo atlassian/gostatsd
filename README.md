@@ -71,8 +71,25 @@ are interested in. Configuration file might look like this:
 
 New Relic Backend
 -----------------------------
-This backend sends a HTTP Payload to the [New Relic Infrastructure Agent](https://newrelic.com/products/infrastructure)
- via it's inbuilt HTTP Server. Sending via the inbuilt HTTP server provides additional features, such as automatically applying additional metadata to the event the host may have such as AWS tags, instance type, host information, labels etc.
+Supports two routes for flushing metrics to New Relic.
+- Directly to the Insights Collector - [Insights Event API](https://docs.newrelic.com/docs/insights/insights-data-sources/custom-data/send-custom-events-event-api)
+- Via the Infrastructure Agent's inbuilt HTTP Server
+
+### [New Relic Insights Event API](https://docs.newrelic.com/docs/insights/insights-data-sources/custom-data/send-custom-events-event-api)
+Sending directly to the Event API alleviates the requirement of needing to have the New Relic Infrastructure Agent. Therefore you can run this from nearly anywhere for maximum flexibility. This also becomes a shorter data path with less resource requirements becoming a simpler setup.
+
+To use this method, create an Insert API Key from here: https://insights.newrelic.com/accounts/YOUR_ACCOUNT_ID/manage/api_keys
+
+```
+#Example configuration
+
+[newrelic]
+    address = "https://insights-collector.newrelic.com/v1/accounts/YOUR_ACCOUNT_ID/events"
+    api-key = "yourEventAPIInsertKey"
+```
+
+### [New Relic Infrastructure Agent](https://newrelic.com/products/infrastructure)
+Sending via the Infrastructure Agent's inbuilt HTTP server provides additional features, such as automatically applying additional metadata to the event the host may have such as AWS tags, instance type, host information, labels etc.
 
 The payload structure required to be accepted by the agent can be viewed [here.](https://github.com/newrelic/infra-integrations-sdk/blob/master/docs/v2tov3.md#v2-json-full-sample)
 
