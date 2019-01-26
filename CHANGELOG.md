@@ -1,3 +1,7 @@
+10.0.1
+------
+- Fix linter failures
+
 10.0.0
 ------
 - New Relic backend supports submitting directly to Insights Collector, refer to README.md for details.
