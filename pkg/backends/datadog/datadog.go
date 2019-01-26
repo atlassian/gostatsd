@@ -364,7 +364,7 @@ func NewClientFromViper(v *viper.Viper) (gostatsd.Backend, error) {
 		dd.GetString("api_key"),
 		dd.GetString("user-agent"),
 		dd.GetString("network"),
-		uint(dd.GetInt("metrics_per_batch")),
+		dd.GetInt("metrics_per_batch"),
 		uint(dd.GetInt("max_requests")),
 		dd.GetBool("compress_payload"),
 		dd.GetBool("enable-http2"),
@@ -376,7 +376,7 @@ func NewClientFromViper(v *viper.Viper) (gostatsd.Backend, error) {
 }
 
 // NewClient returns a new Datadog API client.
-func NewClient(apiEndpoint, apiKey, userAgent, network string, metricsPerBatch, maxRequests uint, compressPayload, enableHttp2 bool, clientTimeout, maxRequestElapsedTime, flushInterval time.Duration, disabled gostatsd.TimerSubtypes) (*Client, error) {
+func NewClient(apiEndpoint, apiKey, userAgent, network string, metricsPerBatch int, maxRequests uint, compressPayload, enableHttp2 bool, clientTimeout, maxRequestElapsedTime, flushInterval time.Duration, disabled gostatsd.TimerSubtypes) (*Client, error) {
 	if apiEndpoint == "" {
 		return nil, fmt.Errorf("[%s] apiEndpoint is required", BackendName)
 	}
@@ -441,7 +441,7 @@ func NewClient(apiEndpoint, apiKey, userAgent, network string, metricsPerBatch, 
 			Transport: transport,
 			Timeout:   clientTimeout,
 		},
-		metricsPerBatch:  metricsPerBatch,
+		metricsPerBatch:  uint(metricsPerBatch),
 		metricsBufferSem: metricsBufferSem,
 		eventsBufferSem:  eventsBufferSem,
 		compressPayload:  compressPayload,

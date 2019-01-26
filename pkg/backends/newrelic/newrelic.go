@@ -362,7 +362,7 @@ func NewClientFromViper(v *viper.Viper) (gostatsd.Backend, error) {
 		nr.GetString("timer-sumsquare"),
 		nr.GetString("user-agent"),
 		nr.GetString("network"),
-		uint(nr.GetInt("metrics-per-batch")),
+		nr.GetInt("metrics-per-batch"),
 		uint(nr.GetInt("max-requests")),
 		nr.GetBool("enable-http2"),
 		nr.GetDuration("client-timeout"),
@@ -376,7 +376,7 @@ func NewClientFromViper(v *viper.Viper) (gostatsd.Backend, error) {
 func NewClient(address, eventType, flushType, apiKey, tagPrefix,
 	metricName, metricType, metricPerSecond, metricValue,
 	timerMin, timerMax, timerCount, timerMean, timerMedian, timerStdDev, timerSum, timerSumSquares,
-	userAgent, network string, metricsPerBatch, maxRequests uint, enableHttp2 bool,
+	userAgent, network string, metricsPerBatch int, maxRequests uint, enableHttp2 bool,
 	clientTimeout, maxRequestElapsedTime, flushInterval time.Duration, disabled gostatsd.TimerSubtypes) (*Client, error) {
 
 	if metricsPerBatch <= 0 {
@@ -459,7 +459,7 @@ func NewClient(address, eventType, flushType, apiKey, tagPrefix,
 			Transport: transport,
 			Timeout:   clientTimeout,
 		},
-		metricsPerBatch:  metricsPerBatch,
+		metricsPerBatch:  uint(metricsPerBatch),
 		metricsBufferSem: metricsBufferSem,
 		now:              time.Now,
 		flushInterval:    flushInterval,
