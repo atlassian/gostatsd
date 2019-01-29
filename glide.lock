@@ -63,8 +63,6 @@ imports:
   - json/token
 - name: github.com/ipfs/go-log
   version: 48d644b006ba26f1793bffc46396e981801078e3
-- name: github.com/jbenet/go-reuseport
-  version: 7b4e9d23b569c604ed9be4439a2e9ada26774b4f
 - name: github.com/jmespath/go-jmespath
   version: bd40a432e4c76585ef6b72d3fd96fb9b6dc7b68d
 - name: github.com/json-iterator/go
