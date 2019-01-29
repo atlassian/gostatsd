@@ -42,3 +42,19 @@ type Runnable func(ctx context.Context)
 type Runner interface {
 	Run(ctx context.Context)
 }
+
+// RawMetricHandler is an interface that accepts a Metric for processing.
+type RawMetricHandler interface {
+	DispatchMetric(ctx context.Context, m *Metric)
+}
+
+// PipelineHandler can be used to handle metrics and events, it provides an estimate of how many tags it may add.
+type PipelineHandler interface {
+	RawMetricHandler
+	// EstimatedTags returns a guess for how many tags to pre-allocate
+	EstimatedTags() int
+	// DispatchEvent dispatches event to the next step in a pipeline.
+	DispatchEvent(ctx context.Context, e *Event)
+	// WaitForEvents waits for all event-dispatching goroutines to finish.
+	WaitForEvents()
+}

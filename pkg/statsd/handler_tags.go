@@ -10,8 +10,7 @@ import (
 )
 
 type TagHandler struct {
-	metrics       MetricHandler
-	events        EventHandler
+	handler       gostatsd.PipelineHandler
 	tags          gostatsd.Tags // Tags to add to all metrics
 	filters       []Filter
 	estimatedTags int
@@ -19,7 +18,7 @@ type TagHandler struct {
 
 var present = struct{}{}
 
-func NewTagHandlerFromViper(v *viper.Viper, metrics MetricHandler, events EventHandler, tags gostatsd.Tags) *TagHandler {
+func NewTagHandlerFromViper(v *viper.Viper, handler gostatsd.PipelineHandler, tags gostatsd.Tags) *TagHandler {
 	filterNameList := v.GetStringSlice("filters")
 	var filters []Filter
 	for _, filterName := range filterNameList {
@@ -31,19 +30,18 @@ func NewTagHandlerFromViper(v *viper.Viper, metrics MetricHandler, events EventH
 		filters = append(filters, NewFilterFromViper(vFilter))
 		logrus.Infof("Loaded filter %v", filterName)
 	}
-	return NewTagHandler(metrics, events, tags, filters)
+	return NewTagHandler(handler, tags, filters)
 }
 
 // NewTagHandler initialises a new handler which adds unique tags, and sends metrics/events to the next handler based
 // on filter rules.
-func NewTagHandler(metrics MetricHandler, events EventHandler, tags gostatsd.Tags, filters []Filter) *TagHandler {
+func NewTagHandler(handler gostatsd.PipelineHandler, tags gostatsd.Tags, filters []Filter) *TagHandler {
 	tags = uniqueTags(tags, gostatsd.Tags{}) // de-dupe tags
 	return &TagHandler{
-		metrics:       metrics,
-		events:        events,
+		handler:       handler,
 		tags:          tags,
 		filters:       filters,
-		estimatedTags: len(tags) + metrics.EstimatedTags(),
+		estimatedTags: len(tags) + handler.EstimatedTags(),
 	}
 }
 
@@ -58,7 +56,7 @@ func (th *TagHandler) DispatchMetric(ctx context.Context, m *gostatsd.Metric) {
 		m.Hostname = string(m.SourceIP)
 	}
 	if th.uniqueFilterMetricAndAddTags(m) {
-		th.metrics.DispatchMetric(ctx, m)
+		th.handler.DispatchMetric(ctx, m)
 	}
 }
 
@@ -123,12 +121,12 @@ func (th *TagHandler) DispatchEvent(ctx context.Context, e *gostatsd.Event) {
 		e.Hostname = string(e.SourceIP)
 	}
 	e.Tags = uniqueTags(e.Tags, th.tags)
-	th.events.DispatchEvent(ctx, e)
+	th.handler.DispatchEvent(ctx, e)
 }
 
 // WaitForEvents waits for all event-dispatching goroutines to finish.
 func (th *TagHandler) WaitForEvents() {
-	th.events.WaitForEvents()
+	th.handler.WaitForEvents()
 }
 
 // uniqueTags returns the set of t1 | t2.  It may modify the contents of t1 and t2.
