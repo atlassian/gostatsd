@@ -32,20 +32,20 @@ func TestNewAggregator(t *testing.T) {
 
 	actual := newFakeAggregator()
 
-	if assrt.NotNil(actual.Counters) {
-		assrt.Equal(gostatsd.Counters{}, actual.Counters)
+	if assrt.NotNil(actual.metricMap.Counters) {
+		assrt.Equal(gostatsd.Counters{}, actual.metricMap.Counters)
 	}
 
-	if assrt.NotNil(actual.Timers) {
-		assrt.Equal(gostatsd.Timers{}, actual.Timers)
+	if assrt.NotNil(actual.metricMap.Timers) {
+		assrt.Equal(gostatsd.Timers{}, actual.metricMap.Timers)
 	}
 
-	if assrt.NotNil(actual.Gauges) {
-		assrt.Equal(gostatsd.Gauges{}, actual.Gauges)
+	if assrt.NotNil(actual.metricMap.Gauges) {
+		assrt.Equal(gostatsd.Gauges{}, actual.metricMap.Gauges)
 	}
 
-	if assrt.NotNil(actual.Sets) {
-		assrt.Equal(gostatsd.Sets{}, actual.Sets)
+	if assrt.NotNil(actual.metricMap.Sets) {
+		assrt.Equal(gostatsd.Sets{}, actual.metricMap.Sets)
 	}
 }
 
@@ -60,20 +60,20 @@ func TestFlush(t *testing.T) {
 	expected := newFakeAggregator()
 	expected.now = nowFn
 
-	ma.Counters["some"] = make(map[string]gostatsd.Counter)
-	ma.Counters["some"][""] = gostatsd.Counter{Value: 50}
-	ma.Counters["some"]["thing"] = gostatsd.Counter{Value: 100}
-	ma.Counters["some"]["other:thing"] = gostatsd.Counter{Value: 150}
+	ma.metricMap.Counters["some"] = make(map[string]gostatsd.Counter)
+	ma.metricMap.Counters["some"][""] = gostatsd.Counter{Value: 50}
+	ma.metricMap.Counters["some"]["thing"] = gostatsd.Counter{Value: 100}
+	ma.metricMap.Counters["some"]["other:thing"] = gostatsd.Counter{Value: 150}
 
-	expected.Counters["some"] = make(map[string]gostatsd.Counter)
-	expected.Counters["some"][""] = gostatsd.Counter{Value: 50, PerSecond: 5}
-	expected.Counters["some"]["thing"] = gostatsd.Counter{Value: 100, PerSecond: 10}
-	expected.Counters["some"]["other:thing"] = gostatsd.Counter{Value: 150, PerSecond: 15}
+	expected.metricMap.Counters["some"] = make(map[string]gostatsd.Counter)
+	expected.metricMap.Counters["some"][""] = gostatsd.Counter{Value: 50, PerSecond: 5}
+	expected.metricMap.Counters["some"]["thing"] = gostatsd.Counter{Value: 100, PerSecond: 10}
+	expected.metricMap.Counters["some"]["other:thing"] = gostatsd.Counter{Value: 150, PerSecond: 15}
 
-	ma.Timers["some"] = make(map[string]gostatsd.Timer)
-	ma.Timers["some"]["thing"] = gostatsd.NewTimerValues([]float64{2, 4, 12})
-	ma.Timers["some"]["sampled"] = gostatsd.Timer{Values: []float64{2, 4, 12}, SampledCount: 30.0}
-	ma.Timers["some"]["empty"] = gostatsd.Timer{Values: []float64{}}
+	ma.metricMap.Timers["some"] = make(map[string]gostatsd.Timer)
+	ma.metricMap.Timers["some"]["thing"] = gostatsd.NewTimerValues([]float64{2, 4, 12})
+	ma.metricMap.Timers["some"]["sampled"] = gostatsd.Timer{Values: []float64{2, 4, 12}, SampledCount: 30.0}
+	ma.metricMap.Timers["some"]["empty"] = gostatsd.Timer{Values: []float64{}}
 
 	expPct := gostatsd.Percentiles{}
 	expPct.Set("count_90", float64(3))
@@ -81,66 +81,66 @@ func TestFlush(t *testing.T) {
 	expPct.Set("sum_90", float64(18))
 	expPct.Set("sum_squares_90", float64(164))
 	expPct.Set("upper_90", float64(12))
-	expected.Timers["some"] = make(map[string]gostatsd.Timer)
-	expected.Timers["some"]["thing"] = gostatsd.Timer{
+	expected.metricMap.Timers["some"] = make(map[string]gostatsd.Timer)
+	expected.metricMap.Timers["some"]["thing"] = gostatsd.Timer{
 		Values: []float64{2, 4, 12}, Count: 3, Min: 2, Max: 12, Mean: 6, Median: 4, Sum: 18,
 		PerSecond: 0.3, SumSquares: 164, StdDev: 4.320493798938574, Percentiles: expPct,
 		SampledCount: 3.0,
 	}
-	expected.Timers["some"]["sampled"] = gostatsd.Timer{
+	expected.metricMap.Timers["some"]["sampled"] = gostatsd.Timer{
 		Values: []float64{2, 4, 12}, Count: 30, Min: 2, Max: 12, Mean: 6, Median: 4, Sum: 18,
 		PerSecond: 3.0, SumSquares: 164, StdDev: 4.320493798938574, Percentiles: expPct,
 		SampledCount: 30.0,
 	}
-	expected.Timers["some"]["empty"] = gostatsd.Timer{Values: []float64{}}
+	expected.metricMap.Timers["some"]["empty"] = gostatsd.Timer{Values: []float64{}}
 
-	ma.Gauges["some"] = make(map[string]gostatsd.Gauge)
-	ma.Gauges["some"][""] = gostatsd.Gauge{Value: 50}
-	ma.Gauges["some"]["thing"] = gostatsd.Gauge{Value: 100}
-	ma.Gauges["some"]["other:thing"] = gostatsd.Gauge{Value: 150}
+	ma.metricMap.Gauges["some"] = make(map[string]gostatsd.Gauge)
+	ma.metricMap.Gauges["some"][""] = gostatsd.Gauge{Value: 50}
+	ma.metricMap.Gauges["some"]["thing"] = gostatsd.Gauge{Value: 100}
+	ma.metricMap.Gauges["some"]["other:thing"] = gostatsd.Gauge{Value: 150}
 
-	expected.Gauges["some"] = make(map[string]gostatsd.Gauge)
-	expected.Gauges["some"][""] = gostatsd.Gauge{Value: 50}
-	expected.Gauges["some"]["thing"] = gostatsd.Gauge{Value: 100}
-	expected.Gauges["some"]["other:thing"] = gostatsd.Gauge{Value: 150}
+	expected.metricMap.Gauges["some"] = make(map[string]gostatsd.Gauge)
+	expected.metricMap.Gauges["some"][""] = gostatsd.Gauge{Value: 50}
+	expected.metricMap.Gauges["some"]["thing"] = gostatsd.Gauge{Value: 100}
+	expected.metricMap.Gauges["some"]["other:thing"] = gostatsd.Gauge{Value: 150}
 
-	ma.Sets["some"] = make(map[string]gostatsd.Set)
+	ma.metricMap.Sets["some"] = make(map[string]gostatsd.Set)
 	unique := map[string]struct{}{
 		"user": {},
 	}
-	ma.Sets["some"]["thing"] = gostatsd.Set{Values: unique}
+	ma.metricMap.Sets["some"]["thing"] = gostatsd.Set{Values: unique}
 
-	expected.Sets["some"] = make(map[string]gostatsd.Set)
-	expected.Sets["some"]["thing"] = gostatsd.Set{Values: unique}
+	expected.metricMap.Sets["some"] = make(map[string]gostatsd.Set)
+	expected.metricMap.Sets["some"]["thing"] = gostatsd.Set{Values: unique}
 
 	ma.Flush(10 * time.Second)
-	assrt.Equal(expected.Counters, ma.Counters)
-	assrt.Equal(expected.Timers, ma.Timers)
-	assrt.Equal(expected.Gauges, ma.Gauges)
-	assrt.Equal(expected.Sets, ma.Sets)
+	assrt.Equal(expected.metricMap.Counters, ma.metricMap.Counters)
+	assrt.Equal(expected.metricMap.Timers, ma.metricMap.Timers)
+	assrt.Equal(expected.metricMap.Gauges, ma.metricMap.Gauges)
+	assrt.Equal(expected.metricMap.Sets, ma.metricMap.Sets)
 }
 
 func BenchmarkFlush(b *testing.B) {
 	ma := newFakeAggregator()
-	ma.Counters["some"] = make(map[string]gostatsd.Counter)
-	ma.Counters["some"][""] = gostatsd.Counter{Value: 50}
-	ma.Counters["some"]["thing"] = gostatsd.Counter{Value: 100}
-	ma.Counters["some"]["other:thing"] = gostatsd.Counter{Value: 150}
+	ma.metricMap.Counters["some"] = make(map[string]gostatsd.Counter)
+	ma.metricMap.Counters["some"][""] = gostatsd.Counter{Value: 50}
+	ma.metricMap.Counters["some"]["thing"] = gostatsd.Counter{Value: 100}
+	ma.metricMap.Counters["some"]["other:thing"] = gostatsd.Counter{Value: 150}
 
-	ma.Timers["some"] = make(map[string]gostatsd.Timer)
-	ma.Timers["some"]["thing"] = gostatsd.NewTimerValues([]float64{2, 4, 12})
-	ma.Timers["some"]["empty"] = gostatsd.Timer{Values: []float64{}}
+	ma.metricMap.Timers["some"] = make(map[string]gostatsd.Timer)
+	ma.metricMap.Timers["some"]["thing"] = gostatsd.NewTimerValues([]float64{2, 4, 12})
+	ma.metricMap.Timers["some"]["empty"] = gostatsd.Timer{Values: []float64{}}
 
-	ma.Gauges["some"] = make(map[string]gostatsd.Gauge)
-	ma.Gauges["some"][""] = gostatsd.Gauge{Value: 50}
-	ma.Gauges["some"]["thing"] = gostatsd.Gauge{Value: 100}
-	ma.Gauges["some"]["other:thing"] = gostatsd.Gauge{Value: 150}
+	ma.metricMap.Gauges["some"] = make(map[string]gostatsd.Gauge)
+	ma.metricMap.Gauges["some"][""] = gostatsd.Gauge{Value: 50}
+	ma.metricMap.Gauges["some"]["thing"] = gostatsd.Gauge{Value: 100}
+	ma.metricMap.Gauges["some"]["other:thing"] = gostatsd.Gauge{Value: 150}
 
-	ma.Sets["some"] = make(map[string]gostatsd.Set)
+	ma.metricMap.Sets["some"] = make(map[string]gostatsd.Set)
 	unique := map[string]struct{}{
 		"user": {},
 	}
-	ma.Sets["some"]["thing"] = gostatsd.Set{Values: unique}
+	ma.metricMap.Sets["some"]["thing"] = gostatsd.Set{Values: unique}
 
 	b.ReportAllocs()
 	b.ResetTimer()
@@ -160,7 +160,7 @@ func TestReset(t *testing.T) {
 
 	// non expired
 	actual := newFakeAggregator()
-	actual.Counters["some"] = map[string]gostatsd.Counter{
+	actual.metricMap.Counters["some"] = map[string]gostatsd.Counter{
 		"thing":       gostatsd.NewCounter(nowNano, 50, host, nil),
 		"other:thing": gostatsd.NewCounter(nowNano, 90, host, nil),
 	}
@@ -168,31 +168,31 @@ func TestReset(t *testing.T) {
 	actual.Reset()
 
 	expected := newFakeAggregator()
-	expected.Counters["some"] = map[string]gostatsd.Counter{
+	expected.metricMap.Counters["some"] = map[string]gostatsd.Counter{
 		"thing":       gostatsd.NewCounter(nowNano, 0, host, nil),
 		"other:thing": gostatsd.NewCounter(nowNano, 0, host, nil),
 	}
 	expected.now = nowFn
 
-	assrt.Equal(expected.Counters, actual.Counters)
+	assrt.Equal(expected.metricMap.Counters, actual.metricMap.Counters)
 
 	actual = newFakeAggregator()
-	actual.Timers["some"] = map[string]gostatsd.Timer{
+	actual.metricMap.Timers["some"] = map[string]gostatsd.Timer{
 		"thing": gostatsd.NewTimer(nowNano, []float64{50}, host, nil),
 	}
 	actual.now = nowFn
 	actual.Reset()
 
 	expected = newFakeAggregator()
-	expected.Timers["some"] = map[string]gostatsd.Timer{
+	expected.metricMap.Timers["some"] = map[string]gostatsd.Timer{
 		"thing": gostatsd.NewTimer(nowNano, []float64{}, host, nil),
 	}
 	expected.now = nowFn
 
-	assrt.Equal(expected.Timers, actual.Timers)
+	assrt.Equal(expected.metricMap.Timers, actual.metricMap.Timers)
 
 	actual = newFakeAggregator()
-	actual.Gauges["some"] = map[string]gostatsd.Gauge{
+	actual.metricMap.Gauges["some"] = map[string]gostatsd.Gauge{
 		"thing":       gostatsd.NewGauge(nowNano, 50, host, nil),
 		"other:thing": gostatsd.NewGauge(nowNano, 90, host, nil),
 	}
@@ -200,35 +200,35 @@ func TestReset(t *testing.T) {
 	actual.Reset()
 
 	expected = newFakeAggregator()
-	expected.Gauges["some"] = map[string]gostatsd.Gauge{
+	expected.metricMap.Gauges["some"] = map[string]gostatsd.Gauge{
 		"thing":       gostatsd.NewGauge(nowNano, 50, host, nil),
 		"other:thing": gostatsd.NewGauge(nowNano, 90, host, nil),
 	}
 	expected.now = nowFn
 
-	assrt.Equal(expected.Gauges, actual.Gauges)
+	assrt.Equal(expected.metricMap.Gauges, actual.metricMap.Gauges)
 
 	actual = newFakeAggregator()
-	actual.Sets["some"] = map[string]gostatsd.Set{
+	actual.metricMap.Sets["some"] = map[string]gostatsd.Set{
 		"thing": gostatsd.NewSet(nowNano, map[string]struct{}{"user": {}}, host, nil),
 	}
 	actual.now = nowFn
 	actual.Reset()
 
 	expected = newFakeAggregator()
-	expected.Sets["some"] = map[string]gostatsd.Set{
+	expected.metricMap.Sets["some"] = map[string]gostatsd.Set{
 		"thing": gostatsd.NewSet(nowNano, make(map[string]struct{}), host, nil),
 	}
 	expected.now = nowFn
 
-	assrt.Equal(expected.Sets, actual.Sets)
+	assrt.Equal(expected.metricMap.Sets, actual.metricMap.Sets)
 
 	// expired
 	pastNano := gostatsd.Nanotime(now.Add(-30 * time.Second).UnixNano())
 
 	actual = newFakeAggregator()
 	actual.expiryInterval = 10 * time.Second
-	actual.Counters["some"] = map[string]gostatsd.Counter{
+	actual.metricMap.Counters["some"] = map[string]gostatsd.Counter{
 		"thing":       gostatsd.NewCounter(pastNano, 50, host, nil),
 		"other:thing": gostatsd.NewCounter(pastNano, 90, host, nil),
 	}
@@ -238,11 +238,11 @@ func TestReset(t *testing.T) {
 	expected = newFakeAggregator()
 	expected.now = nowFn
 
-	assrt.Equal(expected.Counters, actual.Counters)
+	assrt.Equal(expected.metricMap.Counters, actual.metricMap.Counters)
 
 	actual = newFakeAggregator()
 	actual.expiryInterval = 10 * time.Second
-	actual.Timers["some"] = map[string]gostatsd.Timer{
+	actual.metricMap.Timers["some"] = map[string]gostatsd.Timer{
 		"thing": gostatsd.NewTimer(pastNano, []float64{50}, host, nil),
 	}
 	actual.now = nowFn
@@ -251,11 +251,11 @@ func TestReset(t *testing.T) {
 	expected = newFakeAggregator()
 	expected.now = nowFn
 
-	assrt.Equal(expected.Timers, actual.Timers)
+	assrt.Equal(expected.metricMap.Timers, actual.metricMap.Timers)
 
 	actual = newFakeAggregator()
 	actual.expiryInterval = 10 * time.Second
-	actual.Gauges["some"] = map[string]gostatsd.Gauge{
+	actual.metricMap.Gauges["some"] = map[string]gostatsd.Gauge{
 		"thing":       gostatsd.NewGauge(pastNano, 50, host, nil),
 		"other:thing": gostatsd.NewGauge(pastNano, 90, host, nil),
 	}
@@ -265,11 +265,11 @@ func TestReset(t *testing.T) {
 	expected = newFakeAggregator()
 	expected.now = nowFn
 
-	assrt.Equal(expected.Gauges, actual.Gauges)
+	assrt.Equal(expected.metricMap.Gauges, actual.metricMap.Gauges)
 
 	actual = newFakeAggregator()
 	actual.expiryInterval = 10 * time.Second
-	actual.Sets["some"] = map[string]gostatsd.Set{
+	actual.metricMap.Sets["some"] = map[string]gostatsd.Set{
 		"thing": gostatsd.NewSet(pastNano, map[string]struct{}{"user": {}}, host, nil),
 	}
 	actual.now = nowFn
@@ -278,7 +278,7 @@ func TestReset(t *testing.T) {
 	expected = newFakeAggregator()
 	expected.now = nowFn
 
-	assrt.Equal(expected.Sets, actual.Sets)
+	assrt.Equal(expected.metricMap.Sets, actual.metricMap.Sets)
 }
 
 func TestIsExpired(t *testing.T) {
@@ -305,7 +305,7 @@ func TestDisabledCount(t *testing.T) {
 	ma.disabledSubtypes.CountPct = true
 	ma.Receive(&gostatsd.Metric{Name: "x", Value: 1, Type: gostatsd.TIMER}, time.Now())
 	ma.Flush(1 * time.Second)
-	for _, pct := range ma.Timers["x"][""].Percentiles {
+	for _, pct := range ma.metricMap.Timers["x"][""].Percentiles {
 		if pct.Str == "count_90" {
 			t.Error("count not disabled")
 		}
@@ -318,7 +318,7 @@ func TestDisabledMean(t *testing.T) {
 	ma.disabledSubtypes.MeanPct = true
 	ma.Receive(&gostatsd.Metric{Name: "x", Value: 1, Type: gostatsd.TIMER}, time.Now())
 	ma.Flush(1 * time.Second)
-	for _, pct := range ma.Timers["x"][""].Percentiles {
+	for _, pct := range ma.metricMap.Timers["x"][""].Percentiles {
 		if pct.Str == "mean_90" {
 			t.Error("mean not disabled")
 		}
@@ -331,7 +331,7 @@ func TestDisabledSum(t *testing.T) {
 	ma.disabledSubtypes.SumPct = true
 	ma.Receive(&gostatsd.Metric{Name: "x", Value: 1, Type: gostatsd.TIMER}, time.Now())
 	ma.Flush(1 * time.Second)
-	for _, pct := range ma.Timers["x"][""].Percentiles {
+	for _, pct := range ma.metricMap.Timers["x"][""].Percentiles {
 		if pct.Str == "sum_90" {
 			t.Error("sum not disabled")
 		}
@@ -344,7 +344,7 @@ func TestDisabledSumSquares(t *testing.T) {
 	ma.disabledSubtypes.SumSquaresPct = true
 	ma.Receive(&gostatsd.Metric{Name: "x", Value: 1, Type: gostatsd.TIMER}, time.Now())
 	ma.Flush(1 * time.Second)
-	for _, pct := range ma.Timers["x"][""].Percentiles {
+	for _, pct := range ma.metricMap.Timers["x"][""].Percentiles {
 		if pct.Str == "sum_squares_90" {
 			t.Error("sum_squares not disabled")
 		}
@@ -357,7 +357,7 @@ func TestDisabledUpper(t *testing.T) {
 	ma.disabledSubtypes.UpperPct = true
 	ma.Receive(&gostatsd.Metric{Name: "x", Value: 1, Type: gostatsd.TIMER}, time.Now())
 	ma.Flush(1 * time.Second)
-	for _, pct := range ma.Timers["x"][""].Percentiles {
+	for _, pct := range ma.metricMap.Timers["x"][""].Percentiles {
 		if pct.Str == "upper_90" {
 			t.Error("upper not disabled")
 		}
@@ -374,109 +374,11 @@ func TestDisabledLower(t *testing.T) {
 	ma.disabledSubtypes.LowerPct = true
 	ma.Receive(&gostatsd.Metric{Name: "x", Value: 1, Type: gostatsd.TIMER}, time.Now())
 	ma.Flush(1 * time.Second)
-	for _, pct := range ma.Timers["x"][""].Percentiles {
+	for _, pct := range ma.metricMap.Timers["x"][""].Percentiles {
 		if pct.Str == "lower_-90" { // lower_-90?
 			t.Error("lower not disabled")
 		}
 	}
-}
-
-func metricsFixtures() []gostatsd.Metric {
-	ms := []gostatsd.Metric{
-		{Name: "foo.bar.baz", Value: 2, Type: gostatsd.COUNTER},
-		{Name: "abc.def.g", Value: 3, Type: gostatsd.GAUGE},
-		{Name: "abc.def.g", Value: 8, Type: gostatsd.GAUGE, Tags: gostatsd.Tags{"foo:bar", "baz"}},
-		{Name: "def.g", Value: 10, Type: gostatsd.TIMER},
-		{Name: "def.g", Value: 1, Type: gostatsd.TIMER, Tags: gostatsd.Tags{"foo:bar", "baz"}},
-		{Name: "smp.rte", Value: 50, Type: gostatsd.COUNTER},
-		{Name: "smp.rte", Value: 50, Type: gostatsd.COUNTER, Tags: gostatsd.Tags{"foo:bar", "baz"}},
-		{Name: "smp.rte", Value: 5, Type: gostatsd.COUNTER, Tags: gostatsd.Tags{"foo:bar", "baz"}},
-		{Name: "uniq.usr", StringValue: "joe", Type: gostatsd.SET},
-		{Name: "uniq.usr", StringValue: "joe", Type: gostatsd.SET},
-		{Name: "uniq.usr", StringValue: "bob", Type: gostatsd.SET},
-		{Name: "uniq.usr", StringValue: "john", Type: gostatsd.SET},
-		{Name: "uniq.usr", StringValue: "john", Type: gostatsd.SET, Tags: gostatsd.Tags{"foo:bar", "baz"}},
-		{Name: "timer_sampling", Value: 10, Type: gostatsd.TIMER, Rate: 0.1},
-		{Name: "timer_sampling", Value: 30, Type: gostatsd.TIMER, Rate: 0.1},
-		{Name: "timer_sampling", Value: 50, Type: gostatsd.TIMER, Rate: 0.1},
-		{Name: "counter_sampling", Value: 2, Type: gostatsd.COUNTER, Rate: 0.25},
-		{Name: "counter_sampling", Value: 5, Type: gostatsd.COUNTER, Rate: 0.25},
-	}
-	for i, m := range ms {
-		if ms[i].Rate == 0.0 {
-			ms[i].Rate = 1.0
-		}
-		ms[i].TagsKey = formatTagsKey(m.Tags, m.Hostname)
-	}
-	return ms
-}
-
-func TestReceive(t *testing.T) {
-	t.Parallel()
-	assrt := assert.New(t)
-
-	ma := newFakeAggregator()
-	now := time.Now()
-	nowNano := gostatsd.Nanotime(now.UnixNano())
-
-	tests := metricsFixtures()
-	for _, metric := range tests {
-		ma.Receive(&metric, now)
-	}
-
-	expectedCounters := gostatsd.Counters{
-		"foo.bar.baz": map[string]gostatsd.Counter{
-			"": {Value: 2, Timestamp: nowNano},
-		},
-		"smp.rte": map[string]gostatsd.Counter{
-			"":            {Value: 50, Timestamp: nowNano},
-			"baz,foo:bar": {Value: 55, Timestamp: nowNano, Tags: gostatsd.Tags{"baz", "foo:bar"}},
-		},
-		"counter_sampling": map[string]gostatsd.Counter{
-			"": {Value: 28, Timestamp: nowNano},
-		},
-	}
-	assrt.Equal(expectedCounters, ma.Counters)
-
-	expectedGauges := gostatsd.Gauges{
-		"abc.def.g": map[string]gostatsd.Gauge{
-			"":            {Value: 3, Timestamp: nowNano},
-			"baz,foo:bar": {Value: 8, Timestamp: nowNano, Tags: gostatsd.Tags{"baz", "foo:bar"}},
-		},
-	}
-	assrt.Equal(expectedGauges, ma.Gauges)
-
-	expectedTimers := gostatsd.Timers{
-		"def.g": map[string]gostatsd.Timer{
-			"":            {Values: []float64{10}, Timestamp: nowNano, SampledCount: 1},
-			"baz,foo:bar": {Values: []float64{1}, Timestamp: nowNano, SampledCount: 1, Tags: gostatsd.Tags{"baz", "foo:bar"}},
-		},
-		"timer_sampling": map[string]gostatsd.Timer{
-			"": {Values: []float64{10, 30, 50}, Timestamp: nowNano, SampledCount: 30},
-		},
-	}
-	assrt.Equal(expectedTimers, ma.Timers)
-
-	expectedSets := gostatsd.Sets{
-		"uniq.usr": map[string]gostatsd.Set{
-			"": {
-				Values: map[string]struct{}{
-					"joe":  {},
-					"bob":  {},
-					"john": {},
-				},
-				Timestamp: nowNano,
-			},
-			"baz,foo:bar": {
-				Values: map[string]struct{}{
-					"john": {},
-				},
-				Timestamp: nowNano,
-				Tags:      gostatsd.Tags{"baz", "foo:bar"},
-			},
-		},
-	}
-	assrt.Equal(expectedSets, ma.Sets)
 }
 
 func BenchmarkHotMetric(b *testing.B) {
@@ -513,44 +415,4 @@ func BenchmarkHotMetric(b *testing.B) {
 	}
 
 	stgr.Shutdown()
-}
-
-func benchmarkReceive(metric gostatsd.Metric, b *testing.B) {
-	ma := newFakeAggregator()
-	now := time.Now()
-	b.ReportAllocs()
-	b.ResetTimer()
-
-	for n := 0; n < b.N; n++ {
-		ma.Receive(&metric, now)
-	}
-}
-
-func BenchmarkReceiveCounter(b *testing.B) {
-	benchmarkReceive(gostatsd.Metric{Name: "foo.bar.baz", Value: 2, Type: gostatsd.COUNTER}, b)
-}
-
-func BenchmarkReceiveGauge(b *testing.B) {
-	benchmarkReceive(gostatsd.Metric{Name: "abc.def.g", Value: 3, Type: gostatsd.GAUGE}, b)
-}
-
-func BenchmarkReceiveTimer(b *testing.B) {
-	benchmarkReceive(gostatsd.Metric{Name: "def.g", Value: 10, Type: gostatsd.TIMER}, b)
-}
-
-func BenchmarkReceiveSet(b *testing.B) {
-	benchmarkReceive(gostatsd.Metric{Name: "uniq.usr", StringValue: "joe", Type: gostatsd.SET}, b)
-}
-
-func BenchmarkReceives(b *testing.B) {
-	ma := newFakeAggregator()
-	now := time.Now()
-	tests := metricsFixtures()
-	b.ReportAllocs()
-	b.ResetTimer()
-	for n := 0; n < b.N; n++ {
-		for _, metric := range tests {
-			ma.Receive(&metric, now)
-		}
-	}
 }
