@@ -5,17 +5,17 @@ import (
 	"io/ioutil"
 	"net/http"
 	"sync/atomic"
+	"time"
 
 	"github.com/atlassian/gostatsd"
 	"github.com/atlassian/gostatsd/pb"
 
-	"github.com/atlassian/gostatsd/pkg/pool"
 	"github.com/atlassian/gostatsd/pkg/stats"
 	"github.com/golang/protobuf/proto"
 	"github.com/sirupsen/logrus"
 )
 
-type rawHttpHandlerV1 struct {
+type rawHttpHandlerV2 struct {
 	requestSuccess           uint64 // atomic
 	requestFailureRead       uint64 // atomic
 	requestFailureDecompress uint64 // atomic
@@ -27,19 +27,17 @@ type rawHttpHandlerV1 struct {
 	logger     logrus.FieldLogger
 	handler    gostatsd.PipelineHandler
 	serverName string
-	pool       *pool.MetricPool
 }
 
-func newRawHttpHandlerV1(logger logrus.FieldLogger, serverName string, handler gostatsd.PipelineHandler) *rawHttpHandlerV1 {
-	return &rawHttpHandlerV1{
+func newRawHttpHandlerV2(logger logrus.FieldLogger, serverName string, handler gostatsd.PipelineHandler) *rawHttpHandlerV2 {
+	return &rawHttpHandlerV2{
 		logger:     logger,
 		handler:    handler,
 		serverName: serverName,
-		pool:       pool.NewMetricPool(0), // tags will already be a slice, so we don't need to pre-allocate.
 	}
 }
 
-func (rhh *rawHttpHandlerV1) RunMetrics(ctx context.Context) {
+func (rhh *rawHttpHandlerV2) RunMetrics(ctx context.Context) {
 	statser := stats.FromContext(ctx).WithTags([]string{"server-name:" + rhh.serverName})
 
 	notify, cancel := statser.RegisterFlush()
@@ -55,7 +53,7 @@ func (rhh *rawHttpHandlerV1) RunMetrics(ctx context.Context) {
 	}
 }
 
-func (rhh *rawHttpHandlerV1) emitMetrics(statser stats.Statser) {
+func (rhh *rawHttpHandlerV2) emitMetrics(statser stats.Statser) {
 	requestSuccess := atomic.SwapUint64(&rhh.requestSuccess, 0)
 	requestFailureRead := atomic.SwapUint64(&rhh.requestFailureRead, 0)
 	requestFailureDecompress := atomic.SwapUint64(&rhh.requestFailureDecompress, 0)
@@ -73,7 +71,7 @@ func (rhh *rawHttpHandlerV1) emitMetrics(statser stats.Statser) {
 	statser.Count("http.incoming.events", float64(eventsProcessed), nil)
 }
 
-func (rhh *rawHttpHandlerV1) readBody(req *http.Request) ([]byte, int) {
+func (rhh *rawHttpHandlerV2) readBody(req *http.Request) ([]byte, int) {
 	b, err := ioutil.ReadAll(req.Body)
 	if err != nil {
 		atomic.AddUint64(&rhh.requestFailureRead, 1)
@@ -105,7 +103,7 @@ func (rhh *rawHttpHandlerV1) readBody(req *http.Request) ([]byte, int) {
 	return b, 0
 }
 
-func (rhh *rawHttpHandlerV1) MetricHandler(w http.ResponseWriter, req *http.Request) {
+func (rhh *rawHttpHandlerV2) MetricHandler(w http.ResponseWriter, req *http.Request) {
 	b, errCode := rhh.readBody(req)
 
 	if errCode != 0 {
@@ -113,7 +111,7 @@ func (rhh *rawHttpHandlerV1) MetricHandler(w http.ResponseWriter, req *http.Requ
 		return
 	}
 
-	var msg pb.RawMessageV1
+	var msg pb.RawMessageV2
 	err := proto.Unmarshal(b, &msg)
 	if err != nil {
 		atomic.AddUint64(&rhh.requestFailureUnmarshal, 1)
@@ -122,39 +120,14 @@ func (rhh *rawHttpHandlerV1) MetricHandler(w http.ResponseWriter, req *http.Requ
 		return
 	}
 
-	for _, metric := range msg.RawMetrics {
-		rm := rhh.pool.Get()
+	mm := translateFromProtobufV2(&msg)
+	mm.DispatchMetrics(req.Context(), rhh.handler)
 
-		rm.Name = metric.Name
-		rm.Tags = metric.Tags
-		rm.Hostname = metric.Hostname
-
-		switch m := metric.M.(type) {
-		case *pb.RawMetricV1_Counter:
-			rm.Value = m.Counter.Value
-			rm.Type = gostatsd.COUNTER
-		case *pb.RawMetricV1_Gauge:
-			rm.Value = m.Gauge.Value
-			rm.Type = gostatsd.GAUGE
-		case *pb.RawMetricV1_Set:
-			rm.StringValue = m.Set.Value
-			rm.Type = gostatsd.SET
-		case *pb.RawMetricV1_Timer:
-			rm.Value = m.Timer.Value
-			rm.Rate = m.Timer.Rate
-			rm.Type = gostatsd.TIMER
-		default:
-			continue
-		}
-		rhh.handler.DispatchMetric(req.Context(), rm)
-	}
-
-	atomic.AddUint64(&rhh.metricsProcessed, uint64(len(msg.RawMetrics)))
 	atomic.AddUint64(&rhh.requestSuccess, 1)
 	w.WriteHeader(http.StatusAccepted)
 }
 
-func (rhh *rawHttpHandlerV1) EventHandler(w http.ResponseWriter, req *http.Request) {
+func (rhh *rawHttpHandlerV2) EventHandler(w http.ResponseWriter, req *http.Request) {
 	b, errCode := rhh.readBody(req)
 
 	if errCode != 0 {
@@ -162,7 +135,7 @@ func (rhh *rawHttpHandlerV1) EventHandler(w http.ResponseWriter, req *http.Reque
 		return
 	}
 
-	var msg pb.EventV1
+	var msg pb.EventV2
 	err := proto.Unmarshal(b, &msg)
 	if err != nil {
 		atomic.AddUint64(&rhh.requestFailureUnmarshal, 1)
@@ -183,22 +156,22 @@ func (rhh *rawHttpHandlerV1) EventHandler(w http.ResponseWriter, req *http.Reque
 	}
 
 	switch msg.Priority {
-	case pb.EventV1_Normal:
+	case pb.EventV2_Normal:
 		event.Priority = gostatsd.PriNormal
-	case pb.EventV1_Low:
+	case pb.EventV2_Low:
 		event.Priority = gostatsd.PriLow
 	default:
 		event.Priority = gostatsd.PriNormal
 	}
 
 	switch msg.Type {
-	case pb.EventV1_Info:
+	case pb.EventV2_Info:
 		event.AlertType = gostatsd.AlertInfo
-	case pb.EventV1_Warning:
+	case pb.EventV2_Warning:
 		event.AlertType = gostatsd.AlertWarning
-	case pb.EventV1_Error:
+	case pb.EventV2_Error:
 		event.AlertType = gostatsd.AlertError
-	case pb.EventV1_Success:
+	case pb.EventV2_Success:
 		event.AlertType = gostatsd.AlertSuccess
 	default:
 		event.AlertType = gostatsd.AlertInfo
@@ -209,4 +182,63 @@ func (rhh *rawHttpHandlerV1) EventHandler(w http.ResponseWriter, req *http.Reque
 	atomic.AddUint64(&rhh.eventsProcessed, 1)
 	atomic.AddUint64(&rhh.requestSuccess, 1)
 	w.WriteHeader(http.StatusAccepted)
+}
+
+func translateFromProtobufV2(pbMetricMap *pb.RawMessageV2) *gostatsd.MetricMap {
+	now := gostatsd.Nanotime(time.Now().UnixNano())
+	mm := gostatsd.NewMetricMap()
+
+	for metricName, tagMap := range pbMetricMap.Gauges {
+		mm.Gauges[metricName] = map[string]gostatsd.Gauge{}
+		for tagsKey, gauge := range tagMap.TagMap {
+			mm.Gauges[metricName][tagsKey] = gostatsd.Gauge{
+				Value:     gauge.Value,
+				Timestamp: now,
+				Hostname:  gauge.Hostname,
+				Tags:      gauge.Tags,
+			}
+		}
+	}
+
+	for metricName, tagMap := range pbMetricMap.Counters {
+		mm.Counters[metricName] = map[string]gostatsd.Counter{}
+		for tagsKey, counter := range tagMap.TagMap {
+			mm.Counters[metricName][tagsKey] = gostatsd.Counter{
+				Value:     counter.Value,
+				Timestamp: now,
+				Tags:      counter.Tags,
+				Hostname:  counter.Hostname,
+			}
+		}
+	}
+
+	for metricName, tagMap := range pbMetricMap.Timers {
+		mm.Timers[metricName] = map[string]gostatsd.Timer{}
+		for tagsKey, timer := range tagMap.TagMap {
+			mm.Timers[metricName][tagsKey] = gostatsd.Timer{
+				Values:       timer.Values,
+				Timestamp:    now,
+				Tags:         timer.Tags,
+				Hostname:     timer.Hostname,
+				SampledCount: timer.SampleCount,
+			}
+		}
+	}
+
+	for metricName, tagMap := range pbMetricMap.Sets {
+		mm.Sets[metricName] = map[string]gostatsd.Set{}
+		for tagsKey, set := range tagMap.TagMap {
+			mm.Sets[metricName][tagsKey] = gostatsd.Set{
+				Values:    map[string]struct{}{},
+				Timestamp: now,
+				Tags:      set.Tags,
+				Hostname:  set.Hostname,
+			}
+			for _, value := range set.Values {
+				mm.Sets[metricName][tagsKey].Values[value] = struct{}{}
+			}
+		}
+	}
+
+	return mm
 }

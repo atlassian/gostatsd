@@ -94,7 +94,8 @@ func benchmarkMetricConsolidator(b *testing.B, parallelism, variations int) {
 	wgInfra.Add(2)
 	go func() {
 		// Keep the channel drained, contents don't matter
-		for range ch {}
+		for range ch {
+		}
 		wgInfra.Done()
 	}()
 	go func() {

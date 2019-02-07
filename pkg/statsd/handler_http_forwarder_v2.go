@@ -1,7 +1,5 @@
 package statsd
 
-// This file now exists only to support the v1 ingestion tests.
-
 import (
 	"bytes"
 	"compress/zlib"
@@ -24,11 +22,23 @@ import (
 	"github.com/cenkalti/backoff"
 	"github.com/golang/protobuf/proto"
 	"github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
 	"github.com/tilinna/clock"
 )
 
-// HttpForwarderHandlerV1 is a PipelineHandler which sends metrics to another gostatsd instance
-type HttpForwarderHandlerV1 struct {
+const (
+	defaultConsolidatorFlushInterval = 1 * time.Second
+	defaultClientTimeout             = 10 * time.Second
+	defaultCompress                  = true
+	defaultEnableHttp2               = false
+	defaultEndpoint                  = ""
+	defaultMaxRequestElapsedTime     = 30 * time.Second
+	defaultMaxRequests               = 1000
+	defaultNetwork                   = "tcp"
+)
+
+// HttpForwarderHandlerV2 is a PipelineHandler which sends metrics to another gostatsd instance
+type HttpForwarderHandlerV2 struct {
 	postId          uint64 // atomic - used for an id in logs
 	messagesInvalid uint64 // atomic - messages which failed to be created
 	messagesCreated uint64 // atomic - messages which were created
@@ -41,19 +51,46 @@ type HttpForwarderHandlerV1 struct {
 	maxRequestElapsedTime time.Duration
 	metricsSem            chan struct{}
 	client                http.Client
-	batcher               gostatsd.RawMetricHandler
-	batchedMetrics        <-chan []*gostatsd.Metric
+	consolidator          *gostatsd.MetricConsolidator
+	consolidatedMetrics   <-chan []*gostatsd.MetricMap
 	eventWg               sync.WaitGroup
 	compress              bool
 }
 
-// NewHttpForwarderHandlerV1 returns a new handler which dispatches metrics over http to another gostatsd server.
-func NewHttpForwarderHandlerV1(logger logrus.FieldLogger, apiEndpoint, network string, metricsPerBatch, maxRequests int, compress, enableHttp2 bool, clientTimeout, maxRequestElapsedTime time.Duration, flushInterval time.Duration) (*HttpForwarderHandlerV1, error) {
+// NewHttpForwarderHandlerV2FromViper returns a new http API client.
+func NewHttpForwarderHandlerV2FromViper(logger logrus.FieldLogger, v *viper.Viper) (*HttpForwarderHandlerV2, error) {
+	subViper := getSubViper(v, "http-transport")
+	subViper.SetDefault("client-timeout", defaultClientTimeout)
+	subViper.SetDefault("compress", defaultCompress)
+	subViper.SetDefault("enable-http2", defaultEnableHttp2)
+	subViper.SetDefault("endpoint", defaultEndpoint)
+	subViper.SetDefault("max-requests", defaultMaxRequests)
+	subViper.SetDefault("max-request-elapsed-time", defaultMaxRequestElapsedTime)
+	subViper.SetDefault("consolidator-slots", v.GetInt(ParamMaxParsers))
+	subViper.SetDefault("flush-interval", defaultConsolidatorFlushInterval)
+	subViper.SetDefault("network", defaultNetwork)
+
+	return NewHttpForwarderHandlerV2(
+		logger,
+		subViper.GetString("api-endpoint"),
+		subViper.GetString("network"),
+		subViper.GetInt("consolidator-slots"),
+		subViper.GetInt("max-requests"),
+		subViper.GetBool("compress"),
+		subViper.GetBool("enable-http2"),
+		subViper.GetDuration("client-timeout"),
+		subViper.GetDuration("max-request-elapsed-time"),
+		subViper.GetDuration("flush-interval"),
+	)
+}
+
+// NewHttpForwarderHandlerV2 returns a new handler which dispatches metrics over http to another gostatsd server.
+func NewHttpForwarderHandlerV2(logger logrus.FieldLogger, apiEndpoint, network string, consolidatorSlots, maxRequests int, compress, enableHttp2 bool, clientTimeout, maxRequestElapsedTime time.Duration, flushInterval time.Duration) (*HttpForwarderHandlerV2, error) {
 	if apiEndpoint == "" {
 		return nil, fmt.Errorf("api-endpoint is required")
 	}
-	if metricsPerBatch <= 0 {
-		return nil, fmt.Errorf("metrics-per-batch must be positive")
+	if consolidatorSlots <= 0 {
+		return nil, fmt.Errorf("consolidator-slots must be positive")
 	}
 	if maxRequests <= 0 {
 		return nil, fmt.Errorf("max-requests must be positive")
@@ -75,7 +112,7 @@ func NewHttpForwarderHandlerV1(logger logrus.FieldLogger, apiEndpoint, network s
 		"enable-http2":             enableHttp2,
 		"max-request-elapsed-time": maxRequestElapsedTime,
 		"max-requests":             maxRequests,
-		"metrics-per-batch":        metricsPerBatch,
+		"consolidator-slots":       consolidatorSlots,
 		"network":                  network,
 		"flush-interval":           flushInterval,
 	}).Info("created HttpForwarderHandler")
@@ -111,16 +148,16 @@ func NewHttpForwarderHandlerV1(logger logrus.FieldLogger, apiEndpoint, network s
 		metricsSem <- struct{}{}
 	}
 
-	ch := make(chan []*gostatsd.Metric)
+	ch := make(chan []*gostatsd.MetricMap)
 
-	return &HttpForwarderHandlerV1{
-		logger:                logger.WithField("component", "http-forwarder-handler-v1"),
+	return &HttpForwarderHandlerV2{
+		logger:                logger.WithField("component", "http-forwarder-handler-v2"),
 		apiEndpoint:           apiEndpoint,
 		maxRequestElapsedTime: maxRequestElapsedTime,
 		metricsSem:            metricsSem,
 		compress:              compress,
-		batcher:               gostatsd.NewMetricBatcher(metricsPerBatch, flushInterval, ch),
-		batchedMetrics:        ch,
+		consolidator:          gostatsd.NewMetricConsolidator(consolidatorSlots, flushInterval, ch),
+		consolidatedMetrics:   ch,
 		client: http.Client{
 			Transport: transport,
 			Timeout:   clientTimeout,
@@ -128,15 +165,15 @@ func NewHttpForwarderHandlerV1(logger logrus.FieldLogger, apiEndpoint, network s
 	}, nil
 }
 
-func (hfh *HttpForwarderHandlerV1) EstimatedTags() int {
+func (hfh *HttpForwarderHandlerV2) EstimatedTags() int {
 	return 0
 }
 
-func (hfh *HttpForwarderHandlerV1) DispatchMetric(ctx context.Context, m *gostatsd.Metric) {
-	hfh.batcher.DispatchMetric(ctx, m)
+func (hfh *HttpForwarderHandlerV2) DispatchMetric(ctx context.Context, m *gostatsd.Metric) {
+	hfh.consolidator.ReceiveMetric(ctx, m)
 }
 
-func (hfh *HttpForwarderHandlerV1) RunMetrics(ctx context.Context) {
+func (hfh *HttpForwarderHandlerV2) RunMetrics(ctx context.Context) {
 	statser := stats.FromContext(ctx)
 
 	notify, cancel := statser.RegisterFlush()
@@ -152,7 +189,7 @@ func (hfh *HttpForwarderHandlerV1) RunMetrics(ctx context.Context) {
 	}
 }
 
-func (hfh *HttpForwarderHandlerV1) emitMetrics(statser stats.Statser) {
+func (hfh *HttpForwarderHandlerV2) emitMetrics(statser stats.Statser) {
 	messagesInvalid := atomic.SwapUint64(&hfh.messagesInvalid, 0)
 	messagesCreated := atomic.SwapUint64(&hfh.messagesCreated, 0)
 	messagesSent := atomic.SwapUint64(&hfh.messagesSent, 0)
@@ -166,31 +203,38 @@ func (hfh *HttpForwarderHandlerV1) emitMetrics(statser stats.Statser) {
 	statser.Count("http.forwarder.dropped", float64(messagesDropped), nil)
 }
 
-func (hfh *HttpForwarderHandlerV1) Run(ctx context.Context) {
-	if r, ok := hfh.batcher.(gostatsd.Runner); ok {
-		var wg wait.Group
-		defer wg.Wait()
-		wg.StartWithContext(ctx, r.Run)
-	}
+func (hfh *HttpForwarderHandlerV2) Run(ctx context.Context) {
+	var wg wait.Group
+	defer wg.Wait()
+	wg.StartWithContext(ctx, hfh.consolidator.Run)
 
 	for {
 		select {
 		case <-ctx.Done():
 			return
-		case metrics := <-hfh.batchedMetrics:
+		case metricMaps := <-hfh.consolidatedMetrics:
 			if !hfh.acquireSem(ctx) {
 				return
 			}
+			metricMap := mergeMaps(metricMaps)
 			postId := atomic.AddUint64(&hfh.postId, 1) - 1
 			go func(postId uint64) {
-				hfh.postMetrics(ctx, metrics, postId)
+				hfh.postMetrics(ctx, metricMap, postId)
 				hfh.releaseSem()
 			}(postId)
 		}
 	}
 }
 
-func (hfh *HttpForwarderHandlerV1) acquireSem(ctx context.Context) bool {
+func mergeMaps(maps []*gostatsd.MetricMap) *gostatsd.MetricMap {
+	mm := gostatsd.NewMetricMap()
+	for _, m := range maps {
+		mm.Merge(m)
+	}
+	return mm
+}
+
+func (hfh *HttpForwarderHandlerV2) acquireSem(ctx context.Context) bool {
 	select {
 	case <-ctx.Done():
 		return false
@@ -199,66 +243,75 @@ func (hfh *HttpForwarderHandlerV1) acquireSem(ctx context.Context) bool {
 	}
 }
 
-func (hfh *HttpForwarderHandlerV1) releaseSem() {
+func (hfh *HttpForwarderHandlerV2) releaseSem() {
 	hfh.metricsSem <- struct{}{} // will never block
 }
 
-func translateToProtobufV1(metrics []*gostatsd.Metric) []*pb.RawMetricV1 {
-	pbMetrics := make([]*pb.RawMetricV1, 0, len(metrics))
+func translateToProtobufV2(metricMap *gostatsd.MetricMap) *pb.RawMessageV2 {
+	var pbMetricMap pb.RawMessageV2
 
-	for _, metric := range metrics {
-		pbm := &pb.RawMetricV1{
-			Name:     metric.Name,
-			Hostname: metric.Hostname,
-			Tags:     metric.Tags,
+	pbMetricMap.Gauges = map[string]*pb.GaugeTagV2{}
+	for metricName, m := range metricMap.Gauges {
+		pbMetricMap.Gauges[metricName] = &pb.GaugeTagV2{TagMap: map[string]*pb.RawGaugeV2{}}
+		for tagsKey, metric := range m {
+			pbMetricMap.Gauges[metricName].TagMap[tagsKey] = &pb.RawGaugeV2{
+				Tags:     metric.Tags,
+				Hostname: metric.Hostname,
+				Value:    metric.Value,
+			}
 		}
-		switch metric.Type {
-		case gostatsd.COUNTER:
-			pbm.M = &pb.RawMetricV1_Counter{
-				Counter: &pb.RawCounterV1{
-					Value: metric.Value / metric.Rate,
-				},
-			}
-		case gostatsd.GAUGE:
-			pbm.M = &pb.RawMetricV1_Gauge{
-				Gauge: &pb.RawGaugeV1{
-					Value: metric.Value,
-				},
-			}
-		case gostatsd.SET:
-			pbm.M = &pb.RawMetricV1_Set{
-				Set: &pb.RawSetV1{
-					Value: metric.StringValue,
-				},
-			}
-		case gostatsd.TIMER:
-			pbm.M = &pb.RawMetricV1_Timer{
-				Timer: &pb.RawTimerV1{
-					Value: metric.Value,
-					Rate:  metric.Rate,
-				},
-			}
-		default:
-			// In theory this only happens in tests, and it should be a panic, but in the event
-			// that it somehow occurs in operation, we want to keep running as best we can.
-			continue
-		}
-		pbMetrics = append(pbMetrics, pbm)
 	}
-	return pbMetrics
+
+	pbMetricMap.Counters = map[string]*pb.CounterTagV2{}
+	for metricName, m := range metricMap.Counters {
+		pbMetricMap.Counters[metricName] = &pb.CounterTagV2{TagMap: map[string]*pb.RawCounterV2{}}
+		for tagsKey, metric := range m {
+			pbMetricMap.Counters[metricName].TagMap[tagsKey] = &pb.RawCounterV2{
+				Tags:     metric.Tags,
+				Hostname: metric.Hostname,
+				Value:    metric.Value,
+			}
+		}
+	}
+
+	pbMetricMap.Sets = map[string]*pb.SetTagV2{}
+	for metricName, m := range metricMap.Sets {
+		pbMetricMap.Sets[metricName] = &pb.SetTagV2{TagMap: map[string]*pb.RawSetV2{}}
+		for tagsKey, metric := range m {
+			var values []string
+			for key := range metric.Values {
+				values = append(values, key)
+			}
+			pbMetricMap.Sets[metricName].TagMap[tagsKey] = &pb.RawSetV2{
+				Tags:     metric.Tags,
+				Hostname: metric.Hostname,
+				Values:   values,
+			}
+		}
+	}
+
+	pbMetricMap.Timers = map[string]*pb.TimerTagV2{}
+	for metricName, m := range metricMap.Timers {
+		pbMetricMap.Timers[metricName] = &pb.TimerTagV2{TagMap: map[string]*pb.RawTimerV2{}}
+		for tagsKey, metric := range m {
+			pbMetricMap.Timers[metricName].TagMap[tagsKey] = &pb.RawTimerV2{
+				Tags:        metric.Tags,
+				Hostname:    metric.Hostname,
+				SampleCount: metric.SampledCount,
+				Values:      metric.Values,
+			}
+		}
+	}
+
+	return &pbMetricMap
 }
 
-func (hfh *HttpForwarderHandlerV1) postMetrics(ctx context.Context, metrics []*gostatsd.Metric, batchId uint64) {
-	message := &pb.RawMessageV1{
-		RawMetrics: translateToProtobufV1(metrics),
-	}
-	if len(message.RawMetrics) == 0 {
-		return
-	}
-	hfh.post(ctx, message, batchId, "metrics", "/v1/raw")
+func (hfh *HttpForwarderHandlerV2) postMetrics(ctx context.Context, metricMap *gostatsd.MetricMap, batchId uint64) {
+	message := translateToProtobufV2(metricMap)
+	hfh.post(ctx, message, batchId, "metrics", "/v2/raw")
 }
 
-func (hfh *HttpForwarderHandlerV1) post(ctx context.Context, message proto.Message, id uint64, endpointType, endpoint string) {
+func (hfh *HttpForwarderHandlerV2) post(ctx context.Context, message proto.Message, id uint64, endpointType, endpoint string) {
 	logger := hfh.logger.WithFields(logrus.Fields{
 		"id":   id,
 		"type": endpointType,
@@ -302,7 +355,7 @@ func (hfh *HttpForwarderHandlerV1) post(ctx context.Context, message proto.Messa
 	}
 }
 
-func (hfh *HttpForwarderHandlerV1) serialize(message proto.Message) ([]byte, error) {
+func (hfh *HttpForwarderHandlerV2) serialize(message proto.Message) ([]byte, error) {
 	buf, err := proto.Marshal(message)
 	if err != nil {
 		return nil, err
@@ -313,7 +366,7 @@ func (hfh *HttpForwarderHandlerV1) serialize(message proto.Message) ([]byte, err
 
 // debug rendering
 /*
-func (hh *HttpForwarderHandlerV1) serializeText(message proto.Message) ([]byte, error) {
+func (hh *HttpForwarderHandlerV2) serializeText(message proto.Message) ([]byte, error) {
 	buf := &bytes.Buffer{}
 	err := proto.MarshalText(buf, message)
 	if err != nil {
@@ -323,7 +376,7 @@ func (hh *HttpForwarderHandlerV1) serializeText(message proto.Message) ([]byte, 
 }
 */
 
-func (hfh *HttpForwarderHandlerV1) serializeAndCompress(message proto.Message) ([]byte, error) {
+func (hfh *HttpForwarderHandlerV2) serializeAndCompress(message proto.Message) ([]byte, error) {
 	raw, err := hfh.serialize(message)
 	if err != nil {
 		return nil, err
@@ -335,7 +388,7 @@ func (hfh *HttpForwarderHandlerV1) serializeAndCompress(message proto.Message) (
 		return nil, err
 	}
 
-	compressor.Write(raw)
+	_, _ = compressor.Write(raw) // error is propagated through Close
 	err = compressor.Close()
 	if err != nil {
 		return nil, err
@@ -344,7 +397,7 @@ func (hfh *HttpForwarderHandlerV1) serializeAndCompress(message proto.Message) (
 	return buf.Bytes(), nil
 }
 
-func (hfh *HttpForwarderHandlerV1) constructPost(ctx context.Context, logger logrus.FieldLogger, path string, message proto.Message) (func() error /*doPost*/, error) {
+func (hfh *HttpForwarderHandlerV2) constructPost(ctx context.Context, logger logrus.FieldLogger, path string, message proto.Message) (func() error /*doPost*/, error) {
 	var body []byte
 	var err error
 	var encoding string
@@ -397,19 +450,19 @@ func (hfh *HttpForwarderHandlerV1) constructPost(ctx context.Context, logger log
 
 ///////// Event processing
 
-// Events are handled individually, because the context matters. If they're buffered through the batcher, they'll
+// Events are handled individually, because the context matters. If they're buffered through the consolidator, they'll
 // be processed on a goroutine with a context which will be closed during shutdown.  Events should be rare enough that
 // this isn't an issue.
 
-func (hfh *HttpForwarderHandlerV1) DispatchEvent(ctx context.Context, e *gostatsd.Event) {
+func (hfh *HttpForwarderHandlerV2) DispatchEvent(ctx context.Context, e *gostatsd.Event) {
 	hfh.eventWg.Add(1)
 	go hfh.dispatchEvent(ctx, e)
 }
 
-func (hfh *HttpForwarderHandlerV1) dispatchEvent(ctx context.Context, e *gostatsd.Event) {
+func (hfh *HttpForwarderHandlerV2) dispatchEvent(ctx context.Context, e *gostatsd.Event) {
 	postId := atomic.AddUint64(&hfh.postId, 1) - 1
 
-	message := &pb.EventV1{
+	message := &pb.EventV2{
 		Title:          e.Title,
 		Text:           e.Text,
 		DateHappened:   e.DateHappened,
@@ -422,27 +475,27 @@ func (hfh *HttpForwarderHandlerV1) dispatchEvent(ctx context.Context, e *gostats
 
 	switch e.Priority {
 	case gostatsd.PriNormal:
-		message.Priority = pb.EventV1_Normal
+		message.Priority = pb.EventV2_Normal
 	case gostatsd.PriLow:
-		message.Priority = pb.EventV1_Low
+		message.Priority = pb.EventV2_Low
 	}
 
 	switch e.AlertType {
 	case gostatsd.AlertInfo:
-		message.Type = pb.EventV1_Info
+		message.Type = pb.EventV2_Info
 	case gostatsd.AlertWarning:
-		message.Type = pb.EventV1_Warning
+		message.Type = pb.EventV2_Warning
 	case gostatsd.AlertError:
-		message.Type = pb.EventV1_Error
+		message.Type = pb.EventV2_Error
 	case gostatsd.AlertSuccess:
-		message.Type = pb.EventV1_Success
+		message.Type = pb.EventV2_Success
 	}
 
-	hfh.post(ctx, message, postId, "event", "/v1/event")
+	hfh.post(ctx, message, postId, "event", "/v2/event")
 
 	defer hfh.eventWg.Done()
 }
 
-func (hfh *HttpForwarderHandlerV1) WaitForEvents() {
+func (hfh *HttpForwarderHandlerV2) WaitForEvents() {
 	hfh.eventWg.Wait()
 }

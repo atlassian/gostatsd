@@ -16,9 +16,10 @@ Only one prof will be allowed to run at any point, and requesting multiple will 
   dependency should not cause an otherwise healthy server to cycle, because it will likely fail again.
 
 ### `ingestion` endpoint
-- `/vN/raw`, takes in protobuf formatted raw metrics.  This endpoint is intended for gostatsd to gostatsd communication
-  only, and thus not documented. This is to deter a service which may not bother to consolidate metrics, which would be
-  detrimental to the health of the aggregation service. The version spoken by a forwarding instance is not configurable.
+- `/vN/raw` and `/vN/event`, takes in protobuf formatted raw metrics.  This endpoint is intended for gostatsd to
+  gostatsd communication only, and thus not documented. This is to deter a service which may not bother to consolidate
+  metrics, which would be detrimental to the health of the aggregation service. The version spoken by a forwarding
+  instance is not configurable.
 
   The compatibility guarantee is:
   - A bump of N will be a major bump of the service version
@@ -27,4 +28,4 @@ Only one prof will be allowed to run at any point, and requesting multiple will 
   - A major bump of the service version may drop N-1 support without adding N+1.
   - There will never be more than N-1 and N.
 
-  All changes of N will be documented in the [CHANGELOG.md].  N is currently 1.
+  All changes of N will be documented in the [CHANGELOG.md].  N is currently 2.

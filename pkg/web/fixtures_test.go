@@ -40,7 +40,9 @@ func (ch *capturingHandler) WaitForEvents() {
 func (ch *capturingHandler) GetMetrics() []*gostatsd.Metric {
 	ch.mu.Lock()
 	defer ch.mu.Unlock()
-	return ch.m
+	m := make([]*gostatsd.Metric, len(ch.m))
+	copy(m, ch.m)
+	return m
 }
 
 func testContext(t *testing.T) (context.Context, func()) {

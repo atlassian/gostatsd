@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestHttpForwarderTranslation(t *testing.T) {
+func TestHttpForwarderV1Translation(t *testing.T) {
 	t.Parallel()
 	metrics := []*gostatsd.Metric{
 		{
@@ -77,7 +77,7 @@ func TestHttpForwarderTranslation(t *testing.T) {
 		},
 	}
 
-	pbMetrics := translateToProtobuf(metrics)
+	pbMetrics := translateToProtobufV1(metrics)
 
 	expected := []*pb.RawMetricV1{
 		{
@@ -166,7 +166,7 @@ func TestHttpForwarderTranslation(t *testing.T) {
 	require.EqualValues(t, pbMetrics, expected)
 }
 
-func BenchmarkHttpForwarderTranslateAll(b *testing.B) {
+func BenchmarkHttpForwarderV1TranslateAll(b *testing.B) {
 	metrics := []*gostatsd.Metric{}
 
 	for i := 0; i < b.N; i++ {
@@ -183,5 +183,5 @@ func BenchmarkHttpForwarderTranslateAll(b *testing.B) {
 
 	b.ReportAllocs()
 	b.ResetTimer()
-	translateToProtobuf(metrics)
+	translateToProtobufV1(metrics)
 }

@@ -21,6 +21,7 @@ type httpServer struct {
 	address      string
 	Router       *mux.Router // should be private, but project layout is not great.
 	rawMetricsV1 *rawHttpHandlerV1
+	rawMetricsV2 *rawHttpHandlerV2
 }
 
 type route struct {
@@ -103,9 +104,12 @@ func NewHttpServer(
 
 	if enableIngestion {
 		server.rawMetricsV1 = newRawHttpHandlerV1(logger, serverName, handler)
+		server.rawMetricsV2 = newRawHttpHandlerV2(logger, serverName, handler)
 		routes = append(routes,
 			route{path: "/v1/raw", handler: server.rawMetricsV1.MetricHandler, method: "POST", name: "metrics_post"},
 			route{path: "/v1/event", handler: server.rawMetricsV1.EventHandler, method: "POST", name: "events_post"},
+			route{path: "/v2/raw", handler: server.rawMetricsV2.MetricHandler, method: "POST", name: "metricsv2_post"},
+			route{path: "/v2/event", handler: server.rawMetricsV2.EventHandler, method: "POST", name: "eventsv2_post"},
 		)
 	}
 
@@ -122,6 +126,7 @@ func NewHttpServer(
 	}
 
 	router, err := createRoutes(routes)
+	router.NotFoundHandler = server.logRequest(http.HandlerFunc(server.notFound))
 	if err != nil {
 		return nil, err
 	}
@@ -137,6 +142,11 @@ func NewHttpServer(
 	}).Info("Created server")
 
 	return server, nil
+}
+
+func (hs *httpServer) notFound(w http.ResponseWriter, req *http.Request) {
+	w.WriteHeader(404)
+	_, _ = w.Write([]byte("not found"))
 }
 
 func createRoutes(routes []route) (*mux.Router, error) {
@@ -156,14 +166,16 @@ func (hs *httpServer) logRequest(handler http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		var routeName string
 		route := mux.CurrentRoute(req)
-		if route == nil {
-			routeName = "unknown"
-		} else {
-			routeName = route.GetName()
-		}
 		logFields := logrus.Fields{
 			"route": routeName,
 			"srcip": strings.Split(req.RemoteAddr, ":")[0],
+			"path":  req.URL.Path,
+		}
+		if route == nil {
+			logFields["path"] = req.URL.Path
+			logFields["method"] = req.Method
+		} else {
+			logFields["route"] = route.GetName()
 		}
 		source := req.Header.Get("X-Forwarded-For")
 		if source != "" {
@@ -174,7 +186,7 @@ func (hs *httpServer) logRequest(handler http.Handler) http.Handler {
 		handler.ServeHTTP(w, req)
 		dur := time.Since(start)
 
-		logFields["duration"] = dur / time.Millisecond
+		logFields["duration"] = float64(dur) / float64(time.Millisecond)
 		hs.logger.WithFields(logFields).Info("request")
 	})
 }
