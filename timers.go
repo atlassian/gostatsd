@@ -55,7 +55,7 @@ func (t Timers) HasChildren(k string) bool {
 }
 
 // Each iterates over each timer.
-func (t Timers) Each(f func(string, string, Timer)) {
+func (t Timers) Each(f func(metricName string, tagsKey string, t Timer)) {
 	for key, value := range t {
 		for tags, timer := range value {
 			f(key, tags, timer)

@@ -37,7 +37,7 @@ func (g Gauges) HasChildren(k string) bool {
 }
 
 // Each iterates over each gauge.
-func (g Gauges) Each(f func(string, string, Gauge)) {
+func (g Gauges) Each(f func(metricName string, tagsKey string, g Gauge)) {
 	for key, value := range g {
 		for tags, gauge := range value {
 			f(key, tags, gauge)

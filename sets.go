@@ -37,7 +37,7 @@ func (s Sets) HasChildren(k string) bool {
 }
 
 // Each iterates over each set.
-func (s Sets) Each(f func(string, string, Set)) {
+func (s Sets) Each(f func(metricName string, tagsKey string, s Set)) {
 	for key, value := range s {
 		for tags, set := range value {
 			f(key, tags, set)
