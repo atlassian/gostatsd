@@ -49,7 +49,9 @@ func (f *MetricFlusher) Run(ctx context.Context) {
 			return
 		case thisFlush := <-flushTicker.C: // Time to flush to the backends
 			flushDelta := thisFlush.Sub(lastFlush)
-			f.flushData(ctx, flushDelta, statser)
+			if f.aggregateProcesser != AggregateProcesser(nil) {
+				f.flushData(ctx, flushDelta, statser)
+			}
 			statser.NotifyFlush(flushDelta)
 			lastFlush = thisFlush
 		}

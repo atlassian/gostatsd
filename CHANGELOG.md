@@ -1,3 +1,9 @@
+11.0.0 (pending)
+------
+- Add http forwarding and ingestion.  See `Configuring the server mode` and `Configuring HTTP servers` in [README.md]
+  for details.  Not recommended for production use at this time.  Healthcheck is ok to use
+- Introduces v1 ingestion
+
 10.0.1
 ------
 - Fix linter failures

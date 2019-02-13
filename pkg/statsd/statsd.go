@@ -2,6 +2,7 @@ package statsd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"os"
@@ -10,6 +11,7 @@ import (
 
 	"github.com/atlassian/gostatsd"
 	"github.com/atlassian/gostatsd/pkg/stats"
+	"github.com/atlassian/gostatsd/pkg/web"
 
 	"github.com/ash2k/stager"
 	reuseport "github.com/libp2p/go-reuseport"
@@ -47,6 +49,7 @@ type Server struct {
 	ReceiveBatchSize          int
 	DisabledSubTypes          gostatsd.TimerSubtypes
 	BadLineRateLimitPerSecond rate.Limit
+	ServerMode                string
 	CacheOptions
 	Viper *viper.Viper
 }
@@ -79,11 +82,8 @@ func socketFactory(metricsAddr string, connPerReader bool) SocketFactory {
 	}
 }
 
-// RunWithCustomSocket runs the server until context signals done.
-// Listening socket is created using sf.
-func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) error {
+func (s *Server) createStandaloneSink() (gostatsd.PipelineHandler, []gostatsd.Runnable, error) {
 	var runnables []gostatsd.Runnable
-	var handler gostatsd.PipelineHandler
 
 	for _, backend := range s.Backends {
 		if r, ok := backend.(gostatsd.Runner); ok {
@@ -99,8 +99,48 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 	}
 
 	backendHandler := NewBackendHandler(s.Backends, uint(s.MaxConcurrentEvents), s.MaxWorkers, s.MaxQueueSize, &factory)
-	handler = backendHandler
 	runnables = append(runnables, backendHandler.Run)
+
+	// Create the Flusher
+	flusher := NewMetricFlusher(s.FlushInterval, backendHandler, s.Backends)
+	runnables = append(runnables, flusher.Run)
+
+	// Create the tag processor
+	handler := NewTagHandlerFromViper(s.Viper, backendHandler, s.DefaultTags)
+	return handler, runnables, nil
+}
+
+func (s *Server) createForwarderSink() (gostatsd.PipelineHandler, []gostatsd.Runnable, error) {
+	forwarderHandler, err := NewHttpForwarderHandlerV1FromViper(
+		log.StandardLogger(),
+		s.Viper,
+	)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// Create a Flusher, this is primarily for all the periodic metrics which are emitted.
+	flusher := NewMetricFlusher(s.FlushInterval, nil, s.Backends)
+
+	return forwarderHandler, []gostatsd.Runnable{forwarderHandler.Run, forwarderHandler.RunMetrics, flusher.Run}, nil
+}
+
+func (s *Server) createFinalSink() (gostatsd.PipelineHandler, []gostatsd.Runnable, error) {
+	if s.ServerMode == "standalone" {
+		return s.createStandaloneSink()
+	} else if s.ServerMode == "forwarder" {
+		return s.createForwarderSink()
+	}
+	return nil, nil, errors.New("invalid server-mode, must be standalone, or forwarder")
+}
+
+// RunWithCustomSocket runs the server until context signals done.
+// Listening socket is created using sf.
+func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) error {
+	handler, runnables, err := s.createFinalSink()
+	if err != nil {
+		return err
+	}
 
 	// Create the tag processor
 	handler = NewTagHandlerFromViper(s.Viper, handler, s.DefaultTags)
@@ -111,9 +151,9 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 		cloudHandler := NewCloudHandler(s.CloudProvider, handler, log.StandardLogger(), s.Limiter, &s.CacheOptions)
 		runnables = append(runnables, cloudHandler.Run)
 		handler = cloudHandler
-		selfIP, err := s.CloudProvider.SelfIP()
-		if err != nil {
-			log.Warnf("Failed to get self ip: %v", err)
+		selfIP, err2 := s.CloudProvider.SelfIP()
+		if err2 != nil {
+			log.Warnf("Failed to get self ip: %v", err2)
 		} else {
 			ip = selfIP
 		}
@@ -140,15 +180,20 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 	runnables = append(runnables, receiver.RunMetrics)
 	runnables = append(runnables, receiver.Run) // loop is contained in Run to keep additional logic contained
 
-	// Create the Flusher
-	flusher := NewMetricFlusher(s.FlushInterval, backendHandler, s.Backends)
-	runnables = append(runnables, flusher.Run)
-
 	// Create the Statser
 	hostname := getHost()
 	statser := s.createStatser(hostname, handler)
 	if runner, ok := statser.(gostatsd.Runner); ok {
 		runnables = append(runnables, runner.Run)
+	}
+
+	// Create any http servers
+	httpServers, err := web.NewHttpServersFromViper(s.Viper, log.StandardLogger(), handler)
+	if err != nil {
+		return err
+	}
+	for _, server := range httpServers {
+		runnables = append(runnables, server.Run)
 	}
 
 	// Start the world!

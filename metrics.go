@@ -99,6 +99,15 @@ type MetricMap struct {
 	Sets     Sets
 }
 
+func NewMetricMap() *MetricMap {
+	return &MetricMap{
+		Counters: Counters{},
+		Timers:   Timers{},
+		Gauges:   Gauges{},
+		Sets:     Sets{},
+	}
+}
+
 func (m *MetricMap) String() string {
 	buf := new(bytes.Buffer)
 	m.Counters.Each(func(k, tags string, counter Counter) {

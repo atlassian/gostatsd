@@ -1,0 +1,60 @@
+syntax = "proto3";
+
+package pb;
+
+message RawMessageV1 {
+    repeated RawMetricV1 RawMetrics = 1;
+}
+
+message EventV1 {
+    string Title = 1;
+    string Text = 2;
+    int64 DateHappened = 3;
+    string Hostname = 4;
+    string AggregationKey = 5;
+    string SourceTypeName = 6;
+    repeated string Tags = 7;
+    string SourceIP = 8;
+    enum EventPriority {
+        Normal = 0;
+        Low = 1;
+    };
+    EventPriority Priority = 9;
+    enum AlertType {
+        Info = 0;
+        Warning = 1;
+        Error = 2;
+        Success = 3;
+    }
+    AlertType Type = 10;
+}
+
+message RawMetricV1 {
+    string Name = 1;
+    repeated string Tags = 2;
+    string Hostname = 3;
+
+    oneof M {
+        RawCounterV1 counter = 12;
+        RawGaugeV1 gauge = 13;
+        RawSetV1 set = 14;
+        RawTimerV1 timer = 15;
+    }
+}
+
+message RawCounterV1 {
+    double Value = 1; // the count of counters is multiplied out before forwarding, rate is not required
+}
+
+message RawGaugeV1 {
+    double Value = 1;
+}
+
+message RawSetV1 {
+    string Value = 1;
+}
+
+message RawTimerV1 {
+    double Value = 1;
+    double Rate = 2; // the count of timers is multiplied out in the aggregator, so we need to propagate the rate
+}

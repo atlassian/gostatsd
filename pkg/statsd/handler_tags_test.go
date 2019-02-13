@@ -13,7 +13,7 @@ import (
 )
 
 func TestFilterPassesNoFilters(t *testing.T) {
-	tch := &TagCapturingHandler{}
+	tch := &capturingHandler{}
 	th := NewTagHandler(tch, gostatsd.Tags{}, nil)
 	m := &gostatsd.Metric{
 		Name: "name",
@@ -38,7 +38,7 @@ func TestFilterPassesNoFilters(t *testing.T) {
 }
 
 func TestFilterPassesEmptyFilters(t *testing.T) {
-	tch := &TagCapturingHandler{}
+	tch := &capturingHandler{}
 	th := NewTagHandler(tch, gostatsd.Tags{}, nil)
 	th.filters = []Filter{}
 	m := &gostatsd.Metric{
@@ -64,7 +64,7 @@ func TestFilterPassesEmptyFilters(t *testing.T) {
 }
 
 func TestFilterKeepNonMatch(t *testing.T) {
-	tch := &TagCapturingHandler{}
+	tch := &capturingHandler{}
 	th := NewTagHandler(tch, gostatsd.Tags{}, nil)
 	th.filters = []Filter{
 		{
@@ -95,7 +95,7 @@ func TestFilterKeepNonMatch(t *testing.T) {
 }
 
 func TestFilterDropsBadName(t *testing.T) {
-	tch := &TagCapturingHandler{}
+	tch := &capturingHandler{}
 	th := NewTagHandler(tch, gostatsd.Tags{}, nil)
 	th.filters = []Filter{
 		{
@@ -116,7 +116,7 @@ func TestFilterDropsBadName(t *testing.T) {
 }
 
 func TestFilterDropsBadPrefix(t *testing.T) {
-	tch := &TagCapturingHandler{}
+	tch := &capturingHandler{}
 	th := NewTagHandler(tch, gostatsd.Tags{}, nil)
 	th.filters = []Filter{
 		{
@@ -137,7 +137,7 @@ func TestFilterDropsBadPrefix(t *testing.T) {
 }
 
 func TestFilterKeepsWhitelist(t *testing.T) {
-	tch := &TagCapturingHandler{}
+	tch := &capturingHandler{}
 	th := NewTagHandler(tch, gostatsd.Tags{}, nil)
 	th.filters = []Filter{
 		{
@@ -181,7 +181,7 @@ func TestFilterKeepsWhitelist(t *testing.T) {
 }
 
 func TestFilterDropsTag(t *testing.T) {
-	tch := &TagCapturingHandler{}
+	tch := &capturingHandler{}
 	th := NewTagHandler(tch, gostatsd.Tags{}, nil)
 	th.filters = []Filter{
 		{
@@ -213,7 +213,7 @@ func TestFilterDropsTag(t *testing.T) {
 }
 
 func TestFilterDropsHost(t *testing.T) {
-	tch := &TagCapturingHandler{}
+	tch := &capturingHandler{}
 	th := NewTagHandler(tch, gostatsd.Tags{}, nil)
 	th.filters = []Filter{
 		{
@@ -336,7 +336,7 @@ func assertHasAllTags(t *testing.T, actual gostatsd.Tags, expected ...string) {
 }
 
 func TestTagMetricHandlerAddsNoTags(t *testing.T) {
-	tch := &TagCapturingHandler{}
+	tch := &capturingHandler{}
 	th := NewTagHandler(tch, gostatsd.Tags{}, nil)
 	m := &gostatsd.Metric{}
 	th.DispatchMetric(context.Background(), m)
@@ -346,7 +346,7 @@ func TestTagMetricHandlerAddsNoTags(t *testing.T) {
 }
 
 func TestTagMetricHandlerAddsSingleTag(t *testing.T) {
-	tch := &TagCapturingHandler{}
+	tch := &capturingHandler{}
 	th := NewTagHandler(tch, gostatsd.Tags{"tag1"}, nil)
 	m := &gostatsd.Metric{}
 	th.DispatchMetric(context.Background(), m)
@@ -356,7 +356,7 @@ func TestTagMetricHandlerAddsSingleTag(t *testing.T) {
 }
 
 func TestTagMetricHandlerAddsMultipleTags(t *testing.T) {
-	tch := &TagCapturingHandler{}
+	tch := &capturingHandler{}
 	th := NewTagHandler(tch, gostatsd.Tags{"tag1", "tag2"}, nil)
 	m := &gostatsd.Metric{}
 	th.DispatchMetric(context.Background(), m)
@@ -366,7 +366,7 @@ func TestTagMetricHandlerAddsMultipleTags(t *testing.T) {
 }
 
 func TestTagMetricHandlerAddsHostname(t *testing.T) {
-	tch := &TagCapturingHandler{}
+	tch := &capturingHandler{}
 	th := NewTagHandler(tch, gostatsd.Tags{}, nil)
 	m := &gostatsd.Metric{
 		SourceIP: "1.2.3.4",
@@ -378,7 +378,7 @@ func TestTagMetricHandlerAddsHostname(t *testing.T) {
 }
 
 func TestTagMetricHandlerAddsDuplicateTags(t *testing.T) {
-	tch := &TagCapturingHandler{}
+	tch := &capturingHandler{}
 	th := NewTagHandler(tch, gostatsd.Tags{"tag1", "tag2", "tag2", "tag3", "tag1"}, nil)
 	m := &gostatsd.Metric{}
 	th.DispatchMetric(context.Background(), m)
@@ -388,7 +388,7 @@ func TestTagMetricHandlerAddsDuplicateTags(t *testing.T) {
 }
 
 func TestTagEventHandlerAddsNoTags(t *testing.T) {
-	tch := &TagCapturingHandler{}
+	tch := &capturingHandler{}
 	th := NewTagHandler(tch, gostatsd.Tags{}, nil)
 	e := &gostatsd.Event{}
 	th.DispatchEvent(context.Background(), e)
@@ -398,7 +398,7 @@ func TestTagEventHandlerAddsNoTags(t *testing.T) {
 }
 
 func TestTagEventHandlerAddsSingleTag(t *testing.T) {
-	tch := &TagCapturingHandler{}
+	tch := &capturingHandler{}
 	th := NewTagHandler(tch, gostatsd.Tags{"tag1"}, nil)
 	e := &gostatsd.Event{}
 	th.DispatchEvent(context.Background(), e)
@@ -408,7 +408,7 @@ func TestTagEventHandlerAddsSingleTag(t *testing.T) {
 }
 
 func TestTagEventHandlerAddsMultipleTags(t *testing.T) {
-	tch := &TagCapturingHandler{}
+	tch := &capturingHandler{}
 	th := NewTagHandler(tch, gostatsd.Tags{"tag1", "tag2"}, nil)
 	e := &gostatsd.Event{}
 	th.DispatchEvent(context.Background(), e)
@@ -418,7 +418,7 @@ func TestTagEventHandlerAddsMultipleTags(t *testing.T) {
 }
 
 func TestTagEventHandlerAddsHostname(t *testing.T) {
-	tch := &TagCapturingHandler{}
+	tch := &capturingHandler{}
 	th := NewTagHandler(tch, gostatsd.Tags{}, nil)
 	e := &gostatsd.Event{
 		SourceIP: "1.2.3.4",
@@ -430,7 +430,7 @@ func TestTagEventHandlerAddsHostname(t *testing.T) {
 }
 
 func TestTagEventHandlerAddsDuplicateTags(t *testing.T) {
-	tch := &TagCapturingHandler{}
+	tch := &capturingHandler{}
 	th := NewTagHandler(tch, gostatsd.Tags{"tag1", "tag2", "tag2", "tag3", "tag1"}, nil)
 	e := &gostatsd.Event{}
 	th.DispatchEvent(context.Background(), e)
@@ -440,7 +440,7 @@ func TestTagEventHandlerAddsDuplicateTags(t *testing.T) {
 }
 
 func BenchmarkTagMetricHandlerAddsDuplicateTagsSmall(b *testing.B) {
-	tch := &TagCapturingHandler{}
+	tch := &capturingHandler{}
 	th := NewTagHandler(tch, gostatsd.Tags{
 		"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 		"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
@@ -467,7 +467,7 @@ func BenchmarkTagMetricHandlerAddsDuplicateTagsSmall(b *testing.B) {
 }
 
 func BenchmarkTagMetricHandlerAddsDuplicateTagsLarge(b *testing.B) {
-	tch := &TagCapturingHandler{}
+	tch := &capturingHandler{}
 	th := NewTagHandler(tch, gostatsd.Tags{
 		"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 		"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
@@ -503,7 +503,7 @@ func BenchmarkTagMetricHandlerAddsDuplicateTagsLarge(b *testing.B) {
 }
 
 func BenchmarkTagEventHandlerAddsDuplicateTagsSmall(b *testing.B) {
-	tch := &TagCapturingHandler{}
+	tch := &capturingHandler{}
 	th := NewTagHandler(tch, gostatsd.Tags{
 		"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 		"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
@@ -528,7 +528,7 @@ func BenchmarkTagEventHandlerAddsDuplicateTagsSmall(b *testing.B) {
 }
 
 func BenchmarkTagEventHandlerAddsDuplicateTagsLarge(b *testing.B) {
-	tch := &TagCapturingHandler{}
+	tch := &capturingHandler{}
 	th := NewTagHandler(tch, gostatsd.Tags{
 		"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 		"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",

@@ -67,6 +67,7 @@ func (is *InternalStatser) Gauge(name string, value float64, tags gostatsd.Tags)
 		Value:    value,
 		Tags:     tags,
 		Hostname: is.hostname,
+		Rate:     1,
 		Type:     gostatsd.GAUGE,
 	}
 	is.dispatchInternal(g)
@@ -79,6 +80,7 @@ func (is *InternalStatser) Count(name string, amount float64, tags gostatsd.Tags
 		Value:    amount,
 		Tags:     tags,
 		Hostname: is.hostname,
+		Rate:     1,
 		Type:     gostatsd.COUNTER,
 	}
 	is.dispatchInternal(c)
@@ -96,6 +98,7 @@ func (is *InternalStatser) TimingMS(name string, ms float64, tags gostatsd.Tags)
 		Value:    ms,
 		Tags:     tags,
 		Hostname: is.hostname,
+		Rate:     1,
 		Type:     gostatsd.TIMER,
 	}
 	is.dispatchInternal(c)

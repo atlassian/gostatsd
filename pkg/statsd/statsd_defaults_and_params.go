@@ -82,6 +82,8 @@ const (
 	DefaultStatserType = StatserInternal
 	// DefaultBadLinesPerMinute is the default number of bad lines to allow to log per minute
 	DefaultBadLinesPerMinute = 0
+	// DefaultServerMode is the default mode to run as, standalone|forwarder
+	DefaultServerMode = "standalone"
 )
 
 const (
@@ -141,6 +143,8 @@ const (
 	ParamConnPerReader = "conn-per-reader"
 	// ParamBadLineRateLimitPerMinute is the name of the parameter indicating how many bad lines can be logged per minute
 	ParamBadLinesPerMinute = "bad-lines-per-minute"
+	// ParamServerMode is the name of the parameter used to configure the server mode.
+	ParamServerMode = "server-mode"
 )
 
 // AddFlags adds flags to the specified FlagSet.
@@ -172,6 +176,7 @@ func AddFlags(fs *pflag.FlagSet) {
 	fs.Bool(ParamHeartbeatEnabled, DefaultHeartbeatEnabled, "Enables heartbeat")
 	fs.Int(ParamReceiveBatchSize, DefaultReceiveBatchSize, "The number of datagrams to read in each receive batch")
 	fs.Bool(ParamConnPerReader, DefaultConnPerReader, "Create a separate connection per reader (requires system support for reusing addresses)")
+	fs.String(ParamServerMode, DefaultServerMode, "The server mode to run in")
 }
 
 func minInt(a, b int) int {
