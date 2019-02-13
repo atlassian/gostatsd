@@ -1,4 +1,4 @@
-11.0.0 (pending)
+11.0.0
 ------
 - Add http forwarding and ingestion.  See `Configuring the server mode` and `Configuring HTTP servers` in [README.md]
   for details.  Not recommended for production use at this time.  Healthcheck is ok to use
