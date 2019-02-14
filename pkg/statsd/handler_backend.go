@@ -110,7 +110,7 @@ func (bh *BackendHandler) EstimatedTags() int {
 
 // DispatchMetric dispatches metric to a corresponding Aggregator.
 func (bh *BackendHandler) DispatchMetric(ctx context.Context, m *gostatsd.Metric) {
-	m.TagsKey = formatTagsKey(m.Tags, m.Hostname)
+	m.TagsKey = m.FormatTagsKey() // this is expensive, so do it with no aggregator affinity
 	w := bh.workers[m.Bucket(bh.numWorkers)]
 	select {
 	case <-ctx.Done():
@@ -172,12 +172,4 @@ func (bh *BackendHandler) dispatchEvent(ctx context.Context, backend gostatsd.Ba
 	if err := backend.SendEvent(ctx, e); err != nil && err != context.Canceled && err != context.DeadlineExceeded {
 		logrus.Errorf("Sending event to backend failed: %v", err)
 	}
-}
-
-func formatTagsKey(tags gostatsd.Tags, hostname string) string {
-	t := tags.SortedString()
-	if hostname == "" {
-		return t
-	}
-	return t + "," + gostatsd.StatsdSourceID + ":" + hostname
 }
