@@ -38,7 +38,7 @@ func (c Counters) HasChildren(k string) bool {
 }
 
 // Each iterates over each counter.
-func (c Counters) Each(f func(string, string, Counter)) {
+func (c Counters) Each(f func(metricName string, tagsKey string, c Counter)) {
 	for key, value := range c {
 		for tags, counter := range value {
 			f(key, tags, counter)

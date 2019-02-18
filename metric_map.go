@@ -2,6 +2,7 @@ package gostatsd
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"time"
 
@@ -226,4 +227,66 @@ func (mm *MetricMap) String() string {
 		fmt.Fprintf(buf, "stats.set.%s: %d tags=%s\n", k, len(set.Values), tags)
 	})
 	return buf.String()
+}
+
+// DispatchMetrics will synthesize Metrics from the MetricMap and push them to the supplied PipelineHandler
+func (mm *MetricMap) DispatchMetrics(ctx context.Context, handler RawMetricHandler) {
+	mm.Counters.Each(func(metricName string, tagsKey string, c Counter) {
+		m := &Metric{
+			Name:     metricName,
+			Type:     COUNTER,
+			Value:    float64(c.Value),
+			Rate:     1,
+			Tags:     c.Tags.Copy(),
+			TagsKey:  tagsKey,
+			Hostname: c.Hostname,
+		}
+		handler.DispatchMetric(ctx, m)
+	})
+
+	mm.Gauges.Each(func(metricName string, tagsKey string, g Gauge) {
+		m := &Metric{
+			Name:     metricName,
+			Type:     GAUGE,
+			Value:    g.Value,
+			Rate:     1,
+			Tags:     g.Tags.Copy(),
+			TagsKey:  tagsKey,
+			Hostname: g.Hostname,
+		}
+		handler.DispatchMetric(ctx, m)
+	})
+
+	mm.Timers.Each(func(metricName string, tagsKey string, t Timer) {
+		// Compensate for t.SampledCount so the final handler will multiply it back out.  This whole thing will
+		// disappear once the backend aggregator is refactored (issue #210)
+		rate := float64(len(t.Values)) / t.SampledCount
+		for _, value := range t.Values {
+			m := &Metric{
+				Name:     metricName,
+				Type:     TIMER,
+				Value:    value,
+				Rate:     rate,
+				Tags:     t.Tags.Copy(),
+				TagsKey:  tagsKey,
+				Hostname: t.Hostname,
+			}
+			handler.DispatchMetric(ctx, m)
+		}
+	})
+
+	mm.Sets.Each(func(metricName string, tagsKey string, s Set) {
+		for value := range s.Values {
+			m := &Metric{
+				Name:        metricName,
+				Type:        SET,
+				StringValue: value,
+				Rate:        1.0,
+				Tags:        s.Tags.Copy(),
+				TagsKey:     tagsKey,
+				Hostname:    s.Hostname,
+			}
+			handler.DispatchMetric(ctx, m)
+		}
+	})
 }

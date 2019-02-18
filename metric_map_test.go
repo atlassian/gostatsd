@@ -1,6 +1,7 @@
 package gostatsd
 
 import (
+	"sort"
 	"testing"
 	"time"
 
@@ -8,8 +9,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func metricsFixtures() []Metric {
-	ms := []Metric{
+func metricsFixtures() []*Metric {
+	ms := []*Metric{
 		{Name: "foo.bar.baz", Value: 2, Type: COUNTER},
 		{Name: "abc.def.g", Value: 3, Type: GAUGE},
 		{Name: "abc.def.g", Value: 8, Type: GAUGE, Tags: Tags{"foo:bar", "baz"}},
@@ -48,7 +49,7 @@ func TestReceive(t *testing.T) {
 
 	tests := metricsFixtures()
 	for _, metric := range tests {
-		mm.Receive(&metric, now)
+		mm.Receive(metric, now)
 	}
 
 	expectedCounters := Counters{
@@ -141,9 +142,60 @@ func BenchmarkReceives(b *testing.B) {
 	b.ResetTimer()
 	for n := 0; n < b.N; n++ {
 		for _, metric := range tests {
-			ma.Receive(&metric, now)
+			ma.Receive(metric, now)
 		}
 	}
+}
+
+func TestMetricMapDispatch(t *testing.T) {
+	ctx, done := testContext(t)
+	defer done()
+
+	mm := NewMetricMap()
+	metrics := metricsFixtures()
+	for _, metric := range metrics {
+		mm.Receive(metric, time.Unix(0, 0))
+	}
+	ch := &capturingHandler{}
+
+	mm.DispatchMetrics(ctx, ch)
+
+	expected := []*Metric{
+		{Name: "abc.def.g", Value: 3, Rate: 1, Type: GAUGE},
+		{Name: "abc.def.g", Value: 8, Rate: 1, TagsKey: "baz,foo:bar", Tags: Tags{"baz", "foo:bar"}, Type: GAUGE},
+		{Name: "counter_sampling", Value: (2 + 5) / 0.25, Rate: 1, Type: COUNTER},
+		{Name: "def.g", Value: 10, Rate: 1, Type: TIMER},
+		{Name: "def.g", Value: 1, Rate: 1, TagsKey: "baz,foo:bar", Tags: Tags{"baz", "foo:bar"}, Type: TIMER},
+		{Name: "foo.bar.baz", Value: 2, Rate: 1, Type: COUNTER},
+		{Name: "smp.rte", Value: 50, Rate: 1, Type: COUNTER},
+		{Name: "smp.rte", Value: 50 + 5, Rate: 1, TagsKey: "baz,foo:bar", Tags: Tags{"baz", "foo:bar"}, Type: COUNTER},
+		{Name: "timer_sampling", Value: 10, Rate: 0.1, Type: TIMER},
+		{Name: "timer_sampling", Value: 30, Rate: 0.1, Type: TIMER},
+		{Name: "timer_sampling", Value: 50, Rate: 0.1, Type: TIMER},
+		{Name: "uniq.usr", StringValue: "bob", Rate: 1, Type: SET},
+		{Name: "uniq.usr", StringValue: "joe", Rate: 1, Type: SET},
+		{Name: "uniq.usr", StringValue: "john", Rate: 1, Type: SET},
+		{Name: "uniq.usr", StringValue: "john", Rate: 1, TagsKey: "baz,foo:bar", Tags: Tags{"baz", "foo:bar"}, Type: SET},
+	}
+
+	cmpSort := func(slice []*Metric) func(i, j int) bool {
+		return func(i, j int) bool {
+			if slice[i].Name == slice[j].Name {
+				if len(slice[i].Tags) == len(slice[j].Tags) { // This is not exactly accurate, but close enough with our data
+					return slice[i].StringValue < slice[j].StringValue
+				}
+				return len(slice[i].Tags) < len(slice[j].Tags)
+			}
+			return slice[i].Name < slice[j].Name
+		}
+	}
+
+	actual := ch.GetMetrics()
+
+	sort.Slice(actual, cmpSort(actual))
+	sort.Slice(expected, cmpSort(expected))
+
+	require.EqualValues(t, expected, actual)
 }
 
 func TestMetricMapMerge(t *testing.T) {
