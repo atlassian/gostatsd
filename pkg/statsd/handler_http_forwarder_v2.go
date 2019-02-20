@@ -31,7 +31,7 @@ const (
 	defaultClientTimeout             = 10 * time.Second
 	defaultCompress                  = true
 	defaultEnableHttp2               = false
-	defaultEndpoint                  = ""
+	defaultApiEndpoint               = ""
 	defaultMaxRequestElapsedTime     = 30 * time.Second
 	defaultMaxRequests               = 1000
 	defaultNetwork                   = "tcp"
@@ -63,7 +63,7 @@ func NewHttpForwarderHandlerV2FromViper(logger logrus.FieldLogger, v *viper.Vipe
 	subViper.SetDefault("client-timeout", defaultClientTimeout)
 	subViper.SetDefault("compress", defaultCompress)
 	subViper.SetDefault("enable-http2", defaultEnableHttp2)
-	subViper.SetDefault("endpoint", defaultEndpoint)
+	subViper.SetDefault("api-endpoint", defaultApiEndpoint)
 	subViper.SetDefault("max-requests", defaultMaxRequests)
 	subViper.SetDefault("max-request-elapsed-time", defaultMaxRequestElapsedTime)
 	subViper.SetDefault("consolidator-slots", v.GetInt(ParamMaxParsers))
