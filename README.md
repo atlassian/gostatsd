@@ -72,15 +72,16 @@ following configuration options:
 - `enable-http2`: boolean to enable the usage of http2 on the request.  There seems to be some incompatibility with the
   golang http2 implementation and AWS ELB/ALBs.  If you experience strange timeouts and hangs, this should be the first
   thing to disable.  Defaults to `false`
-- `endpoint`: configures the endpoint to submit raw metrics to.  This setting should be just a base URL, for example
+- `api-endpoint`: configures the endpoint to submit raw metrics to.  This setting should be just a base URL, for example
   `https://statsd-aggregator.private`, with no path.  Required, no default
 - `max-requests`: maximum number of requests in flight.  Defaults to `1000` (which is probably too high)
 - `max-request-elapsed-time`: duration for the maximum amount of time to try submitting data before giving up.  This
   includes retries.  Defaults to `30s` (which is probably too high)
 - `network`: the network type to use, probably `tcp`, `tcp4`, or `tcp6`.  Defaults to `tcp`
-- `metrics-per-batch`: number of raw metrics to push in a single batch.  Less than 800 may impact performance, and if
-  a client is sending a lot of raw metrics, having this too low will cause additional load on the aggregator server
-  because it's spending more time processing http and less time processing metrics.
+- `consolidator-slots`: number of slots in the metric consolidator.  Memory usage is a function of this.  Lower values
+  may cause blocking in the pipeline (back pressure).  A UDP only receiver will never use more than the number of
+  configured parsers (`--max-parsers` option).  Defaults to the value of `--max-parsers`, but may require tuning for
+  HTTP based servers.
 - `flush-interval`: duration for how long to batch metrics before flushing. Should be an order of magnitude less than
   the upstream flush interval. Defaults to `1s`
 

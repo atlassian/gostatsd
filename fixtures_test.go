@@ -54,5 +54,7 @@ func (ch *capturingHandler) WaitForEvents() {
 func (ch *capturingHandler) GetMetrics() []*Metric {
 	ch.mu.Lock()
 	defer ch.mu.Unlock()
-	return ch.m
+	m := make([]*Metric, len(ch.m))
+	copy(m, ch.m)
+	return m
 }

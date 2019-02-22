@@ -182,7 +182,11 @@ func TestMetricMapDispatch(t *testing.T) {
 		return func(i, j int) bool {
 			if slice[i].Name == slice[j].Name {
 				if len(slice[i].Tags) == len(slice[j].Tags) { // This is not exactly accurate, but close enough with our data
-					return slice[i].StringValue < slice[j].StringValue
+					if slice[i].Type == SET {
+						return slice[i].StringValue < slice[j].StringValue
+					} else {
+						return slice[i].Value < slice[j].Value
+					}
 				}
 				return len(slice[i].Tags) < len(slice[j].Tags)
 			}

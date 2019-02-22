@@ -151,7 +151,6 @@ func (mm *MetricMap) receiveCounter(m *Metric, tagsKey string, now Nanotime) {
 }
 
 func (mm *MetricMap) receiveGauge(m *Metric, tagsKey string, now Nanotime) {
-	// TODO: handle +/-
 	v, ok := mm.Gauges[m.Name]
 	if ok {
 		g, ok := v[tagsKey]

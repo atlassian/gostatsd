@@ -38,7 +38,7 @@ func (x EventV1_EventPriority) String() string {
 	return proto.EnumName(EventV1_EventPriority_name, int32(x))
 }
 func (EventV1_EventPriority) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_gostatsd_62c098c42c58da7d, []int{1, 0}
+	return fileDescriptor_gostatsd_ad5409b6c034803e, []int{1, 0}
 }
 
 type EventV1_AlertType int32
@@ -67,7 +67,59 @@ func (x EventV1_AlertType) String() string {
 	return proto.EnumName(EventV1_AlertType_name, int32(x))
 }
 func (EventV1_AlertType) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_gostatsd_62c098c42c58da7d, []int{1, 1}
+	return fileDescriptor_gostatsd_ad5409b6c034803e, []int{1, 1}
+}
+
+type EventV2_EventPriority int32
+
+const (
+	EventV2_Normal EventV2_EventPriority = 0
+	EventV2_Low    EventV2_EventPriority = 1
+)
+
+var EventV2_EventPriority_name = map[int32]string{
+	0: "Normal",
+	1: "Low",
+}
+var EventV2_EventPriority_value = map[string]int32{
+	"Normal": 0,
+	"Low":    1,
+}
+
+func (x EventV2_EventPriority) String() string {
+	return proto.EnumName(EventV2_EventPriority_name, int32(x))
+}
+func (EventV2_EventPriority) EnumDescriptor() ([]byte, []int) {
+	return fileDescriptor_gostatsd_ad5409b6c034803e, []int{16, 0}
+}
+
+type EventV2_AlertType int32
+
+const (
+	EventV2_Info    EventV2_AlertType = 0
+	EventV2_Warning EventV2_AlertType = 1
+	EventV2_Error   EventV2_AlertType = 2
+	EventV2_Success EventV2_AlertType = 3
+)
+
+var EventV2_AlertType_name = map[int32]string{
+	0: "Info",
+	1: "Warning",
+	2: "Error",
+	3: "Success",
+}
+var EventV2_AlertType_value = map[string]int32{
+	"Info":    0,
+	"Warning": 1,
+	"Error":   2,
+	"Success": 3,
+}
+
+func (x EventV2_AlertType) String() string {
+	return proto.EnumName(EventV2_AlertType_name, int32(x))
+}
+func (EventV2_AlertType) EnumDescriptor() ([]byte, []int) {
+	return fileDescriptor_gostatsd_ad5409b6c034803e, []int{16, 1}
 }
 
 type RawMessageV1 struct {
@@ -81,7 +133,7 @@ func (m *RawMessageV1) Reset()         { *m = RawMessageV1{} }
 func (m *RawMessageV1) String() string { return proto.CompactTextString(m) }
 func (*RawMessageV1) ProtoMessage()    {}
 func (*RawMessageV1) Descriptor() ([]byte, []int) {
-	return fileDescriptor_gostatsd_62c098c42c58da7d, []int{0}
+	return fileDescriptor_gostatsd_ad5409b6c034803e, []int{0}
 }
 func (m *RawMessageV1) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_RawMessageV1.Unmarshal(m, b)
@@ -128,7 +180,7 @@ func (m *EventV1) Reset()         { *m = EventV1{} }
 func (m *EventV1) String() string { return proto.CompactTextString(m) }
 func (*EventV1) ProtoMessage()    {}
 func (*EventV1) Descriptor() ([]byte, []int) {
-	return fileDescriptor_gostatsd_62c098c42c58da7d, []int{1}
+	return fileDescriptor_gostatsd_ad5409b6c034803e, []int{1}
 }
 func (m *EventV1) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_EventV1.Unmarshal(m, b)
@@ -237,7 +289,7 @@ func (m *RawMetricV1) Reset()         { *m = RawMetricV1{} }
 func (m *RawMetricV1) String() string { return proto.CompactTextString(m) }
 func (*RawMetricV1) ProtoMessage()    {}
 func (*RawMetricV1) Descriptor() ([]byte, []int) {
-	return fileDescriptor_gostatsd_62c098c42c58da7d, []int{2}
+	return fileDescriptor_gostatsd_ad5409b6c034803e, []int{2}
 }
 func (m *RawMetricV1) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_RawMetricV1.Unmarshal(m, b)
@@ -464,7 +516,7 @@ func (m *RawCounterV1) Reset()         { *m = RawCounterV1{} }
 func (m *RawCounterV1) String() string { return proto.CompactTextString(m) }
 func (*RawCounterV1) ProtoMessage()    {}
 func (*RawCounterV1) Descriptor() ([]byte, []int) {
-	return fileDescriptor_gostatsd_62c098c42c58da7d, []int{3}
+	return fileDescriptor_gostatsd_ad5409b6c034803e, []int{3}
 }
 func (m *RawCounterV1) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_RawCounterV1.Unmarshal(m, b)
@@ -502,7 +554,7 @@ func (m *RawGaugeV1) Reset()         { *m = RawGaugeV1{} }
 func (m *RawGaugeV1) String() string { return proto.CompactTextString(m) }
 func (*RawGaugeV1) ProtoMessage()    {}
 func (*RawGaugeV1) Descriptor() ([]byte, []int) {
-	return fileDescriptor_gostatsd_62c098c42c58da7d, []int{4}
+	return fileDescriptor_gostatsd_ad5409b6c034803e, []int{4}
 }
 func (m *RawGaugeV1) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_RawGaugeV1.Unmarshal(m, b)
@@ -540,7 +592,7 @@ func (m *RawSetV1) Reset()         { *m = RawSetV1{} }
 func (m *RawSetV1) String() string { return proto.CompactTextString(m) }
 func (*RawSetV1) ProtoMessage()    {}
 func (*RawSetV1) Descriptor() ([]byte, []int) {
-	return fileDescriptor_gostatsd_62c098c42c58da7d, []int{5}
+	return fileDescriptor_gostatsd_ad5409b6c034803e, []int{5}
 }
 func (m *RawSetV1) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_RawSetV1.Unmarshal(m, b)
@@ -579,7 +631,7 @@ func (m *RawTimerV1) Reset()         { *m = RawTimerV1{} }
 func (m *RawTimerV1) String() string { return proto.CompactTextString(m) }
 func (*RawTimerV1) ProtoMessage()    {}
 func (*RawTimerV1) Descriptor() ([]byte, []int) {
-	return fileDescriptor_gostatsd_62c098c42c58da7d, []int{6}
+	return fileDescriptor_gostatsd_ad5409b6c034803e, []int{6}
 }
 func (m *RawTimerV1) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_RawTimerV1.Unmarshal(m, b)
@@ -613,6 +665,554 @@ func (m *RawTimerV1) GetRate() float64 {
 	return 0
 }
 
+type RawMessageV2 struct {
+	Counters             map[string]*CounterTagV2 `protobuf:"bytes,1,rep,name=Counters,proto3" json:"Counters,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
+	Gauges               map[string]*GaugeTagV2   `protobuf:"bytes,2,rep,name=Gauges,proto3" json:"Gauges,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
+	Sets                 map[string]*SetTagV2     `protobuf:"bytes,3,rep,name=Sets,proto3" json:"Sets,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
+	Timers               map[string]*TimerTagV2   `protobuf:"bytes,4,rep,name=Timers,proto3" json:"Timers,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
+	XXX_NoUnkeyedLiteral struct{}                 `json:"-"`
+	XXX_unrecognized     []byte                   `json:"-"`
+	XXX_sizecache        int32                    `json:"-"`
+}
+
+func (m *RawMessageV2) Reset()         { *m = RawMessageV2{} }
+func (m *RawMessageV2) String() string { return proto.CompactTextString(m) }
+func (*RawMessageV2) ProtoMessage()    {}
+func (*RawMessageV2) Descriptor() ([]byte, []int) {
+	return fileDescriptor_gostatsd_ad5409b6c034803e, []int{7}
+}
+func (m *RawMessageV2) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_RawMessageV2.Unmarshal(m, b)
+}
+func (m *RawMessageV2) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_RawMessageV2.Marshal(b, m, deterministic)
+}
+func (dst *RawMessageV2) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_RawMessageV2.Merge(dst, src)
+}
+func (m *RawMessageV2) XXX_Size() int {
+	return xxx_messageInfo_RawMessageV2.Size(m)
+}
+func (m *RawMessageV2) XXX_DiscardUnknown() {
+	xxx_messageInfo_RawMessageV2.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_RawMessageV2 proto.InternalMessageInfo
+
+func (m *RawMessageV2) GetCounters() map[string]*CounterTagV2 {
+	if m != nil {
+		return m.Counters
+	}
+	return nil
+}
+
+func (m *RawMessageV2) GetGauges() map[string]*GaugeTagV2 {
+	if m != nil {
+		return m.Gauges
+	}
+	return nil
+}
+
+func (m *RawMessageV2) GetSets() map[string]*SetTagV2 {
+	if m != nil {
+		return m.Sets
+	}
+	return nil
+}
+
+func (m *RawMessageV2) GetTimers() map[string]*TimerTagV2 {
+	if m != nil {
+		return m.Timers
+	}
+	return nil
+}
+
+type CounterTagV2 struct {
+	TagMap               map[string]*RawCounterV2 `protobuf:"bytes,1,rep,name=TagMap,proto3" json:"TagMap,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
+	XXX_NoUnkeyedLiteral struct{}                 `json:"-"`
+	XXX_unrecognized     []byte                   `json:"-"`
+	XXX_sizecache        int32                    `json:"-"`
+}
+
+func (m *CounterTagV2) Reset()         { *m = CounterTagV2{} }
+func (m *CounterTagV2) String() string { return proto.CompactTextString(m) }
+func (*CounterTagV2) ProtoMessage()    {}
+func (*CounterTagV2) Descriptor() ([]byte, []int) {
+	return fileDescriptor_gostatsd_ad5409b6c034803e, []int{8}
+}
+func (m *CounterTagV2) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_CounterTagV2.Unmarshal(m, b)
+}
+func (m *CounterTagV2) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_CounterTagV2.Marshal(b, m, deterministic)
+}
+func (dst *CounterTagV2) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_CounterTagV2.Merge(dst, src)
+}
+func (m *CounterTagV2) XXX_Size() int {
+	return xxx_messageInfo_CounterTagV2.Size(m)
+}
+func (m *CounterTagV2) XXX_DiscardUnknown() {
+	xxx_messageInfo_CounterTagV2.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_CounterTagV2 proto.InternalMessageInfo
+
+func (m *CounterTagV2) GetTagMap() map[string]*RawCounterV2 {
+	if m != nil {
+		return m.TagMap
+	}
+	return nil
+}
+
+type GaugeTagV2 struct {
+	TagMap               map[string]*RawGaugeV2 `protobuf:"bytes,1,rep,name=TagMap,proto3" json:"TagMap,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
+	XXX_NoUnkeyedLiteral struct{}               `json:"-"`
+	XXX_unrecognized     []byte                 `json:"-"`
+	XXX_sizecache        int32                  `json:"-"`
+}
+
+func (m *GaugeTagV2) Reset()         { *m = GaugeTagV2{} }
+func (m *GaugeTagV2) String() string { return proto.CompactTextString(m) }
+func (*GaugeTagV2) ProtoMessage()    {}
+func (*GaugeTagV2) Descriptor() ([]byte, []int) {
+	return fileDescriptor_gostatsd_ad5409b6c034803e, []int{9}
+}
+func (m *GaugeTagV2) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_GaugeTagV2.Unmarshal(m, b)
+}
+func (m *GaugeTagV2) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_GaugeTagV2.Marshal(b, m, deterministic)
+}
+func (dst *GaugeTagV2) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_GaugeTagV2.Merge(dst, src)
+}
+func (m *GaugeTagV2) XXX_Size() int {
+	return xxx_messageInfo_GaugeTagV2.Size(m)
+}
+func (m *GaugeTagV2) XXX_DiscardUnknown() {
+	xxx_messageInfo_GaugeTagV2.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_GaugeTagV2 proto.InternalMessageInfo
+
+func (m *GaugeTagV2) GetTagMap() map[string]*RawGaugeV2 {
+	if m != nil {
+		return m.TagMap
+	}
+	return nil
+}
+
+type SetTagV2 struct {
+	TagMap               map[string]*RawSetV2 `protobuf:"bytes,1,rep,name=TagMap,proto3" json:"TagMap,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
+	XXX_NoUnkeyedLiteral struct{}             `json:"-"`
+	XXX_unrecognized     []byte               `json:"-"`
+	XXX_sizecache        int32                `json:"-"`
+}
+
+func (m *SetTagV2) Reset()         { *m = SetTagV2{} }
+func (m *SetTagV2) String() string { return proto.CompactTextString(m) }
+func (*SetTagV2) ProtoMessage()    {}
+func (*SetTagV2) Descriptor() ([]byte, []int) {
+	return fileDescriptor_gostatsd_ad5409b6c034803e, []int{10}
+}
+func (m *SetTagV2) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_SetTagV2.Unmarshal(m, b)
+}
+func (m *SetTagV2) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_SetTagV2.Marshal(b, m, deterministic)
+}
+func (dst *SetTagV2) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_SetTagV2.Merge(dst, src)
+}
+func (m *SetTagV2) XXX_Size() int {
+	return xxx_messageInfo_SetTagV2.Size(m)
+}
+func (m *SetTagV2) XXX_DiscardUnknown() {
+	xxx_messageInfo_SetTagV2.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_SetTagV2 proto.InternalMessageInfo
+
+func (m *SetTagV2) GetTagMap() map[string]*RawSetV2 {
+	if m != nil {
+		return m.TagMap
+	}
+	return nil
+}
+
+type TimerTagV2 struct {
+	TagMap               map[string]*RawTimerV2 `protobuf:"bytes,1,rep,name=TagMap,proto3" json:"TagMap,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
+	XXX_NoUnkeyedLiteral struct{}               `json:"-"`
+	XXX_unrecognized     []byte                 `json:"-"`
+	XXX_sizecache        int32                  `json:"-"`
+}
+
+func (m *TimerTagV2) Reset()         { *m = TimerTagV2{} }
+func (m *TimerTagV2) String() string { return proto.CompactTextString(m) }
+func (*TimerTagV2) ProtoMessage()    {}
+func (*TimerTagV2) Descriptor() ([]byte, []int) {
+	return fileDescriptor_gostatsd_ad5409b6c034803e, []int{11}
+}
+func (m *TimerTagV2) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_TimerTagV2.Unmarshal(m, b)
+}
+func (m *TimerTagV2) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_TimerTagV2.Marshal(b, m, deterministic)
+}
+func (dst *TimerTagV2) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_TimerTagV2.Merge(dst, src)
+}
+func (m *TimerTagV2) XXX_Size() int {
+	return xxx_messageInfo_TimerTagV2.Size(m)
+}
+func (m *TimerTagV2) XXX_DiscardUnknown() {
+	xxx_messageInfo_TimerTagV2.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_TimerTagV2 proto.InternalMessageInfo
+
+func (m *TimerTagV2) GetTagMap() map[string]*RawTimerV2 {
+	if m != nil {
+		return m.TagMap
+	}
+	return nil
+}
+
+type RawCounterV2 struct {
+	Tags                 []string `protobuf:"bytes,1,rep,name=Tags,proto3" json:"Tags,omitempty"`
+	Hostname             string   `protobuf:"bytes,2,opt,name=Hostname,proto3" json:"Hostname,omitempty"`
+	Value                int64    `protobuf:"varint,3,opt,name=Value,proto3" json:"Value,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *RawCounterV2) Reset()         { *m = RawCounterV2{} }
+func (m *RawCounterV2) String() string { return proto.CompactTextString(m) }
+func (*RawCounterV2) ProtoMessage()    {}
+func (*RawCounterV2) Descriptor() ([]byte, []int) {
+	return fileDescriptor_gostatsd_ad5409b6c034803e, []int{12}
+}
+func (m *RawCounterV2) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_RawCounterV2.Unmarshal(m, b)
+}
+func (m *RawCounterV2) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_RawCounterV2.Marshal(b, m, deterministic)
+}
+func (dst *RawCounterV2) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_RawCounterV2.Merge(dst, src)
+}
+func (m *RawCounterV2) XXX_Size() int {
+	return xxx_messageInfo_RawCounterV2.Size(m)
+}
+func (m *RawCounterV2) XXX_DiscardUnknown() {
+	xxx_messageInfo_RawCounterV2.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_RawCounterV2 proto.InternalMessageInfo
+
+func (m *RawCounterV2) GetTags() []string {
+	if m != nil {
+		return m.Tags
+	}
+	return nil
+}
+
+func (m *RawCounterV2) GetHostname() string {
+	if m != nil {
+		return m.Hostname
+	}
+	return ""
+}
+
+func (m *RawCounterV2) GetValue() int64 {
+	if m != nil {
+		return m.Value
+	}
+	return 0
+}
+
+type RawGaugeV2 struct {
+	Tags                 []string `protobuf:"bytes,1,rep,name=Tags,proto3" json:"Tags,omitempty"`
+	Hostname             string   `protobuf:"bytes,2,opt,name=Hostname,proto3" json:"Hostname,omitempty"`
+	Value                float64  `protobuf:"fixed64,3,opt,name=Value,proto3" json:"Value,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *RawGaugeV2) Reset()         { *m = RawGaugeV2{} }
+func (m *RawGaugeV2) String() string { return proto.CompactTextString(m) }
+func (*RawGaugeV2) ProtoMessage()    {}
+func (*RawGaugeV2) Descriptor() ([]byte, []int) {
+	return fileDescriptor_gostatsd_ad5409b6c034803e, []int{13}
+}
+func (m *RawGaugeV2) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_RawGaugeV2.Unmarshal(m, b)
+}
+func (m *RawGaugeV2) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_RawGaugeV2.Marshal(b, m, deterministic)
+}
+func (dst *RawGaugeV2) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_RawGaugeV2.Merge(dst, src)
+}
+func (m *RawGaugeV2) XXX_Size() int {
+	return xxx_messageInfo_RawGaugeV2.Size(m)
+}
+func (m *RawGaugeV2) XXX_DiscardUnknown() {
+	xxx_messageInfo_RawGaugeV2.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_RawGaugeV2 proto.InternalMessageInfo
+
+func (m *RawGaugeV2) GetTags() []string {
+	if m != nil {
+		return m.Tags
+	}
+	return nil
+}
+
+func (m *RawGaugeV2) GetHostname() string {
+	if m != nil {
+		return m.Hostname
+	}
+	return ""
+}
+
+func (m *RawGaugeV2) GetValue() float64 {
+	if m != nil {
+		return m.Value
+	}
+	return 0
+}
+
+type RawSetV2 struct {
+	Tags                 []string `protobuf:"bytes,1,rep,name=Tags,proto3" json:"Tags,omitempty"`
+	Hostname             string   `protobuf:"bytes,2,opt,name=Hostname,proto3" json:"Hostname,omitempty"`
+	Values               []string `protobuf:"bytes,3,rep,name=Values,proto3" json:"Values,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *RawSetV2) Reset()         { *m = RawSetV2{} }
+func (m *RawSetV2) String() string { return proto.CompactTextString(m) }
+func (*RawSetV2) ProtoMessage()    {}
+func (*RawSetV2) Descriptor() ([]byte, []int) {
+	return fileDescriptor_gostatsd_ad5409b6c034803e, []int{14}
+}
+func (m *RawSetV2) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_RawSetV2.Unmarshal(m, b)
+}
+func (m *RawSetV2) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_RawSetV2.Marshal(b, m, deterministic)
+}
+func (dst *RawSetV2) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_RawSetV2.Merge(dst, src)
+}
+func (m *RawSetV2) XXX_Size() int {
+	return xxx_messageInfo_RawSetV2.Size(m)
+}
+func (m *RawSetV2) XXX_DiscardUnknown() {
+	xxx_messageInfo_RawSetV2.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_RawSetV2 proto.InternalMessageInfo
+
+func (m *RawSetV2) GetTags() []string {
+	if m != nil {
+		return m.Tags
+	}
+	return nil
+}
+
+func (m *RawSetV2) GetHostname() string {
+	if m != nil {
+		return m.Hostname
+	}
+	return ""
+}
+
+func (m *RawSetV2) GetValues() []string {
+	if m != nil {
+		return m.Values
+	}
+	return nil
+}
+
+type RawTimerV2 struct {
+	Tags                 []string  `protobuf:"bytes,1,rep,name=Tags,proto3" json:"Tags,omitempty"`
+	Hostname             string    `protobuf:"bytes,2,opt,name=Hostname,proto3" json:"Hostname,omitempty"`
+	SampleCount          float64   `protobuf:"fixed64,3,opt,name=SampleCount,proto3" json:"SampleCount,omitempty"`
+	Values               []float64 `protobuf:"fixed64,4,rep,packed,name=Values,proto3" json:"Values,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}  `json:"-"`
+	XXX_unrecognized     []byte    `json:"-"`
+	XXX_sizecache        int32     `json:"-"`
+}
+
+func (m *RawTimerV2) Reset()         { *m = RawTimerV2{} }
+func (m *RawTimerV2) String() string { return proto.CompactTextString(m) }
+func (*RawTimerV2) ProtoMessage()    {}
+func (*RawTimerV2) Descriptor() ([]byte, []int) {
+	return fileDescriptor_gostatsd_ad5409b6c034803e, []int{15}
+}
+func (m *RawTimerV2) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_RawTimerV2.Unmarshal(m, b)
+}
+func (m *RawTimerV2) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_RawTimerV2.Marshal(b, m, deterministic)
+}
+func (dst *RawTimerV2) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_RawTimerV2.Merge(dst, src)
+}
+func (m *RawTimerV2) XXX_Size() int {
+	return xxx_messageInfo_RawTimerV2.Size(m)
+}
+func (m *RawTimerV2) XXX_DiscardUnknown() {
+	xxx_messageInfo_RawTimerV2.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_RawTimerV2 proto.InternalMessageInfo
+
+func (m *RawTimerV2) GetTags() []string {
+	if m != nil {
+		return m.Tags
+	}
+	return nil
+}
+
+func (m *RawTimerV2) GetHostname() string {
+	if m != nil {
+		return m.Hostname
+	}
+	return ""
+}
+
+func (m *RawTimerV2) GetSampleCount() float64 {
+	if m != nil {
+		return m.SampleCount
+	}
+	return 0
+}
+
+func (m *RawTimerV2) GetValues() []float64 {
+	if m != nil {
+		return m.Values
+	}
+	return nil
+}
+
+type EventV2 struct {
+	Title                string                `protobuf:"bytes,1,opt,name=Title,proto3" json:"Title,omitempty"`
+	Text                 string                `protobuf:"bytes,2,opt,name=Text,proto3" json:"Text,omitempty"`
+	DateHappened         int64                 `protobuf:"varint,3,opt,name=DateHappened,proto3" json:"DateHappened,omitempty"`
+	Hostname             string                `protobuf:"bytes,4,opt,name=Hostname,proto3" json:"Hostname,omitempty"`
+	AggregationKey       string                `protobuf:"bytes,5,opt,name=AggregationKey,proto3" json:"AggregationKey,omitempty"`
+	SourceTypeName       string                `protobuf:"bytes,6,opt,name=SourceTypeName,proto3" json:"SourceTypeName,omitempty"`
+	Tags                 []string              `protobuf:"bytes,7,rep,name=Tags,proto3" json:"Tags,omitempty"`
+	SourceIP             string                `protobuf:"bytes,8,opt,name=SourceIP,proto3" json:"SourceIP,omitempty"`
+	Priority             EventV2_EventPriority `protobuf:"varint,9,opt,name=Priority,proto3,enum=pb.EventV2_EventPriority" json:"Priority,omitempty"`
+	Type                 EventV2_AlertType     `protobuf:"varint,10,opt,name=Type,proto3,enum=pb.EventV2_AlertType" json:"Type,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}              `json:"-"`
+	XXX_unrecognized     []byte                `json:"-"`
+	XXX_sizecache        int32                 `json:"-"`
+}
+
+func (m *EventV2) Reset()         { *m = EventV2{} }
+func (m *EventV2) String() string { return proto.CompactTextString(m) }
+func (*EventV2) ProtoMessage()    {}
+func (*EventV2) Descriptor() ([]byte, []int) {
+	return fileDescriptor_gostatsd_ad5409b6c034803e, []int{16}
+}
+func (m *EventV2) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_EventV2.Unmarshal(m, b)
+}
+func (m *EventV2) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_EventV2.Marshal(b, m, deterministic)
+}
+func (dst *EventV2) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_EventV2.Merge(dst, src)
+}
+func (m *EventV2) XXX_Size() int {
+	return xxx_messageInfo_EventV2.Size(m)
+}
+func (m *EventV2) XXX_DiscardUnknown() {
+	xxx_messageInfo_EventV2.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_EventV2 proto.InternalMessageInfo
+
+func (m *EventV2) GetTitle() string {
+	if m != nil {
+		return m.Title
+	}
+	return ""
+}
+
+func (m *EventV2) GetText() string {
+	if m != nil {
+		return m.Text
+	}
+	return ""
+}
+
+func (m *EventV2) GetDateHappened() int64 {
+	if m != nil {
+		return m.DateHappened
+	}
+	return 0
+}
+
+func (m *EventV2) GetHostname() string {
+	if m != nil {
+		return m.Hostname
+	}
+	return ""
+}
+
+func (m *EventV2) GetAggregationKey() string {
+	if m != nil {
+		return m.AggregationKey
+	}
+	return ""
+}
+
+func (m *EventV2) GetSourceTypeName() string {
+	if m != nil {
+		return m.SourceTypeName
+	}
+	return ""
+}
+
+func (m *EventV2) GetTags() []string {
+	if m != nil {
+		return m.Tags
+	}
+	return nil
+}
+
+func (m *EventV2) GetSourceIP() string {
+	if m != nil {
+		return m.SourceIP
+	}
+	return ""
+}
+
+func (m *EventV2) GetPriority() EventV2_EventPriority {
+	if m != nil {
+		return m.Priority
+	}
+	return EventV2_Normal
+}
+
+func (m *EventV2) GetType() EventV2_AlertType {
+	if m != nil {
+		return m.Type
+	}
+	return EventV2_Info
+}
+
 func init() {
 	proto.RegisterType((*RawMessageV1)(nil), "pb.RawMessageV1")
 	proto.RegisterType((*EventV1)(nil), "pb.EventV1")
@@ -621,45 +1221,87 @@ func init() {
 	proto.RegisterType((*RawGaugeV1)(nil), "pb.RawGaugeV1")
 	proto.RegisterType((*RawSetV1)(nil), "pb.RawSetV1")
 	proto.RegisterType((*RawTimerV1)(nil), "pb.RawTimerV1")
+	proto.RegisterType((*RawMessageV2)(nil), "pb.RawMessageV2")
+	proto.RegisterMapType((map[string]*CounterTagV2)(nil), "pb.RawMessageV2.CountersEntry")
+	proto.RegisterMapType((map[string]*GaugeTagV2)(nil), "pb.RawMessageV2.GaugesEntry")
+	proto.RegisterMapType((map[string]*SetTagV2)(nil), "pb.RawMessageV2.SetsEntry")
+	proto.RegisterMapType((map[string]*TimerTagV2)(nil), "pb.RawMessageV2.TimersEntry")
+	proto.RegisterType((*CounterTagV2)(nil), "pb.CounterTagV2")
+	proto.RegisterMapType((map[string]*RawCounterV2)(nil), "pb.CounterTagV2.TagMapEntry")
+	proto.RegisterType((*GaugeTagV2)(nil), "pb.GaugeTagV2")
+	proto.RegisterMapType((map[string]*RawGaugeV2)(nil), "pb.GaugeTagV2.TagMapEntry")
+	proto.RegisterType((*SetTagV2)(nil), "pb.SetTagV2")
+	proto.RegisterMapType((map[string]*RawSetV2)(nil), "pb.SetTagV2.TagMapEntry")
+	proto.RegisterType((*TimerTagV2)(nil), "pb.TimerTagV2")
+	proto.RegisterMapType((map[string]*RawTimerV2)(nil), "pb.TimerTagV2.TagMapEntry")
+	proto.RegisterType((*RawCounterV2)(nil), "pb.RawCounterV2")
+	proto.RegisterType((*RawGaugeV2)(nil), "pb.RawGaugeV2")
+	proto.RegisterType((*RawSetV2)(nil), "pb.RawSetV2")
+	proto.RegisterType((*RawTimerV2)(nil), "pb.RawTimerV2")
+	proto.RegisterType((*EventV2)(nil), "pb.EventV2")
 	proto.RegisterEnum("pb.EventV1_EventPriority", EventV1_EventPriority_name, EventV1_EventPriority_value)
 	proto.RegisterEnum("pb.EventV1_AlertType", EventV1_AlertType_name, EventV1_AlertType_value)
+	proto.RegisterEnum("pb.EventV2_EventPriority", EventV2_EventPriority_name, EventV2_EventPriority_value)
+	proto.RegisterEnum("pb.EventV2_AlertType", EventV2_AlertType_name, EventV2_AlertType_value)
 }
 
-func init() { proto.RegisterFile("pb/gostatsd.proto", fileDescriptor_gostatsd_62c098c42c58da7d) }
+func init() { proto.RegisterFile("pb/gostatsd.proto", fileDescriptor_gostatsd_ad5409b6c034803e) }
 
-var fileDescriptor_gostatsd_62c098c42c58da7d = []byte{
-	// 516 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x74, 0x93, 0x4f, 0x6f, 0xd3, 0x4c,
-	0x10, 0xc6, 0xbb, 0x71, 0xfe, 0x4e, 0xd2, 0xd4, 0xef, 0xea, 0x45, 0x5a, 0x38, 0x59, 0x56, 0x55,
-	0x05, 0x09, 0xa5, 0x4a, 0x10, 0x1c, 0xb8, 0xa0, 0x02, 0x15, 0xa9, 0xa0, 0x55, 0xe5, 0x44, 0xe1,
-	0xbc, 0x49, 0x07, 0xcb, 0x52, 0xe2, 0xb5, 0x76, 0x37, 0x94, 0x7c, 0x32, 0xbe, 0x19, 0x67, 0xb4,
-	0xb3, 0x8e, 0x15, 0x57, 0x70, 0x8a, 0xe7, 0x99, 0xdf, 0xcc, 0x4e, 0x9e, 0xd9, 0x85, 0xff, 0x8a,
-	0xd5, 0x65, 0xaa, 0x8c, 0x95, 0xd6, 0x3c, 0x8c, 0x0b, 0xad, 0xac, 0xe2, 0x8d, 0x62, 0x15, 0xbf,
-	0x87, 0x41, 0x22, 0x1f, 0x6f, 0xd1, 0x18, 0x99, 0xe2, 0x72, 0xc2, 0x2f, 0x01, 0x28, 0xb6, 0x3a,
-	0x5b, 0x1b, 0xc1, 0xa2, 0x60, 0xd4, 0x9f, 0x9e, 0x8d, 0x8b, 0xd5, 0xb8, 0x52, 0x97, 0x93, 0xe4,
-	0x08, 0x89, 0x7f, 0x05, 0xd0, 0xb9, 0xfe, 0x81, 0xb9, 0x5d, 0x4e, 0xf8, 0xff, 0xd0, 0x5a, 0x64,
-	0x76, 0x83, 0x82, 0x45, 0x6c, 0xd4, 0x4b, 0x7c, 0xc0, 0x39, 0x34, 0x17, 0xf8, 0xd3, 0x8a, 0x06,
-	0x89, 0xf4, 0xcd, 0x63, 0x18, 0x7c, 0x92, 0x16, 0x67, 0xb2, 0x28, 0x30, 0xc7, 0x07, 0x11, 0x44,
-	0x6c, 0x14, 0x24, 0x35, 0x8d, 0xbf, 0x80, 0xee, 0x4c, 0x19, 0x9b, 0xcb, 0x2d, 0x8a, 0x26, 0xd5,
-	0x56, 0x31, 0xbf, 0x80, 0xe1, 0x55, 0x9a, 0x6a, 0x4c, 0xa5, 0xcd, 0x54, 0xfe, 0x05, 0xf7, 0xa2,
-	0x45, 0xc4, 0x13, 0xd5, 0x71, 0x73, 0xb5, 0xd3, 0x6b, 0x5c, 0xec, 0x0b, 0xbc, 0x73, 0x9d, 0xda,
-	0x9e, 0xab, 0xab, 0x34, 0xa3, 0x4c, 0x8d, 0xe8, 0x44, 0x01, 0xcd, 0x28, 0x53, 0xe3, 0xce, 0xf7,
-	0xd4, 0xcd, 0xbd, 0xe8, 0xfa, 0xf3, 0x0f, 0x31, 0x7f, 0x03, 0xdd, 0x7b, 0x9d, 0x29, 0x9d, 0xd9,
-	0xbd, 0xe8, 0x45, 0x6c, 0x34, 0x9c, 0x3e, 0x77, 0x26, 0x95, 0x46, 0xf8, 0xdf, 0x03, 0x90, 0x54,
-	0x28, 0x7f, 0x09, 0x4d, 0x77, 0xa4, 0x00, 0x2a, 0x79, 0x76, 0x5c, 0x72, 0xb5, 0x41, 0x6d, 0x5d,
-	0x32, 0x21, 0x24, 0x3e, 0x87, 0xd3, 0x5a, 0x17, 0x0e, 0xd0, 0xbe, 0x53, 0x7a, 0x2b, 0x37, 0xe1,
-	0x09, 0xef, 0x40, 0xf0, 0x55, 0x3d, 0x86, 0x2c, 0x7e, 0x07, 0xbd, 0xaa, 0x90, 0x77, 0xa1, 0x79,
-	0x93, 0x7f, 0x57, 0xe1, 0x09, 0xef, 0x43, 0xe7, 0x9b, 0xd4, 0x79, 0x96, 0xa7, 0x21, 0xe3, 0x3d,
-	0x68, 0x5d, 0x6b, 0xad, 0x74, 0xd8, 0x70, 0xfa, 0x7c, 0xb7, 0x5e, 0xa3, 0x31, 0x61, 0x10, 0xff,
-	0x66, 0xd0, 0x3f, 0xda, 0xaa, 0xf3, 0x80, 0x1c, 0xf2, 0xcb, 0x6b, 0xd6, 0x7c, 0x69, 0xd4, 0x7d,
-	0xa9, 0xf6, 0x12, 0x3c, 0xd9, 0xcb, 0x2b, 0xe8, 0xac, 0xd5, 0x2e, 0xb7, 0xa8, 0xc5, 0x20, 0x62,
-	0xa3, 0xfe, 0x34, 0x2c, 0xef, 0xce, 0x47, 0xaf, 0x2e, 0x27, 0xb3, 0x93, 0xe4, 0x80, 0xf0, 0x0b,
-	0x68, 0xa5, 0x72, 0x97, 0xa2, 0x38, 0x25, 0x76, 0x58, 0xb2, 0x9f, 0x9d, 0x46, 0xa4, 0x4f, 0xf3,
-	0x08, 0x02, 0x83, 0x56, 0x0c, 0x89, 0x1a, 0x94, 0xd4, 0x1c, 0x2d, 0x31, 0x2e, 0xe5, 0x3a, 0xd9,
-	0x6c, 0x8b, 0x5a, 0x9c, 0xd5, 0x3a, 0x2d, 0x9c, 0xe6, 0x3b, 0x51, 0xfa, 0x43, 0x00, 0xec, 0x36,
-	0x3e, 0xa7, 0x3b, 0x5f, 0x4d, 0xe4, 0xae, 0xed, 0x52, 0x6e, 0x76, 0xfe, 0x9f, 0xb3, 0xc4, 0x07,
-	0x71, 0x4c, 0x2f, 0xa1, 0x9c, 0xe5, 0x1f, 0x4c, 0x04, 0xdd, 0xc3, 0x24, 0x75, 0xa2, 0x77, 0x20,
-	0xde, 0x52, 0x97, 0x72, 0x8e, 0xbf, 0x77, 0x71, 0x26, 0x27, 0xd2, 0x22, 0x3d, 0x10, 0x96, 0xd0,
-	0xf7, 0xaa, 0x4d, 0x4f, 0xf4, 0xf5, 0x9f, 0x00, 0x00, 0x00, 0xff, 0xff, 0xae, 0xfb, 0x54, 0x5c,
-	0xb7, 0x03, 0x00, 0x00,
+var fileDescriptor_gostatsd_ad5409b6c034803e = []byte{
+	// 870 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xec, 0x56, 0x5d, 0x6f, 0xe3, 0x44,
+	0x14, 0xed, 0xc4, 0x6e, 0x3e, 0xae, 0xd3, 0xae, 0x19, 0x01, 0x1a, 0xa2, 0x15, 0xb2, 0xac, 0x6a,
+	0x15, 0x24, 0x94, 0xa5, 0xe6, 0x43, 0xa8, 0x2f, 0x68, 0x81, 0x6a, 0x5b, 0x2d, 0x5d, 0xad, 0x9c,
+	0x28, 0x3c, 0x4f, 0xb3, 0x83, 0x15, 0x91, 0xd8, 0x96, 0x3d, 0xe9, 0x92, 0x1f, 0xc0, 0x13, 0x4f,
+	0xf0, 0x67, 0xf8, 0x67, 0x3c, 0xa3, 0xb9, 0x33, 0x76, 0x3c, 0x89, 0xab, 0xdd, 0x0a, 0xc4, 0x13,
+	0x4f, 0xcd, 0xdc, 0x7b, 0xee, 0x99, 0x33, 0xe7, 0xce, 0xdc, 0x1a, 0xde, 0xcb, 0x6f, 0x9f, 0x26,
+	0x59, 0x29, 0xb9, 0x2c, 0x5f, 0x4f, 0xf2, 0x22, 0x93, 0x19, 0xed, 0xe4, 0xb7, 0xe1, 0x37, 0x30,
+	0x8c, 0xf9, 0x9b, 0x1b, 0x51, 0x96, 0x3c, 0x11, 0xf3, 0x73, 0xfa, 0x14, 0x00, 0xd7, 0xb2, 0x58,
+	0x2e, 0x4a, 0x46, 0x02, 0x67, 0xec, 0x45, 0x8f, 0x26, 0xf9, 0xed, 0xa4, 0x8e, 0xce, 0xcf, 0xe3,
+	0x06, 0x24, 0xfc, 0xd3, 0x81, 0xde, 0xe5, 0x9d, 0x48, 0xe5, 0xfc, 0x9c, 0xbe, 0x0f, 0xc7, 0xb3,
+	0xa5, 0x5c, 0x09, 0x46, 0x02, 0x32, 0x1e, 0xc4, 0x7a, 0x41, 0x29, 0xb8, 0x33, 0xf1, 0x8b, 0x64,
+	0x1d, 0x0c, 0xe2, 0x6f, 0x1a, 0xc2, 0xf0, 0x7b, 0x2e, 0xc5, 0x15, 0xcf, 0x73, 0x91, 0x8a, 0xd7,
+	0xcc, 0x09, 0xc8, 0xd8, 0x89, 0xad, 0x18, 0x1d, 0x41, 0xff, 0x2a, 0x2b, 0x65, 0xca, 0xd7, 0x82,
+	0xb9, 0x58, 0x5b, 0xaf, 0xe9, 0x13, 0x38, 0x7d, 0x96, 0x24, 0x85, 0x48, 0xb8, 0x5c, 0x66, 0xe9,
+	0x0b, 0xb1, 0x65, 0xc7, 0x88, 0xd8, 0x8b, 0x2a, 0xdc, 0x34, 0xdb, 0x14, 0x0b, 0x31, 0xdb, 0xe6,
+	0xe2, 0xa5, 0x62, 0xea, 0x6a, 0x9c, 0x1d, 0x45, 0x8d, 0x3c, 0x29, 0x59, 0x2f, 0x70, 0x50, 0x23,
+	0x4f, 0x4a, 0xb5, 0xbf, 0x46, 0x5d, 0xbf, 0x62, 0x7d, 0xbd, 0x7f, 0xb5, 0xa6, 0x5f, 0x42, 0xff,
+	0x55, 0xb1, 0xcc, 0x8a, 0xa5, 0xdc, 0xb2, 0x41, 0x40, 0xc6, 0xa7, 0xd1, 0x47, 0xca, 0x24, 0x63,
+	0x84, 0xfe, 0x5b, 0x01, 0xe2, 0x1a, 0x4a, 0x3f, 0x01, 0x57, 0x6d, 0xc9, 0x00, 0x4b, 0x3e, 0x68,
+	0x96, 0x3c, 0x5b, 0x89, 0x42, 0xaa, 0x64, 0x8c, 0x90, 0xf0, 0x0c, 0x4e, 0x2c, 0x16, 0x0a, 0xd0,
+	0x7d, 0x99, 0x15, 0x6b, 0xbe, 0xf2, 0x8f, 0x68, 0x0f, 0x9c, 0x1f, 0xb2, 0x37, 0x3e, 0x09, 0x2f,
+	0x60, 0x50, 0x17, 0xd2, 0x3e, 0xb8, 0xd7, 0xe9, 0x4f, 0x99, 0x7f, 0x44, 0x3d, 0xe8, 0xfd, 0xc8,
+	0x8b, 0x74, 0x99, 0x26, 0x3e, 0xa1, 0x03, 0x38, 0xbe, 0x2c, 0x8a, 0xac, 0xf0, 0x3b, 0x2a, 0x3e,
+	0xdd, 0x2c, 0x16, 0xa2, 0x2c, 0x7d, 0x27, 0xfc, 0x8b, 0x80, 0xd7, 0xe8, 0xaa, 0xf2, 0x00, 0x1d,
+	0xd2, 0xcd, 0x73, 0x2d, 0x5f, 0x3a, 0xb6, 0x2f, 0x75, 0x5f, 0x9c, 0xbd, 0xbe, 0x7c, 0x0a, 0xbd,
+	0x45, 0xb6, 0x49, 0xa5, 0x28, 0xd8, 0x30, 0x20, 0x63, 0x2f, 0xf2, 0xcd, 0xdd, 0xf9, 0x4e, 0x47,
+	0xe7, 0xe7, 0x57, 0x47, 0x71, 0x05, 0xa1, 0x4f, 0xe0, 0x38, 0xe1, 0x9b, 0x44, 0xb0, 0x13, 0xc4,
+	0x9e, 0x1a, 0xec, 0x73, 0x15, 0x43, 0xa4, 0x4e, 0xd3, 0x00, 0x9c, 0x52, 0x48, 0x76, 0x8a, 0xa8,
+	0xa1, 0x41, 0x4d, 0x85, 0x44, 0x8c, 0x4a, 0x29, 0x26, 0xb9, 0x5c, 0x8b, 0x82, 0x3d, 0xb2, 0x98,
+	0x66, 0x2a, 0xa6, 0x99, 0x30, 0xfd, 0xad, 0x03, 0xe4, 0x26, 0x3c, 0xc3, 0x3b, 0x5f, 0x2b, 0x52,
+	0xd7, 0x76, 0xce, 0x57, 0x1b, 0x7d, 0x72, 0x12, 0xeb, 0x45, 0x18, 0xe2, 0x4b, 0x30, 0x5a, 0xee,
+	0xc1, 0x04, 0xd0, 0xaf, 0x94, 0xd8, 0x88, 0x41, 0x85, 0xf8, 0x0a, 0x59, 0x8c, 0x8e, 0x76, 0x16,
+	0x65, 0x72, 0xcc, 0xa5, 0xc0, 0x07, 0x42, 0x62, 0xfc, 0x1d, 0xfe, 0xe1, 0x5a, 0x0f, 0x33, 0xa2,
+	0x17, 0xd0, 0x37, 0x8a, 0xab, 0x67, 0xf9, 0x71, 0xfd, 0x2c, 0x0d, 0x66, 0x52, 0x01, 0x2e, 0x53,
+	0x59, 0x6c, 0xe3, 0x1a, 0x4f, 0xbf, 0x80, 0x2e, 0x9e, 0x43, 0xf7, 0xd1, 0x8b, 0x1e, 0x1f, 0x54,
+	0xea, 0xb4, 0xae, 0x33, 0x58, 0x3a, 0x01, 0x77, 0x2a, 0x64, 0xc9, 0x1c, 0xac, 0x19, 0x1d, 0xd4,
+	0xa8, 0xa4, 0xae, 0x40, 0x9c, 0xda, 0x05, 0xcf, 0x59, 0x32, 0xf7, 0x9e, 0x5d, 0x74, 0xda, 0xec,
+	0xa2, 0x17, 0xa3, 0x1b, 0x38, 0xb1, 0x64, 0x53, 0x1f, 0x9c, 0x9f, 0xc5, 0xd6, 0xb8, 0xa8, 0x7e,
+	0xaa, 0xe6, 0xde, 0xa1, 0x6b, 0x9d, 0xdd, 0x95, 0x32, 0x35, 0x33, 0x9e, 0xcc, 0xa3, 0x58, 0xa7,
+	0x2f, 0x3a, 0x5f, 0x93, 0xd1, 0x35, 0x78, 0x8d, 0xb3, 0xb4, 0x90, 0x9d, 0xd9, 0x64, 0x78, 0x53,
+	0xb0, 0xe2, 0x80, 0xea, 0x12, 0x06, 0xf5, 0x11, 0x5b, 0x88, 0x42, 0x9b, 0x08, 0xaf, 0xe5, 0x54,
+	0xc8, 0x36, 0x45, 0x8d, 0x73, 0xbf, 0xa3, 0x22, 0xac, 0xd8, 0xa7, 0x0a, 0x7f, 0x27, 0x30, 0x6c,
+	0x1e, 0x1c, 0x2d, 0xe7, 0xc9, 0x0d, 0xcf, 0xcd, 0x95, 0x78, 0xbc, 0x6f, 0xcd, 0x44, 0xa7, 0x2b,
+	0xcb, 0x71, 0x31, 0x7a, 0x01, 0x5e, 0x23, 0xfc, 0x8e, 0x86, 0x37, 0x5e, 0x8c, 0xa5, 0xe9, 0x37,
+	0x02, 0xb0, 0xf3, 0x8f, 0x46, 0x7b, 0x8a, 0x46, 0xb6, 0xbf, 0xad, 0x7a, 0xae, 0xdf, 0xa6, 0xa7,
+	0xcd, 0xa1, 0xfa, 0x6d, 0x5a, 0x6a, 0x7e, 0x25, 0xd0, 0xaf, 0x9a, 0x40, 0x3f, 0xdb, 0xd3, 0xc2,
+	0x9a, 0x2d, 0x6a, 0x55, 0xf2, 0xfc, 0x6d, 0x4a, 0xda, 0x9a, 0x6e, 0x26, 0xc0, 0x81, 0x2b, 0xbb,
+	0x1e, 0xb6, 0xbb, 0xb2, 0xcb, 0xff, 0xab, 0xae, 0xe8, 0x59, 0x63, 0xa9, 0x99, 0x59, 0x03, 0x2f,
+	0xaa, 0xa7, 0x3a, 0xb9, 0x67, 0xaa, 0x77, 0xf6, 0xa6, 0x7a, 0x3d, 0xb6, 0xf4, 0xbf, 0x69, 0x33,
+	0xda, 0xe2, 0xc6, 0x80, 0xfc, 0x87, 0x9c, 0x64, 0xc7, 0x59, 0x0d, 0xd4, 0x87, 0x33, 0x7e, 0x08,
+	0x5d, 0x24, 0xd1, 0x13, 0x6b, 0x10, 0x9b, 0x55, 0x78, 0xd7, 0x18, 0xc1, 0x0f, 0x67, 0x0d, 0xc0,
+	0x9b, 0xf2, 0x75, 0xbe, 0x12, 0x68, 0x9f, 0x51, 0xdb, 0x0c, 0x35, 0xf6, 0x55, 0x73, 0x8f, 0xd4,
+	0xfb, 0xee, 0xbe, 0x8c, 0xa2, 0xff, 0xbf, 0x8c, 0x8c, 0x11, 0x0f, 0xff, 0x32, 0x8a, 0xfe, 0xfb,
+	0x2f, 0xa3, 0xdb, 0x2e, 0x7e, 0x1f, 0x7f, 0xfe, 0x77, 0x00, 0x00, 0x00, 0xff, 0xff, 0x04, 0xef,
+	0x8f, 0xb2, 0x34, 0x0b, 0x00, 0x00,
 }

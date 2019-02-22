@@ -111,7 +111,7 @@ func (s *Server) createStandaloneSink() (gostatsd.PipelineHandler, []gostatsd.Ru
 }
 
 func (s *Server) createForwarderSink() (gostatsd.PipelineHandler, []gostatsd.Runnable, error) {
-	forwarderHandler, err := NewHttpForwarderHandlerV1FromViper(
+	forwarderHandler, err := NewHttpForwarderHandlerV2FromViper(
 		log.StandardLogger(),
 		s.Viper,
 	)
@@ -283,4 +283,12 @@ func toStringSlice(fs []float64) []string {
 		s[i] = strconv.FormatFloat(f, 'f', -1, 64)
 	}
 	return s
+}
+
+func getSubViper(v *viper.Viper, key string) *viper.Viper {
+	n := v.Sub(key)
+	if n == nil {
+		n = viper.New()
+	}
+	return n
 }

@@ -9,6 +9,18 @@ import (
 
 // MetricConsolidator will consolidate metrics randomly in to a slice of MetricMaps, and send the slice to the provided
 // channel.  Run can be started in a long running goroutine to perform flushing, or Flush can be called externally.
+//
+// Used to consolidate metrics such as:
+// - counter[name=x, value=1]
+// - counter[name=x, value=1]
+// - counter[name=x, value=1]
+// - counter[name=x, value=1]
+// - counter[name=x, value=1]
+//
+// in to:
+// - counter[name=x, value=5]
+//
+// Similar consolidation is performed for other metric types.
 type MetricConsolidator struct {
 	maps          chan *MetricMap
 	sink          chan<- []*MetricMap
@@ -40,11 +52,15 @@ func (mc *MetricConsolidator) Run(ctx context.Context) {
 	}
 }
 
+// Flush will collect all the MetricMaps in to a slice, send them to the channel provided, then
+// create new MetricMaps for new metrics to land in.  Not thread-safe.
 func (mc *MetricConsolidator) Flush(ctx context.Context) {
 	var mms []*MetricMap
 	for i := 0; i < cap(mc.maps); i++ {
-		mm := mc.getMap(ctx)
-		if mm == nil {
+		select {
+		case mm := <-mc.maps:
+			mms = append(mms, mm)
+		case <-ctx.Done():
 			// Put everything back, so we're consistent, just in case.  No need to check for termination,
 			// because we know it will fit exactly.
 			for _, mm := range mms {
@@ -52,7 +68,6 @@ func (mc *MetricConsolidator) Flush(ctx context.Context) {
 			}
 			return
 		}
-		mms = append(mms, mm)
 	}
 
 	// Send the collected data to the sink before putting new maps in place.  This allows back-pressure
@@ -69,30 +84,14 @@ func (mc *MetricConsolidator) Flush(ctx context.Context) {
 
 // ReceiveMetric will push a Metric in to one of the MetricMaps
 func (mc *MetricConsolidator) ReceiveMetric(ctx context.Context, m *Metric) {
-	mm := mc.getMap(ctx)
-	if mm == nil {
-		return
-	}
-	mm.Receive(m, clock.Now(ctx))
-	mc.maps <- mm
-}
-
-// ReceiveMetricMap will merge a MetricMap in to one of the MetricMaps
-func (mc *MetricConsolidator) ReceiveMetricMap(ctx context.Context, mm *MetricMap) {
-	mmTo := mc.getMap(ctx)
-	if mmTo == nil {
-		return
-	}
-	mmTo.Merge(mm)
+	mmTo := <-mc.maps
+	mmTo.Receive(m, clock.Now(ctx))
 	mc.maps <- mmTo
 }
 
-// getMap will return a MetricMap or nil if the context is cancelled.  There is no putMap, as that will never block.
-func (mc *MetricConsolidator) getMap(ctx context.Context) *MetricMap {
-	select {
-	case <-ctx.Done():
-		return nil
-	case mm := <- mc.maps:
-		return mm
-	}
+// ReceiveMetricMap will merge a MetricMap in to one of the MetricMaps
+func (mc *MetricConsolidator) ReceiveMetricMap(mm *MetricMap) {
+	mmTo := <-mc.maps
+	mmTo.Merge(mm)
+	mc.maps <- mmTo
 }

@@ -1,3 +1,9 @@
+12.0.0
+------
+- Add metric consolidation in the HTTP path.  Minor configuration changes, specifically `metrics-per-batch` is replaced
+  with `consolidator-slots`.  Defaults to the number of parsers.
+- Introduces v2 ingestion.  Production use should be ok.
+
 11.0.0
 ------
 - Add http forwarding and ingestion.  See `Configuring the server mode` and `Configuring HTTP servers` in [README.md]
