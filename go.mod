@@ -22,6 +22,7 @@ require (
 	github.com/spf13/pflag v1.0.3
 	github.com/spf13/viper v1.3.1
 	github.com/stretchr/testify v1.3.0
+	github.com/tilinna/clock v1.0.2
 	github.com/ugorji/go/codec v0.0.0-20190128213124-ee1426cffec0 // indirect
 	github.com/whyrusleeping/go-logging v0.0.0-20170515211332-0457bb6b88fc // indirect
 	golang.org/x/crypto v0.0.0-20190128193316-c7b33c32a30b // indirect
