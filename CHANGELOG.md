@@ -1,3 +1,7 @@
+12.0.1
+------
+- Emit v2 ingestion http metrics.
+
 12.0.0
 ------
 - Add metric consolidation in the HTTP path.  Minor configuration changes, specifically `metrics-per-batch` is replaced
