@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"compress/zlib"
 	"context"
+	"github.com/atlassian/gostatsd/pkg/statsd"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
@@ -190,6 +191,82 @@ func metricsOneOfEach() *gostatsd.MetricMap {
 					Timestamp: gostatsd.Nanotime(400),
 					Hostname:  "h4",
 					Tags:      gostatsd.Tags{"tag4"},
+				},
+			},
+		},
+	}
+}
+
+func TestSendPercentileMetrics(t *testing.T) {
+	t.Parallel()
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/v1/series", func(w http.ResponseWriter, r *http.Request) {
+		data, err := ioutil.ReadAll(r.Body)
+		if !assert.NoError(t, err) {
+			return
+		}
+		enc := r.Header.Get("Content-Encoding")
+		if enc == "deflate" {
+			decompressor, err := zlib.NewReader(bytes.NewReader(data))
+			if !assert.NoError(t, err) {
+				return
+			}
+			data, err = ioutil.ReadAll(decompressor)
+			assert.NoError(t, err)
+		}
+		expected := `{"series":[` +
+			`{"host":"h2","interval":1.1,"metric":"t1.buckets","points":[[100,5]],"tags":["tag2","between:0_20"],"type":"gauge"},` +
+			`{"host":"h2","interval":1.1,"metric":"t1.buckets","points":[[100,5]],"tags":["tag2","between:20_30"],"type":"gauge"},` +
+			`{"host":"h2","interval":1.1,"metric":"t1.buckets","points":[[100,0]],"tags":["tag2","between:30_40"],"type":"gauge"},` +
+			`{"host":"h2","interval":1.1,"metric":"t1.buckets","points":[[100,0]],"tags":["tag2","between:40_50"],"type":"gauge"},` +
+			`{"host":"h2","interval":1.1,"metric":"t1.buckets","points":[[100,9]],"tags":["tag2","between:50_60"],"type":"gauge"},` +
+			`{"host":"h2","interval":1.1,"metric":"t1.buckets","points":[[100,10]],"tags":["tag2","between:60_9223372036854775807"],"type":"gauge"},` +
+			`{"host":"h2","interval":1.1,"metric":"t1.lower","points":[[100,0]],"tags":["tag2"],"type":"gauge"},` +
+			`{"host":"h2","interval":1.1,"metric":"t1.upper","points":[[100,0]],"tags":["tag2"],"type":"gauge"},` +
+			`{"host":"h2","interval":1.1,"metric":"t1.count","points":[[100,0]],"tags":["tag2"],"type":"gauge"},` +
+			`{"host":"h2","interval":1.1,"metric":"t1.count_ps","points":[[100,0]],"tags":["tag2"],"type":"rate"},` +
+			`{"host":"h2","interval":1.1,"metric":"t1.mean","points":[[100,0]],"tags":["tag2"],"type":"gauge"},` +
+			`{"host":"h2","interval":1.1,"metric":"t1.median","points":[[100,0]],"tags":["tag2"],"type":"gauge"},` +
+			`{"host":"h2","interval":1.1,"metric":"t1.std","points":[[100,0]],"tags":["tag2"],"type":"gauge"},` +
+			`{"host":"h2","interval":1.1,"metric":"t1.sum","points":[[100,0]],"tags":["tag2"],"type":"gauge"},` +
+			`{"host":"h2","interval":1.1,"metric":"t1.sum_squares","points":[[100,0]],"tags":["tag2"],"type":"gauge"}]}`
+		assert.Equal(t, expected, string(data))
+	})
+	ts := httptest.NewServer(mux)
+	defer ts.Close()
+
+	cli, err := NewClient(ts.URL, "apiKey123", "agent", "tcp", 1000, defaultMaxRequests, true, false, 1*time.Second, 2*time.Second, 1100*time.Millisecond, gostatsd.TimerSubtypes{})
+	require.NoError(t, err)
+	cli.now = func() time.Time {
+		return time.Unix(100, 0)
+	}
+	res := make(chan []error, 1)
+	cli.SendMetricsAsync(context.Background(), metricsPercentiles(), func(errs []error) {
+		res <- errs
+	})
+	errs := <-res
+	for _, err := range errs {
+		assert.NoError(t, err)
+	}
+}
+
+func metricsPercentiles() *gostatsd.MetricMap {
+	return &gostatsd.MetricMap{
+		Timers: gostatsd.Timers{
+			"t1": map[string]gostatsd.Timer{
+				"tag2": {
+					Values:     []float64{0, 1},
+					Timestamp: gostatsd.Nanotime(200),
+					Hostname:  "h2",
+					Tags:      gostatsd.Tags{"tag2"},
+					Buckets: map[int]int{
+						20: 5,
+						30: 5,
+						40: 0,
+						50: 0,
+						60: 9,
+						statsd.InfinityBucketSize: 10,
+					},
 				},
 			},
 		},

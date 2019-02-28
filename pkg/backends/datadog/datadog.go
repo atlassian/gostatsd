@@ -13,6 +13,7 @@ import (
 	"net/url"
 	"runtime"
 	"sort"
+	"strconv"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -184,9 +185,9 @@ func (d *Client) processMetrics(metrics *gostatsd.MetricMap, cb func(*timeSeries
 
 			for _, bucket := range keys {
 				var counter = timer.Buckets[bucket]
-				var bucketTag = "between:" + string(previousBucket) + "_" + string(bucket)
+				var bucketTag = "between:" + strconv.Itoa(previousBucket) + "_" + strconv.Itoa(bucket)
 				var newTags = append(timer.Tags, bucketTag)
-				fl.addMetric(gauge, float64(counter), timer.Hostname, newTags, key)
+				fl.addMetricf(gauge, float64(counter), timer.Hostname, newTags, "%s.buckets", key)
 				previousBucket = bucket
 			}
 
