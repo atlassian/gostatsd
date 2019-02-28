@@ -2,7 +2,6 @@ package statsd
 
 import (
 	"context"
-	"math"
 	"runtime"
 	"testing"
 	"time"
@@ -62,9 +61,9 @@ func TestFancyPipeline(t *testing.T) {
 	ma.Flush(10)
 
 	result := ma.metricMap.Timers["testTimer"]["percentiles:true"]
-	assrt.Equal(1, result.Buckets[20.0])
-	assrt.Equal(2, result.Buckets[50.0])
-	assrt.Equal(1, result.Buckets[5000.0])
+	assrt.Equal(1, result.Buckets[20])
+	assrt.Equal(2, result.Buckets[50])
+	assrt.Equal(1, result.Buckets[5000])
 }
 
 func TestFancyPipelineInfinity(t *testing.T) {
@@ -79,8 +78,8 @@ func TestFancyPipelineInfinity(t *testing.T) {
 	ma.Flush(10)
 
 	result := ma.metricMap.Timers["testTimer"]["percentiles:true"]
-	assrt.Equal(1, result.Buckets[20.0])
-	assrt.Equal(1, result.Buckets[math.Inf(1)])
+	assrt.Equal(1, result.Buckets[20])
+	assrt.Equal(1, result.Buckets[InfinityBucketSize])
 }
 
 func TestFlush(t *testing.T) {

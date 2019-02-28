@@ -3,8 +3,8 @@ package statsd
 import (
 	"context"
 	"github.com/emirpasic/gods/maps/treemap"
-	"github.com/emirpasic/gods/utils"
 	"math"
+	"math/bits"
 	"sort"
 	"strconv"
 	"time"
@@ -12,6 +12,8 @@ import (
 	"github.com/atlassian/gostatsd"
 	"github.com/atlassian/gostatsd/pkg/stats"
 )
+
+const InfinityBucketSize int = (1 << bits.UintSize) / 2 - 1
 
 // percentStruct is a cache of percentile names to avoid creating them for each timer.
 type percentStruct struct {
@@ -85,27 +87,30 @@ func (a *MetricAggregator) Flush(flushInterval time.Duration) {
 }
 
 func fancyPipeline(timer gostatsd.Timer, a *MetricAggregator, flushInSeconds float64, key string, tagsKey string) {
-	buckets := [11]float64{10, 20, 50, 100, 200, 500, 1000, 2000, 5000, 10000, math.Inf(1)}
+	buckets := [11]int{10, 20, 50, 100, 200, 500, 1000, 2000, 5000, 10000, InfinityBucketSize}
 
-	var valuesMap = *treemap.NewWith(utils.Float64Comparator)
-	for _, value := range buckets {
-		valuesMap.Put(value, 0)
+	var bucketToCountMap = *treemap.NewWithIntComparator()
+	for _, bucket := range buckets {
+		bucketToCountMap.Put(bucket, 0)
 	}
 
-	for _, value := range timer.Values {
-		foundKey, foundValue := valuesMap.Ceiling(value)
+	for _, floatValue := range timer.Values {
+		var timingDatapoint = int(floatValue)
 
-		if foundKey == value {
-			foundKey, foundValue = valuesMap.Ceiling(value + 0.000000001)
+		targetBucket, currentCount := bucketToCountMap.Ceiling(timingDatapoint)
+
+		// If the request time we've received hits the bucket exactly, we want it to be counted as the next bucket.
+		if targetBucket == timingDatapoint {
+			targetBucket, currentCount = bucketToCountMap.Ceiling(timingDatapoint + 1)
 		}
 
-		valuesMap.Put(foundKey, foundValue.(int)+1)
+		bucketToCountMap.Put(targetBucket, currentCount.(int)+1)
 	}
 
-	var result = make(map[float64]int)
+	var result = make(map[int]int)
 
-	valuesMap.Each(func(key interface{}, value interface{}) {
-		result[key.(float64)] = value.(int)
+	bucketToCountMap.Each(func(key interface{}, value interface{}) {
+		result[key.(int)] = value.(int)
 	})
 
 	timer.Buckets = result
