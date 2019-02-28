@@ -85,7 +85,7 @@ func (a *MetricAggregator) Flush(flushInterval time.Duration) {
 }
 
 func fancyPipeline(timer gostatsd.Timer, a *MetricAggregator, flushInSeconds float64, key string, tagsKey string) {
-	buckets := [12]float64{20.0,30.0,40.0,50.0,75.0,100.0,200.0,500.0,1000.0,2000.0,5000.0, math.Inf(1)}
+	buckets := [11]float64{10, 20, 50, 100, 200, 500, 1000, 2000, 5000, 10000, math.Inf(1)}
 
 	var valuesMap = *treemap.NewWith(utils.Float64Comparator)
 	for _, value := range buckets {
@@ -96,7 +96,7 @@ func fancyPipeline(timer gostatsd.Timer, a *MetricAggregator, flushInSeconds flo
 		foundKey, foundValue := valuesMap.Ceiling(value)
 
 		if foundKey == value {
-			foundKey, foundValue = valuesMap.Ceiling(value+0.000000001)
+			foundKey, foundValue = valuesMap.Ceiling(value + 0.000000001)
 		}
 
 		valuesMap.Put(foundKey, foundValue.(int)+1)
