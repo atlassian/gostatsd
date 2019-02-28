@@ -1,3 +1,7 @@
+12.0.2
+------
+- Fix bug with metrics going through the consolidator not having tags applied properly
+
 12.0.1
 ------
 - Emit v2 ingestion http metrics.
