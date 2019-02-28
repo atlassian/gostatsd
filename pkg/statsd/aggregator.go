@@ -94,6 +94,11 @@ func fancyPipeline(timer gostatsd.Timer, a *MetricAggregator, flushInSeconds flo
 
 	for _, value := range timer.Values {
 		foundKey, foundValue := valuesMap.Ceiling(value)
+
+		if foundKey == value {
+			foundKey, foundValue = valuesMap.Ceiling(value+0.000000001)
+		}
+
 		valuesMap.Put(foundKey, foundValue.(int)+1)
 	}
 
@@ -104,6 +109,7 @@ func fancyPipeline(timer gostatsd.Timer, a *MetricAggregator, flushInSeconds flo
 	})
 
 	timer.Buckets = result
+	a.metricMap.Timers[key][tagsKey] = timer
 }
 
 // Contains tells whether a contains x.
