@@ -84,6 +84,7 @@ func (mc *MetricConsolidator) Flush(ctx context.Context) {
 
 // ReceiveMetric will push a Metric in to one of the MetricMaps
 func (mc *MetricConsolidator) ReceiveMetric(ctx context.Context, m *Metric) {
+	m.TagsKey = m.FormatTagsKey()
 	mmTo := <-mc.maps
 	mmTo.Receive(m, clock.Now(ctx))
 	mc.maps <- mmTo
