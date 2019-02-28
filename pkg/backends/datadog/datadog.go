@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"net/url"
 	"runtime"
+	"sort"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -170,6 +171,26 @@ func (d *Client) processMetrics(metrics *gostatsd.MetricMap, cb func(*timeSeries
 	})
 
 	metrics.Timers.Each(func(key, tagsKey string, timer gostatsd.Timer) {
+
+		if timer.Buckets != nil {
+			var keys []int
+			for k := range timer.Buckets {
+				keys = append(keys, k)
+			}
+
+			sort.Ints(keys)
+
+			var previousBucket = 0
+
+			for _, bucket := range keys {
+				var counter = timer.Buckets[bucket]
+				var bucketTag = "between:" + string(previousBucket) + "_" + string(bucket)
+				var newTags = append(timer.Tags, bucketTag)
+				fl.addMetric(gauge, float64(counter), timer.Hostname, newTags, key)
+				previousBucket = bucket
+			}
+
+		}
 		if !d.disabledSubtypes.Lower {
 			fl.addMetricf(gauge, timer.Min, timer.Hostname, timer.Tags, "%s.lower", key)
 		}
