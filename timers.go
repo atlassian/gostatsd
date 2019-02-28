@@ -19,7 +19,12 @@ type Timer struct {
 	Timestamp    Nanotime    // Last time value was updated
 	Hostname     string      // Hostname of the source of the metric
 	Tags         Tags        // The tags for the timer
-	Buckets      map[int]int
+
+	// Map of exclusive upper limit for bucket to count of measures seen in that bucket.
+	// Value of 100 falls in bucket [50,200) so belongs to key 200.
+	// Value of 200 falls in bucket [200, 300) so belongs to the key 300.
+	// This map only non-empty if the metric specifies percentile aggregation in its tags.
+	Buckets map[int]int
 }
 
 // NewTimer initialises a new timer.

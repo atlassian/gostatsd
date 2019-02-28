@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"compress/zlib"
 	"context"
-	"github.com/atlassian/gostatsd/pkg/statsd"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
@@ -13,6 +12,7 @@ import (
 	"time"
 
 	"github.com/atlassian/gostatsd"
+	"github.com/atlassian/gostatsd/pkg/statsd"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

@@ -2,10 +2,7 @@ package statsd
 
 import (
 	"context"
-	"errors"
-	"github.com/emirpasic/gods/maps/treemap"
 	"math"
-	"math/bits"
 	"sort"
 	"strconv"
 	"time"
@@ -13,14 +10,6 @@ import (
 	"github.com/atlassian/gostatsd"
 	"github.com/atlassian/gostatsd/pkg/stats"
 )
-
-const InfinityBucketSize int = (1<<bits.UintSize)/2 - 1
-const PercentileBucketsMarkerTag = "percentiles:true"
-const PercentileBucketsPow2Algorithm = "buckets:pow2"
-const PercentileBucketsPow4Algorithm = "buckets:pow4"
-const PercentileBucketsLinearAlgorithm = "buckets:linear"
-const PercentileBucketsTailLatencyAlgorithm = "buckets:tail-latency"
-const PercentileBucketsRoundDoublingAlgorithm = "buckets:round-doubling"
 
 // percentStruct is a cache of percentile names to avoid creating them for each timer.
 type percentStruct struct {
@@ -172,65 +161,21 @@ func (a *MetricAggregator) Flush(flushInterval time.Duration) {
 			timer.Count = int(round(timer.SampledCount))
 			timer.PerSecond = timer.SampledCount / flushInSeconds
 
-			if contains(timer.Tags, PercentileBucketsMarkerTag) {
-				bucketsSet, err := createBucketsSet(timer.Tags)
-				if err == nil {
-					timer.Buckets = calculatePercentileBuckets(timer, bucketsSet)
-				}
-			}
-
 			a.metricMap.Timers[key][tagsKey] = timer
 		} else {
 			timer.Count = 0
 			timer.SampledCount = 0
+			timer.PerSecond = 0
 		}
 	})
-}
 
-func createBucketsSet(tags gostatsd.Tags) (buckets []int, err error) {
-	if contains(tags, PercentileBucketsPow2Algorithm) {
-		return []int{2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192}, nil
-	} else if contains(tags, PercentileBucketsPow4Algorithm) {
-		return []int{4, 16, 64, 256, 1024, 4096, 16384}, nil
-	} else if contains(tags, PercentileBucketsLinearAlgorithm) {
-		return []int{100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 1100, 1200, 1300, 1400, 1500, 1600, 1700, 1800, 1900, 2000}, nil
-	} else if contains(tags, PercentileBucketsTailLatencyAlgorithm) {
-		return []int{2, 8, 32, 64, 100, 200, 300, 400, 500, 750, 1000, 1250, 1500, 1750, 2000, 4000, 6000, 8000, 10000, 20000, 30000, 40000, 50000, 60000}, nil
-	} else if contains(tags, PercentileBucketsRoundDoublingAlgorithm) {
-		return []int{10, 20, 50, 100, 200, 500, 1000, 2000, 5000, 10000}, nil
-	} else {
-		return nil, errors.New("no buckets set algorithm specified")
-	}
-}
-
-func calculatePercentileBuckets(timer gostatsd.Timer, bucketsSet []int) map[int]int {
-	var buckets = append(bucketsSet, InfinityBucketSize)
-
-	var bucketToCountMap = *treemap.NewWithIntComparator()
-	for _, bucket := range buckets {
-		bucketToCountMap.Put(bucket, 0)
-	}
-
-	for _, floatValue := range timer.Values {
-		var timingDatapoint = int(floatValue)
-
-		targetBucket, currentCount := bucketToCountMap.Ceiling(timingDatapoint)
-
-		// If the request time we've received hits the bucket exactly, we want it to be counted as the next bucket.
-		if targetBucket == timingDatapoint {
-			targetBucket, currentCount = bucketToCountMap.Ceiling(timingDatapoint + 1)
+	a.metricMap.Timers.Each(func(key, tagsKey string, timer gostatsd.Timer) {
+		buckets := AggregatePercentiles(timer)
+		if buckets != nil {
+			timer.Buckets = buckets
+			a.metricMap.Timers[key][tagsKey] = timer
 		}
-
-		bucketToCountMap.Put(targetBucket, currentCount.(int)+1)
-	}
-
-	var result = make(map[int]int)
-
-	bucketToCountMap.Each(func(key interface{}, value interface{}) {
-		result[key.(int)] = value.(int)
 	})
-
-	return result
 }
 
 func (a *MetricAggregator) RunMetrics(ctx context.Context, statser stats.Statser) {
@@ -307,14 +252,4 @@ func (a *MetricAggregator) Reset() {
 func (a *MetricAggregator) Receive(m *gostatsd.Metric, now time.Time) {
 	a.metricsReceived++
 	a.metricMap.Receive(m, now)
-}
-
-// Contains tells whether a contains x.
-func contains(a []string, x string) bool {
-	for _, n := range a {
-		if x == n {
-			return true
-		}
-	}
-	return false
 }
