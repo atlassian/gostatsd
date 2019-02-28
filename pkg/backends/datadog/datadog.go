@@ -20,6 +20,7 @@ import (
 
 	"github.com/atlassian/gostatsd"
 	"github.com/atlassian/gostatsd/pkg/stats"
+	"github.com/atlassian/gostatsd/pkg/statsd"
 
 	"github.com/cenkalti/backoff"
 	jsoniter "github.com/json-iterator/go"
@@ -172,26 +173,6 @@ func (d *Client) processMetrics(metrics *gostatsd.MetricMap, cb func(*timeSeries
 	})
 
 	metrics.Timers.Each(func(key, tagsKey string, timer gostatsd.Timer) {
-
-		if timer.Buckets != nil {
-			var keys []int
-			for k := range timer.Buckets {
-				keys = append(keys, k)
-			}
-
-			sort.Ints(keys)
-
-			var previousBucket = 0
-
-			for _, bucket := range keys {
-				var counter = timer.Buckets[bucket]
-				var bucketTag = "between:" + strconv.Itoa(previousBucket) + "_" + strconv.Itoa(bucket)
-				var newTags = append(timer.Tags, bucketTag)
-				fl.addMetricf(gauge, float64(counter), timer.Hostname, newTags, "%s.buckets", key)
-				previousBucket = bucket
-			}
-
-		}
 		if !d.disabledSubtypes.Lower {
 			fl.addMetricf(gauge, timer.Min, timer.Hostname, timer.Tags, "%s.lower", key)
 		}
@@ -223,6 +204,32 @@ func (d *Client) processMetrics(metrics *gostatsd.MetricMap, cb func(*timeSeries
 			fl.addMetricf(gauge, pct.Float, timer.Hostname, timer.Tags, "%s.%s", key, pct.Str)
 		}
 		fl.maybeFlush()
+	})
+
+	metrics.Timers.Each(func(key, tagsKey string, timer gostatsd.Timer) {
+		if timer.Buckets != nil {
+			var keys []int
+			for k := range timer.Buckets {
+				keys = append(keys, k)
+			}
+			sort.Ints(keys)
+
+			previousBucket := 0
+			for _, bucket := range keys {
+				val := timer.Buckets[bucket]
+				var bucketMax string
+				if bucket == statsd.InfinityBucketSize {
+					bucketMax = "+Inf"
+				} else {
+					bucketMax = strconv.Itoa(bucket)
+				}
+				bucketTag := "between:" + strconv.Itoa(previousBucket) + "_" + bucketMax
+				newTags := timer.Tags.Concat([]string{bucketTag})
+				fl.addMetricf(counter, float64(val), timer.Hostname, newTags, "%s.buckets", key)
+				previousBucket = bucket
+			}
+			fl.maybeFlush()
+		}
 	})
 
 	metrics.Gauges.Each(func(key, tagsKey string, g gostatsd.Gauge) {

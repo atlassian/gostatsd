@@ -13,6 +13,8 @@ const (
 	gauge metricType = "gauge"
 	// rate is datadog rate type.
 	rate metricType = "rate"
+	// counter is a datadog counter type.
+	counter metricType = "count"
 )
 
 // flush represents a send operation.
