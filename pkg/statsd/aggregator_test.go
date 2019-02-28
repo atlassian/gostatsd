@@ -49,35 +49,35 @@ func TestNewAggregator(t *testing.T) {
 	}
 }
 
-func TestFancyPipeline(t *testing.T) {
+func TestPercentileBuckets(t *testing.T) {
 	t.Parallel()
 	assrt := assert.New(t)
 	ma := newFakeAggregator()
 	ma.metricMap.Timers["testTimer"] = make(map[string]gostatsd.Timer)
 	values := gostatsd.NewTimerValues([]float64{10.0, 20.0, 29.9, 2000.0})
-	values.Tags = gostatsd.Tags{"percentiles:true"}
-	ma.metricMap.Timers["testTimer"]["percentiles:true"] = values
+	values.Tags = gostatsd.Tags{PercentileBucketsMarkerTag}
+	ma.metricMap.Timers["testTimer"]["simple"] = values
 
 	ma.Flush(10)
 
-	result := ma.metricMap.Timers["testTimer"]["percentiles:true"]
+	result := ma.metricMap.Timers["testTimer"]["simple"]
 	assrt.Equal(1, result.Buckets[20])
 	assrt.Equal(2, result.Buckets[50])
 	assrt.Equal(1, result.Buckets[5000])
 }
 
-func TestFancyPipelineInfinity(t *testing.T) {
+func TestPercentileBucketsInfinityValue(t *testing.T) {
 	t.Parallel()
 	assrt := assert.New(t)
 	ma := newFakeAggregator()
 	ma.metricMap.Timers["testTimer"] = make(map[string]gostatsd.Timer)
 	values := gostatsd.NewTimerValues([]float64{10.0, 20000.0})
-	values.Tags = gostatsd.Tags{"percentiles:true"}
-	ma.metricMap.Timers["testTimer"]["percentiles:true"] = values
+	values.Tags = gostatsd.Tags{PercentileBucketsMarkerTag}
+	ma.metricMap.Timers["testTimer"]["simple"] = values
 
 	ma.Flush(10)
 
-	result := ma.metricMap.Timers["testTimer"]["percentiles:true"]
+	result := ma.metricMap.Timers["testTimer"]["simple"]
 	assrt.Equal(1, result.Buckets[20])
 	assrt.Equal(1, result.Buckets[InfinityBucketSize])
 }
