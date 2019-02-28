@@ -3,6 +3,7 @@ package statsd
 import (
 	"context"
 	"github.com/emirpasic/gods/maps/treemap"
+	"github.com/emirpasic/gods/utils"
 	"math"
 	"sort"
 	"strconv"
@@ -75,7 +76,7 @@ func (a *MetricAggregator) Flush(flushInterval time.Duration) {
 	})
 
 	a.metricMap.Timers.Each(func(key, tagsKey string, timer gostatsd.Timer) {
-		if(contains(timer.Tags, "percentiles:true")) {
+		if contains(timer.Tags, "percentiles:true") {
 			fancyPipeline(timer, a, flushInSeconds, key, tagsKey)
 		} else {
 			defaultPipeline(timer, a, flushInSeconds, key, tagsKey)
@@ -84,17 +85,25 @@ func (a *MetricAggregator) Flush(flushInterval time.Duration) {
 }
 
 func fancyPipeline(timer gostatsd.Timer, a *MetricAggregator, flushInSeconds float64, key string, tagsKey string) {
-	buckets := [12]int{20,30,40,50,75,100,200,500,1000,2000,5000}
+	buckets := [12]float64{20.0,30.0,40.0,50.0,75.0,100.0,200.0,500.0,1000.0,2000.0,5000.0}
 
-	var valuesMap treemap.Map = *treemap.NewWithIntComparator()
-	for e := range buckets {
-		valuesMap.Put(e, 0)
+	var valuesMap = *treemap.NewWith(utils.Float64Comparator)
+	for _, value := range buckets {
+		valuesMap.Put(value, 0)
 	}
 
-	for timerValue := range timer.Values {
-		foundKey, foundValue := valuesMap.Ceiling(timerValue)
+	for _, value := range timer.Values {
+		foundKey, foundValue := valuesMap.Ceiling(value)
 		valuesMap.Put(foundKey, foundValue.(int)+1)
 	}
+
+	var result = make(map[float64]int)
+
+	valuesMap.Each(func(key interface{}, value interface{}) {
+		result[key.(float64)] = value.(int)
+	})
+
+	timer.Buckets = result
 }
 
 // Contains tells whether a contains x.

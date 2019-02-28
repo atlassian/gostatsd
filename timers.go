@@ -19,6 +19,7 @@ type Timer struct {
 	Timestamp    Nanotime    // Last time value was updated
 	Hostname     string      // Hostname of the source of the metric
 	Tags         Tags        // The tags for the timer
+	Buckets      map[float64]int
 }
 
 // NewTimer initialises a new timer.
