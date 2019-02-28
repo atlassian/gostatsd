@@ -55,7 +55,7 @@ func TestPercentileBuckets(t *testing.T) {
 	ma := newFakeAggregator()
 	ma.metricMap.Timers["testTimer"] = make(map[string]gostatsd.Timer)
 	values := gostatsd.NewTimerValues([]float64{10.0, 20.0, 29.9, 2000.0})
-	values.Tags = gostatsd.Tags{PercentileBucketsMarkerTag, PercentileBucketsRoundDoublingAlgorithm}
+	values.Tags = gostatsd.Tags{PercentileBucketsMarkerTag, BucketPrefix + PercentileBucketsRoundDoublingAlgorithm}
 	ma.metricMap.Timers["testTimer"]["simple"] = values
 
 	ma.Flush(10)
@@ -72,7 +72,7 @@ func TestPercentileBucketsInfinityValue(t *testing.T) {
 	ma := newFakeAggregator()
 	ma.metricMap.Timers["testTimer"] = make(map[string]gostatsd.Timer)
 	values := gostatsd.NewTimerValues([]float64{10.0, 20000.0})
-	values.Tags = gostatsd.Tags{PercentileBucketsMarkerTag, PercentileBucketsRoundDoublingAlgorithm}
+	values.Tags = gostatsd.Tags{PercentileBucketsMarkerTag, BucketPrefix + PercentileBucketsRoundDoublingAlgorithm}
 	ma.metricMap.Timers["testTimer"]["simple"] = values
 
 	ma.Flush(10)
