@@ -12,7 +12,6 @@ import (
 	"net/http"
 	"net/url"
 	"runtime"
-	"sort"
 	"strconv"
 	"strings"
 	"sync/atomic"
@@ -208,25 +207,23 @@ func (d *Client) processMetrics(metrics *gostatsd.MetricMap, cb func(*timeSeries
 
 	metrics.Timers.Each(func(key, tagsKey string, timer gostatsd.Timer) {
 		if timer.Buckets != nil {
-			var keys []int
-			for k := range timer.Buckets {
-				keys = append(keys, k)
-			}
-			sort.Ints(keys)
-
-			previousBucket := 0
-			for _, bucket := range keys {
-				val := timer.Buckets[bucket]
+			for bucketBound, val := range timer.Buckets {
 				var bucketMax string
-				if bucket == statsd.InfinityBucketSize {
+				if bucketBound.Max == statsd.PosInfinityBucketLimit {
 					bucketMax = "+Inf"
 				} else {
-					bucketMax = strconv.Itoa(bucket)
+					bucketMax = strconv.Itoa(bucketBound.Max)
 				}
-				bucketTag := "between:" + strconv.Itoa(previousBucket) + "_" + bucketMax
+				var bucketMin string
+				if bucketBound.Min == statsd.NegInfinityBucketLimit {
+					bucketMin = "-Inf"
+				} else {
+					bucketMin = strconv.Itoa(bucketBound.Min)
+				}
+
+				bucketTag := "between:" + bucketMin + "_" + bucketMax
 				newTags := timer.Tags.Concat([]string{bucketTag})
 				fl.addMetricf(counter, float64(val), timer.Hostname, newTags, "%s.buckets", key)
-				previousBucket = bucket
 			}
 			fl.maybeFlush()
 		}

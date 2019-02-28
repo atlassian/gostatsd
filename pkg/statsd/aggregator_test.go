@@ -61,9 +61,9 @@ func TestPercentileBuckets(t *testing.T) {
 	ma.Flush(10)
 
 	result := ma.metricMap.Timers["testTimer"]["simple"]
-	assrt.Equal(1, result.Buckets[20])
-	assrt.Equal(2, result.Buckets[50])
-	assrt.Equal(1, result.Buckets[5000])
+	assrt.Equal(1, result.Buckets[gostatsd.BucketBounds{10, 20}])
+	assrt.Equal(2, result.Buckets[gostatsd.BucketBounds{20, 50}])
+	assrt.Equal(1, result.Buckets[gostatsd.BucketBounds{2000, 5000}])
 }
 
 func TestPercentileBucketsInfinityValue(t *testing.T) {
@@ -78,8 +78,8 @@ func TestPercentileBucketsInfinityValue(t *testing.T) {
 	ma.Flush(10)
 
 	result := ma.metricMap.Timers["testTimer"]["simple"]
-	assrt.Equal(1, result.Buckets[20])
-	assrt.Equal(1, result.Buckets[InfinityBucketSize])
+	assrt.Equal(1, result.Buckets[gostatsd.BucketBounds{10, 20}])
+	assrt.Equal(1, result.Buckets[gostatsd.BucketBounds{10000, PosInfinityBucketLimit}])
 }
 
 func TestFlush(t *testing.T) {

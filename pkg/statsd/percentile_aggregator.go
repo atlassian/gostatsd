@@ -1,14 +1,17 @@
 package statsd
 
 import (
-	"math/bits"
+	"fmt"
 	"strings"
+
+	"golang.org/x/tools/container/intsets"
 
 	"github.com/atlassian/gostatsd"
 )
 
 const (
-	InfinityBucketSize int = (1<<bits.UintSize)/2 - 1
+	PosInfinityBucketLimit = intsets.MaxInt
+	NegInfinityBucketLimit = intsets.MinInt
 
 	PercentileBucketsMarkerTag = "percentiles:true"
 
@@ -21,16 +24,30 @@ const (
 	PercentileBucketsRoundDoublingAlgorithm = "round-doubling"
 )
 
-// buckets must be sorted ascending
-var bucketLimitMap = map[string][]int{
-	PercentileBucketsPow2Algorithm:          {2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192},
-	PercentileBucketsPow4Algorithm:          {4, 16, 64, 256, 1024, 4096, 16384},
-	PercentileBucketsLinearAlgorithm:        {100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 1100, 1200, 1300, 1400, 1500, 1600, 1700, 1800, 1900, 2000},
-	PercentileBucketsTailLatencyAlgorithm:   {2, 8, 32, 64, 100, 200, 300, 400, 500, 750, 1000, 1250, 1500, 1750, 2000, 4000, 6000, 8000, 10000, 20000, 30000, 40000, 50000, 60000},
-	PercentileBucketsRoundDoublingAlgorithm: {10, 20, 50, 100, 200, 500, 1000, 2000, 5000, 10000},
+func makeBounds(uppers ...int) []gostatsd.BucketBounds {
+	var arr []gostatsd.BucketBounds
+	prev := NegInfinityBucketLimit
+	for _, next := range uppers {
+		if next <= prev {
+			panic(fmt.Sprintf("Bad bucket bounds, not monotonically increasing. %v <= %v", next, prev))
+		}
+		arr = append(arr, gostatsd.BucketBounds{prev, next})
+		prev = next
+	}
+	arr = append(arr, gostatsd.BucketBounds{prev, PosInfinityBucketLimit})
+	return arr
 }
 
-func AggregatePercentiles(timer gostatsd.Timer) map[int]int {
+// buckets must be sorted ascending
+var bucketLimitMap = map[string][]gostatsd.BucketBounds{
+	PercentileBucketsPow2Algorithm:          makeBounds(0, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192),
+	PercentileBucketsPow4Algorithm:          makeBounds(0, 4, 16, 64, 256, 1024, 4096, 16384),
+	PercentileBucketsLinearAlgorithm:        makeBounds(0, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 1100, 1200, 1300, 1400, 1500, 1600, 1700, 1800, 1900, 2000),
+	PercentileBucketsTailLatencyAlgorithm:   makeBounds(0, 2, 8, 32, 64, 100, 200, 300, 400, 500, 750, 1000, 1250, 1500, 1750, 2000, 4000, 6000, 8000, 10000, 20000, 30000, 40000, 50000, 60000),
+	PercentileBucketsRoundDoublingAlgorithm: makeBounds(0, 10, 20, 50, 100, 200, 500, 1000, 2000, 5000, 10000),
+}
+
+func AggregatePercentiles(timer gostatsd.Timer) map[gostatsd.BucketBounds]int {
 	if count := len(timer.Values); count > 0 {
 		if bucketAlgo := getBucketAlgo(timer.Tags); bucketAlgo != "" {
 			if bucketSet, ok := bucketLimitMap[bucketAlgo]; ok {
@@ -50,21 +67,21 @@ func getBucketAlgo(tags []string) string {
 	return ""
 }
 
-func searchWhichBucket(buckets []int, floatValue float64) int {
+func searchWhichBucket(buckets []gostatsd.BucketBounds, floatValue float64) gostatsd.BucketBounds {
 	intValue := int(floatValue)
 
 	midpoint := len(buckets) / 2
 
-	if buckets[midpoint] < intValue { // traverse RHS
+	if buckets[midpoint].Max < intValue { // traverse RHS
 
 		for i := midpoint + 1; i < len(buckets); i++ {
-			if intValue < buckets[i] {
+			if intValue < buckets[i].Max {
 				return buckets[i]
 			}
 		}
 		return buckets[len(buckets)+1] // value is max int
 
-	} else if buckets[midpoint] == intValue {
+	} else if buckets[midpoint].Max == intValue {
 
 		return buckets[midpoint+1]
 
@@ -72,7 +89,7 @@ func searchWhichBucket(buckets []int, floatValue float64) int {
 		// i is the index wwe want the bucket to be at
 
 		for i := midpoint; i > 0; i-- {
-			if intValue >= buckets[i-1] {
+			if intValue >= buckets[i-1].Max {
 				return buckets[i]
 			}
 		}
@@ -81,11 +98,9 @@ func searchWhichBucket(buckets []int, floatValue float64) int {
 	}
 }
 
-func calculatePercentileBuckets(values []float64, buckets []int) map[int]int {
+func calculatePercentileBuckets(values []float64, buckets []gostatsd.BucketBounds) map[gostatsd.BucketBounds]int {
 	// buckets are sorted ascending
-	buckets = append(buckets, InfinityBucketSize)
-
-	result := make(map[int]int)
+	result := make(map[gostatsd.BucketBounds]int)
 
 	for _, floatValue := range values {
 		targetBucket := searchWhichBucket(buckets, floatValue)

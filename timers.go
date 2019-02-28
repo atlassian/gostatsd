@@ -20,11 +20,14 @@ type Timer struct {
 	Hostname     string      // Hostname of the source of the metric
 	Tags         Tags        // The tags for the timer
 
-	// Map of exclusive upper limit for bucket to count of measures seen in that bucket.
-	// Value of 100 falls in bucket [50,200) so belongs to key 200.
-	// Value of 200 falls in bucket [200, 300) so belongs to the key 300.
+	// Map bounds to count of measures seen in that bucket.
 	// This map only non-empty if the metric specifies percentile aggregation in its tags.
-	Buckets map[int]int
+	Buckets map[BucketBounds]int
+}
+
+type BucketBounds struct {
+	Min int // Inclusive lower limit
+	Max int // Exclusive upper limit
 }
 
 // NewTimer initialises a new timer.
