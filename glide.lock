@@ -1,5 +1,5 @@
-hash: ad0605257b868207e365470c410cfec845c87bf599ab99b242a5bed14b5198fd
-updated: 2018-12-23T02:28:38.821061348+11:00
+hash: 1c0d2fbd10f83cd779156d02feb6cdfac9ee3c22880729387e271cdff7d467c4
+updated: 2019-02-28T13:10:26.800589+11:00
 imports:
 - name: github.com/ash2k/stager
   version: 6e9c7b0eacd465286fac042bfb29a170aa8c2c3f
@@ -36,22 +36,25 @@ imports:
   - service/sts
 - name: github.com/cenkalti/backoff
   version: f756bc9a37f808627c8c1b26d2d6ea40c468440b
+- name: github.com/emirpasic/gods
+  version: 1615341f118ae12f353cc8a983f35b584342c9b3
+  subpackages:
+  - maps/treemap
 - name: github.com/fsnotify/fsnotify
   version: 4da3e2cfbabc9f751898f250b49f2439785783a1
 - name: github.com/go-ini/ini
   version: cec2bdc49009247305a260b082a18e802d0fe292
 - name: github.com/go-redis/redis
-  version: b3d9bf10f6666b2ee5100a6f3f84f4caf3b4e37d
+  version: d22fde8721cc915a55aeb6b00944a76a92bfeb6e
   subpackages:
   - internal
   - internal/consistenthash
   - internal/hashtag
   - internal/pool
   - internal/proto
-  - internal/singleflight
   - internal/util
 - name: github.com/golang/protobuf
-  version: aa810b61a9c79d51363740d207bb46cf8e620ed5
+  version: c823c79ea1570fb5ff454033735a8e68575d1d0f
   subpackages:
   - proto
 - name: github.com/gorilla/context

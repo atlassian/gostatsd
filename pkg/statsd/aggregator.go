@@ -2,6 +2,7 @@ package statsd
 
 import (
 	"context"
+	"github.com/emirpasic/gods/maps/treemap"
 	"math"
 	"sort"
 	"strconv"
@@ -74,100 +75,132 @@ func (a *MetricAggregator) Flush(flushInterval time.Duration) {
 	})
 
 	a.metricMap.Timers.Each(func(key, tagsKey string, timer gostatsd.Timer) {
-		if count := len(timer.Values); count > 0 {
-			sort.Float64s(timer.Values)
-			timer.Min = timer.Values[0]
-			timer.Max = timer.Values[count-1]
-			n := len(timer.Values)
-			count := float64(n)
-
-			cumulativeValues := make([]float64, n)
-			cumulSumSquaresValues := make([]float64, n)
-			cumulativeValues[0] = timer.Min
-			cumulSumSquaresValues[0] = timer.Min * timer.Min
-			for i := 1; i < n; i++ {
-				cumulativeValues[i] = timer.Values[i] + cumulativeValues[i-1]
-				cumulSumSquaresValues[i] = timer.Values[i]*timer.Values[i] + cumulSumSquaresValues[i-1]
-			}
-
-			var sumSquares = timer.Min * timer.Min
-			var mean = timer.Min
-			var sum = timer.Min
-			var thresholdBoundary = timer.Max
-
-			for pct, pctStruct := range a.percentThresholds {
-				numInThreshold := n
-				if n > 1 {
-					numInThreshold = int(round(math.Abs(pct) / 100 * count))
-					if numInThreshold == 0 {
-						continue
-					}
-					if pct > 0 {
-						thresholdBoundary = timer.Values[numInThreshold-1]
-						sum = cumulativeValues[numInThreshold-1]
-						sumSquares = cumulSumSquaresValues[numInThreshold-1]
-					} else {
-						thresholdBoundary = timer.Values[n-numInThreshold]
-						sum = cumulativeValues[n-1] - cumulativeValues[n-numInThreshold-1]
-						sumSquares = cumulSumSquaresValues[n-1] - cumulSumSquaresValues[n-numInThreshold-1]
-					}
-					mean = sum / float64(numInThreshold)
-				}
-
-				if !a.disabledSubtypes.CountPct {
-					timer.Percentiles.Set(pctStruct.count, float64(numInThreshold))
-				}
-				if !a.disabledSubtypes.MeanPct {
-					timer.Percentiles.Set(pctStruct.mean, mean)
-				}
-				if !a.disabledSubtypes.SumPct {
-					timer.Percentiles.Set(pctStruct.sum, sum)
-				}
-				if !a.disabledSubtypes.SumSquaresPct {
-					timer.Percentiles.Set(pctStruct.sumSquares, sumSquares)
-				}
-				if pct > 0 {
-					if !a.disabledSubtypes.UpperPct {
-						timer.Percentiles.Set(pctStruct.upper, thresholdBoundary)
-					}
-				} else {
-					if !a.disabledSubtypes.LowerPct {
-						timer.Percentiles.Set(pctStruct.lower, thresholdBoundary)
-					}
-				}
-			}
-
-			sum = cumulativeValues[n-1]
-			sumSquares = cumulSumSquaresValues[n-1]
-			mean = sum / count
-
-			var sumOfDiffs float64
-			for i := 0; i < n; i++ {
-				sumOfDiffs += (timer.Values[i] - mean) * (timer.Values[i] - mean)
-			}
-
-			mid := int(math.Floor(count / 2))
-			if math.Mod(count, 2) == 0 {
-				timer.Median = (timer.Values[mid-1] + timer.Values[mid]) / 2
-			} else {
-				timer.Median = timer.Values[mid]
-			}
-
-			timer.Mean = mean
-			timer.StdDev = math.Sqrt(sumOfDiffs / count)
-			timer.Sum = sum
-			timer.SumSquares = sumSquares
-
-			timer.Count = int(round(timer.SampledCount))
-			timer.PerSecond = timer.SampledCount / flushInSeconds
-
-			a.metricMap.Timers[key][tagsKey] = timer
+		if(contains(timer.Tags, "percentiles:true")) {
+			fancyPipeline(timer, a, flushInSeconds, key, tagsKey)
 		} else {
-			timer.Count = 0
-			timer.SampledCount = 0
-			timer.PerSecond = 0
+			defaultPipeline(timer, a, flushInSeconds, key, tagsKey)
 		}
 	})
+}
+
+func fancyPipeline(timer gostatsd.Timer, a *MetricAggregator, flushInSeconds float64, key string, tagsKey string) {
+	buckets := [12]int{20,30,40,50,75,100,200,500,1000,2000,5000}
+
+	var valuesMap treemap.Map = *treemap.NewWithIntComparator()
+	for e := range buckets {
+		valuesMap.Put(e, 0)
+	}
+
+	for timerValue := range timer.Values {
+		foundKey, foundValue := valuesMap.Ceiling(timerValue)
+		valuesMap.Put(foundKey, foundValue.(int)+1)
+	}
+}
+
+// Contains tells whether a contains x.
+func contains(a []string, x string) bool {
+	for _, n := range a {
+		if x == n {
+			return true
+		}
+	}
+	return false
+}
+
+func defaultPipeline(timer gostatsd.Timer, a *MetricAggregator, flushInSeconds float64, key string, tagsKey string) {
+	if count := len(timer.Values); count > 0 {
+		sort.Float64s(timer.Values)
+		timer.Min = timer.Values[0]
+		timer.Max = timer.Values[count-1]
+		n := len(timer.Values)
+		count := float64(n)
+
+		cumulativeValues := make([]float64, n)
+		cumulSumSquaresValues := make([]float64, n)
+		cumulativeValues[0] = timer.Min
+		cumulSumSquaresValues[0] = timer.Min * timer.Min
+		for i := 1; i < n; i++ {
+			cumulativeValues[i] = timer.Values[i] + cumulativeValues[i-1]
+			cumulSumSquaresValues[i] = timer.Values[i]*timer.Values[i] + cumulSumSquaresValues[i-1]
+		}
+
+		var sumSquares = timer.Min * timer.Min
+		var mean = timer.Min
+		var sum = timer.Min
+		var thresholdBoundary = timer.Max
+
+		for pct, pctStruct := range a.percentThresholds {
+			numInThreshold := n
+			if n > 1 {
+				numInThreshold = int(round(math.Abs(pct) / 100 * count))
+				if numInThreshold == 0 {
+					continue
+				}
+				if pct > 0 {
+					thresholdBoundary = timer.Values[numInThreshold-1]
+					sum = cumulativeValues[numInThreshold-1]
+					sumSquares = cumulSumSquaresValues[numInThreshold-1]
+				} else {
+					thresholdBoundary = timer.Values[n-numInThreshold]
+					sum = cumulativeValues[n-1] - cumulativeValues[n-numInThreshold-1]
+					sumSquares = cumulSumSquaresValues[n-1] - cumulSumSquaresValues[n-numInThreshold-1]
+				}
+				mean = sum / float64(numInThreshold)
+			}
+
+			if !a.disabledSubtypes.CountPct {
+				timer.Percentiles.Set(pctStruct.count, float64(numInThreshold))
+			}
+			if !a.disabledSubtypes.MeanPct {
+				timer.Percentiles.Set(pctStruct.mean, mean)
+			}
+			if !a.disabledSubtypes.SumPct {
+				timer.Percentiles.Set(pctStruct.sum, sum)
+			}
+			if !a.disabledSubtypes.SumSquaresPct {
+				timer.Percentiles.Set(pctStruct.sumSquares, sumSquares)
+			}
+			if pct > 0 {
+				if !a.disabledSubtypes.UpperPct {
+					timer.Percentiles.Set(pctStruct.upper, thresholdBoundary)
+				}
+			} else {
+				if !a.disabledSubtypes.LowerPct {
+					timer.Percentiles.Set(pctStruct.lower, thresholdBoundary)
+				}
+			}
+		}
+
+		sum = cumulativeValues[n-1]
+		sumSquares = cumulSumSquaresValues[n-1]
+		mean = sum / count
+
+		var sumOfDiffs float64
+		for i := 0; i < n; i++ {
+			sumOfDiffs += (timer.Values[i] - mean) * (timer.Values[i] - mean)
+		}
+
+		mid := int(math.Floor(count / 2))
+		if math.Mod(count, 2) == 0 {
+			timer.Median = (timer.Values[mid-1] + timer.Values[mid]) / 2
+		} else {
+			timer.Median = timer.Values[mid]
+		}
+
+		timer.Mean = mean
+		timer.StdDev = math.Sqrt(sumOfDiffs / count)
+		timer.Sum = sum
+		timer.SumSquares = sumSquares
+
+		timer.Count = int(round(timer.SampledCount))
+		timer.PerSecond = timer.SampledCount / flushInSeconds
+
+		a.metricMap.Timers[key][tagsKey] = timer
+	} else {
+		timer.Count = 0
+		timer.SampledCount = 0
+		timer.PerSecond = 0
+	}
 }
 
 func (a *MetricAggregator) RunMetrics(ctx context.Context, statser stats.Statser) {

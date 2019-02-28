@@ -30,3 +30,6 @@ import:
   version: ^1.2.0
 - package: github.com/tilinna/clock
   version: 1.0.0
+- package: github.com/emirpasic/gods/maps/treemap
+  version: 1.12.0
+
