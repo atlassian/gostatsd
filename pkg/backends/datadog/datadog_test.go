@@ -215,12 +215,6 @@ func TestSendPercentileMetrics(t *testing.T) {
 			assert.NoError(t, err)
 		}
 		expected := `{"series":[` +
-			`{"host":"h2","interval":1.1,"metric":"t1.buckets","points":[[100,5]],"tags":["tag2","between:0_20"],"type":"gauge"},` +
-			`{"host":"h2","interval":1.1,"metric":"t1.buckets","points":[[100,5]],"tags":["tag2","between:20_30"],"type":"gauge"},` +
-			`{"host":"h2","interval":1.1,"metric":"t1.buckets","points":[[100,0]],"tags":["tag2","between:30_40"],"type":"gauge"},` +
-			`{"host":"h2","interval":1.1,"metric":"t1.buckets","points":[[100,0]],"tags":["tag2","between:40_50"],"type":"gauge"},` +
-			`{"host":"h2","interval":1.1,"metric":"t1.buckets","points":[[100,9]],"tags":["tag2","between:50_60"],"type":"gauge"},` +
-			`{"host":"h2","interval":1.1,"metric":"t1.buckets","points":[[100,10]],"tags":["tag2","between:60_9223372036854775807"],"type":"gauge"},` +
 			`{"host":"h2","interval":1.1,"metric":"t1.lower","points":[[100,0]],"tags":["tag2"],"type":"gauge"},` +
 			`{"host":"h2","interval":1.1,"metric":"t1.upper","points":[[100,0]],"tags":["tag2"],"type":"gauge"},` +
 			`{"host":"h2","interval":1.1,"metric":"t1.count","points":[[100,0]],"tags":["tag2"],"type":"gauge"},` +
@@ -229,19 +223,25 @@ func TestSendPercentileMetrics(t *testing.T) {
 			`{"host":"h2","interval":1.1,"metric":"t1.median","points":[[100,0]],"tags":["tag2"],"type":"gauge"},` +
 			`{"host":"h2","interval":1.1,"metric":"t1.std","points":[[100,0]],"tags":["tag2"],"type":"gauge"},` +
 			`{"host":"h2","interval":1.1,"metric":"t1.sum","points":[[100,0]],"tags":["tag2"],"type":"gauge"},` +
-			`{"host":"h2","interval":1.1,"metric":"t1.sum_squares","points":[[100,0]],"tags":["tag2"],"type":"gauge"}]}`
+			`{"host":"h2","interval":1.1,"metric":"t1.sum_squares","points":[[100,0]],"tags":["tag2"],"type":"gauge"},` +
+			`{"host":"h2","interval":1.1,"metric":"t1.buckets","points":[[100,5]],"tags":["tag2","between:0_20"],"type":"count"},` +
+			`{"host":"h2","interval":1.1,"metric":"t1.buckets","points":[[100,5]],"tags":["tag2","between:20_30"],"type":"count"},` +
+			`{"host":"h2","interval":1.1,"metric":"t1.buckets","points":[[100,0]],"tags":["tag2","between:30_40"],"type":"count"},` +
+			`{"host":"h2","interval":1.1,"metric":"t1.buckets","points":[[100,0]],"tags":["tag2","between:40_50"],"type":"count"},` +
+			`{"host":"h2","interval":1.1,"metric":"t1.buckets","points":[[100,9]],"tags":["tag2","between:50_60"],"type":"count"},` +
+			`{"host":"h2","interval":1.1,"metric":"t1.buckets","points":[[100,10]],"tags":["tag2","between:60_+Inf"],"type":"count"}]}`
 		assert.Equal(t, expected, string(data))
 	})
 	ts := httptest.NewServer(mux)
 	defer ts.Close()
 
-	cli, err := NewClient(ts.URL, "apiKey123", "agent", "tcp", 1000, defaultMaxRequests, true, false, 1*time.Second, 2*time.Second, 1100*time.Millisecond, gostatsd.TimerSubtypes{})
+	client, err := NewClient(ts.URL, "apiKey123", "agent", "tcp", 1000, defaultMaxRequests, true, false, 1*time.Second, 2*time.Second, 1100*time.Millisecond, gostatsd.TimerSubtypes{})
 	require.NoError(t, err)
-	cli.now = func() time.Time {
+	client.now = func() time.Time {
 		return time.Unix(100, 0)
 	}
 	res := make(chan []error, 1)
-	cli.SendMetricsAsync(context.Background(), metricsPercentiles(), func(errs []error) {
+	client.SendMetricsAsync(context.Background(), metricsPercentiles(), func(errs []error) {
 		res <- errs
 	})
 	errs := <-res
@@ -255,16 +255,16 @@ func metricsPercentiles() *gostatsd.MetricMap {
 		Timers: gostatsd.Timers{
 			"t1": map[string]gostatsd.Timer{
 				"tag2": {
-					Values:     []float64{0, 1},
+					Values:    []float64{0, 1},
 					Timestamp: gostatsd.Nanotime(200),
 					Hostname:  "h2",
 					Tags:      gostatsd.Tags{"tag2"},
 					Buckets: map[int]int{
-						20: 5,
-						30: 5,
-						40: 0,
-						50: 0,
-						60: 9,
+						20:                        5,
+						30:                        5,
+						40:                        0,
+						50:                        0,
+						60:                        9,
 						statsd.InfinityBucketSize: 10,
 					},
 				},
