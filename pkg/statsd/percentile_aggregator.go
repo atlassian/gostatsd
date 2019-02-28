@@ -49,8 +49,8 @@ var bucketLimitMap = map[string][]gostatsd.BucketBounds{
 
 func AggregatePercentiles(timer gostatsd.Timer) map[gostatsd.BucketBounds]int {
 	if count := len(timer.Values); count > 0 {
-		if bucketAlgo := getBucketAlgo(timer.Tags); bucketAlgo != "" {
-			if bucketSet, ok := bucketLimitMap[bucketAlgo]; ok {
+		if bucketAlgo := getBucketAlgo(timer.Tags); bucketAlgo != nil {
+			if bucketSet, ok := bucketLimitMap[*bucketAlgo]; ok {
 				return calculatePercentileBuckets(timer.Values, bucketSet)
 			}
 		}
@@ -58,13 +58,14 @@ func AggregatePercentiles(timer gostatsd.Timer) map[gostatsd.BucketBounds]int {
 	return nil
 }
 
-func getBucketAlgo(tags []string) string {
+func getBucketAlgo(tags []string) *string {
 	if contains(tags, PercentileBucketsMarkerTag) {
-		if match := findTag(tags, BucketPrefix); match != "" {
-			return match[len(BucketPrefix):]
+		if match := findTag(tags, BucketPrefix); match != nil {
+			algo := (*match)[len(BucketPrefix):]
+			return &algo
 		}
 	}
-	return ""
+	return nil
 }
 
 func searchWhichBucket(buckets []gostatsd.BucketBounds, floatValue float64) gostatsd.BucketBounds {
@@ -120,11 +121,11 @@ func contains(a []string, x string) bool {
 }
 
 // returns the first string in a that begins with prefix
-func findTag(a []string, prefix string) string {
+func findTag(a []string, prefix string) *string {
 	for _, n := range a {
 		if strings.HasPrefix(n, prefix) {
-			return n
+			return &n
 		}
 	}
-	return ""
+	return nil
 }
