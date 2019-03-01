@@ -4,10 +4,12 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/atlassian/gostatsd"
+	"github.com/atlassian/gostatsd/pkg/statsd"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
@@ -109,6 +111,27 @@ func preparePayload(metrics *gostatsd.MetricMap, disabled *gostatsd.TimerSubtype
 		}
 		for _, pct := range timer.Percentiles {
 			fmt.Fprintf(buf, "stats.timers.%s.%s %f %d\n", nk, pct.Str, pct.Float, now) // #nosec
+		}
+	})
+	metrics.Timers.Each(func(key, tagsKey string, timer gostatsd.Timer) {
+		if timer.Buckets != nil {
+			nk := composeMetricName(key, tagsKey)
+			for bucketBound, val := range timer.Buckets {
+				var bucketMax string
+				if bucketBound.Max == statsd.PosInfinityBucketLimit {
+					bucketMax = "+Inf"
+				} else {
+					bucketMax = strconv.Itoa(bucketBound.Max)
+				}
+				var bucketMin string
+				if bucketBound.Min == statsd.NegInfinityBucketLimit {
+					bucketMin = "-Inf"
+				} else {
+					bucketMin = strconv.Itoa(bucketBound.Min)
+				}
+				bucketTag := "between:" + bucketMin + "_" + bucketMax
+				fmt.Fprintf(buf, "stats.timers.%s.bucket.%s %d %d\n", nk, bucketTag, val, now) // #nosec
+			}
 		}
 	})
 	metrics.Gauges.Each(func(key, tagsKey string, gauge gostatsd.Gauge) {
