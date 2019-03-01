@@ -119,13 +119,13 @@ func preparePayload(metrics *gostatsd.MetricMap, disabled *gostatsd.TimerSubtype
 			for bucketBound, val := range timer.Buckets {
 				var bucketMax string
 				if bucketBound.Max == statsd.PosInfinityBucketLimit {
-					bucketMax = "+Inf"
+					bucketMax = "Inf"
 				} else {
 					bucketMax = strconv.Itoa(bucketBound.Max)
 				}
 				var bucketMin string
 				if bucketBound.Min == statsd.NegInfinityBucketLimit {
-					bucketMin = "-Inf"
+					bucketMin = "NegInf"
 				} else {
 					bucketMin = strconv.Itoa(bucketBound.Min)
 				}
