@@ -129,7 +129,7 @@ func preparePayload(metrics *gostatsd.MetricMap, disabled *gostatsd.TimerSubtype
 				} else {
 					bucketMin = strconv.Itoa(bucketBound.Min)
 				}
-				bucketTag := "between:" + bucketMin + "_" + bucketMax
+				bucketTag := "between_" + bucketMin + "_" + bucketMax
 				fmt.Fprintf(buf, "stats.timers.%s.bucket.%s %d %d\n", nk, bucketTag, val, now) // #nosec
 			}
 		}
