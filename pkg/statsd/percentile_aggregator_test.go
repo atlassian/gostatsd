@@ -54,14 +54,14 @@ func TestAggregatePercentiles(t *testing.T) {
 			want: map[gostatsd.BucketBounds]int{
 				// We include the zero-sized buckets in the comments here to make the test
 				// more understandable.  We do not send save zero buckets in the map though.
-				gostatsd.BucketBounds{0, 4}:  1, // 1
-				gostatsd.BucketBounds{4, 16}: 3, // 10, 11, 12
+				{0, 4}:  1, // 1
+				{4, 16}: 3, // 10, 11, 12
 				//64:    0,
 				//256:   0,
-				gostatsd.BucketBounds{256, 1024}:  3, // 500, 1000, 1023
-				gostatsd.BucketBounds{1024, 4096}: 3, // 1024, 1025, 4000
+				{256, 1024}:  3, // 500, 1000, 1023
+				{1024, 4096}: 3, // 1024, 1025, 4000
 				//16384:  0,
-				gostatsd.BucketBounds{16384, PosInfinityBucketLimit}: 1, // 16384
+				{16384, PosInfinityBucketLimit}: 1, // 16384
 			},
 		},
 	}
