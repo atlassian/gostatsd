@@ -19,7 +19,7 @@ PROTOBUF_VERSION ?= 3.6.1
 setup: setup-ci
 	go get -u github.com/githubnemo/CompileDaemon
 	go get -u github.com/jstemmer/go-junit-report
-	go get -u golang.org/x/tools/cmd/goimports
+	GO111MODULE=off go get -u golang.org/x/tools/cmd/goimports
 
 tools/bin/protoc:
 	curl -L -O https://github.com/protocolbuffers/protobuf/releases/download/v$(PROTOBUF_VERSION)/protoc-$(PROTOBUF_VERSION)-linux-x86_64.zip
@@ -28,8 +28,8 @@ tools/bin/protoc:
 
 setup-ci: tools/bin/protoc
 	go get -u github.com/Masterminds/glide
-	go get -u github.com/alecthomas/gometalinter
-	gometalinter --install
+	GO111MODULE=off go get -u github.com/alecthomas/gometalinter
+	GO111MODULE=off gometalinter --install
 	glide install --strip-vendor
 
 build-cluster: fmt
