@@ -137,6 +137,9 @@ func TestForwardingEndToEndV2(t *testing.T) {
 	}
 
 	actual := ch.GetMetrics()
+	for _, metric := range actual {
+		metric.Timestamp = 0 // This isn't propagated through v2, and is set to the time of receive
+	}
 
 	cmpSort := func(slice []*gostatsd.Metric) func(i, j int) bool {
 		return func(i, j int) bool {

@@ -25,7 +25,7 @@ type ProcessFunc func(*gostatsd.MetricMap)
 //
 // Incoming metrics should be passed via Receive function.
 type Aggregator interface {
-	Receive(*gostatsd.Metric, time.Time)
+	Receive(*gostatsd.Metric)
 	Flush(interval time.Duration)
 	Process(ProcessFunc)
 	Reset()
@@ -33,9 +33,10 @@ type Aggregator interface {
 
 // Datagram is a received UDP datagram that has not been parsed into Metric/Event(s)
 type Datagram struct {
-	IP       gostatsd.IP
-	Msg      []byte
-	DoneFunc func() // to be called once the datagram has been parsed and msg can be freed
+	IP        gostatsd.IP
+	Msg       []byte
+	Timestamp gostatsd.Nanotime
+	DoneFunc  func() // to be called once the datagram has been parsed and msg can be freed
 }
 
 // MetricEmitter is an object that emits metrics.  Used to pass a Statser to the object

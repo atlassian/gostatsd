@@ -115,6 +115,7 @@ func (dr *DatagramReceiver) Receive(ctx context.Context, c net.PacketConn) {
 	for {
 
 		datagramCount, err := br.ReadBatch(messages)
+		now := gostatsd.NanoNow()
 		if err != nil {
 			select {
 			case <-ctx.Done():
@@ -142,9 +143,10 @@ func (dr *DatagramReceiver) Receive(ctx context.Context, c net.PacketConn) {
 			}
 
 			dgs[i] = &Datagram{
-				IP:       getIP(addr),
-				Msg:      buf,
-				DoneFunc: doneFn,
+				IP:        getIP(addr),
+				Msg:       buf,
+				Timestamp: now,
+				DoneFunc:  doneFn,
 			}
 			retBuffers[i] = dr.bufPool.Get()
 			messages[i].Buffers = *retBuffers[i]

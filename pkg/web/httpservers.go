@@ -20,7 +20,6 @@ type httpServer struct {
 	logger       logrus.FieldLogger
 	address      string
 	Router       *mux.Router // should be private, but project layout is not great.
-	rawMetricsV1 *rawHttpHandlerV1
 	rawMetricsV2 *rawHttpHandlerV2
 }
 
@@ -103,11 +102,8 @@ func NewHttpServer(
 	}
 
 	if enableIngestion {
-		server.rawMetricsV1 = newRawHttpHandlerV1(logger, serverName, handler)
 		server.rawMetricsV2 = newRawHttpHandlerV2(logger, serverName, handler)
 		routes = append(routes,
-			route{path: "/v1/raw", handler: server.rawMetricsV1.MetricHandler, method: "POST", name: "metrics_post"},
-			route{path: "/v1/event", handler: server.rawMetricsV1.EventHandler, method: "POST", name: "events_post"},
 			route{path: "/v2/raw", handler: server.rawMetricsV2.MetricHandler, method: "POST", name: "metricsv2_post"},
 			route{path: "/v2/event", handler: server.rawMetricsV2.EventHandler, method: "POST", name: "eventsv2_post"},
 		)
@@ -192,12 +188,6 @@ func (hs *httpServer) logRequest(handler http.Handler) http.Handler {
 }
 
 func (hs *httpServer) Run(ctx context.Context) {
-	if hs.rawMetricsV1 != nil {
-		var wg wait.Group
-		defer wg.Wait()
-		wg.StartWithContext(ctx, hs.rawMetricsV1.RunMetrics)
-	}
-
 	if hs.rawMetricsV2 != nil {
 		var wg wait.Group
 		defer wg.Wait()

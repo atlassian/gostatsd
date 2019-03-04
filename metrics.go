@@ -45,6 +45,7 @@ type Metric struct {
 	StringValue string     // The string value for some metrics e.g. Set
 	Hostname    string     // Hostname of the source of the metric
 	SourceIP    IP         // IP of the source of the metric
+	Timestamp   Nanotime   // Most accurate known timestamp of this metric
 	Type        MetricType // The type of metric
 	DoneFunc    func()     // Returns the metric to the pool. May be nil. Call Metric.Done(), not this.
 }
@@ -59,6 +60,7 @@ func (m *Metric) Reset() {
 	m.StringValue = ""
 	m.Hostname = ""
 	m.SourceIP = ""
+	m.Timestamp = 0
 	m.Type = 0
 }
 

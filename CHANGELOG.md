@@ -1,3 +1,7 @@
+x.x.x (pending)
+-----
+- Removed v1 ingestion
+
 12.0.2
 ------
 - Fix bug with metrics going through the consolidator not having tags applied properly
