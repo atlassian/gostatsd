@@ -35,7 +35,6 @@ func (m MetricType) String() string {
 }
 
 // Metric represents a single data collected datapoint.
-// TODO: Add timestamp.  When doing so, remove MetricConsolidator.ReceiveMetric context.
 type Metric struct {
 	Name        string     // The name of the metric
 	Value       float64    // The numeric value of the metric
