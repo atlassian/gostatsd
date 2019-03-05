@@ -76,15 +76,20 @@ func (dp *DatagramParser) Run(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case dgs := <-dp.in:
-			accumM, accumE, accumB := uint64(0), uint64(0), uint64(0)
+			var metrics []*gostatsd.Metric
+
+			accumB, accumE := uint64(0), uint64(0)
 			for _, dg := range dgs {
-				m, e, b := dp.handleDatagram(ctx, dg.Timestamp, dg.IP, dg.Msg)
+				parsedMetrics, e, b := dp.handleDatagram(ctx, dg.Timestamp, dg.IP, dg.Msg)
 				dg.DoneFunc()
-				accumM += m
+				metrics = append(metrics, parsedMetrics...)
 				accumE += e
 				accumB += b
 			}
-			atomic.AddUint64(&dp.metricsReceived, accumM)
+			if len(metrics) > 0 {
+				dp.handler.DispatchMetrics(ctx, metrics)
+			}
+			atomic.AddUint64(&dp.metricsReceived, uint64(len(metrics)))
 			atomic.AddUint64(&dp.eventsReceived, accumE)
 			atomic.AddUint64(&dp.badLines, accumB)
 		}
@@ -98,10 +103,10 @@ func (dp *DatagramParser) logBadLineRateLimited(line []byte, ip gostatsd.IP, err
 	}
 }
 
-// handleDatagram handles the contents of a datagram and calls Handler.DispatchMetric()
-// for each line that successfully parses into a types.Metric and Handler.DispatchEvent() for each event.
-func (dp *DatagramParser) handleDatagram(ctx context.Context, now gostatsd.Nanotime, ip gostatsd.IP, msg []byte) (metricCount, eventCount, badLineCount uint64) {
-	var numMetrics, numEvents, numBad uint64
+// handleDatagram handles the contents of a datagram and parsers it in to Metrics (which are returned), or
+// Events (which are sent to the pipeline via DispatchEvent).
+func (dp *DatagramParser) handleDatagram(ctx context.Context, now gostatsd.Nanotime, ip gostatsd.IP, msg []byte) (metrics []*gostatsd.Metric, eventCount uint64, badLineCount uint64) {
+	var numEvents, numBad uint64
 	for {
 		idx := bytes.IndexByte(msg, '\n')
 		var line []byte
@@ -125,7 +130,6 @@ func (dp *DatagramParser) handleDatagram(ctx context.Context, now gostatsd.Nanot
 			continue
 		}
 		if metric != nil {
-			numMetrics++
 			if dp.ignoreHost {
 				for idx, tag := range metric.Tags {
 					if strings.HasPrefix(tag, "host:") {
@@ -142,7 +146,7 @@ func (dp *DatagramParser) handleDatagram(ctx context.Context, now gostatsd.Nanot
 				metric.SourceIP = ip
 			}
 			metric.Timestamp = now
-			dp.handler.DispatchMetric(ctx, metric)
+			metrics = append(metrics, metric)
 		} else if event != nil {
 			numEvents++
 			event.SourceIP = ip // Always keep the source ip for events
@@ -155,7 +159,7 @@ func (dp *DatagramParser) handleDatagram(ctx context.Context, now gostatsd.Nanot
 			log.Panic("Both event and metric are nil")
 		}
 	}
-	return numMetrics, numEvents, numBad
+	return metrics, numEvents, numBad
 }
 
 // parseLine with lexer.

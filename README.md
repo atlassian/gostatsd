@@ -123,7 +123,9 @@ Configuring backends and cloud providers
 ----------------------------------------
 Backends and cloud providers are configured using `toml`, `json` or `yaml` configuration file
 passed via the `--config-path` flag. For all configuration options see source code of the backends you
-are interested in. Configuration file might look like this:
+are interested in. A cloudprovider should not be used on the aggregation server when forwarding data to
+it, as the source IP address is not propagated.  A cloudprovider can be used on the forwarder host, however.
+Configuration file might look like this:
 ```
 [graphite]
 	address = "192.168.99.100:2003"

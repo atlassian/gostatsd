@@ -1,6 +1,7 @@
 x.x.x (pending)
 -----
 - Removed v1 ingestion
+- Refactor internal pipeline
 
 12.0.2
 ------

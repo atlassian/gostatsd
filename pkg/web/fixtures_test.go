@@ -21,11 +21,13 @@ func (ch *capturingHandler) EstimatedTags() int {
 	return 0
 }
 
-func (ch *capturingHandler) DispatchMetric(ctx context.Context, m *gostatsd.Metric) {
-	m.DoneFunc = nil // Clear DoneFunc because it contains non-predictable variable data which interferes with the tests
+func (ch *capturingHandler) DispatchMetrics(ctx context.Context, metrics []*gostatsd.Metric) {
 	ch.mu.Lock()
 	defer ch.mu.Unlock()
-	ch.m = append(ch.m, m)
+	for _, m := range metrics {
+		m.DoneFunc = nil // Clear DoneFunc because it contains non-predictable variable data which interferes with the tests
+		ch.m = append(ch.m, m)
+	}
 }
 
 func (ch *capturingHandler) DispatchEvent(ctx context.Context, e *gostatsd.Event) {

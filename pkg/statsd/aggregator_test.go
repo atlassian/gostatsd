@@ -409,7 +409,7 @@ func BenchmarkHotMetric(b *testing.B) {
 					Hostname: "local",
 					Type:     gostatsd.GAUGE,
 				}
-				beh.DispatchMetric(ctx, m)
+				beh.DispatchMetrics(ctx, []*gostatsd.Metric{m})
 			}
 		})
 	}
