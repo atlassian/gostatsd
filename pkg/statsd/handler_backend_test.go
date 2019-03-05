@@ -25,7 +25,7 @@ type testAggregator struct {
 func (a *testAggregator) TrackMetrics(statser stats.Statser) {
 }
 
-func (a *testAggregator) Receive(m *gostatsd.Metric, t time.Time) {
+func (a *testAggregator) Receive(m *gostatsd.Metric) {
 	a.af.Mutex.Lock()
 	defer a.af.Mutex.Unlock()
 	a.af.receiveInvocations[a.agrNumber]++

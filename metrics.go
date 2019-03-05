@@ -35,7 +35,6 @@ func (m MetricType) String() string {
 }
 
 // Metric represents a single data collected datapoint.
-// TODO: Add timestamp.  When doing so, remove MetricConsolidator.ReceiveMetric context.
 type Metric struct {
 	Name        string     // The name of the metric
 	Value       float64    // The numeric value of the metric
@@ -45,6 +44,7 @@ type Metric struct {
 	StringValue string     // The string value for some metrics e.g. Set
 	Hostname    string     // Hostname of the source of the metric
 	SourceIP    IP         // IP of the source of the metric
+	Timestamp   Nanotime   // Most accurate known timestamp of this metric
 	Type        MetricType // The type of metric
 	DoneFunc    func()     // Returns the metric to the pool. May be nil. Call Metric.Done(), not this.
 }
@@ -59,6 +59,7 @@ func (m *Metric) Reset() {
 	m.StringValue = ""
 	m.Hostname = ""
 	m.SourceIP = ""
+	m.Timestamp = 0
 	m.Type = 0
 }
 

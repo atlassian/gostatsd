@@ -28,7 +28,7 @@ func (w *worker) work() {
 			if !ok {
 				return
 			}
-			w.aggr.Receive(metric, time.Now())
+			w.aggr.Receive(metric)
 		case cmd := <-w.processChan:
 			w.executeProcess(cmd)
 		}

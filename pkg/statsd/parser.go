@@ -78,7 +78,7 @@ func (dp *DatagramParser) Run(ctx context.Context) {
 		case dgs := <-dp.in:
 			accumM, accumE, accumB := uint64(0), uint64(0), uint64(0)
 			for _, dg := range dgs {
-				m, e, b := dp.handleDatagram(ctx, dg.IP, dg.Msg)
+				m, e, b := dp.handleDatagram(ctx, dg.Timestamp, dg.IP, dg.Msg)
 				dg.DoneFunc()
 				accumM += m
 				accumE += e
@@ -100,7 +100,7 @@ func (dp *DatagramParser) logBadLineRateLimited(line []byte, ip gostatsd.IP, err
 
 // handleDatagram handles the contents of a datagram and calls Handler.DispatchMetric()
 // for each line that successfully parses into a types.Metric and Handler.DispatchEvent() for each event.
-func (dp *DatagramParser) handleDatagram(ctx context.Context, ip gostatsd.IP, msg []byte) (metricCount, eventCount, badLineCount uint64) {
+func (dp *DatagramParser) handleDatagram(ctx context.Context, now gostatsd.Nanotime, ip gostatsd.IP, msg []byte) (metricCount, eventCount, badLineCount uint64) {
 	var numMetrics, numEvents, numBad uint64
 	for {
 		idx := bytes.IndexByte(msg, '\n')
@@ -141,6 +141,7 @@ func (dp *DatagramParser) handleDatagram(ctx context.Context, ip gostatsd.IP, ms
 			} else {
 				metric.SourceIP = ip
 			}
+			metric.Timestamp = now
 			dp.handler.DispatchMetric(ctx, metric)
 		} else if event != nil {
 			numEvents++
