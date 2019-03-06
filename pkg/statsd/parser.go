@@ -80,11 +80,12 @@ func (dp *DatagramParser) Run(ctx context.Context) {
 
 			accumB, accumE := uint64(0), uint64(0)
 			for _, dg := range dgs {
-				parsedMetrics, e, b := dp.handleDatagram(ctx, dg.Timestamp, dg.IP, dg.Msg)
+				// TODO: Dispatch Events in Run, not handleDatagram, so it's consistent with Metrics
+				parsedMetrics, eventCount, badLineCount := dp.handleDatagram(ctx, dg.Timestamp, dg.IP, dg.Msg)
 				dg.DoneFunc()
 				metrics = append(metrics, parsedMetrics...)
-				accumE += e
-				accumB += b
+				accumE += eventCount
+				accumB += badLineCount
 			}
 			if len(metrics) > 0 {
 				dp.handler.DispatchMetrics(ctx, metrics)
