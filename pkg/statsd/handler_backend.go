@@ -108,13 +108,15 @@ func (bh *BackendHandler) EstimatedTags() int {
 	return 0
 }
 
-// DispatchMetric dispatches metric to a corresponding Aggregator.
-func (bh *BackendHandler) DispatchMetric(ctx context.Context, m *gostatsd.Metric) {
-	m.TagsKey = m.FormatTagsKey() // this is expensive, so do it with no aggregator affinity
-	w := bh.workers[m.Bucket(bh.numWorkers)]
-	select {
-	case <-ctx.Done():
-	case w.metricsQueue <- m:
+// DispatchMetrics dispatches metric to a corresponding Aggregator.
+func (bh *BackendHandler) DispatchMetrics(ctx context.Context, metrics []*gostatsd.Metric) {
+	for _, m := range metrics {
+		m.TagsKey = m.FormatTagsKey() // this is expensive, so do it with no aggregator affinity
+		w := bh.workers[m.Bucket(bh.numWorkers)]
+		select {
+		case <-ctx.Done():
+		case w.metricsQueue <- m:
+		}
 	}
 }
 

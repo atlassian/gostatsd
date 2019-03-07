@@ -92,7 +92,8 @@ func TestParseDatagram(t *testing.T) {
 		t.Run(datagram, func(t *testing.T) {
 			t.Parallel()
 			mr, ch := newTestParser(false)
-			_, _, _ = mr.handleDatagram(context.Background(), 0, fakeIP, []byte(datagram))
+			metrics, _, _ := mr.handleDatagram(context.Background(), 0, fakeIP, []byte(datagram))
+			ch.DispatchMetrics(context.Background(), metrics)
 			for i, e := range ch.events {
 				if e.DateHappened <= 0 {
 					t.Errorf("%q: DateHappened should be positive", e)
@@ -160,13 +161,14 @@ func TestParseDatagramIgnoreHost(t *testing.T) {
 		t.Run(datagram, func(t *testing.T) {
 			t.Parallel()
 			mr, ch := newTestParser(true)
-			_, _, _ = mr.handleDatagram(context.Background(), 0, fakeIP, []byte(datagram))
+			metrics, _, _ := mr.handleDatagram(context.Background(), 0, fakeIP, []byte(datagram))
 			for i, e := range ch.events {
 				if e.DateHappened <= 0 {
 					t.Errorf("%q: DateHappened should be positive", e)
 				}
 				ch.events[i].DateHappened = 0
 			}
+			ch.DispatchMetrics(context.Background(), metrics)
 			assert.Equal(t, mAndE.events, ch.events)
 			assert.Equal(t, mAndE.metrics, ch.metrics)
 		})

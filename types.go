@@ -51,7 +51,7 @@ type Runner interface {
 // RawMetricHandler is an interface that accepts a Metric for processing.  Raw refers to pre-aggregation, not
 // pre-consolidation.
 type RawMetricHandler interface {
-	DispatchMetric(ctx context.Context, m *Metric)
+	DispatchMetrics(ctx context.Context, m []*Metric)
 }
 
 // PipelineHandler can be used to handle metrics and events, it provides an estimate of how many tags it may add.

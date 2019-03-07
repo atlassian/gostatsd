@@ -236,6 +236,8 @@ func (mm *MetricMap) String() string {
 
 // DispatchMetrics will synthesize Metrics from the MetricMap and push them to the supplied PipelineHandler
 func (mm *MetricMap) DispatchMetrics(ctx context.Context, handler RawMetricHandler) {
+	var metrics []*Metric
+
 	mm.Counters.Each(func(metricName string, tagsKey string, c Counter) {
 		m := &Metric{
 			Name:      metricName,
@@ -247,7 +249,7 @@ func (mm *MetricMap) DispatchMetrics(ctx context.Context, handler RawMetricHandl
 			Timestamp: c.Timestamp,
 			Hostname:  c.Hostname,
 		}
-		handler.DispatchMetric(ctx, m)
+		metrics = append(metrics, m)
 	})
 
 	mm.Gauges.Each(func(metricName string, tagsKey string, g Gauge) {
@@ -261,7 +263,7 @@ func (mm *MetricMap) DispatchMetrics(ctx context.Context, handler RawMetricHandl
 			Timestamp: g.Timestamp,
 			Hostname:  g.Hostname,
 		}
-		handler.DispatchMetric(ctx, m)
+		metrics = append(metrics, m)
 	})
 
 	mm.Timers.Each(func(metricName string, tagsKey string, t Timer) {
@@ -279,7 +281,7 @@ func (mm *MetricMap) DispatchMetrics(ctx context.Context, handler RawMetricHandl
 				Timestamp: t.Timestamp,
 				Hostname:  t.Hostname,
 			}
-			handler.DispatchMetric(ctx, m)
+			metrics = append(metrics, m)
 		}
 	})
 
@@ -295,7 +297,9 @@ func (mm *MetricMap) DispatchMetrics(ctx context.Context, handler RawMetricHandl
 				Timestamp:   s.Timestamp,
 				Hostname:    s.Hostname,
 			}
-			handler.DispatchMetric(ctx, m)
+			metrics = append(metrics, m)
 		}
 	})
+
+	handler.DispatchMetrics(ctx, metrics)
 }

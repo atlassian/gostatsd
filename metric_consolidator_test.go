@@ -38,8 +38,8 @@ func TestConsolidation(t *testing.T) {
 		Rate:      0.1,
 		Timestamp: 20,
 	}
-	mc.ReceiveMetric(m1)
-	mc.ReceiveMetric(m2)
+	mc.ReceiveMetrics([]*Metric{m1})
+	mc.ReceiveMetrics([]*Metric{m2})
 	mc.Flush(ctxClock)
 
 	mm := <-ch
@@ -114,7 +114,7 @@ func benchmarkMetricConsolidator(b *testing.B, parallelism, variations int) {
 		wgWork.Add(1)
 		go func() {
 			for j := 0; j < b.N/parallelism; j++ {
-				mc.ReceiveMetric(randomMetric(j, variations))
+				mc.ReceiveMetrics([]*Metric{randomMetric(j, variations)})
 			}
 			wgWork.Done()
 		}()

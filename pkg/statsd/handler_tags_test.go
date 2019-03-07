@@ -33,7 +33,7 @@ func TestFilterPassesNoFilters(t *testing.T) {
 			Hostname: "baz",
 		},
 	}
-	th.DispatchMetric(context.Background(), m)
+	th.DispatchMetrics(context.Background(), []*gostatsd.Metric{m})
 	assert.Equal(t, expected, tch.m)
 }
 
@@ -59,7 +59,7 @@ func TestFilterPassesEmptyFilters(t *testing.T) {
 			Hostname: "baz",
 		},
 	}
-	th.DispatchMetric(context.Background(), m)
+	th.DispatchMetrics(context.Background(), []*gostatsd.Metric{m})
 	assert.Equal(t, expected, tch.m)
 }
 
@@ -80,7 +80,7 @@ func TestFilterKeepNonMatch(t *testing.T) {
 		},
 		Hostname: "baz",
 	}
-	th.DispatchMetric(context.Background(), m)
+	th.DispatchMetrics(context.Background(), []*gostatsd.Metric{m})
 	expected := []*gostatsd.Metric{
 		{
 			Name: "good.name",
@@ -111,7 +111,7 @@ func TestFilterDropsBadName(t *testing.T) {
 		},
 		Hostname: "baz",
 	}
-	th.DispatchMetric(context.Background(), m)
+	th.DispatchMetrics(context.Background(), []*gostatsd.Metric{m})
 	assert.Equal(t, 0, len(tch.m))
 }
 
@@ -132,7 +132,7 @@ func TestFilterDropsBadPrefix(t *testing.T) {
 		},
 		Hostname: "baz",
 	}
-	th.DispatchMetric(context.Background(), m)
+	th.DispatchMetrics(context.Background(), []*gostatsd.Metric{m})
 	assert.Equal(t, 0, len(tch.m))
 }
 
@@ -155,7 +155,7 @@ func TestFilterKeepsWhitelist(t *testing.T) {
 		},
 		Hostname: "baz",
 	}
-	th.DispatchMetric(context.Background(), m)
+	th.DispatchMetrics(context.Background(), []*gostatsd.Metric{m})
 
 	m = &gostatsd.Metric{
 		Name: "bad.good",
@@ -165,7 +165,7 @@ func TestFilterKeepsWhitelist(t *testing.T) {
 		},
 		Hostname: "baz",
 	}
-	th.DispatchMetric(context.Background(), m)
+	th.DispatchMetrics(context.Background(), []*gostatsd.Metric{m})
 
 	expected := []*gostatsd.Metric{
 		{
@@ -198,7 +198,7 @@ func TestFilterDropsTag(t *testing.T) {
 		},
 		Hostname: "baz",
 	}
-	th.DispatchMetric(context.Background(), m)
+	th.DispatchMetrics(context.Background(), []*gostatsd.Metric{m})
 
 	expected := []*gostatsd.Metric{
 		{
@@ -230,7 +230,7 @@ func TestFilterDropsHost(t *testing.T) {
 		},
 		Hostname: "baz",
 	}
-	th.DispatchMetric(context.Background(), m)
+	th.DispatchMetrics(context.Background(), []*gostatsd.Metric{m})
 
 	expected := []*gostatsd.Metric{
 		{
@@ -339,7 +339,7 @@ func TestTagMetricHandlerAddsNoTags(t *testing.T) {
 	tch := &capturingHandler{}
 	th := NewTagHandler(tch, gostatsd.Tags{}, nil)
 	m := &gostatsd.Metric{}
-	th.DispatchMetric(context.Background(), m)
+	th.DispatchMetrics(context.Background(), []*gostatsd.Metric{m})
 	assert.Equal(t, 1, len(tch.m)) // Metric tracked
 	assertHasAllTags(t, tch.m[0].Tags)
 	assert.Equal(t, "", tch.m[0].Hostname) // No hostname added
@@ -349,7 +349,7 @@ func TestTagMetricHandlerAddsSingleTag(t *testing.T) {
 	tch := &capturingHandler{}
 	th := NewTagHandler(tch, gostatsd.Tags{"tag1"}, nil)
 	m := &gostatsd.Metric{}
-	th.DispatchMetric(context.Background(), m)
+	th.DispatchMetrics(context.Background(), []*gostatsd.Metric{m})
 	assert.Equal(t, 1, len(tch.m)) // Metric tracked
 	assertHasAllTags(t, tch.m[0].Tags, "tag1")
 	assert.Equal(t, "", tch.m[0].Hostname) // No hostname added
@@ -359,7 +359,7 @@ func TestTagMetricHandlerAddsMultipleTags(t *testing.T) {
 	tch := &capturingHandler{}
 	th := NewTagHandler(tch, gostatsd.Tags{"tag1", "tag2"}, nil)
 	m := &gostatsd.Metric{}
-	th.DispatchMetric(context.Background(), m)
+	th.DispatchMetrics(context.Background(), []*gostatsd.Metric{m})
 	assert.Equal(t, 1, len(tch.m)) // Metric tracked
 	assertHasAllTags(t, tch.m[0].Tags, "tag1", "tag2")
 	assert.Equal(t, "", tch.m[0].Hostname) // No hostname added
@@ -371,7 +371,7 @@ func TestTagMetricHandlerAddsHostname(t *testing.T) {
 	m := &gostatsd.Metric{
 		SourceIP: "1.2.3.4",
 	}
-	th.DispatchMetric(context.Background(), m)
+	th.DispatchMetrics(context.Background(), []*gostatsd.Metric{m})
 	assert.Equal(t, 1, len(tch.m))                // Metric tracked
 	assert.Equal(t, 0, len(tch.m[0].Tags))        // No tags added
 	assert.Equal(t, "1.2.3.4", tch.m[0].Hostname) // Hostname injected
@@ -381,7 +381,7 @@ func TestTagMetricHandlerAddsDuplicateTags(t *testing.T) {
 	tch := &capturingHandler{}
 	th := NewTagHandler(tch, gostatsd.Tags{"tag1", "tag2", "tag2", "tag3", "tag1"}, nil)
 	m := &gostatsd.Metric{}
-	th.DispatchMetric(context.Background(), m)
+	th.DispatchMetrics(context.Background(), []*gostatsd.Metric{m})
 	assert.Equal(t, 1, len(tch.m)) // Metric tracked
 	assertHasAllTags(t, tch.m[0].Tags, "tag1", "tag2", "tag3")
 	assert.Equal(t, "", tch.m[0].Hostname) // No hostname added
@@ -462,7 +462,7 @@ func BenchmarkTagMetricHandlerAddsDuplicateTagsSmall(b *testing.B) {
 		m := &gostatsd.Metric{
 			Tags: metricTags,
 		}
-		th.DispatchMetric(context.Background(), m)
+		th.DispatchMetrics(context.Background(), []*gostatsd.Metric{m})
 	}
 }
 
@@ -498,7 +498,7 @@ func BenchmarkTagMetricHandlerAddsDuplicateTagsLarge(b *testing.B) {
 		m := &gostatsd.Metric{
 			Tags: metricTags,
 		}
-		th.DispatchMetric(context.Background(), m)
+		th.DispatchMetrics(context.Background(), []*gostatsd.Metric{m})
 	}
 }
 

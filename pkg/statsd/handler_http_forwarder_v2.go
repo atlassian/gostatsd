@@ -169,8 +169,8 @@ func (hfh *HttpForwarderHandlerV2) EstimatedTags() int {
 	return 0
 }
 
-func (hfh *HttpForwarderHandlerV2) DispatchMetric(ctx context.Context, m *gostatsd.Metric) {
-	hfh.consolidator.ReceiveMetric(m)
+func (hfh *HttpForwarderHandlerV2) DispatchMetrics(ctx context.Context, metrics []*gostatsd.Metric) {
+	hfh.consolidator.ReceiveMetrics(metrics)
 }
 
 func (hfh *HttpForwarderHandlerV2) RunMetrics(ctx context.Context) {

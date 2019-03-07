@@ -50,13 +50,20 @@ func (th *TagHandler) EstimatedTags() int {
 	return th.estimatedTags
 }
 
-// DispatchMetric adds the unique tags from the TagHandler to the metric and passes it to the next stage in the pipeline
-func (th *TagHandler) DispatchMetric(ctx context.Context, m *gostatsd.Metric) {
-	if m.Hostname == "" {
-		m.Hostname = string(m.SourceIP)
+// DispatchMetrics adds the unique tags from the TagHandler to the metric and passes it to the next stage in the pipeline
+func (th *TagHandler) DispatchMetrics(ctx context.Context, metrics []*gostatsd.Metric) {
+	var toDispatch []*gostatsd.Metric
+
+	for _, m := range metrics {
+		if m.Hostname == "" {
+			m.Hostname = string(m.SourceIP)
+		}
+		if th.uniqueFilterMetricAndAddTags(m) {
+			toDispatch = append(toDispatch, m)
+		}
 	}
-	if th.uniqueFilterMetricAndAddTags(m) {
-		th.handler.DispatchMetric(ctx, m)
+	if len(toDispatch) > 0 {
+		th.handler.DispatchMetrics(ctx, toDispatch)
 	}
 }
 
