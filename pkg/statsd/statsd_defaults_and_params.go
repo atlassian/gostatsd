@@ -32,6 +32,9 @@ var DefaultTags = gostatsd.Tags{}
 // DefaultInternalTags is the default list of additional tags on internal metrics
 var DefaultInternalTags = gostatsd.Tags{}
 
+// DefaultHostname will be set to the default hostname of the system
+var DefaultHostname = getHost()
+
 const (
 	// StatserInternal is the name used to indicate the use of the internal statser.
 	StatserInternal = "internal"
@@ -145,6 +148,8 @@ const (
 	ParamBadLinesPerMinute = "bad-lines-per-minute"
 	// ParamServerMode is the name of the parameter used to configure the server mode.
 	ParamServerMode = "server-mode"
+	// ParamHostname allows hostname overrides
+	ParamHostname = "hostname"
 )
 
 // AddFlags adds flags to the specified FlagSet.
@@ -177,6 +182,7 @@ func AddFlags(fs *pflag.FlagSet) {
 	fs.Int(ParamReceiveBatchSize, DefaultReceiveBatchSize, "The number of datagrams to read in each receive batch")
 	fs.Bool(ParamConnPerReader, DefaultConnPerReader, "Create a separate connection per reader (requires system support for reusing addresses)")
 	fs.String(ParamServerMode, DefaultServerMode, "The server mode to run in")
+	fs.String(ParamHostname, DefaultHostname, "overrides the hostname of the server")
 }
 
 func minInt(a, b int) int {

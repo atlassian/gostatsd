@@ -50,6 +50,7 @@ type Server struct {
 	DisabledSubTypes          gostatsd.TimerSubtypes
 	BadLineRateLimitPerSecond rate.Limit
 	ServerMode                string
+	Hostname                  string
 	CacheOptions
 	Viper *viper.Viper
 }
@@ -181,7 +182,7 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 	runnables = append(runnables, receiver.Run) // loop is contained in Run to keep additional logic contained
 
 	// Create the Statser
-	hostname := getHost()
+	hostname := s.Hostname
 	statser := s.createStatser(hostname, handler)
 	if runner, ok := statser.(gostatsd.Runner); ok {
 		runnables = append(runnables, runner.Run)
