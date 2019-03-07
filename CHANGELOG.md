@@ -2,10 +2,7 @@ x.x.x (pending)
 -----
 - Removed v1 ingestion
 - Refactor internal pipeline
-
-12.x.x
-------
-- Added `hostname` flag to support override for stastd server. Defaults to instances hostname.
+- Added `hostname` flag to support override for stastd server. Defaults to system hostname.
   Use this flag when running within docker to make host identification easier.
 
 12.0.2
