@@ -3,6 +3,11 @@ x.x.x (pending)
 - Removed v1 ingestion
 - Refactor internal pipeline
 
+12.x.x
+------
+- Added `hostname` flag to support override for stastd server. Defaults to instances hostname.
+  Use this flag when running within docker to make host identification easier.
+
 12.0.2
 ------
 - Fix bug with metrics going through the consolidator not having tags applied properly
