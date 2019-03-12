@@ -15,10 +15,11 @@ type processCommand struct {
 }
 
 type worker struct {
-	aggr         Aggregator
-	metricsQueue chan []*gostatsd.Metric
-	processChan  chan *processCommand
-	id           int
+	aggr           Aggregator
+	metricsQueue   chan []*gostatsd.Metric
+	metricMapQueue chan *gostatsd.MetricMap
+	processChan    chan *processCommand
+	id             int
 }
 
 func (w *worker) work() {
@@ -29,6 +30,11 @@ func (w *worker) work() {
 				return
 			}
 			w.aggr.Receive(metrics...)
+		case mm, ok := <-w.metricMapQueue:
+			if !ok {
+				return
+			}
+			w.aggr.ReceiveMap(mm)
 		case cmd := <-w.processChan:
 			w.executeProcess(cmd)
 		}

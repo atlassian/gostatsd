@@ -43,10 +43,12 @@ func NewBackendHandler(backends []gostatsd.Backend, maxConcurrentEvents uint, nu
 
 	for i := 0; i < numWorkers; i++ {
 		workers[i] = &worker{
-			aggr:         af.Create(),
-			metricsQueue: make(chan []*gostatsd.Metric, perWorkerBufferSize),
-			processChan:  make(chan *processCommand),
-			id:           i,
+			aggr: af.Create(),
+			// TODO: Reassess the defaults
+			metricsQueue:   make(chan []*gostatsd.Metric, perWorkerBufferSize),
+			metricMapQueue: make(chan *gostatsd.MetricMap, perWorkerBufferSize),
+			processChan:    make(chan *processCommand),
+			id:             i,
 		}
 	}
 
@@ -64,7 +66,8 @@ func (bh *BackendHandler) Run(ctx context.Context) {
 	var wg wait.Group
 	defer func() {
 		for _, worker := range bh.workers {
-			close(worker.metricsQueue) // Close channel to terminate worker
+			close(worker.metricsQueue)   // Close channel to terminate worker
+			close(worker.metricMapQueue) // Close channel to terminate worker
 		}
 		wg.Wait() // Wait for all workers to finish
 	}()
@@ -129,7 +132,17 @@ func (bh *BackendHandler) DispatchMetrics(ctx context.Context, metrics []*gostat
 
 // DispatchMetricMap re-dispatches a metric map through BackendHandler.DispatchMetrics
 func (bh *BackendHandler) DispatchMetricMap(ctx context.Context, mm *gostatsd.MetricMap) {
-	mm.DispatchMetrics(ctx, bh)
+	maps := mm.Split(bh.numWorkers)
+
+	for aggrIdx, mmSplit := range maps {
+		if !mm.IsEmpty() {
+			w := bh.workers[aggrIdx]
+			select {
+			case <-ctx.Done():
+			case w.metricMapQueue <- mmSplit:
+			}
+		}
+	}
 }
 
 // Process concurrently executes provided function in goroutines that own Aggregators.
