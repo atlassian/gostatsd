@@ -52,6 +52,7 @@ type Runner interface {
 // pre-consolidation.
 type RawMetricHandler interface {
 	DispatchMetrics(ctx context.Context, m []*Metric)
+	DispatchMetricMap(ctx context.Context, mm *MetricMap)
 }
 
 // PipelineHandler can be used to handle metrics and events, it provides an estimate of how many tags it may add.
