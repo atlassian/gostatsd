@@ -175,7 +175,7 @@ func (hfh *HttpForwarderHandlerV2) DispatchMetrics(ctx context.Context, metrics 
 
 // DispatchMetricMap re-dispatches a metric map through HttpForwarderHandlerV2.DispatchMetrics
 func (hfh *HttpForwarderHandlerV2) DispatchMetricMap(ctx context.Context, mm *gostatsd.MetricMap) {
-	mm.DispatchMetrics(ctx, hfh)
+	hfh.consolidator.ReceiveMetricMap(mm)
 }
 
 func (hfh *HttpForwarderHandlerV2) RunMetrics(ctx context.Context) {

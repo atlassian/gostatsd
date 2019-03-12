@@ -86,7 +86,6 @@ func (mc *MetricConsolidator) Flush(ctx context.Context) {
 func (mc *MetricConsolidator) ReceiveMetrics(metrics []*Metric) {
 	mmTo := <-mc.maps
 	for _, m := range metrics {
-		m.TagsKey = m.FormatTagsKey()
 		mmTo.Receive(m)
 	}
 	mc.maps <- mmTo
