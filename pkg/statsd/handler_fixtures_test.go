@@ -8,8 +8,9 @@ import (
 )
 
 type capturingHandler struct {
-	m []*gostatsd.Metric
-	e []*gostatsd.Event
+	m  []*gostatsd.Metric
+	mm []*gostatsd.MetricMap
+	e  []*gostatsd.Event
 }
 
 func (tch *capturingHandler) EstimatedTags() int {
@@ -21,7 +22,7 @@ func (tch *capturingHandler) DispatchMetrics(ctx context.Context, metrics []*gos
 }
 
 func (tch *capturingHandler) DispatchMetricMap(ctx context.Context, metrics *gostatsd.MetricMap) {
-	metrics.DispatchMetrics(ctx, tch)
+	tch.mm = append(tch.mm, metrics)
 }
 
 func (tch *capturingHandler) DispatchEvent(ctx context.Context, e *gostatsd.Event) {
