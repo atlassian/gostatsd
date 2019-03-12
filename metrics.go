@@ -87,11 +87,18 @@ func (m *Metric) Done() {
 }
 
 func (m *Metric) FormatTagsKey() string {
-	t := m.Tags.SortedString()
-	if m.Hostname == "" {
+	if m.TagsKey == "" {
+		m.TagsKey = FormatTagsKey(m.Hostname, m.Tags)
+	}
+	return m.TagsKey
+}
+
+func FormatTagsKey(hostname string, tags Tags) string {
+	t := tags.SortedString()
+	if hostname == "" {
 		return t
 	}
-	return t + "," + StatsdSourceID + ":" + m.Hostname
+	return t + "," + StatsdSourceID + ":" + hostname
 }
 
 // AggregatedMetrics is an interface for aggregated metrics.

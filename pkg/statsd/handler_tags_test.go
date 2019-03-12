@@ -3,6 +3,7 @@ package statsd
 import (
 	"bytes"
 	"context"
+	"sort"
 	"strings"
 	"testing"
 
@@ -10,7 +11,79 @@ import (
 
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
+
+func TestTagStripMergesCounters(t *testing.T) {
+	tch := &capturingHandler{}
+	th := NewTagHandler(tch, gostatsd.Tags{}, []Filter{
+		{DropTags: gostatsd.StringMatchList{gostatsd.NewStringMatch("key2:*")}},
+	})
+	mm := gostatsd.NewMetricMap()
+	mm.Receive(&gostatsd.Metric{Type: gostatsd.COUNTER, Name: "metric", Timestamp: 20, Tags: gostatsd.Tags{"key:value", "key2:value2"}, Value: 1, Rate: 0.1})
+	mm.Receive(&gostatsd.Metric{Type: gostatsd.COUNTER, Name: "metric", Timestamp: 10, Tags: gostatsd.Tags{"key:value"}, Value: 20, Rate: 1})
+	th.DispatchMetricMap(context.Background(), mm)
+
+	expected := gostatsd.NewMetricMap()
+	expected.Counters["metric"] = map[string]gostatsd.Counter{
+		"key:value": {Timestamp: 20, Value: 30, Tags: gostatsd.Tags{"key:value"}},
+	}
+	require.EqualValues(t, expected, tch.mm[0])
+}
+
+func TestTagStripMergesGauges(t *testing.T) {
+	tch := &capturingHandler{}
+	th := NewTagHandler(tch, gostatsd.Tags{}, []Filter{
+		{DropTags: gostatsd.StringMatchList{gostatsd.NewStringMatch("key2:*")}},
+	})
+	mm := gostatsd.NewMetricMap()
+	mm.Receive(&gostatsd.Metric{Type: gostatsd.GAUGE, Name: "metric", Timestamp: 10, Tags: gostatsd.Tags{"key:value", "key2:value2"}, Value: 10})
+	mm.Receive(&gostatsd.Metric{Type: gostatsd.GAUGE, Name: "metric", Timestamp: 20, Tags: gostatsd.Tags{"key:value"}, Value: 20})
+	th.DispatchMetricMap(context.Background(), mm)
+
+	expected := gostatsd.NewMetricMap()
+	expected.Gauges["metric"] = map[string]gostatsd.Gauge{
+		"key:value": {Timestamp: 20, Value: 20, Tags: gostatsd.Tags{"key:value"}},
+	}
+	require.EqualValues(t, expected, tch.mm[0])
+}
+
+func TestTagStripMergesTimers(t *testing.T) {
+	tch := &capturingHandler{}
+	th := NewTagHandler(tch, gostatsd.Tags{}, []Filter{
+		{DropTags: gostatsd.StringMatchList{gostatsd.NewStringMatch("key2:*")}},
+	})
+	mm := gostatsd.NewMetricMap()
+	mm.Receive(&gostatsd.Metric{Type: gostatsd.TIMER, Name: "metric", Timestamp: 10, Tags: gostatsd.Tags{"key:value", "key2:value2"}, Value: 10, Rate: 1})
+	mm.Receive(&gostatsd.Metric{Type: gostatsd.TIMER, Name: "metric", Timestamp: 20, Tags: gostatsd.Tags{"key:value"}, Value: 20, Rate: 1})
+	th.DispatchMetricMap(context.Background(), mm)
+
+	// Make sure the actual values are deterministic
+	sort.Float64s(tch.mm[0].Timers["metric"]["key:value"].Values)
+
+	expected := gostatsd.NewMetricMap()
+	expected.Timers["metric"] = map[string]gostatsd.Timer{
+		"key:value": {Timestamp: 20, Values: []float64{10, 20}, Tags: gostatsd.Tags{"key:value"}, SampledCount: 2},
+	}
+	require.EqualValues(t, expected, tch.mm[0])
+}
+
+func TestTagStripMergesSets(t *testing.T) {
+	tch := &capturingHandler{}
+	th := NewTagHandler(tch, gostatsd.Tags{}, []Filter{
+		{DropTags: gostatsd.StringMatchList{gostatsd.NewStringMatch("key2:*")}},
+	})
+	mm := gostatsd.NewMetricMap()
+	mm.Receive(&gostatsd.Metric{Type: gostatsd.SET, Name: "metric", Timestamp: 10, Tags: gostatsd.Tags{"key:value", "key2:value2"}, StringValue: "abc"})
+	mm.Receive(&gostatsd.Metric{Type: gostatsd.SET, Name: "metric", Timestamp: 20, Tags: gostatsd.Tags{"key:value"}, StringValue: "def"})
+	th.DispatchMetricMap(context.Background(), mm)
+
+	expected := gostatsd.NewMetricMap()
+	expected.Sets["metric"] = map[string]gostatsd.Set{
+		"key:value": {Timestamp: 20, Values: map[string]struct{}{"abc": {}, "def": {}}, Tags: gostatsd.Tags{"key:value"}},
+	}
+	require.EqualValues(t, expected, tch.mm[0])
+}
 
 func TestFilterPassesNoFilters(t *testing.T) {
 	tch := &capturingHandler{}

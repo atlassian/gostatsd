@@ -28,7 +28,7 @@ func NewMetricMap() *MetricMap {
 
 // Receive adds a single Metric to the MetricMap, and releases the Metric.
 func (mm *MetricMap) Receive(m *Metric) {
-	tagsKey := m.TagsKey
+	tagsKey := m.FormatTagsKey()
 
 	switch m.Type {
 	case COUNTER:

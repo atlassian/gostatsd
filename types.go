@@ -13,6 +13,13 @@ func NanoNow() Nanotime {
 	return Nanotime(time.Now().UnixNano())
 }
 
+func NanoMax(t1, t2 Nanotime) Nanotime {
+	if t1 > t2 {
+		return t1
+	}
+	return t2
+}
+
 // IP is a v4/v6 IP address.
 // We do not use net.IP because it will involve conversion to string and back several times.
 type IP string
