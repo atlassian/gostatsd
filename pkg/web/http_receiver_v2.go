@@ -121,7 +121,7 @@ func (rhh *rawHttpHandlerV2) MetricHandler(w http.ResponseWriter, req *http.Requ
 	}
 
 	mm := translateFromProtobufV2(&msg)
-	mm.DispatchMetrics(req.Context(), rhh.handler)
+	rhh.handler.DispatchMetricMap(req.Context(), mm)
 
 	atomic.AddUint64(&rhh.requestSuccess, 1)
 	w.WriteHeader(http.StatusAccepted)
