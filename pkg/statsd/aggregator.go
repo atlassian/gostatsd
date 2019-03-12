@@ -241,7 +241,9 @@ func (a *MetricAggregator) Reset() {
 }
 
 // Receive aggregates an incoming metric.
-func (a *MetricAggregator) Receive(m *gostatsd.Metric) {
-	a.metricsReceived++
-	a.metricMap.Receive(m)
+func (a *MetricAggregator) Receive(ms ...*gostatsd.Metric) {
+	a.metricsReceived += uint64(len(ms))
+	for _, m := range ms {
+		a.metricMap.Receive(m)
+	}
 }

@@ -16,7 +16,7 @@ type processCommand struct {
 
 type worker struct {
 	aggr         Aggregator
-	metricsQueue chan *gostatsd.Metric
+	metricsQueue chan []*gostatsd.Metric
 	processChan  chan *processCommand
 	id           int
 }
@@ -24,11 +24,11 @@ type worker struct {
 func (w *worker) work() {
 	for {
 		select {
-		case metric, ok := <-w.metricsQueue:
+		case metrics, ok := <-w.metricsQueue:
 			if !ok {
 				return
 			}
-			w.aggr.Receive(metric)
+			w.aggr.Receive(metrics...)
 		case cmd := <-w.processChan:
 			w.executeProcess(cmd)
 		}

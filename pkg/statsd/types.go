@@ -25,7 +25,7 @@ type ProcessFunc func(*gostatsd.MetricMap)
 //
 // Incoming metrics should be passed via Receive function.
 type Aggregator interface {
-	Receive(*gostatsd.Metric)
+	Receive(...*gostatsd.Metric)
 	Flush(interval time.Duration)
 	Process(ProcessFunc)
 	Reset()

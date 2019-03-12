@@ -25,10 +25,10 @@ type testAggregator struct {
 func (a *testAggregator) TrackMetrics(statser stats.Statser) {
 }
 
-func (a *testAggregator) Receive(m *gostatsd.Metric) {
+func (a *testAggregator) Receive(m ...*gostatsd.Metric) {
 	a.af.Mutex.Lock()
 	defer a.af.Mutex.Unlock()
-	a.af.receiveInvocations[a.agrNumber]++
+	a.af.receiveInvocations[a.agrNumber] += len(m)
 }
 
 func (a *testAggregator) Flush(interval time.Duration) {
