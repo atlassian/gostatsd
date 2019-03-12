@@ -44,7 +44,7 @@ func NewBackendHandler(backends []gostatsd.Backend, maxConcurrentEvents uint, nu
 	for i := 0; i < numWorkers; i++ {
 		workers[i] = &worker{
 			aggr:         af.Create(),
-			metricsQueue: make(chan *gostatsd.Metric, perWorkerBufferSize),
+			metricsQueue: make(chan []*gostatsd.Metric, perWorkerBufferSize),
 			processChan:  make(chan *processCommand),
 			id:           i,
 		}
@@ -110,12 +110,19 @@ func (bh *BackendHandler) EstimatedTags() int {
 
 // DispatchMetrics dispatches metric to a corresponding Aggregator.
 func (bh *BackendHandler) DispatchMetrics(ctx context.Context, metrics []*gostatsd.Metric) {
+	metricsByAggr := make([][]*gostatsd.Metric, bh.numWorkers)
+
 	for _, m := range metrics {
 		m.TagsKey = m.FormatTagsKey() // this is expensive, so do it with no aggregator affinity
-		w := bh.workers[m.Bucket(bh.numWorkers)]
+		bucket := m.Bucket(bh.numWorkers)
+		metricsByAggr[bucket] = append(metricsByAggr[bucket], m)
+	}
+
+	for aggrIdx, bucketedMetrics := range metricsByAggr {
+		w := bh.workers[aggrIdx]
 		select {
 		case <-ctx.Done():
-		case w.metricsQueue <- m:
+		case w.metricsQueue <- bucketedMetrics:
 		}
 	}
 }
