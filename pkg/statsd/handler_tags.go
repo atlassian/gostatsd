@@ -67,6 +67,11 @@ func (th *TagHandler) DispatchMetrics(ctx context.Context, metrics []*gostatsd.M
 	}
 }
 
+// DispatchMetricMap re-dispatches a metric map through TagHandler.DispatchMetrics
+func (th *TagHandler) DispatchMetricMap(ctx context.Context, mm *gostatsd.MetricMap) {
+	mm.DispatchMetrics(ctx, th)
+}
+
 // uniqueFilterMetricAndAddTags will perform 3 tasks:
 // - Add static tags configured to the metric
 // - De-duplicate tags

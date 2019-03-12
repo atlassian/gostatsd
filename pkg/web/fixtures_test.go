@@ -30,6 +30,10 @@ func (ch *capturingHandler) DispatchMetrics(ctx context.Context, metrics []*gost
 	}
 }
 
+func (ch *capturingHandler) DispatchMetricMap(ctx context.Context, metrics *gostatsd.MetricMap) {
+	metrics.DispatchMetrics(ctx, ch)
+}
+
 func (ch *capturingHandler) DispatchEvent(ctx context.Context, e *gostatsd.Event) {
 	ch.mu.Lock()
 	defer ch.mu.Unlock()

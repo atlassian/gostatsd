@@ -20,6 +20,10 @@ func (tch *capturingHandler) DispatchMetrics(ctx context.Context, metrics []*gos
 	tch.m = append(tch.m, metrics...)
 }
 
+func (tch *capturingHandler) DispatchMetricMap(ctx context.Context, metrics *gostatsd.MetricMap) {
+	metrics.DispatchMetrics(ctx, tch)
+}
+
 func (tch *capturingHandler) DispatchEvent(ctx context.Context, e *gostatsd.Event) {
 	tch.e = append(tch.e, e)
 }
@@ -34,6 +38,9 @@ func (nh *nopHandler) EstimatedTags() int {
 }
 
 func (nh *nopHandler) DispatchMetrics(ctx context.Context, m []*gostatsd.Metric) {
+}
+
+func (nh *nopHandler) DispatchMetricMap(ctx context.Context, mm *gostatsd.MetricMap) {
 }
 
 func (nh *nopHandler) DispatchEvent(ctx context.Context, e *gostatsd.Event) {
@@ -59,6 +66,11 @@ func (ch *countingHandler) DispatchMetrics(ctx context.Context, metrics []*gosta
 		m.DoneFunc = nil // Clear DoneFunc because it contains non-predictable variable data which interferes with the tests
 		ch.metrics = append(ch.metrics, *m)
 	}
+}
+
+// DispatchMetricMap re-dispatches a metric map through BackendHandler.DispatchMetrics
+func (ch *countingHandler) DispatchMetricMap(ctx context.Context, mm *gostatsd.MetricMap) {
+	mm.DispatchMetrics(ctx, ch)
 }
 
 func (ch *countingHandler) DispatchEvent(ctx context.Context, e *gostatsd.Event) {

@@ -120,6 +120,11 @@ func (bh *BackendHandler) DispatchMetrics(ctx context.Context, metrics []*gostat
 	}
 }
 
+// DispatchMetricMap re-dispatches a metric map through BackendHandler.DispatchMetrics
+func (bh *BackendHandler) DispatchMetricMap(ctx context.Context, mm *gostatsd.MetricMap) {
+	mm.DispatchMetrics(ctx, bh)
+}
+
 // Process concurrently executes provided function in goroutines that own Aggregators.
 // DispatcherProcessFunc function may be executed zero or up to numWorkers times. It is executed
 // less than numWorkers times if the context signals "done".

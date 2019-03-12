@@ -173,6 +173,11 @@ func (hfh *HttpForwarderHandlerV2) DispatchMetrics(ctx context.Context, metrics 
 	hfh.consolidator.ReceiveMetrics(metrics)
 }
 
+// DispatchMetricMap re-dispatches a metric map through HttpForwarderHandlerV2.DispatchMetrics
+func (hfh *HttpForwarderHandlerV2) DispatchMetricMap(ctx context.Context, mm *gostatsd.MetricMap) {
+	mm.DispatchMetrics(ctx, hfh)
+}
+
 func (hfh *HttpForwarderHandlerV2) RunMetrics(ctx context.Context) {
 	statser := stats.FromContext(ctx)
 
