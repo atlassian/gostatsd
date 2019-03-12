@@ -65,11 +65,14 @@ func (m *Metric) Reset() {
 
 // Bucket will pick a distribution bucket for this metric to land in.  max is exclusive.
 func (m *Metric) Bucket(max int) int {
-	bucket := adler32.Checksum([]byte(m.Name))
-	bucket += adler32.Checksum([]byte(m.Hostname))
+	return Bucket(m.Name, m.Hostname, max)
+}
+
+func Bucket(metricName, hostname string, max int) int {
 	// Consider hashing the tags here too
-	bucket %= uint32(max)
-	return int(bucket)
+	bucket := adler32.Checksum([]byte(metricName))
+	bucket += adler32.Checksum([]byte(hostname))
+	return int(bucket % uint32(max))
 }
 
 func (m *Metric) String() string {

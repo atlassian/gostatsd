@@ -266,3 +266,77 @@ func TestMetricMapMerge(t *testing.T) {
 	require.Equal(t, expected.Gauges, merged.Gauges)
 	require.Equal(t, expected.Sets, merged.Sets)
 }
+
+func TestMetricMapSplit(t *testing.T) {
+	mmOriginal := NewMetricMap()
+	mmOriginal.Counters["m"] = map[string]Counter{
+		"t.s.h1": {Tags: Tags{"t"}, Hostname: "h1", Value: 10},
+		"t.s.h2": {Tags: Tags{"t"}, Hostname: "h2", Value: 20},
+		"t.s.h3": {Tags: Tags{"t"}, Hostname: "h3", Value: 30},
+		"t.s.h4": {Tags: Tags{"t"}, Hostname: "h4", Value: 40},
+		"t.s.h5": {Tags: Tags{"t"}, Hostname: "h5", Value: 50},
+	}
+	mmOriginal.Gauges["m"] = map[string]Gauge{
+		"t.s.h1": {Tags: Tags{"t"}, Hostname: "h1", Value: 10},
+		"t.s.h2": {Tags: Tags{"t"}, Hostname: "h2", Value: 20},
+		"t.s.h3": {Tags: Tags{"t"}, Hostname: "h3", Value: 30},
+		"t.s.h4": {Tags: Tags{"t"}, Hostname: "h4", Value: 40},
+		"t.s.h5": {Tags: Tags{"t"}, Hostname: "h5", Value: 50},
+	}
+	mmOriginal.Timers["m"] = map[string]Timer{
+		"t.s.h1": {Tags: Tags{"t"}, Hostname: "h1", Values: []float64{10, 50}},
+		"t.s.h2": {Tags: Tags{"t"}, Hostname: "h2", Values: []float64{20, 40}},
+		"t.s.h3": {Tags: Tags{"t"}, Hostname: "h3", Values: []float64{30, 30}},
+		"t.s.h4": {Tags: Tags{"t"}, Hostname: "h4", Values: []float64{40, 20}},
+		"t.s.h5": {Tags: Tags{"t"}, Hostname: "h5", Values: []float64{50, 10}},
+	}
+	mmOriginal.Sets["m"] = map[string]Set{
+		"t.s.h1": {Tags: Tags{"t"}, Hostname: "h1", Values: map[string]struct{}{"10": {}, "50": {}}},
+		"t.s.h2": {Tags: Tags{"t"}, Hostname: "h2", Values: map[string]struct{}{"20": {}, "40": {}}},
+		"t.s.h3": {Tags: Tags{"t"}, Hostname: "h3", Values: map[string]struct{}{"30": {}, "3.0": {}}},
+		"t.s.h4": {Tags: Tags{"t"}, Hostname: "h4", Values: map[string]struct{}{"40": {}, "20": {}}},
+		"t.s.h5": {Tags: Tags{"t"}, Hostname: "h5", Values: map[string]struct{}{"50": {}, "10": {}}},
+	}
+
+	mmMerged := NewMetricMap()
+	mms := mmOriginal.Split(2)
+	for _, mmSplit := range mms {
+		// Make sure something landed in each (don't use mmSplit.IsEmpty() to ensure that all types are split)
+		require.True(t, len(mmSplit.Counters) > 0)
+		require.True(t, len(mmSplit.Gauges) > 0)
+		require.True(t, len(mmSplit.Timers) > 0)
+		require.True(t, len(mmSplit.Sets) > 0)
+		mmMerged.Merge(mmSplit)
+	}
+	// Make sure when merge back they are the same
+	require.EqualValues(t, mmOriginal, mmMerged)
+}
+
+func TestMetricMapIsEmpty(t *testing.T) {
+	mm := NewMetricMap()
+	require.True(t, mm.IsEmpty())
+
+	// Counter
+	mm.Counters["m"] = map[string]Counter{"t.s.h1": {Tags: Tags{"t"}, Hostname: "h1", Value: 10}}
+	require.False(t, mm.IsEmpty())
+	mm.Counters.Delete("m")
+	require.True(t, mm.IsEmpty())
+
+	// Gauge
+	mm.Gauges["m"] = map[string]Gauge{"t.s.h1": {Tags: Tags{"t"}, Hostname: "h1", Value: 10}}
+	require.False(t, mm.IsEmpty())
+	mm.Gauges.Delete("m")
+	require.True(t, mm.IsEmpty())
+
+	// Timer
+	mm.Timers["m"] = map[string]Timer{"t.s.h1": {Tags: Tags{"t"}, Hostname: "h1", Values: []float64{10}}}
+	require.False(t, mm.IsEmpty())
+	mm.Timers.Delete("m")
+	require.True(t, mm.IsEmpty())
+
+	// Set
+	mm.Sets["m"] = map[string]Set{"t.s.h1": {Tags: Tags{"t"}, Hostname: "h5", Values: map[string]struct{}{"10": {}}}}
+	require.False(t, mm.IsEmpty())
+	mm.Sets.Delete("m")
+	require.True(t, mm.IsEmpty())
+}
