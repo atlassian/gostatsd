@@ -1,3 +1,7 @@
+14.0.0
+------
+- More internal pipeline refactoring, to optimize the http ingestion path.
+
 13.0.0
 ------
 - Removed v1 ingestion
