@@ -1,3 +1,7 @@
+14.0.0
+------
+- More internal pipeline refactoring, to optimize the http ingestion path.
+
 13.0.1
 ------
 - Adjust log level about forwarding failures and stop logging retries.
