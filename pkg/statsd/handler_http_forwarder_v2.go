@@ -338,12 +338,11 @@ func (hfh *HttpForwarderHandlerV2) post(ctx context.Context, message proto.Messa
 		next := b.NextBackOff()
 		if next == backoff.Stop {
 			atomic.AddUint64(&hfh.messagesDropped, 1)
-			logger.WithError(err).Error("failed to send, giving up")
+			logger.WithError(err).Info("failed to send, giving up")
 			return
 		}
 
 		atomic.AddUint64(&hfh.messagesRetried, 1)
-		logger.WithError(err).Warn("failed to send, retrying")
 
 		timer := clock.NewTimer(ctx, next)
 		select {
