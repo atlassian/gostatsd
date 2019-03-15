@@ -1,4 +1,4 @@
-x.x.x (pending)
+13.0.1
 ------
 - Adjust log level about forwarding failures and stop logging retries.
 
