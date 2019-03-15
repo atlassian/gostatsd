@@ -1,3 +1,7 @@
+x.x.x (pending)
+------
+- Adjust log level about forwarding failures and stop logging retries.
+
 13.0.0
 ------
 - Removed v1 ingestion
