@@ -127,6 +127,14 @@ func (ch *CloudHandler) DispatchMetrics(ctx context.Context, metrics []*gostatsd
 	}
 }
 
+// DispatchMetricMap re-dispatches a metric map through CloudHandler.DispatchMetrics
+// TODO: This is inefficient, and should be handled first class, however that is a major re-factor of
+//  the CloudHandler.  It is also recommended to not use a CloudHandler in an http receiver based
+//  service, as the IP is not propagated.
+func (ch *CloudHandler) DispatchMetricMap(ctx context.Context, mm *gostatsd.MetricMap) {
+	mm.DispatchMetrics(ctx, ch)
+}
+
 func (ch *CloudHandler) DispatchEvent(ctx context.Context, e *gostatsd.Event) {
 	if ch.updateTagsAndHostname(e.SourceIP, &e.Tags, &e.Hostname) {
 		atomic.AddUint64(&ch.statsCacheHit, 1)

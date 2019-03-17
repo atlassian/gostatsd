@@ -28,7 +28,7 @@ func NewMetricMap() *MetricMap {
 
 // Receive adds a single Metric to the MetricMap, and releases the Metric.
 func (mm *MetricMap) Receive(m *Metric) {
-	tagsKey := m.TagsKey
+	tagsKey := m.FormatTagsKey()
 
 	switch m.Type {
 	case COUNTER:
@@ -127,6 +127,53 @@ func (mm *MetricMap) Merge(mmFrom *MetricMap) {
 			}
 		}
 	})
+}
+
+func (mm *MetricMap) IsEmpty() bool {
+	return len(mm.Counters) + len(mm.Timers) +  len(mm.Sets) + len(mm.Gauges) == 0
+}
+
+// Split will split a MetricMap up in to multiple MetricMaps, where each one contains metrics only for its buckets.
+func (mm *MetricMap) Split(count int) []*MetricMap {
+	maps := make([]*MetricMap, count)
+	for i := 0; i < count; i++ {
+		maps[i] = NewMetricMap()
+	}
+
+	mm.Counters.Each(func(metricName string, tagsKey string, c Counter) {
+		mmSplit := maps[Bucket(metricName, c.Hostname, count)]
+		if v, ok := mmSplit.Counters[metricName]; ok {
+			v[tagsKey] = c
+		} else {
+			mmSplit.Counters[metricName] = map[string]Counter{tagsKey: c}
+		}
+	})
+	mm.Gauges.Each(func(metricName string, tagsKey string, g Gauge) {
+		mmSplit := maps[Bucket(metricName, g.Hostname, count)]
+		if v, ok := mmSplit.Gauges[metricName]; ok {
+			v[tagsKey] = g
+		} else {
+			mmSplit.Gauges[metricName] = map[string]Gauge{tagsKey: g}
+		}
+	})
+	mm.Timers.Each(func(metricName string, tagsKey string, t Timer) {
+		mmSplit := maps[Bucket(metricName, t.Hostname, count)]
+		if v, ok := mmSplit.Timers[metricName]; ok {
+			v[tagsKey] = t
+		} else {
+			mmSplit.Timers[metricName] = map[string]Timer{tagsKey: t}
+		}
+	})
+	mm.Sets.Each(func(metricName string, tagsKey string, s Set) {
+		mmSplit := maps[Bucket(metricName, s.Hostname, count)]
+		if v, ok := mmSplit.Sets[metricName]; ok {
+			v[tagsKey] = s
+		} else {
+			mmSplit.Sets[metricName] = map[string]Set{tagsKey: s}
+		}
+	})
+
+	return maps
 }
 
 func (mm *MetricMap) receiveCounter(m *Metric, tagsKey string) {

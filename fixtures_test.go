@@ -44,6 +44,11 @@ func (ch *capturingHandler) DispatchMetrics(ctx context.Context, metrics []*Metr
 	}
 }
 
+// DispatchMetricMap re-dispatches a metric map through capturingHandler.DispatchMetrics
+func (ch *capturingHandler) DispatchMetricMap(ctx context.Context, mm *MetricMap) {
+	mm.DispatchMetrics(ctx, ch)
+}
+
 func (ch *capturingHandler) DispatchEvent(ctx context.Context, e *Event) {
 	ch.mu.Lock()
 	defer ch.mu.Unlock()

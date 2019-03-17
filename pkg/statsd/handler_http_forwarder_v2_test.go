@@ -80,7 +80,6 @@ func TestHttpForwarderV2Translation(t *testing.T) {
 
 	mm := gostatsd.NewMetricMap()
 	for _, metric := range metrics {
-		metric.TagsKey = metric.FormatTagsKey()
 		mm.Receive(metric)
 	}
 

@@ -67,7 +67,93 @@ func (th *TagHandler) DispatchMetrics(ctx context.Context, metrics []*gostatsd.M
 	}
 }
 
-// uniqueFilterMetricAndAddTags will perform 3 tasks:
+// DispatchMetricMap adds the unique tags from the TagHandler to each consolidated metric in the map and passes it to
+// the next stage in the pipeline
+//
+// There is potential to optimize here: if the tagsKey doesn't change, we don't need to re-calculate it.  But we're
+// keeping things simple for now.
+func (th *TagHandler) DispatchMetricMap(ctx context.Context, mm *gostatsd.MetricMap) {
+	mmNew := gostatsd.NewMetricMap()
+
+	mm.Counters.Each(func(metricName, x string, cOriginal gostatsd.Counter) {
+		if th.uniqueFilterAndAddTags(metricName, &cOriginal.Hostname, &cOriginal.Tags) {
+			newTagsKey := gostatsd.FormatTagsKey(cOriginal.Hostname, cOriginal.Tags)
+			if cs, ok := mmNew.Counters[metricName]; ok {
+				if cNew, ok := cs[newTagsKey]; ok {
+					cNew.Value += cOriginal.Value
+					cNew.Timestamp = gostatsd.NanoMax(cNew.Timestamp, cOriginal.Timestamp)
+					cs[newTagsKey] = cNew
+				} else {
+					cs[newTagsKey] = cOriginal
+				}
+			} else {
+				mmNew.Counters[metricName] = map[string]gostatsd.Counter{newTagsKey: cOriginal}
+			}
+		}
+	})
+
+	mm.Gauges.Each(func(metricName, _ string, gOriginal gostatsd.Gauge) {
+		if th.uniqueFilterAndAddTags(metricName, &gOriginal.Hostname, &gOriginal.Tags) {
+			newTagsKey := gostatsd.FormatTagsKey(gOriginal.Hostname, gOriginal.Tags)
+			if gs, ok := mmNew.Gauges[metricName]; ok {
+				if gNew, ok := gs[newTagsKey]; ok {
+					if gOriginal.Timestamp > gNew.Timestamp {
+						gNew.Value = gOriginal.Value
+						gNew.Timestamp = gOriginal.Timestamp
+						gs[newTagsKey] = gNew
+					}
+				} else {
+					gs[newTagsKey] = gOriginal
+				}
+			} else {
+				mmNew.Gauges[metricName] = map[string]gostatsd.Gauge{newTagsKey: gOriginal}
+			}
+		}
+	})
+
+	mm.Timers.Each(func(metricName, _ string, tOriginal gostatsd.Timer) {
+		if th.uniqueFilterAndAddTags(metricName, &tOriginal.Hostname, &tOriginal.Tags) {
+			newTagsKey := gostatsd.FormatTagsKey(tOriginal.Hostname, tOriginal.Tags)
+			if ts, ok := mmNew.Timers[metricName]; ok {
+				if tNew, ok := ts[newTagsKey]; ok {
+					tNew.Values = append(tNew.Values, tOriginal.Values...)
+					tNew.Timestamp = gostatsd.NanoMax(tNew.Timestamp, tOriginal.Timestamp)
+					tNew.SampledCount += tOriginal.SampledCount
+					ts[newTagsKey] = tNew
+				} else {
+					ts[newTagsKey] = tOriginal
+				}
+			} else {
+				mmNew.Timers[metricName] = map[string]gostatsd.Timer{newTagsKey: tOriginal}
+			}
+		}
+	})
+
+	mm.Sets.Each(func(metricName, _ string, sOriginal gostatsd.Set) {
+		if th.uniqueFilterAndAddTags(metricName, &sOriginal.Hostname, &sOriginal.Tags) {
+			newTagsKey := gostatsd.FormatTagsKey(sOriginal.Hostname, sOriginal.Tags)
+			if ss, ok := mmNew.Sets[metricName]; ok {
+				if sNew, ok := ss[newTagsKey]; ok {
+					for key := range sOriginal.Values {
+						sNew.Values[key] = struct{}{}
+					}
+					sNew.Timestamp = gostatsd.NanoMax(sNew.Timestamp, sOriginal.Timestamp)
+					ss[newTagsKey] = sNew
+				} else {
+					ss[newTagsKey] = sOriginal
+				}
+			} else {
+				mmNew.Sets[metricName] = map[string]gostatsd.Set{newTagsKey: sOriginal}
+			}
+		}
+	})
+
+	if !mmNew.IsEmpty() {
+		th.handler.DispatchMetricMap(ctx, mmNew)
+	}
+}
+
+// uniqueFilterAndAddTags will perform 3 tasks:
 // - Add static tags configured to the metric
 // - De-duplicate tags
 // - Perform rule based filtering
@@ -76,27 +162,27 @@ func (th *TagHandler) DispatchMetrics(ctx context.Context, metrics []*gostatsd.M
 // hot code path.
 //
 // Returns true if the metric should be processed further, or false to drop it.
-func (th *TagHandler) uniqueFilterMetricAndAddTags(m *gostatsd.Metric) bool {
+func (th *TagHandler) uniqueFilterAndAddTags(mName string, mHostname *string, mTags *gostatsd.Tags) bool {
 	if len(th.filters) == 0 {
-		m.Tags = uniqueTags(m.Tags, th.tags)
+		*mTags = uniqueTags(*mTags, th.tags)
 		return true
 	}
 
 	dropTags := map[string]struct{}{}
 
 	for _, filter := range th.filters {
-		if len(filter.MatchMetrics) > 0 && !filter.MatchMetrics.MatchAny(m.Name) { // returns false if nothing present
+		if len(filter.MatchMetrics) > 0 && !filter.MatchMetrics.MatchAny(mName) { // returns false if nothing present
 			// name doesn't match an include, stop
 			continue
 		}
 
 		// this list may be empty, and therefore return false
-		if filter.ExcludeMetrics.MatchAny(m.Name) { // returns false if nothing present
+		if filter.ExcludeMetrics.MatchAny(mName) { // returns false if nothing present
 			// name matches an exclude, stop
 			continue
 		}
 
-		if len(filter.MatchTags) > 0 && !filter.MatchTags.MatchAnyMultiple(m.Tags) { // returns false if either list is empty
+		if len(filter.MatchTags) > 0 && !filter.MatchTags.MatchAnyMultiple(*mTags) { // returns false if either list is empty
 			// no tags match
 			continue
 		}
@@ -106,7 +192,7 @@ func (th *TagHandler) uniqueFilterMetricAndAddTags(m *gostatsd.Metric) bool {
 		}
 
 		for _, dropFilter := range filter.DropTags {
-			for _, tag := range m.Tags {
+			for _, tag := range *mTags {
 				if dropFilter.Match(tag) {
 					dropTags[tag] = present
 				}
@@ -114,12 +200,16 @@ func (th *TagHandler) uniqueFilterMetricAndAddTags(m *gostatsd.Metric) bool {
 		}
 
 		if filter.DropHost {
-			m.Hostname = ""
+			*mHostname = ""
 		}
 	}
 
-	m.Tags = uniqueTagsWithSeen(dropTags, m.Tags, th.tags)
+	*mTags = uniqueTagsWithSeen(dropTags, *mTags, th.tags)
 	return true
+}
+
+func (th *TagHandler) uniqueFilterMetricAndAddTags(m *gostatsd.Metric) bool {
+	return th.uniqueFilterAndAddTags(m.Name, &m.Hostname, &m.Tags)
 }
 
 // DispatchEvent adds the unique tags from the TagHandler to the event and passes it to the next stage in the pipeline

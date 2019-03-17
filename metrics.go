@@ -65,11 +65,14 @@ func (m *Metric) Reset() {
 
 // Bucket will pick a distribution bucket for this metric to land in.  max is exclusive.
 func (m *Metric) Bucket(max int) int {
-	bucket := adler32.Checksum([]byte(m.Name))
-	bucket += adler32.Checksum([]byte(m.Hostname))
+	return Bucket(m.Name, m.Hostname, max)
+}
+
+func Bucket(metricName, hostname string, max int) int {
 	// Consider hashing the tags here too
-	bucket %= uint32(max)
-	return int(bucket)
+	bucket := adler32.Checksum([]byte(metricName))
+	bucket += adler32.Checksum([]byte(hostname))
+	return int(bucket % uint32(max))
 }
 
 func (m *Metric) String() string {
@@ -84,11 +87,18 @@ func (m *Metric) Done() {
 }
 
 func (m *Metric) FormatTagsKey() string {
-	t := m.Tags.SortedString()
-	if m.Hostname == "" {
+	if m.TagsKey == "" {
+		m.TagsKey = FormatTagsKey(m.Hostname, m.Tags)
+	}
+	return m.TagsKey
+}
+
+func FormatTagsKey(hostname string, tags Tags) string {
+	t := tags.SortedString()
+	if hostname == "" {
 		return t
 	}
-	return t + "," + StatsdSourceID + ":" + m.Hostname
+	return t + "," + StatsdSourceID + ":" + hostname
 }
 
 // AggregatedMetrics is an interface for aggregated metrics.
