@@ -79,22 +79,34 @@ func (bh *BackendHandler) Run(ctx context.Context) {
 	<-ctx.Done()
 }
 
+// RunMetricsContext pulls a Statser from the Context and invokes RunMetrics.  Allows a BackendHandler to still
+// conform to MetricEmitter.
+func (bh *BackendHandler) RunMetricsContext(ctx context.Context) {
+	bh.RunMetrics(ctx, stats.FromContext(ctx))
+}
+
 // RunMetrics attaches a Statser to the BackendHandler.  Stops when the context is closed.
 func (bh *BackendHandler) RunMetrics(ctx context.Context, statser stats.Statser) {
 	var wg wait.Group
 	defer wg.Wait()
+
+	// Starts the metrics for workers
 	for _, worker := range bh.workers {
 		worker := worker
 		wg.Start(func() {
 			worker.RunMetrics(ctx, statser)
 		})
 	}
+
+	// Starts the metrics for aggregators
 	bh.Process(ctx, func(aggrId int, aggr Aggregator) {
 		if me, ok := aggr.(MetricEmitter); ok {
 			tag := fmt.Sprintf("aggregator_id:%d", aggrId)
 			me.RunMetrics(ctx, statser.WithTags(gostatsd.Tags{tag}))
 		}
 	})
+
+	// Starts the CSW for events
 	csw := stats.NewChannelStatsWatcher(
 		statser,
 		"backend_events_sem",
