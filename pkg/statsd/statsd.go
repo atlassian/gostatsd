@@ -100,15 +100,13 @@ func (s *Server) createStandaloneSink() (gostatsd.PipelineHandler, []gostatsd.Ru
 	}
 
 	backendHandler := NewBackendHandler(s.Backends, uint(s.MaxConcurrentEvents), s.MaxWorkers, s.MaxQueueSize, &factory)
-	runnables = append(runnables, backendHandler.Run)
+	runnables = append(runnables, backendHandler.Run, backendHandler.RunMetricsContext)
 
 	// Create the Flusher
 	flusher := NewMetricFlusher(s.FlushInterval, backendHandler, s.Backends)
 	runnables = append(runnables, flusher.Run)
 
-	// Create the tag processor
-	handler := NewTagHandlerFromViper(s.Viper, backendHandler, s.DefaultTags)
-	return handler, runnables, nil
+	return backendHandler, runnables, nil
 }
 
 func (s *Server) createForwarderSink() (gostatsd.PipelineHandler, []gostatsd.Runnable, error) {

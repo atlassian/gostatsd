@@ -130,7 +130,7 @@ func (mm *MetricMap) Merge(mmFrom *MetricMap) {
 }
 
 func (mm *MetricMap) IsEmpty() bool {
-	return len(mm.Counters) + len(mm.Timers) +  len(mm.Sets) + len(mm.Gauges) == 0
+	return len(mm.Counters)+len(mm.Timers)+len(mm.Sets)+len(mm.Gauges) == 0
 }
 
 // Split will split a MetricMap up in to multiple MetricMaps, where each one contains metrics only for its buckets.
