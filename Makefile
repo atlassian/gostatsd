@@ -28,8 +28,7 @@ tools/bin/protoc:
 
 setup-ci: tools/bin/protoc
 	go get -u github.com/Masterminds/glide
-	go get -u github.com/alecthomas/gometalinter
-	gometalinter --install
+	curl -L https://git.io/vp6lP | sh # install gometalinter
 	glide install --strip-vendor
 
 build-cluster: fmt
