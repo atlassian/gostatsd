@@ -1,3 +1,7 @@
+14.1.0
+------
+- Fixes internal metrics for the `dispatch_aggregator` channel stats, and `aggregator.*` metrics.
+
 14.0.0
 ------
 - More internal pipeline refactoring, to optimize the http ingestion path.
