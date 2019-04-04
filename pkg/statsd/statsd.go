@@ -121,7 +121,7 @@ func (s *Server) createForwarderSink() (gostatsd.PipelineHandler, []gostatsd.Run
 	// Create a Flusher, this is primarily for all the periodic metrics which are emitted.
 	flusher := NewMetricFlusher(s.FlushInterval, nil, s.Backends)
 
-	return forwarderHandler, []gostatsd.Runnable{forwarderHandler.Run, forwarderHandler.RunMetrics, flusher.Run}, nil
+	return forwarderHandler, []gostatsd.Runnable{forwarderHandler.Run, flusher.Run}, nil
 }
 
 func (s *Server) createFinalSink() (gostatsd.PipelineHandler, []gostatsd.Runnable, error) {
