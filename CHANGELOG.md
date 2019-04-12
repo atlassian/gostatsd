@@ -1,3 +1,7 @@
+15.0.0
+------
+- Build with Go 1.12.3
+
 14.1.0
 ------
 - Fixes internal metrics for the `dispatch_aggregator` channel stats, and `aggregator.*` metrics.
