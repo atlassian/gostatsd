@@ -269,7 +269,7 @@ func (n *Client) constructPost(ctx context.Context, buffer *bytes.Buffer, data i
 			headers["Content-Encoding"] = "deflate"
 			var b bytes.Buffer
 			w := zlib.NewWriter(&b)
-			w.Write(mJSON)
+			w.Write(mJSON) // nolint:errcheck
 			w.Close()
 			mJSON = b.Bytes()
 		}

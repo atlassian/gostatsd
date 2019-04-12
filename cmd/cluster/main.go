@@ -23,5 +23,5 @@ func main() {
 	c := newCluster()
 	c.AddFlags(pflag.CommandLine)
 	pflag.Parse()
-	c.Run()
+	_ = c.Run()
 }
