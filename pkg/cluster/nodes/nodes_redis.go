@@ -60,7 +60,7 @@ func (rnt *redisNodeTracker) Run(ctx context.Context) {
 
 	psChan := pubsub.Channel() // Closed when pubsub is Closed
 
-	rnt.emitPresence()
+	_ = rnt.emitPresence()
 
 	for {
 		select {

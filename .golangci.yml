@@ -1,0 +1,8 @@
+# golangci-lint project settings
+linters-settings:
+  dupl:
+    threshold: 200
+  errcheck:
+    ignore: net:Close,net/http:Write
+  gocyclo:
+    min-complexity: 20
