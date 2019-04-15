@@ -1,6 +1,7 @@
 15.0.0
 ------
 - Build with Go 1.12.3
+- Changed linter to golangci-lint
 
 14.1.0
 ------
