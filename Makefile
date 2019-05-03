@@ -81,7 +81,7 @@ check: pb/gostatsd.pb.go
 	go install ./cmd/gostatsd
 	go install ./cmd/tester
 	golangci-lint run --deadline=600s --enable=gocyclo --enable=dupl \
-		--disable=interfacer --disable=golint --disable=gosec
+		--disable=interfacer --disable=golint
 
 check-all: pb/gostatsd.pb.go
 	go install ./cmd/gostatsd
