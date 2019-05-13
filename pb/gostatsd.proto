@@ -74,3 +74,77 @@ message EventV2 {
     }
     AlertType Type = 10;
 }
+
+/////////////////// Version 3
+
+message RawMessageV3 {
+    bool Forwarded = 1;
+    map<string, CounterTagV3> Counters = 2;
+    map<string, GaugeTagV3> Gauges = 3;
+    map<string, SetTagV3> Sets = 4;
+    map<string, TimerTagV3> Timers = 5;
+}
+
+message CounterTagV3 {
+    map<string, RawCounterV3> TagMap = 1;
+}
+
+message GaugeTagV3 {
+    map<string, RawGaugeV3> TagMap = 1;
+}
+
+message SetTagV3 {
+    map<string, RawSetV3> TagMap = 1;
+}
+
+message TimerTagV3 {
+    map<string, RawTimerV3> TagMap = 1;
+}
+
+message RawCounterV3 {
+    repeated string Tags = 1;
+    string Hostname = 2;
+    int64 Value = 3; // the count of counters is multiplied out before forwarding, rate is not required
+}
+
+message RawGaugeV3 {
+    repeated string Tags = 1;
+    string Hostname = 2;
+    double Value = 3;
+}
+
+message RawSetV3 {
+    repeated string Tags = 1;
+    string Hostname = 2;
+    repeated string Values = 3;
+}
+
+message RawTimerV3 {
+    repeated string Tags = 1;
+    string Hostname = 2;
+    double SampleCount = 3;
+    repeated double Values = 4;
+}
+
+message EventV3 {
+    string Title = 1;
+    string Text = 2;
+    int64 DateHappened = 3;
+    string Hostname = 4;
+    string AggregationKey = 5;
+    string SourceTypeName = 6;
+    repeated string Tags = 7;
+    string SourceIP = 8;
+    enum EventPriority {
+        Normal = 0;
+        Low = 1;
+    };
+    EventPriority Priority = 9;
+    enum AlertType {
+        Info = 0;
+        Warning = 1;
+        Error = 2;
+        Success = 3;
+    }
+    AlertType Type = 10;
+}
