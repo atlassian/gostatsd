@@ -107,7 +107,7 @@ func NewHttpForwarderHandlerV2(logger logrus.FieldLogger, apiEndpoint, network s
 		logger:              logger.WithField("component", "http-forwarder-handler-v2"),
 		apiEndpoint:         apiEndpoint,
 		httpClient:          hc,
-		consolidator:        gostatsd.NewMetricConsolidator(consolidatorSlots, flushInterval, ch),
+		consolidator:        gostatsd.NewMetricConsolidator(consolidatorSlots, false, flushInterval, ch),
 		consolidatedMetrics: ch,
 	}, nil
 }
@@ -143,7 +143,11 @@ func (hfh *HttpForwarderHandlerV2) Run(ctx context.Context) {
 }
 
 func mergeMaps(maps []*gostatsd.MetricMap) *gostatsd.MetricMap {
-	mm := gostatsd.NewMetricMap()
+	forwarded := false
+	if len(maps) > 0 {
+		forwarded = maps[0].Forwarded
+	}
+	mm := gostatsd.NewMetricMap(forwarded)
 	for _, m := range maps {
 		mm.Merge(m)
 	}

@@ -78,7 +78,7 @@ func TestHttpForwarderV2Translation(t *testing.T) {
 		},
 	}
 
-	mm := gostatsd.NewMetricMap()
+	mm := gostatsd.NewMetricMap(false)
 	for _, metric := range metrics {
 		mm.Receive(metric)
 	}
@@ -191,7 +191,7 @@ func BenchmarkHttpForwarderV2TranslateAll(b *testing.B) {
 			Type:        1 + gostatsd.MetricType(i%4), // Use all types
 		})
 	}
-	mm := gostatsd.NewMetricMap()
+	mm := gostatsd.NewMetricMap(false)
 	for _, metric := range metrics {
 		mm.Receive(metric)
 	}

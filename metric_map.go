@@ -11,18 +11,20 @@ import (
 // MetricMap is used for storing aggregated or consolidated Metric values.
 // The keys of each map are metric names.
 type MetricMap struct {
-	Counters Counters
-	Timers   Timers
-	Gauges   Gauges
-	Sets     Sets
+	Forwarded bool
+	Counters  Counters
+	Timers    Timers
+	Gauges    Gauges
+	Sets      Sets
 }
 
-func NewMetricMap() *MetricMap {
+func NewMetricMap(forwarded bool) *MetricMap {
 	return &MetricMap{
-		Counters: Counters{},
-		Timers:   Timers{},
-		Gauges:   Gauges{},
-		Sets:     Sets{},
+		Forwarded: forwarded,
+		Counters:  Counters{},
+		Timers:    Timers{},
+		Gauges:    Gauges{},
+		Sets:      Sets{},
 	}
 }
 
@@ -137,7 +139,7 @@ func (mm *MetricMap) IsEmpty() bool {
 func (mm *MetricMap) Split(count int) []*MetricMap {
 	maps := make([]*MetricMap, count)
 	for i := 0; i < count; i++ {
-		maps[i] = NewMetricMap()
+		maps[i] = NewMetricMap(mm.Forwarded)
 	}
 
 	mm.Counters.Each(func(metricName string, tagsKey string, c Counter) {

@@ -25,16 +25,18 @@ type MetricConsolidator struct {
 	maps          chan *MetricMap
 	sink          chan<- []*MetricMap
 	flushInterval time.Duration
+	forwarded     bool
 }
 
-func NewMetricConsolidator(spots int, flushInterval time.Duration, sink chan<- []*MetricMap) *MetricConsolidator {
+func NewMetricConsolidator(spots int, forwarded bool, flushInterval time.Duration, sink chan<- []*MetricMap) *MetricConsolidator {
 	mc := &MetricConsolidator{}
 	mc.maps = make(chan *MetricMap, spots)
 	for i := 0; i < spots; i++ {
-		mc.maps <- NewMetricMap()
+		mc.maps <- NewMetricMap(forwarded)
 	}
 	mc.flushInterval = flushInterval
 	mc.sink = sink
+	mc.forwarded = forwarded
 	return mc
 }
 
@@ -78,7 +80,7 @@ func (mc *MetricConsolidator) Flush(ctx context.Context) {
 	}
 
 	for i := 0; i < cap(mc.maps); i++ {
-		mc.maps <- NewMetricMap()
+		mc.maps <- NewMetricMap(mc.forwarded)
 	}
 }
 

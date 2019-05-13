@@ -167,7 +167,7 @@ func TestDispatchMetricMapShouldDistributeMetrics(t *testing.T) {
 	var wgFinish wait.Group
 	wgFinish.StartWithContext(ctx, h.Run)
 
-	mm := gostatsd.NewMetricMap()
+	mm := gostatsd.NewMetricMap(false)
 	for i := 0; i < numAggregators*100; i++ {
 		m := &gostatsd.Metric{
 			Type:  gostatsd.COUNTER,

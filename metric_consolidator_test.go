@@ -22,7 +22,7 @@ func TestConsolidation(t *testing.T) {
 	ctxClock := clock.Context(ctxTest, mockClock)
 
 	ch := make(chan []*MetricMap, 1)
-	mc := NewMetricConsolidator(2, 1*time.Second, ch)
+	mc := NewMetricConsolidator(2, false, 1*time.Second, ch)
 
 	m1 := &Metric{
 		Name:      "foo",
@@ -44,7 +44,7 @@ func TestConsolidation(t *testing.T) {
 
 	mm := <-ch
 
-	expected := []*MetricMap{NewMetricMap(), NewMetricMap()}
+	expected := []*MetricMap{NewMetricMap(false), NewMetricMap(false)}
 	expected[0].Counters["foo"] = map[string]Counter{
 		"": {
 			PerSecond: 0,
@@ -90,7 +90,7 @@ func benchmarkMetricConsolidator(b *testing.B, parallelism, variations int) {
 	var wgInfra sync.WaitGroup
 
 	ch := make(chan []*MetricMap)
-	mc := NewMetricConsolidator(3, 100*time.Millisecond, ch)
+	mc := NewMetricConsolidator(3, false, 100*time.Millisecond, ch)
 
 	ctx, cancel := context.WithCancel(context.Background())
 
