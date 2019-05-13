@@ -1,3 +1,7 @@
+15.0.1
+------
+- Update to Alpine 3.9
+
 15.0.0
 ------
 - Build with Go 1.12.3
