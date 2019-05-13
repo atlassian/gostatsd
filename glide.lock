@@ -1,5 +1,5 @@
-hash: ad0605257b868207e365470c410cfec845c87bf599ab99b242a5bed14b5198fd
-updated: 2018-12-23T02:28:38.821061348+11:00
+hash: 76f2408b0b01bc2efb3a3d74d4c963c3f68c36db4d25e244744e58cd35f9395c
+updated: 2019-05-13T11:43:36.576494856+10:00
 imports:
 - name: github.com/ash2k/stager
   version: 6e9c7b0eacd465286fac042bfb29a170aa8c2c3f
@@ -41,23 +41,20 @@ imports:
 - name: github.com/go-ini/ini
   version: cec2bdc49009247305a260b082a18e802d0fe292
 - name: github.com/go-redis/redis
-  version: b3d9bf10f6666b2ee5100a6f3f84f4caf3b4e37d
+  version: d22fde8721cc915a55aeb6b00944a76a92bfeb6e
   subpackages:
   - internal
   - internal/consistenthash
   - internal/hashtag
   - internal/pool
   - internal/proto
-  - internal/singleflight
   - internal/util
 - name: github.com/golang/protobuf
-  version: aa810b61a9c79d51363740d207bb46cf8e620ed5
+  version: b5d812f8a3706043e23a9cd5babf2e5423744d30
   subpackages:
   - proto
-- name: github.com/gorilla/context
-  version: 51ce91d2eaddeca0ef29a71d766bb3634dadf729
 - name: github.com/gorilla/mux
-  version: e3702bed27f0d39777b0b37b664b6280e8ef8fbf
+  version: 8559a4f775fc329165fe32bd4c2543de8ada8fce
 - name: github.com/gxed/eventfd
   version: 80a92cca79a8041496ccc9dd773fcb52a57ec6f9
 - name: github.com/gxed/GoEndian
@@ -76,9 +73,9 @@ imports:
 - name: github.com/ipfs/go-log
   version: 48d644b006ba26f1793bffc46396e981801078e3
 - name: github.com/jmespath/go-jmespath
-  version: bd40a432e4c76585ef6b72d3fd96fb9b6dc7b68d
+  version: c2b33e8439af944379acbdd9c3a5fe0bc44bd8a5
 - name: github.com/json-iterator/go
-  version: 1624edc4454b8682399def8740d46db5e4362ba4
+  version: 0ff49de124c6f76f8494e194af75bde0f1a49a29
 - name: github.com/konsorten/go-windows-terminal-sequences
   version: 5c8c8bd35d3832f5d134ae1e1e375b69a4d25242
 - name: github.com/libp2p/go-reuseport
@@ -99,13 +96,13 @@ imports:
 - name: github.com/modern-go/concurrent
   version: bacd9c7ef1dd9b15be4a9909b8ac7a4e313eec94
 - name: github.com/modern-go/reflect2
-  version: 58118c1ea9161250907268a484af4dd6ed314280
+  version: 94122c33edd36123c84d5368cfb2b69df93a0ec8
 - name: github.com/pelletier/go-buffruneio
   version: c37440a7cf42ac63b919c752ca73a85067e05992
 - name: github.com/pelletier/go-toml
   version: fe7536c3dee2596cdd23ee9976a17c22bdaae286
 - name: github.com/sirupsen/logrus
-  version: ad15b42461921f1fb3529b058c6786c6a45d5162
+  version: e1e72e9de974bd926e5c56f83753fba2df402ce5
 - name: github.com/spf13/afero
   version: 9be650865eab0c12963d8753212f4f9c66cdcf12
   subpackages:
@@ -119,7 +116,7 @@ imports:
 - name: github.com/spf13/viper
   version: 0967fc9aceab2ce9da34061253ac10fb99bba5b2
 - name: github.com/stretchr/testify
-  version: f35b8ab0b5a2cef36673838d662e249dd9c94686
+  version: ffdc059bfe9ce6a4e144ba849dbedead332c6053
   subpackages:
   - assert
   - require
@@ -128,7 +125,7 @@ imports:
 - name: github.com/whyrusleeping/go-logging
   version: 0457bb6b88fc1973573aaf6b5145d8d3ae972390
 - name: golang.org/x/crypto
-  version: 81e90905daefcd6fd217b62423c0908922eadb30
+  version: 74369b46fc6756741c016591724fd1cb8e26845f
   subpackages:
   - ssh/terminal
 - name: golang.org/x/net
@@ -144,7 +141,7 @@ imports:
   - ipv6
   - lex/httplex
 - name: golang.org/x/sys
-  version: 810d7000345868fc619eb81f46307107118f4ae1
+  version: d0b11bdaac8adb652bff00e49bcacf992835621a
   subpackages:
   - unix
   - windows
@@ -161,12 +158,14 @@ imports:
   - rate
 - name: gopkg.in/yaml.v2
   version: cd8b52f8269e0feb286dfeef29f8fe4d5b397e0b
+- name: stathat.com/c/consistent
+  version: ad91dc4a3a642859730ff3d65929fce009bfdc23
 testImports:
 - name: github.com/davecgh/go-spew
-  version: 782f4967f2dc4564575ca782fe2d04090b5faca8
+  version: d8f796af33cc11cb798c1aaeb27a4ebc5099927d
   subpackages:
   - spew
 - name: github.com/pmezard/go-difflib
-  version: 792786c7400a136282c1664665ae0a8db921c6c2
+  version: 5d4384ee4fb2527b0a1256a821ebfc92f91efefc
   subpackages:
   - difflib

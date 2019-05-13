@@ -3,11 +3,13 @@ package nodes
 import (
 	"context"
 	"net"
-	"time"
 )
 
-// NodeTracker is an interface for tracking and selecting nodes in a cluster
-type NodeTracker interface {
+// A magic identifier to indicate the node selected is the current node
+const NodeNameSelf = "__SELF__"
+
+// NodePicker is an interface to pick a tracked node in a cluster given a key.  It does not manage expiry.
+type NodePicker interface {
 	// Runs the node tracker until the context is closed.
 	Run(ctx context.Context)
 
@@ -17,21 +19,20 @@ type NodeTracker interface {
 	List() []string
 
 	// Select will use the provided key to pick a node from the list of tracked
-	// nodes and return it.  Returns an error if there are no nodes available.
+	// nodes and return it.
+	//
+	// Returns an error if there are no nodes available.
+	// Returns NodeNameSelf if the selected node is the current node.
+	//
 	// Thread safe.
-	Select(key uint64) (string, error)
+	Select(key string) (string, error)
+
+	// Add will add the node to the list of nodes tracked.  Thread safe.
+	Add(node string)
+
+	// Remove will remove the node from the list of nodes tracked. Thread safe.
+	Remove(node string)
 }
-
-type node struct {
-	nodeid string
-	expiry time.Time
-}
-
-type nodeList []*node
-
-func (nl nodeList) Len() int           { return len(nl) }
-func (nl nodeList) Swap(i, j int)      { nl[i], nl[j] = nl[j], nl[i] }
-func (nl nodeList) Less(i, j int) bool { return nl[i].nodeid < nl[j].nodeid }
 
 // LocalAddress is a helper function to return the local IP address that would
 // be used to connect to a specified target.  Useful to get the IP that should
@@ -42,8 +43,8 @@ func LocalAddress(target string) (net.IP, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer conn.Close()
 
 	localAddr := conn.LocalAddr().(*net.UDPAddr)
+	_ = conn.Close()
 	return localAddr.IP, nil
 }

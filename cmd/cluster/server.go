@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/ash2k/stager/wait"
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 
 	"github.com/atlassian/gostatsd/pkg/cluster/nodes"
@@ -30,9 +32,9 @@ func newCluster() *Cluster {
 	return &Cluster{
 		RedisAddr:      "127.0.0.1:6379",
 		Namespace:      "namespace",
-		Target:         local.String() + ":8125",
+		Target:         local.String(),
 		UpdateInterval: time.Second,
-		ExpiryInterval: 30 * time.Second,
+		ExpiryInterval: 4 * time.Second,
 	}
 }
 
@@ -40,25 +42,30 @@ func newCluster() *Cluster {
 func (c *Cluster) AddFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&c.RedisAddr, "redis-addr", c.RedisAddr, "Redis address")
 	fs.StringVar(&c.Namespace, "namespace", c.Namespace, "Namespace")
-	fs.StringVar(&c.Target, "target", c.Target, "Target port")
+	fs.StringVar(&c.Target, "target", c.Target, "Target host to advertise")
 	fs.DurationVar(&c.UpdateInterval, "update-interval", c.UpdateInterval, "Cluster update interval")
 	fs.DurationVar(&c.ExpiryInterval, "expiry-interval", c.ExpiryInterval, "Cluster expiry interval")
 }
 
 // Run runs the specified Cluster.
-func (c *Cluster) Run() error {
-	rnt := nodes.NewRedisNodeTracker(c.RedisAddr, c.Namespace, c.Target, c.UpdateInterval, c.ExpiryInterval)
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	go rnt.Run(ctx)
+func (c *Cluster) Run(ctx context.Context) {
+	picker := nodes.NewConsistentNodePicker(c.Target, 20)
+	rntRunnable := nodes.NewRedisNodeTracker(logrus.StandardLogger(), picker, c.RedisAddr, c.Namespace, c.Target, c.UpdateInterval, c.ExpiryInterval)
+
+	var g wait.Group
+	defer g.Wait()
+	g.StartWithContext(ctx, rntRunnable)
 
 	t := time.NewTicker(time.Second)
 	defer t.Stop()
 
-	for range t.C {
-		nodes := rnt.List()
-		fmt.Printf("%v\n", nodes)
+	for {
+		select {
+		case <-t.C:
+			n := picker.List()
+			fmt.Printf("%v\n", n)
+		case <-ctx.Done():
+			return
+		}
 	}
-
-	return nil
 }
