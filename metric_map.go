@@ -48,87 +48,93 @@ func (mm *MetricMap) Receive(m *Metric) {
 }
 
 func (mm *MetricMap) Merge(mmFrom *MetricMap) {
-	mmFrom.Counters.Each(func(metricName string, tagsKey string, counterFrom Counter) {
-		v, ok := mm.Counters[metricName]
-		if ok {
-			counterInto, ok := v[tagsKey]
-			if ok {
-				if counterInto.Timestamp < counterFrom.Timestamp {
-					counterInto.Timestamp = counterFrom.Timestamp
-				}
-				counterInto.Value += counterFrom.Value
-			} else {
-				counterInto = counterFrom
-			}
-			v[tagsKey] = counterInto
-		} else {
-			mm.Counters[metricName] = map[string]Counter{
-				tagsKey: counterFrom,
-			}
-		}
-	})
+	mmFrom.Counters.Each(mm.MergeCounter)
+	mmFrom.Gauges.Each(mm.MergeGauge)
+	mmFrom.Timers.Each(mm.MergeTimer)
+	mmFrom.Sets.Each(mm.MergeSet)
+}
 
-	mmFrom.Gauges.Each(func(metricName string, tagsKey string, gaugeFrom Gauge) {
-		v, ok := mm.Gauges[metricName]
+func (mm *MetricMap) MergeSet(metricName string, tagsKey string, setFrom Set) {
+	v, ok := mm.Sets[metricName]
+	if ok {
+		setInto, ok := v[tagsKey]
 		if ok {
-			gaugeInto, ok := v[tagsKey]
-			if ok {
-				if gaugeInto.Timestamp < gaugeFrom.Timestamp {
-					gaugeInto.Timestamp = gaugeFrom.Timestamp
-					gaugeInto.Value = gaugeFrom.Value
-				}
-			} else {
-				gaugeInto = gaugeFrom
+			if setInto.Timestamp < setFrom.Timestamp {
+				setInto.Timestamp = setFrom.Timestamp
 			}
-			v[tagsKey] = gaugeInto
+			for setValue := range setFrom.Values {
+				setInto.Values[setValue] = struct{}{}
+			}
 		} else {
-			mm.Gauges[metricName] = map[string]Gauge{
-				tagsKey: gaugeFrom,
-			}
+			setInto = setFrom
 		}
-	})
+		v[tagsKey] = setInto
+	} else {
+		mm.Sets[metricName] = map[string]Set{
+			tagsKey: setFrom,
+		}
+	}
+}
 
-	mmFrom.Timers.Each(func(metricName string, tagsKey string, timerFrom Timer) {
-		v, ok := mm.Timers[metricName]
+func (mm *MetricMap) MergeTimer(metricName string, tagsKey string, timerFrom Timer) {
+	v, ok := mm.Timers[metricName]
+	if ok {
+		timerInto, ok := v[tagsKey]
 		if ok {
-			timerInto, ok := v[tagsKey]
-			if ok {
-				if timerInto.Timestamp < timerFrom.Timestamp {
-					timerInto.Timestamp = timerFrom.Timestamp
-				}
-				timerInto.Values = append(timerInto.Values, timerFrom.Values...)
-				timerInto.SampledCount += timerFrom.SampledCount
-			} else {
-				timerInto = timerFrom
+			if timerInto.Timestamp < timerFrom.Timestamp {
+				timerInto.Timestamp = timerFrom.Timestamp
 			}
-			v[tagsKey] = timerInto
+			timerInto.Values = append(timerInto.Values, timerFrom.Values...)
+			timerInto.SampledCount += timerFrom.SampledCount
 		} else {
-			mm.Timers[metricName] = map[string]Timer{
-				tagsKey: timerFrom,
-			}
+			timerInto = timerFrom
 		}
-	})
-	mmFrom.Sets.Each(func(metricName string, tagsKey string, setFrom Set) {
-		v, ok := mm.Sets[metricName]
+		v[tagsKey] = timerInto
+	} else {
+		mm.Timers[metricName] = map[string]Timer{
+			tagsKey: timerFrom,
+		}
+	}
+}
+
+func (mm *MetricMap) MergeGauge(metricName string, tagsKey string, gaugeFrom Gauge) {
+	v, ok := mm.Gauges[metricName]
+	if ok {
+		gaugeInto, ok := v[tagsKey]
 		if ok {
-			setInto, ok := v[tagsKey]
-			if ok {
-				if setInto.Timestamp < setFrom.Timestamp {
-					setInto.Timestamp = setFrom.Timestamp
-				}
-				for setValue := range setFrom.Values {
-					setInto.Values[setValue] = struct{}{}
-				}
-			} else {
-				setInto = setFrom
+			if gaugeInto.Timestamp < gaugeFrom.Timestamp {
+				gaugeInto.Timestamp = gaugeFrom.Timestamp
+				gaugeInto.Value = gaugeFrom.Value
 			}
-			v[tagsKey] = setInto
 		} else {
-			mm.Sets[metricName] = map[string]Set{
-				tagsKey: setFrom,
-			}
+			gaugeInto = gaugeFrom
 		}
-	})
+		v[tagsKey] = gaugeInto
+	} else {
+		mm.Gauges[metricName] = map[string]Gauge{
+			tagsKey: gaugeFrom,
+		}
+	}
+}
+
+func (mm *MetricMap) MergeCounter(metricName string, tagsKey string, counterFrom Counter) {
+	v, ok := mm.Counters[metricName]
+	if ok {
+		counterInto, ok := v[tagsKey]
+		if ok {
+			if counterInto.Timestamp < counterFrom.Timestamp {
+				counterInto.Timestamp = counterFrom.Timestamp
+			}
+			counterInto.Value += counterFrom.Value
+		} else {
+			counterInto = counterFrom
+		}
+		v[tagsKey] = counterInto
+	} else {
+		mm.Counters[metricName] = map[string]Counter{
+			tagsKey: counterFrom,
+		}
+	}
 }
 
 func (mm *MetricMap) IsEmpty() bool {
