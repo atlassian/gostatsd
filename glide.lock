@@ -1,5 +1,5 @@
-hash: 76f2408b0b01bc2efb3a3d74d4c963c3f68c36db4d25e244744e58cd35f9395c
-updated: 2019-05-13T11:43:36.576494856+10:00
+hash: 36daf7350c37d58ee423f95267413ec7b0c7e315cbafca7c6b2decdb089f736b
+updated: 2019-05-13T11:50:55.790661012+10:00
 imports:
 - name: github.com/ash2k/stager
   version: 6e9c7b0eacd465286fac042bfb29a170aa8c2c3f
@@ -54,11 +54,7 @@ imports:
   subpackages:
   - proto
 - name: github.com/gorilla/mux
-  version: 8559a4f775fc329165fe32bd4c2543de8ada8fce
-- name: github.com/gxed/eventfd
-  version: 80a92cca79a8041496ccc9dd773fcb52a57ec6f9
-- name: github.com/gxed/GoEndian
-  version: 0f5c6873267e5abf306ffcdfcfa4bf77517ef4a7
+  version: a7962380ca08b5a188038c69871b8d3fbdf31e89
 - name: github.com/hashicorp/hcl
   version: 392dba7d905ed5d04a5794ba89f558b27e2ba1ca
   subpackages:
@@ -70,8 +66,6 @@ imports:
   - json/parser
   - json/scanner
   - json/token
-- name: github.com/ipfs/go-log
-  version: 48d644b006ba26f1793bffc46396e981801078e3
 - name: github.com/jmespath/go-jmespath
   version: c2b33e8439af944379acbdd9c3a5fe0bc44bd8a5
 - name: github.com/json-iterator/go
@@ -79,18 +73,9 @@ imports:
 - name: github.com/konsorten/go-windows-terminal-sequences
   version: 5c8c8bd35d3832f5d134ae1e1e375b69a4d25242
 - name: github.com/libp2p/go-reuseport
-  version: c2c3368efe65c8b85ddff6b278df5bef3ce235e2
-  subpackages:
-  - poll
-  - singlepoll
-- name: github.com/libp2p/go-sockaddr
-  version: 3c898fbfff40e5933d76362819727708dae6da97
-  subpackages:
-  - net
+  version: 3e6d618acfdfacbbeff71cb2bd70fc188f897a0f
 - name: github.com/magiconair/properties
   version: 51463bfca2576e06c62a8504b5c0f06d61312647
-  subpackages:
-  - assert
 - name: github.com/mitchellh/mapstructure
   version: d0303fe809921458f417bcf828397a65db30a7e4
 - name: github.com/modern-go/concurrent
@@ -101,6 +86,8 @@ imports:
   version: c37440a7cf42ac63b919c752ca73a85067e05992
 - name: github.com/pelletier/go-toml
   version: fe7536c3dee2596cdd23ee9976a17c22bdaae286
+- name: github.com/pkg/errors
+  version: 856c240a51a2bf8fb8269ea7f3f9b046aadde36e
 - name: github.com/sirupsen/logrus
   version: e1e72e9de974bd926e5c56f83753fba2df402ce5
 - name: github.com/spf13/afero
@@ -122,8 +109,6 @@ imports:
   - require
 - name: github.com/tilinna/clock
   version: 74440910e8079f06acc329aa13666873e93980ea
-- name: github.com/whyrusleeping/go-logging
-  version: 0457bb6b88fc1973573aaf6b5145d8d3ae972390
 - name: golang.org/x/crypto
   version: 74369b46fc6756741c016591724fd1cb8e26845f
   subpackages:

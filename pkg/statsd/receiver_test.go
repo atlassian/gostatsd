@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/atlassian/gostatsd/pkg/fakesocket"
-	"github.com/magiconair/properties/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -84,6 +83,6 @@ func TestDatagramReceiver_Receive(t *testing.T) {
 	require.Len(t, dgs, 1)
 
 	dg := dgs[0]
-	assert.Equal(t, string(dg.IP), fakesocket.FakeAddr.IP.String())
-	assert.Equal(t, dg.Msg, fakesocket.FakeMetric)
+	require.Equal(t, string(dg.IP), fakesocket.FakeAddr.IP.String())
+	require.Equal(t, dg.Msg, fakesocket.FakeMetric)
 }
