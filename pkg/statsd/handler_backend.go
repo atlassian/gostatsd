@@ -194,6 +194,7 @@ func (bh *BackendHandler) DispatchEvent(ctx context.Context, e *gostatsd.Event) 
 		case bh.concurrentEvents <- struct{}{}:
 			// Creates a new context for dispatching the event.
 			// We create a new one otherwise it uses the request context which is cancelled as soon as this function returns.
+			//nolint:govet
 			timeoutCtx, _ := context.WithTimeout(context.Background(), 20*time.Second)
 			go bh.internalDispatchEvent(timeoutCtx, backend, e)
 			eventsDispatched++
