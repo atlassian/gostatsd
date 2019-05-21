@@ -192,7 +192,10 @@ func (bh *BackendHandler) DispatchEvent(ctx context.Context, e *gostatsd.Event) 
 			bh.eventWg.Add(eventsDispatched - len(bh.backends))
 			return
 		case bh.concurrentEvents <- struct{}{}:
-			go bh.dispatchEvent(ctx, backend, e)
+			// Creates a new context for dispatching the event.
+			// We create a new one otherwise it uses the request context which is cancelled as soon as this function returns.
+			timeoutCtx, _ := context.WithTimeout(context.Background(), 20*time.Second)
+			go bh.internalDispatchEvent(timeoutCtx, backend, e)
 			eventsDispatched++
 		}
 	}
@@ -203,7 +206,7 @@ func (bh *BackendHandler) WaitForEvents() {
 	bh.eventWg.Wait()
 }
 
-func (bh *BackendHandler) dispatchEvent(ctx context.Context, backend gostatsd.Backend, e *gostatsd.Event) {
+func (bh *BackendHandler) internalDispatchEvent(ctx context.Context, backend gostatsd.Backend, e *gostatsd.Event) {
 	defer bh.eventWg.Done()
 	defer func() {
 		<-bh.concurrentEvents
