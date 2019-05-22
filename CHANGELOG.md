@@ -1,3 +1,7 @@
+15.0.2
+------
+- Fixed events in HTTP style
+
 15.0.1
 ------
 - Update to Alpine 3.9
