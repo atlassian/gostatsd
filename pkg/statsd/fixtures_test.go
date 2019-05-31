@@ -7,31 +7,6 @@ import (
 	"github.com/atlassian/gostatsd"
 )
 
-type capturingHandler struct {
-	m  []*gostatsd.Metric
-	mm []*gostatsd.MetricMap
-	e  []*gostatsd.Event
-}
-
-func (tch *capturingHandler) EstimatedTags() int {
-	return 0
-}
-
-func (tch *capturingHandler) DispatchMetrics(ctx context.Context, metrics []*gostatsd.Metric) {
-	tch.m = append(tch.m, metrics...)
-}
-
-func (tch *capturingHandler) DispatchMetricMap(ctx context.Context, metrics *gostatsd.MetricMap) {
-	tch.mm = append(tch.mm, metrics)
-}
-
-func (tch *capturingHandler) DispatchEvent(ctx context.Context, e *gostatsd.Event) {
-	tch.e = append(tch.e, e)
-}
-
-func (tch *capturingHandler) WaitForEvents() {
-}
-
 type nopHandler struct{}
 
 func (nh *nopHandler) EstimatedTags() int {
@@ -83,18 +58,3 @@ func (ch *countingHandler) DispatchEvent(ctx context.Context, e *gostatsd.Event)
 func (ch *countingHandler) WaitForEvents() {
 }
 
-/*
-func testContext(t *testing.T) (context.Context, func()) {
-	ctxTest, completeTest := context.WithTimeout(context.Background(), 1100*time.Millisecond)
-	go func() {
-		after := time.NewTimer(1 * time.Second)
-		select {
-		case <-ctxTest.Done():
-			after.Stop()
-		case <-after.C:
-			require.Fail(t, "test timed out")
-		}
-	}()
-	return ctxTest, completeTest
-}
-*/

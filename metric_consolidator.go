@@ -2,6 +2,7 @@ package gostatsd
 
 import (
 	"context"
+	"github.com/atlassian/gostatsd/pkg/ready"
 	"time"
 
 	"github.com/tilinna/clock"
@@ -43,6 +44,8 @@ func NewMetricConsolidator(spots int, forwarded bool, flushInterval time.Duratio
 func (mc *MetricConsolidator) Run(ctx context.Context) {
 	t := clock.NewTicker(ctx, mc.flushInterval)
 	defer t.Stop()
+
+	ready.SignalReady(ctx)
 
 	for {
 		select {
