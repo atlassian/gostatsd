@@ -1,3 +1,7 @@
+16.0.0
+------
+- Build with Go 1.12.3 for real.
+
 15.0.2
 ------
 - Fixed events in HTTP style
