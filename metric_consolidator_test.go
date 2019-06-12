@@ -1,16 +1,14 @@
 package gostatsd
 
 import (
-	//"context"
+	"context"
+	"fmt"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
 	"github.com/tilinna/clock"
-	//"fmt"
-	"context"
-	"fmt"
-	"sync"
 )
 
 func TestConsolidation(t *testing.T) {
