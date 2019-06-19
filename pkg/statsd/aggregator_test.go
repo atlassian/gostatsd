@@ -2,6 +2,7 @@ package statsd
 
 import (
 	"context"
+	"math"
 	"runtime"
 	"testing"
 	"time"
@@ -55,32 +56,33 @@ func TestPercentileBuckets(t *testing.T) {
 	ma := newFakeAggregator()
 	ma.metricMap.Timers["testTimer"] = make(map[string]gostatsd.Timer)
 	values := gostatsd.NewTimerValues([]float64{10.0, 20.0, 29.9, 2000.0})
-	values.Tags = gostatsd.Tags{PercentileBucketsMarkerTag, BucketPrefix + PercentileBucketsRoundDoublingAlgorithm}
+	values.Tags = gostatsd.Tags{HistogramThresholdsTagPrefix+"20_50_5000"}
 	ma.metricMap.Timers["testTimer"]["simple"] = values
 
 	ma.Flush(10)
 
 	result := ma.metricMap.Timers["testTimer"]["simple"]
-	assrt.Equal(1, result.Buckets[gostatsd.BucketBounds{10, 20}])
-	assrt.Equal(2, result.Buckets[gostatsd.BucketBounds{20, 50}])
-	assrt.Equal(1, result.Buckets[gostatsd.BucketBounds{2000, 5000}])
+	assrt.Equal(2, result.Buckets[gostatsd.HistogramThreshold{20}])
+	assrt.Equal(3, result.Buckets[gostatsd.HistogramThreshold{50}])
+	assrt.Equal(4, result.Buckets[gostatsd.HistogramThreshold{5000}])
+	assrt.Equal(4, result.Buckets[gostatsd.HistogramThreshold{math.Inf(1)}])
 }
 
-func TestPercentileBucketsInfinityValue(t *testing.T) {
-	t.Parallel()
-	assrt := assert.New(t)
-	ma := newFakeAggregator()
-	ma.metricMap.Timers["testTimer"] = make(map[string]gostatsd.Timer)
-	values := gostatsd.NewTimerValues([]float64{10.0, 20000.0})
-	values.Tags = gostatsd.Tags{PercentileBucketsMarkerTag, BucketPrefix + PercentileBucketsRoundDoublingAlgorithm}
-	ma.metricMap.Timers["testTimer"]["simple"] = values
-
-	ma.Flush(10)
-
-	result := ma.metricMap.Timers["testTimer"]["simple"]
-	assrt.Equal(1, result.Buckets[gostatsd.BucketBounds{10, 20}])
-	assrt.Equal(1, result.Buckets[gostatsd.BucketBounds{10000, PosInfinityBucketLimit}])
-}
+//func TestPercentileBucketsInfinityValue(t *testing.T) {
+//	t.Parallel()
+//	assrt := assert.New(t)
+//	ma := newFakeAggregator()
+//	ma.metricMap.Timers["testTimer"] = make(map[string]gostatsd.Timer)
+//	values := gostatsd.NewTimerValues([]float64{10.0, 20000.0})
+//	values.Tags = gostatsd.Tags{HistogramThresholdsTagPrefix, BucketPrefix + PercentileBucketsRoundDoublingAlgorithm}
+//	ma.metricMap.Timers["testTimer"]["simple"] = values
+//
+//	ma.Flush(10)
+//
+//	result := ma.metricMap.Timers["testTimer"]["simple"]
+//	assrt.Equal(1, result.Buckets[gostatsd.HistogramThreshold{10, 20}])
+//	assrt.Equal(1, result.Buckets[gostatsd.HistogramThreshold{10000, PosInfinityBucketLimit}])
+//}
 
 func TestFlush(t *testing.T) {
 	t.Parallel()

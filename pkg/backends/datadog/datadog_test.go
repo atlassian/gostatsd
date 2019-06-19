@@ -260,7 +260,7 @@ func metricsPercentiles() *gostatsd.MetricMap {
 					Timestamp: gostatsd.Nanotime(200),
 					Hostname:  "h2",
 					Tags:      gostatsd.Tags{"tag2"},
-					Buckets: map[gostatsd.BucketBounds]int{
+					Buckets: map[gostatsd.HistogramThreshold]int{
 						{0, 20}:                             5,
 						{20, 30}:                            5,
 						{30, 40}:                            0,

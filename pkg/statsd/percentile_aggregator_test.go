@@ -1,6 +1,7 @@
 package statsd
 
 import (
+	"math"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -8,61 +9,74 @@ import (
 	"github.com/atlassian/gostatsd"
 )
 
-func Test_searchWhichBucket(t *testing.T) {
-	tests := []struct {
-		name    string
-		buckets []gostatsd.BucketBounds
-		v       float64
-		want    int
-	}{
-		{name: "foo1", buckets: makeBounds(1), v: 0, want: 1},
-		{name: "foo2", buckets: makeBounds(10, 20, 30), v: 21, want: 30},
-		{name: "foo3", buckets: makeBounds(10, 20, 30), v: 30, want: PosInfinityBucketLimit},
-		{name: "foo4", buckets: makeBounds(), v: 21, want: PosInfinityBucketLimit},
-		{name: "foo5", buckets: makeBounds(10, 20, 30), v: 44, want: PosInfinityBucketLimit},
-		{name: "foo7", buckets: makeBounds(10, 20, 30), v: 5, want: 10},
-		{name: "foo8", buckets: makeBounds(10, 20, 30), v: 11, want: 20},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := searchWhichBucket(tt.buckets, tt.v); got.Max != tt.want {
-				t.Errorf("searchWhichBucket() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
-func Timer(values ...float64) gostatsd.Timer {
+func Timer(histogramThresholds string, values ...float64) gostatsd.Timer {
 	return gostatsd.Timer{
 		Values:  values,
-		Tags:    []string{PercentileBucketsMarkerTag, BucketPrefix + PercentileBucketsPow4Algorithm},
-		Buckets: map[gostatsd.BucketBounds]int{},
+		Tags:    []string{HistogramThresholdsTagPrefix + histogramThresholds},
+		Buckets: map[gostatsd.HistogramThreshold]int{},
 	}
 }
 
-func TestAggregatePercentiles(t *testing.T) {
-	//PercentileBucketsPow4Algorithm:          {4, 16, 64, 256, 1024, 4096, 16384},
-
+func TestLatencyHistogram(t *testing.T) {
 	tests := []struct {
 		name  string
 		timer gostatsd.Timer
-		want  map[gostatsd.BucketBounds]int
+		want  map[gostatsd.HistogramThreshold]int
 	}{
 		{
-			name:  "foo",
-			timer: Timer(1, 10, 11, 12, 500, 1000, 1023, 1024, 1025, 4000, 16384),
-			want: map[gostatsd.BucketBounds]int{
-				// We include the zero-sized buckets in the comments here to make the test
-				// more understandable.  We do not send save zero buckets in the map though.
-				{0, 4}:  1, // 1
-				{4, 16}: 3, // 10, 11, 12
-				//64:    0,
-				//256:   0,
-				{256, 1024}:  3, // 500, 1000, 1023
-				{1024, 4096}: 3, // 1024, 1025, 4000
-				//16384:  0,
-				{16384, PosInfinityBucketLimit}: 1, // 16384
+			name:  "happy path",
+			timer: Timer("10_30_45", 1, 10, 11, 12, 29, 30, 31, 45, 100, 100000),
+			want: map[gostatsd.HistogramThreshold]int{
+				{10}:          2,
+				{30}:          6,
+				{45}:          8,
+				{math.Inf(1)}: 10,
 			},
+		},
+		{
+			name:  "float thresholds",
+			timer: Timer("1.5_4_7.0", 1.4999, 1.5, 1.51, 4.0, 7.01),
+			want: map[gostatsd.HistogramThreshold]int{
+				{1.5}:         2,
+				{4}:           4,
+				{7.0}:         4,
+				{math.Inf(1)}: 5,
+			},
+		},
+		{
+			name:  "no timer values",
+			timer: Timer("1_5_10"),
+			want: map[gostatsd.HistogramThreshold]int{
+				{1}:           0,
+				{5}:           0,
+				{10}:          0,
+				{math.Inf(1)}: 0,
+			},
+		},
+		{
+			name:  "one non parsable thresholds",
+			timer: Timer("1_incorrect_10", 0, 10, 20),
+			want: map[gostatsd.HistogramThreshold]int{
+				{1}:           1,
+				{10}:          2,
+				{math.Inf(1)}: 3,
+			},
+		},
+		{
+			name:  "totally unparsable tag",
+			timer: Timer("nothresoldsatall", 0, 10, 20),
+			want: map[gostatsd.HistogramThreshold]int{
+				{math.Inf(1)}: 3,
+			},
+		},
+		{
+			name: "timer without the tag at all",
+			timer: gostatsd.Timer{
+				Values:  []float64{1, 2, 3},
+				Tags:    []string{"some_different_tag:yep"},
+				Buckets: map[gostatsd.HistogramThreshold]int{},
+			},
+			want: nil,
 		},
 	}
 	for _, tt := range tests {
