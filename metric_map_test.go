@@ -3,7 +3,6 @@ package gostatsd
 import (
 	"sort"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -11,24 +10,24 @@ import (
 
 func metricsFixtures() []*Metric {
 	ms := []*Metric{
-		{Name: "foo.bar.baz", Value: 2, Type: COUNTER},
-		{Name: "abc.def.g", Value: 3, Type: GAUGE},
-		{Name: "abc.def.g", Value: 8, Type: GAUGE, Tags: Tags{"foo:bar", "baz"}},
-		{Name: "def.g", Value: 10, Type: TIMER},
-		{Name: "def.g", Value: 1, Type: TIMER, Tags: Tags{"foo:bar", "baz"}},
-		{Name: "smp.rte", Value: 50, Type: COUNTER},
-		{Name: "smp.rte", Value: 50, Type: COUNTER, Tags: Tags{"foo:bar", "baz"}},
-		{Name: "smp.rte", Value: 5, Type: COUNTER, Tags: Tags{"foo:bar", "baz"}},
-		{Name: "uniq.usr", StringValue: "joe", Type: SET},
-		{Name: "uniq.usr", StringValue: "joe", Type: SET},
-		{Name: "uniq.usr", StringValue: "bob", Type: SET},
-		{Name: "uniq.usr", StringValue: "john", Type: SET},
-		{Name: "uniq.usr", StringValue: "john", Type: SET, Tags: Tags{"foo:bar", "baz"}},
-		{Name: "timer_sampling", Value: 10, Type: TIMER, Rate: 0.1},
-		{Name: "timer_sampling", Value: 30, Type: TIMER, Rate: 0.1},
-		{Name: "timer_sampling", Value: 50, Type: TIMER, Rate: 0.1},
-		{Name: "counter_sampling", Value: 2, Type: COUNTER, Rate: 0.25},
-		{Name: "counter_sampling", Value: 5, Type: COUNTER, Rate: 0.25},
+		{Name: "foo.bar.baz", Value: 2, Type: COUNTER, Timestamp: 10},
+		{Name: "abc.def.g", Value: 3, Type: GAUGE, Timestamp: 10},
+		{Name: "abc.def.g", Value: 8, Type: GAUGE, Tags: Tags{"foo:bar", "baz"}, Timestamp: 10},
+		{Name: "def.g", Value: 10, Type: TIMER, Timestamp: 10},
+		{Name: "def.g", Value: 1, Type: TIMER, Tags: Tags{"foo:bar", "baz"}, Timestamp: 10},
+		{Name: "smp.rte", Value: 50, Type: COUNTER, Timestamp: 10},
+		{Name: "smp.rte", Value: 50, Type: COUNTER, Tags: Tags{"foo:bar", "baz"}, Timestamp: 10},
+		{Name: "smp.rte", Value: 5, Type: COUNTER, Tags: Tags{"foo:bar", "baz"}, Timestamp: 10},
+		{Name: "uniq.usr", StringValue: "joe", Type: SET, Timestamp: 10},
+		{Name: "uniq.usr", StringValue: "joe", Type: SET, Timestamp: 10},
+		{Name: "uniq.usr", StringValue: "bob", Type: SET, Timestamp: 10},
+		{Name: "uniq.usr", StringValue: "john", Type: SET, Timestamp: 10},
+		{Name: "uniq.usr", StringValue: "john", Type: SET, Tags: Tags{"foo:bar", "baz"}, Timestamp: 10},
+		{Name: "timer_sampling", Value: 10, Type: TIMER, Rate: 0.1, Timestamp: 10},
+		{Name: "timer_sampling", Value: 30, Type: TIMER, Rate: 0.1, Timestamp: 10},
+		{Name: "timer_sampling", Value: 50, Type: TIMER, Rate: 0.1, Timestamp: 10},
+		{Name: "counter_sampling", Value: 2, Type: COUNTER, Rate: 0.25, Timestamp: 10},
+		{Name: "counter_sampling", Value: 5, Type: COUNTER, Rate: 0.25, Timestamp: 10},
 	}
 	for i, m := range ms {
 		if ms[i].Rate == 0.0 {
@@ -44,43 +43,41 @@ func TestReceive(t *testing.T) {
 	assrt := assert.New(t)
 
 	mm := NewMetricMap()
-	now := time.Now()
-	nowNano := Nanotime(now.UnixNano())
 
 	tests := metricsFixtures()
 	for _, metric := range tests {
-		mm.Receive(metric, now)
+		mm.Receive(metric)
 	}
 
 	expectedCounters := Counters{
 		"foo.bar.baz": map[string]Counter{
-			"": {Value: 2, Timestamp: nowNano},
+			"": {Value: 2, Timestamp: 10},
 		},
 		"smp.rte": map[string]Counter{
-			"":            {Value: 50, Timestamp: nowNano},
-			"baz,foo:bar": {Value: 55, Timestamp: nowNano, Tags: Tags{"baz", "foo:bar"}},
+			"":            {Value: 50, Timestamp: 10},
+			"baz,foo:bar": {Value: 55, Timestamp: 10, Tags: Tags{"baz", "foo:bar"}},
 		},
 		"counter_sampling": map[string]Counter{
-			"": {Value: 28, Timestamp: nowNano},
+			"": {Value: 28, Timestamp: 10},
 		},
 	}
 	assrt.Equal(expectedCounters, mm.Counters)
 
 	expectedGauges := Gauges{
 		"abc.def.g": map[string]Gauge{
-			"":            {Value: 3, Timestamp: nowNano},
-			"baz,foo:bar": {Value: 8, Timestamp: nowNano, Tags: Tags{"baz", "foo:bar"}},
+			"":            {Value: 3, Timestamp: 10},
+			"baz,foo:bar": {Value: 8, Timestamp: 10, Tags: Tags{"baz", "foo:bar"}},
 		},
 	}
 	assrt.Equal(expectedGauges, mm.Gauges)
 
 	expectedTimers := Timers{
 		"def.g": map[string]Timer{
-			"":            {Values: []float64{10}, Timestamp: nowNano, SampledCount: 1},
-			"baz,foo:bar": {Values: []float64{1}, Timestamp: nowNano, SampledCount: 1, Tags: Tags{"baz", "foo:bar"}},
+			"":            {Values: []float64{10}, Timestamp: 10, SampledCount: 1},
+			"baz,foo:bar": {Values: []float64{1}, Timestamp: 10, SampledCount: 1, Tags: Tags{"baz", "foo:bar"}},
 		},
 		"timer_sampling": map[string]Timer{
-			"": {Values: []float64{10, 30, 50}, Timestamp: nowNano, SampledCount: 30},
+			"": {Values: []float64{10, 30, 50}, Timestamp: 10, SampledCount: 30},
 		},
 	}
 	assrt.Equal(expectedTimers, mm.Timers)
@@ -93,13 +90,13 @@ func TestReceive(t *testing.T) {
 					"bob":  {},
 					"john": {},
 				},
-				Timestamp: nowNano,
+				Timestamp: 10,
 			},
 			"baz,foo:bar": {
 				Values: map[string]struct{}{
 					"john": {},
 				},
-				Timestamp: nowNano,
+				Timestamp: 10,
 				Tags:      Tags{"baz", "foo:bar"},
 			},
 		},
@@ -109,12 +106,11 @@ func TestReceive(t *testing.T) {
 
 func benchmarkReceive(metric Metric, b *testing.B) {
 	ma := NewMetricMap()
-	now := time.Now()
 	b.ReportAllocs()
 	b.ResetTimer()
 
 	for n := 0; n < b.N; n++ {
-		ma.Receive(&metric, now)
+		ma.Receive(&metric)
 	}
 }
 
@@ -136,13 +132,12 @@ func BenchmarkReceiveSet(b *testing.B) {
 
 func BenchmarkReceives(b *testing.B) {
 	ma := NewMetricMap()
-	now := time.Now()
 	tests := metricsFixtures()
 	b.ReportAllocs()
 	b.ResetTimer()
 	for n := 0; n < b.N; n++ {
 		for _, metric := range tests {
-			ma.Receive(metric, now)
+			ma.Receive(metric)
 		}
 	}
 }
@@ -154,28 +149,28 @@ func TestMetricMapDispatch(t *testing.T) {
 	mm := NewMetricMap()
 	metrics := metricsFixtures()
 	for _, metric := range metrics {
-		mm.Receive(metric, time.Unix(0, 0))
+		mm.Receive(metric)
 	}
 	ch := &capturingHandler{}
 
 	mm.DispatchMetrics(ctx, ch)
 
 	expected := []*Metric{
-		{Name: "abc.def.g", Value: 3, Rate: 1, Type: GAUGE},
-		{Name: "abc.def.g", Value: 8, Rate: 1, TagsKey: "baz,foo:bar", Tags: Tags{"baz", "foo:bar"}, Type: GAUGE},
-		{Name: "counter_sampling", Value: (2 + 5) / 0.25, Rate: 1, Type: COUNTER},
-		{Name: "def.g", Value: 10, Rate: 1, Type: TIMER},
-		{Name: "def.g", Value: 1, Rate: 1, TagsKey: "baz,foo:bar", Tags: Tags{"baz", "foo:bar"}, Type: TIMER},
-		{Name: "foo.bar.baz", Value: 2, Rate: 1, Type: COUNTER},
-		{Name: "smp.rte", Value: 50, Rate: 1, Type: COUNTER},
-		{Name: "smp.rte", Value: 50 + 5, Rate: 1, TagsKey: "baz,foo:bar", Tags: Tags{"baz", "foo:bar"}, Type: COUNTER},
-		{Name: "timer_sampling", Value: 10, Rate: 0.1, Type: TIMER},
-		{Name: "timer_sampling", Value: 30, Rate: 0.1, Type: TIMER},
-		{Name: "timer_sampling", Value: 50, Rate: 0.1, Type: TIMER},
-		{Name: "uniq.usr", StringValue: "bob", Rate: 1, Type: SET},
-		{Name: "uniq.usr", StringValue: "joe", Rate: 1, Type: SET},
-		{Name: "uniq.usr", StringValue: "john", Rate: 1, Type: SET},
-		{Name: "uniq.usr", StringValue: "john", Rate: 1, TagsKey: "baz,foo:bar", Tags: Tags{"baz", "foo:bar"}, Type: SET},
+		{Name: "abc.def.g", Value: 3, Rate: 1, Type: GAUGE, Timestamp: 10},
+		{Name: "abc.def.g", Value: 8, Rate: 1, TagsKey: "baz,foo:bar", Tags: Tags{"baz", "foo:bar"}, Type: GAUGE, Timestamp: 10},
+		{Name: "counter_sampling", Value: (2 + 5) / 0.25, Rate: 1, Type: COUNTER, Timestamp: 10},
+		{Name: "def.g", Value: 10, Rate: 1, Type: TIMER, Timestamp: 10},
+		{Name: "def.g", Value: 1, Rate: 1, TagsKey: "baz,foo:bar", Tags: Tags{"baz", "foo:bar"}, Type: TIMER, Timestamp: 10},
+		{Name: "foo.bar.baz", Value: 2, Rate: 1, Type: COUNTER, Timestamp: 10},
+		{Name: "smp.rte", Value: 50, Rate: 1, Type: COUNTER, Timestamp: 10},
+		{Name: "smp.rte", Value: 50 + 5, Rate: 1, TagsKey: "baz,foo:bar", Tags: Tags{"baz", "foo:bar"}, Type: COUNTER, Timestamp: 10},
+		{Name: "timer_sampling", Value: 10, Rate: 0.1, Type: TIMER, Timestamp: 10},
+		{Name: "timer_sampling", Value: 30, Rate: 0.1, Type: TIMER, Timestamp: 10},
+		{Name: "timer_sampling", Value: 50, Rate: 0.1, Type: TIMER, Timestamp: 10},
+		{Name: "uniq.usr", StringValue: "bob", Rate: 1, Type: SET, Timestamp: 10},
+		{Name: "uniq.usr", StringValue: "joe", Rate: 1, Type: SET, Timestamp: 10},
+		{Name: "uniq.usr", StringValue: "john", Rate: 1, Type: SET, Timestamp: 10},
+		{Name: "uniq.usr", StringValue: "john", Rate: 1, TagsKey: "baz,foo:bar", Tags: Tags{"baz", "foo:bar"}, Type: SET, Timestamp: 10},
 	}
 
 	cmpSort := func(slice []*Metric) func(i, j int) bool {
@@ -204,30 +199,28 @@ func TestMetricMapDispatch(t *testing.T) {
 
 func TestMetricMapMerge(t *testing.T) {
 	metrics1 := []*Metric{
-		{Name: "TestMetricMapMerge.counter", Value: 10, Rate: 1, Type: COUNTER},
-		{Name: "TestMetricMapMerge.gauge", Value: 10, Type: GAUGE},
-		{Name: "TestMetricMapMerge.timer", Value: 10, Rate: 1, Type: TIMER},
-		{Name: "TestMetricMapMerge.timer", Value: 10, Rate: 0.1, Type: TIMER},
-		{Name: "TestMetricMapMerge.set", StringValue: "abc", Type: SET},
+		{Name: "TestMetricMapMerge.counter", Value: 10, Rate: 1, Type: COUNTER, Timestamp: 10},
+		{Name: "TestMetricMapMerge.gauge", Value: 10, Type: GAUGE, Timestamp: 10},
+		{Name: "TestMetricMapMerge.timer", Value: 10, Rate: 1, Type: TIMER, Timestamp: 10},
+		{Name: "TestMetricMapMerge.timer", Value: 10, Rate: 0.1, Type: TIMER, Timestamp: 10},
+		{Name: "TestMetricMapMerge.set", StringValue: "abc", Type: SET, Timestamp: 10},
 	}
 	metrics2 := []*Metric{
-		{Name: "TestMetricMapMerge.counter", Value: 20, Rate: 0.1, Type: COUNTER},
-		{Name: "TestMetricMapMerge.gauge", Value: 20, Type: GAUGE},
-		{Name: "TestMetricMapMerge.timer", Value: 20, Rate: 1, Type: TIMER},
-		{Name: "TestMetricMapMerge.timer", Value: 20, Rate: 0.1, Type: TIMER},
-		{Name: "TestMetricMapMerge.set", StringValue: "def", Type: SET},
+		{Name: "TestMetricMapMerge.counter", Value: 20, Rate: 0.1, Type: COUNTER, Timestamp: 20},
+		{Name: "TestMetricMapMerge.gauge", Value: 20, Type: GAUGE, Timestamp: 20},
+		{Name: "TestMetricMapMerge.timer", Value: 20, Rate: 1, Type: TIMER, Timestamp: 20},
+		{Name: "TestMetricMapMerge.timer", Value: 20, Rate: 0.1, Type: TIMER, Timestamp: 20},
+		{Name: "TestMetricMapMerge.set", StringValue: "def", Type: SET, Timestamp: 20},
 	}
 
-	now := time.Unix(0, 0)
 	m1 := NewMetricMap()
 	for _, m := range metrics1 {
-		m1.Receive(m, now)
+		m1.Receive(m)
 	}
 
-	later := time.Unix(1, 0)
 	m2 := NewMetricMap()
 	for _, m := range metrics2 {
-		m2.Receive(m, later)
+		m2.Receive(m)
 	}
 
 	merged := NewMetricMap()
@@ -239,7 +232,7 @@ func TestMetricMapMerge(t *testing.T) {
 		"TestMetricMapMerge.counter": map[string]Counter{
 			"": {
 				Value:     10 + (20 / 0.1),
-				Timestamp: Nanotime(later.UnixNano()),
+				Timestamp: 20,
 			},
 		},
 	}
@@ -248,7 +241,7 @@ func TestMetricMapMerge(t *testing.T) {
 			"": {
 				SampledCount: 1 + (1 / 0.1) + 1 + (1 / 0.1),
 				Values:       []float64{10, 10, 20, 20},
-				Timestamp:    Nanotime(later.UnixNano()),
+				Timestamp:    20,
 			},
 		},
 	}
@@ -256,7 +249,7 @@ func TestMetricMapMerge(t *testing.T) {
 		"TestMetricMapMerge.gauge": map[string]Gauge{
 			"": {
 				Value:     20, // most recent value wins
-				Timestamp: Nanotime(later.UnixNano()),
+				Timestamp: 20,
 			},
 		},
 	}
@@ -264,7 +257,7 @@ func TestMetricMapMerge(t *testing.T) {
 		"TestMetricMapMerge.set": map[string]Set{
 			"": {
 				Values:    map[string]struct{}{"abc": {}, "def": {}},
-				Timestamp: Nanotime(later.UnixNano()),
+				Timestamp: 20,
 			},
 		},
 	}
@@ -272,4 +265,78 @@ func TestMetricMapMerge(t *testing.T) {
 	require.Equal(t, expected.Timers, merged.Timers)
 	require.Equal(t, expected.Gauges, merged.Gauges)
 	require.Equal(t, expected.Sets, merged.Sets)
+}
+
+func TestMetricMapSplit(t *testing.T) {
+	mmOriginal := NewMetricMap()
+	mmOriginal.Counters["m"] = map[string]Counter{
+		"t.s.h1": {Tags: Tags{"t"}, Hostname: "h1", Value: 10},
+		"t.s.h2": {Tags: Tags{"t"}, Hostname: "h2", Value: 20},
+		"t.s.h3": {Tags: Tags{"t"}, Hostname: "h3", Value: 30},
+		"t.s.h4": {Tags: Tags{"t"}, Hostname: "h4", Value: 40},
+		"t.s.h5": {Tags: Tags{"t"}, Hostname: "h5", Value: 50},
+	}
+	mmOriginal.Gauges["m"] = map[string]Gauge{
+		"t.s.h1": {Tags: Tags{"t"}, Hostname: "h1", Value: 10},
+		"t.s.h2": {Tags: Tags{"t"}, Hostname: "h2", Value: 20},
+		"t.s.h3": {Tags: Tags{"t"}, Hostname: "h3", Value: 30},
+		"t.s.h4": {Tags: Tags{"t"}, Hostname: "h4", Value: 40},
+		"t.s.h5": {Tags: Tags{"t"}, Hostname: "h5", Value: 50},
+	}
+	mmOriginal.Timers["m"] = map[string]Timer{
+		"t.s.h1": {Tags: Tags{"t"}, Hostname: "h1", Values: []float64{10, 50}},
+		"t.s.h2": {Tags: Tags{"t"}, Hostname: "h2", Values: []float64{20, 40}},
+		"t.s.h3": {Tags: Tags{"t"}, Hostname: "h3", Values: []float64{30, 30}},
+		"t.s.h4": {Tags: Tags{"t"}, Hostname: "h4", Values: []float64{40, 20}},
+		"t.s.h5": {Tags: Tags{"t"}, Hostname: "h5", Values: []float64{50, 10}},
+	}
+	mmOriginal.Sets["m"] = map[string]Set{
+		"t.s.h1": {Tags: Tags{"t"}, Hostname: "h1", Values: map[string]struct{}{"10": {}, "50": {}}},
+		"t.s.h2": {Tags: Tags{"t"}, Hostname: "h2", Values: map[string]struct{}{"20": {}, "40": {}}},
+		"t.s.h3": {Tags: Tags{"t"}, Hostname: "h3", Values: map[string]struct{}{"30": {}, "3.0": {}}},
+		"t.s.h4": {Tags: Tags{"t"}, Hostname: "h4", Values: map[string]struct{}{"40": {}, "20": {}}},
+		"t.s.h5": {Tags: Tags{"t"}, Hostname: "h5", Values: map[string]struct{}{"50": {}, "10": {}}},
+	}
+
+	mmMerged := NewMetricMap()
+	mms := mmOriginal.Split(2)
+	for _, mmSplit := range mms {
+		// Make sure something landed in each (don't use mmSplit.IsEmpty() to ensure that all types are split)
+		require.True(t, len(mmSplit.Counters) > 0)
+		require.True(t, len(mmSplit.Gauges) > 0)
+		require.True(t, len(mmSplit.Timers) > 0)
+		require.True(t, len(mmSplit.Sets) > 0)
+		mmMerged.Merge(mmSplit)
+	}
+	// Make sure when merge back they are the same
+	require.EqualValues(t, mmOriginal, mmMerged)
+}
+
+func TestMetricMapIsEmpty(t *testing.T) {
+	mm := NewMetricMap()
+	require.True(t, mm.IsEmpty())
+
+	// Counter
+	mm.Counters["m"] = map[string]Counter{"t.s.h1": {Tags: Tags{"t"}, Hostname: "h1", Value: 10}}
+	require.False(t, mm.IsEmpty())
+	mm.Counters.Delete("m")
+	require.True(t, mm.IsEmpty())
+
+	// Gauge
+	mm.Gauges["m"] = map[string]Gauge{"t.s.h1": {Tags: Tags{"t"}, Hostname: "h1", Value: 10}}
+	require.False(t, mm.IsEmpty())
+	mm.Gauges.Delete("m")
+	require.True(t, mm.IsEmpty())
+
+	// Timer
+	mm.Timers["m"] = map[string]Timer{"t.s.h1": {Tags: Tags{"t"}, Hostname: "h1", Values: []float64{10}}}
+	require.False(t, mm.IsEmpty())
+	mm.Timers.Delete("m")
+	require.True(t, mm.IsEmpty())
+
+	// Set
+	mm.Sets["m"] = map[string]Set{"t.s.h1": {Tags: Tags{"t"}, Hostname: "h5", Values: map[string]struct{}{"10": {}}}}
+	require.False(t, mm.IsEmpty())
+	mm.Sets.Delete("m")
+	require.True(t, mm.IsEmpty())
 }

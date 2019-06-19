@@ -35,7 +35,6 @@ func (m MetricType) String() string {
 }
 
 // Metric represents a single data collected datapoint.
-// TODO: Add timestamp.  When doing so, remove MetricConsolidator.ReceiveMetric context.
 type Metric struct {
 	Name        string     // The name of the metric
 	Value       float64    // The numeric value of the metric
@@ -45,6 +44,7 @@ type Metric struct {
 	StringValue string     // The string value for some metrics e.g. Set
 	Hostname    string     // Hostname of the source of the metric
 	SourceIP    IP         // IP of the source of the metric
+	Timestamp   Nanotime   // Most accurate known timestamp of this metric
 	Type        MetricType // The type of metric
 	DoneFunc    func()     // Returns the metric to the pool. May be nil. Call Metric.Done(), not this.
 }
@@ -59,16 +59,20 @@ func (m *Metric) Reset() {
 	m.StringValue = ""
 	m.Hostname = ""
 	m.SourceIP = ""
+	m.Timestamp = 0
 	m.Type = 0
 }
 
 // Bucket will pick a distribution bucket for this metric to land in.  max is exclusive.
 func (m *Metric) Bucket(max int) int {
-	bucket := adler32.Checksum([]byte(m.Name))
-	bucket += adler32.Checksum([]byte(m.Hostname))
+	return Bucket(m.Name, m.Hostname, max)
+}
+
+func Bucket(metricName, hostname string, max int) int {
 	// Consider hashing the tags here too
-	bucket %= uint32(max)
-	return int(bucket)
+	bucket := adler32.Checksum([]byte(metricName))
+	bucket += adler32.Checksum([]byte(hostname))
+	return int(bucket % uint32(max))
 }
 
 func (m *Metric) String() string {
@@ -83,11 +87,18 @@ func (m *Metric) Done() {
 }
 
 func (m *Metric) FormatTagsKey() string {
-	t := m.Tags.SortedString()
-	if m.Hostname == "" {
+	if m.TagsKey == "" {
+		m.TagsKey = FormatTagsKey(m.Hostname, m.Tags)
+	}
+	return m.TagsKey
+}
+
+func FormatTagsKey(hostname string, tags Tags) string {
+	t := tags.SortedString()
+	if hostname == "" {
 		return t
 	}
-	return t + "," + StatsdSourceID + ":" + m.Hostname
+	return t + "," + StatsdSourceID + ":" + hostname
 }
 
 // AggregatedMetrics is an interface for aggregated metrics.

@@ -25,10 +25,16 @@ type testAggregator struct {
 func (a *testAggregator) TrackMetrics(statser stats.Statser) {
 }
 
-func (a *testAggregator) Receive(m *gostatsd.Metric, t time.Time) {
+func (a *testAggregator) Receive(m ...*gostatsd.Metric) {
 	a.af.Mutex.Lock()
 	defer a.af.Mutex.Unlock()
-	a.af.receiveInvocations[a.agrNumber]++
+	a.af.receiveInvocations[a.agrNumber] += len(m)
+}
+
+func (a *testAggregator) ReceiveMap(mm *gostatsd.MetricMap) {
+	a.af.Mutex.Lock()
+	defer a.af.Mutex.Unlock()
+	a.af.receiveMapInvocations[a.agrNumber]++
 }
 
 func (a *testAggregator) Flush(interval time.Duration) {
@@ -52,17 +58,19 @@ func (a *testAggregator) Reset() {
 
 type testAggregatorFactory struct {
 	sync.Mutex
-	receiveInvocations map[int]int
-	flushInvocations   map[int]int
-	processInvocations map[int]int
-	resetInvocations   map[int]int
-	numAgrs            int
+	receiveInvocations    map[int]int
+	receiveMapInvocations map[int]int
+	flushInvocations      map[int]int
+	processInvocations    map[int]int
+	resetInvocations      map[int]int
+	numAgrs               int
 }
 
 func (af *testAggregatorFactory) Create() Aggregator {
 	agrNumber := af.numAgrs
 	af.numAgrs++
 	af.receiveInvocations[agrNumber] = 0
+	af.receiveMapInvocations[agrNumber] = 0
 	af.flushInvocations[agrNumber] = 0
 	af.processInvocations[agrNumber] = 0
 	af.resetInvocations[agrNumber] = 0
@@ -81,10 +89,11 @@ func (af *testAggregatorFactory) Create() Aggregator {
 
 func newTestFactory() *testAggregatorFactory {
 	return &testAggregatorFactory{
-		receiveInvocations: make(map[int]int),
-		flushInvocations:   make(map[int]int),
-		processInvocations: make(map[int]int),
-		resetInvocations:   make(map[int]int),
+		receiveInvocations:    make(map[int]int),
+		receiveMapInvocations: make(map[int]int),
+		flushInvocations:      make(map[int]int),
+		processInvocations:    make(map[int]int),
+		resetInvocations:      make(map[int]int),
 	}
 }
 
@@ -106,7 +115,7 @@ func TestRunShouldReturnWhenContextCancelled(t *testing.T) {
 	h.Run(ctx)
 }
 
-func TestDispatchMetricShouldDistributeMetrics(t *testing.T) {
+func TestDispatchMetricsShouldDistributeMetrics(t *testing.T) {
 	t.Parallel()
 	r := rand.New(rand.NewSource(time.Now().UnixNano()))
 	n := r.Intn(5) + 1
@@ -128,7 +137,7 @@ func TestDispatchMetricShouldDistributeMetrics(t *testing.T) {
 		}
 		go func() {
 			defer wg.Done()
-			h.DispatchMetric(ctx, m)
+			h.DispatchMetrics(ctx, []*gostatsd.Metric{m})
 		}()
 	}
 	wg.Wait()       // Wait for all metrics to be dispatched
@@ -140,6 +149,48 @@ func TestDispatchMetricShouldDistributeMetrics(t *testing.T) {
 	for agrNum, count := range factory.receiveInvocations {
 		if count == 0 {
 			t.Errorf("aggregator %d was never invoked", agrNum)
+		} else {
+			t.Logf("aggregator %d was invoked %d time(s)", agrNum, count)
+		}
+	}
+}
+
+func TestDispatchMetricMapShouldDistributeMetrics(t *testing.T) {
+	t.Parallel()
+	r := rand.New(rand.NewSource(time.Now().UnixNano()))
+	numAggregators := r.Intn(5) + 1
+	factory := newTestFactory()
+	// use a sync channel to force the workers to process events before the context is cancelled
+	h := NewBackendHandler(nil, 0, numAggregators, 0, factory)
+	ctx, cancelFunc := context.WithCancel(context.Background())
+	defer cancelFunc()
+	var wgFinish wait.Group
+	wgFinish.StartWithContext(ctx, h.Run)
+
+	mm := gostatsd.NewMetricMap()
+	for i := 0; i < numAggregators*100; i++ {
+		m := &gostatsd.Metric{
+			Type:  gostatsd.COUNTER,
+			Name:  fmt.Sprintf("counter.metric.%d", r.Int63()),
+			Tags:  nil,
+			Value: r.Float64(),
+		}
+		m.TagsKey = m.FormatTagsKey()
+		mm.Receive(m)
+	}
+
+	h.DispatchMetricMap(ctx, mm)
+
+	cancelFunc()    // After dispatch, we signal dispatcher to shut down
+	wgFinish.Wait() // Wait for dispatcher to shutdown
+
+	for agrNum, count := range factory.receiveMapInvocations {
+		assert.NotZerof(t, count, "aggregator=%d", agrNum)
+		if count == 0 {
+			t.Errorf("aggregator %d was never invoked", agrNum)
+			for idx, mmSplit := range mm.Split(numAggregators) {
+				fmt.Printf("aggr %d, names %d\n", idx, len(mmSplit.Counters))
+			}
 		} else {
 			t.Logf("aggregator %d was invoked %d time(s)", agrNum, count)
 		}
@@ -172,7 +223,7 @@ func BenchmarkBackendHandler(b *testing.B) {
 				Tags:  nil,
 				Value: rand.Float64(),
 			}
-			h.DispatchMetric(ctx, m)
+			h.DispatchMetrics(ctx, []*gostatsd.Metric{m})
 		}
 	})
 	cancelFunc()    // After all metrics have been dispatched, we signal dispatcher to shut down

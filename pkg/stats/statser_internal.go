@@ -122,6 +122,8 @@ func (is *InternalStatser) WithTags(tags gostatsd.Tags) Statser {
 // Attempts to dispatch a metric via the internal buffer.  Non-blocking.
 // Failure to send will be tracked, but not propagated to the caller.
 func (is *InternalStatser) dispatchInternal(metric *gostatsd.Metric) {
+	metric.Timestamp = gostatsd.NanoNow()
+
 	select {
 	case is.buffer <- metric:
 		// great success
@@ -137,5 +139,5 @@ func (is *InternalStatser) dispatchMetric(ctx context.Context, metric *gostatsd.
 		metric.Name = is.namespace + "." + metric.Name
 	}
 	metric.Tags = metric.Tags.Concat(is.tags)
-	is.handler.DispatchMetric(ctx, metric)
+	is.handler.DispatchMetrics(ctx, []*gostatsd.Metric{metric})
 }

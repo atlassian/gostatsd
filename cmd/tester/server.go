@@ -106,7 +106,7 @@ func (s *Server) Run() error {
 	http.HandleFunc("/start", s.startHandler)
 	http.HandleFunc("/stop", s.stopHandler)
 	http.HandleFunc("/exit", s.exitHandler)
-	http.ListenAndServe(s.WebAddr, nil)
+	_ = http.ListenAndServe(s.WebAddr, nil)
 
 	return nil
 }

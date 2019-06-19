@@ -115,6 +115,7 @@ func constructServer(v *viper.Viper) (*statsd.Server, error) {
 		InternalTags:        v.GetStringSlice(statsd.ParamInternalTags),
 		InternalNamespace:   v.GetString(statsd.ParamInternalNamespace),
 		DefaultTags:         v.GetStringSlice(statsd.ParamDefaultTags),
+		Hostname:            v.GetString(statsd.ParamHostname),
 		ExpiryInterval:      v.GetDuration(statsd.ParamExpiryInterval),
 		FlushInterval:       v.GetDuration(statsd.ParamFlushInterval),
 		IgnoreHost:          v.GetBool(statsd.ParamIgnoreHost),

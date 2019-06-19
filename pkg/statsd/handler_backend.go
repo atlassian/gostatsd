@@ -43,10 +43,12 @@ func NewBackendHandler(backends []gostatsd.Backend, maxConcurrentEvents uint, nu
 
 	for i := 0; i < numWorkers; i++ {
 		workers[i] = &worker{
-			aggr:         af.Create(),
-			metricsQueue: make(chan *gostatsd.Metric, perWorkerBufferSize),
-			processChan:  make(chan *processCommand),
-			id:           i,
+			aggr: af.Create(),
+			// TODO: Reassess the defaults
+			metricsQueue:   make(chan []*gostatsd.Metric, perWorkerBufferSize),
+			metricMapQueue: make(chan *gostatsd.MetricMap, perWorkerBufferSize),
+			processChan:    make(chan *processCommand),
+			id:             i,
 		}
 	}
 
@@ -64,7 +66,8 @@ func (bh *BackendHandler) Run(ctx context.Context) {
 	var wg wait.Group
 	defer func() {
 		for _, worker := range bh.workers {
-			close(worker.metricsQueue) // Close channel to terminate worker
+			close(worker.metricsQueue)   // Close channel to terminate worker
+			close(worker.metricMapQueue) // Close channel to terminate worker
 		}
 		wg.Wait() // Wait for all workers to finish
 	}()
@@ -76,22 +79,34 @@ func (bh *BackendHandler) Run(ctx context.Context) {
 	<-ctx.Done()
 }
 
+// RunMetricsContext pulls a Statser from the Context and invokes RunMetrics.  Allows a BackendHandler to still
+// conform to MetricEmitter.
+func (bh *BackendHandler) RunMetricsContext(ctx context.Context) {
+	bh.RunMetrics(ctx, stats.FromContext(ctx))
+}
+
 // RunMetrics attaches a Statser to the BackendHandler.  Stops when the context is closed.
 func (bh *BackendHandler) RunMetrics(ctx context.Context, statser stats.Statser) {
 	var wg wait.Group
 	defer wg.Wait()
+
+	// Starts the metrics for workers
 	for _, worker := range bh.workers {
 		worker := worker
 		wg.Start(func() {
 			worker.RunMetrics(ctx, statser)
 		})
 	}
+
+	// Starts the metrics for aggregators
 	bh.Process(ctx, func(aggrId int, aggr Aggregator) {
 		if me, ok := aggr.(MetricEmitter); ok {
 			tag := fmt.Sprintf("aggregator_id:%d", aggrId)
 			me.RunMetrics(ctx, statser.WithTags(gostatsd.Tags{tag}))
 		}
 	})
+
+	// Starts the CSW for events
 	csw := stats.NewChannelStatsWatcher(
 		statser,
 		"backend_events_sem",
@@ -108,13 +123,37 @@ func (bh *BackendHandler) EstimatedTags() int {
 	return 0
 }
 
-// DispatchMetric dispatches metric to a corresponding Aggregator.
-func (bh *BackendHandler) DispatchMetric(ctx context.Context, m *gostatsd.Metric) {
-	m.TagsKey = m.FormatTagsKey() // this is expensive, so do it with no aggregator affinity
-	w := bh.workers[m.Bucket(bh.numWorkers)]
-	select {
-	case <-ctx.Done():
-	case w.metricsQueue <- m:
+// DispatchMetrics dispatches metric to a corresponding Aggregator.
+func (bh *BackendHandler) DispatchMetrics(ctx context.Context, metrics []*gostatsd.Metric) {
+	metricsByAggr := make([][]*gostatsd.Metric, bh.numWorkers)
+
+	for _, m := range metrics {
+		m.TagsKey = m.FormatTagsKey() // this is expensive, so do it with no aggregator affinity
+		bucket := m.Bucket(bh.numWorkers)
+		metricsByAggr[bucket] = append(metricsByAggr[bucket], m)
+	}
+
+	for aggrIdx, bucketedMetrics := range metricsByAggr {
+		w := bh.workers[aggrIdx]
+		select {
+		case <-ctx.Done():
+		case w.metricsQueue <- bucketedMetrics:
+		}
+	}
+}
+
+// DispatchMetricMap re-dispatches a metric map through BackendHandler.DispatchMetrics
+func (bh *BackendHandler) DispatchMetricMap(ctx context.Context, mm *gostatsd.MetricMap) {
+	maps := mm.Split(bh.numWorkers)
+
+	for aggrIdx, mmSplit := range maps {
+		if !mm.IsEmpty() {
+			w := bh.workers[aggrIdx]
+			select {
+			case <-ctx.Done():
+			case w.metricMapQueue <- mmSplit:
+			}
+		}
 	}
 }
 
@@ -153,7 +192,13 @@ func (bh *BackendHandler) DispatchEvent(ctx context.Context, e *gostatsd.Event) 
 			bh.eventWg.Add(eventsDispatched - len(bh.backends))
 			return
 		case bh.concurrentEvents <- struct{}{}:
-			go bh.dispatchEvent(ctx, backend, e)
+			// Creates a new context for dispatching the event.
+			// We create a new one otherwise it uses the request context which is cancelled as soon as this function returns.
+			go func(b gostatsd.Backend) {
+				timeoutCtx, cancelTimeout := context.WithTimeout(context.Background(), 20*time.Second)
+				defer cancelTimeout()
+				bh.internalDispatchEvent(timeoutCtx, b, e)
+			}(backend)
 			eventsDispatched++
 		}
 	}
@@ -164,7 +209,7 @@ func (bh *BackendHandler) WaitForEvents() {
 	bh.eventWg.Wait()
 }
 
-func (bh *BackendHandler) dispatchEvent(ctx context.Context, backend gostatsd.Backend, e *gostatsd.Event) {
+func (bh *BackendHandler) internalDispatchEvent(ctx context.Context, backend gostatsd.Backend, e *gostatsd.Event) {
 	defer bh.eventWg.Done()
 	defer func() {
 		<-bh.concurrentEvents

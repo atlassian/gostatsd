@@ -146,6 +146,7 @@ func twoCounters() *gostatsd.MetricMap {
 	}
 }
 
+// nolint:dupl
 func metricsOneOfEach() *gostatsd.MetricMap {
 	return &gostatsd.MetricMap{
 		Counters: gostatsd.Counters{

@@ -2,11 +2,23 @@ package gostatsd
 
 import (
 	"context"
+	"time"
 )
 
 // Nanotime is the number of nanoseconds elapsed since January 1, 1970 UTC.
 // Get the value with time.Now().UnixNano().
 type Nanotime int64
+
+func NanoNow() Nanotime {
+	return Nanotime(time.Now().UnixNano())
+}
+
+func NanoMax(t1, t2 Nanotime) Nanotime {
+	if t1 > t2 {
+		return t1
+	}
+	return t2
+}
 
 // IP is a v4/v6 IP address.
 // We do not use net.IP because it will involve conversion to string and back several times.
@@ -43,9 +55,11 @@ type Runner interface {
 	Run(ctx context.Context)
 }
 
-// RawMetricHandler is an interface that accepts a Metric for processing.
+// RawMetricHandler is an interface that accepts a Metric for processing.  Raw refers to pre-aggregation, not
+// pre-consolidation.
 type RawMetricHandler interface {
-	DispatchMetric(ctx context.Context, m *Metric)
+	DispatchMetrics(ctx context.Context, m []*Metric)
+	DispatchMetricMap(ctx context.Context, mm *MetricMap)
 }
 
 // PipelineHandler can be used to handle metrics and events, it provides an estimate of how many tags it may add.

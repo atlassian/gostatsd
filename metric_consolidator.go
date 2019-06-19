@@ -82,10 +82,12 @@ func (mc *MetricConsolidator) Flush(ctx context.Context) {
 	}
 }
 
-// ReceiveMetric will push a Metric in to one of the MetricMaps
-func (mc *MetricConsolidator) ReceiveMetric(ctx context.Context, m *Metric) {
+// ReceiveMetrics will push a slice of Metrics in to one of the MetricMaps
+func (mc *MetricConsolidator) ReceiveMetrics(metrics []*Metric) {
 	mmTo := <-mc.maps
-	mmTo.Receive(m, clock.Now(ctx))
+	for _, m := range metrics {
+		mmTo.Receive(m)
+	}
 	mc.maps <- mmTo
 }
 

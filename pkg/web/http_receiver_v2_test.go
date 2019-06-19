@@ -105,17 +105,12 @@ func TestForwardingEndToEndV2(t *testing.T) {
 		StringValue: "def",
 		Rate:        0.1,
 	}
+
 	for i := 0; i < 100; i++ {
-		hfh.DispatchMetric(ctxTest, m1)
-		hfh.DispatchMetric(ctxTest, m2)
-		hfh.DispatchMetric(ctxTest, m5)
-		hfh.DispatchMetric(ctxTest, m6)
-		hfh.DispatchMetric(ctxTest, m7)
-		hfh.DispatchMetric(ctxTest, m8)
+		hfh.DispatchMetrics(ctxTest, []*gostatsd.Metric{m1, m2, m5, m6, m7, m8})
 	}
 	// only do timers once, because they're very noisy in the output.
-	hfh.DispatchMetric(ctxTest, m3)
-	hfh.DispatchMetric(ctxTest, m4)
+	hfh.DispatchMetrics(ctxTest, []*gostatsd.Metric{m3, m4})
 
 	// There's no good way to tell when the Ticker has been created, so we use a hard loop
 	for _, d := mockClock.AddNext(); d == 0 && ctxTest.Err() == nil; _, d = mockClock.AddNext() {
@@ -137,6 +132,9 @@ func TestForwardingEndToEndV2(t *testing.T) {
 	}
 
 	actual := ch.GetMetrics()
+	for _, metric := range actual {
+		metric.Timestamp = 0 // This isn't propagated through v2, and is set to the time of receive
+	}
 
 	cmpSort := func(slice []*gostatsd.Metric) func(i, j int) bool {
 		return func(i, j int) bool {

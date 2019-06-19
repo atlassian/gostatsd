@@ -2,7 +2,6 @@ package statsd
 
 import (
 	"testing"
-	"time"
 
 	"github.com/atlassian/gostatsd"
 	"github.com/atlassian/gostatsd/pb"
@@ -81,8 +80,7 @@ func TestHttpForwarderV2Translation(t *testing.T) {
 
 	mm := gostatsd.NewMetricMap()
 	for _, metric := range metrics {
-		metric.TagsKey = metric.FormatTagsKey()
-		mm.Receive(metric, time.Now())
+		mm.Receive(metric)
 	}
 
 	pbMetrics := translateToProtobufV2(mm)
@@ -189,12 +187,13 @@ func BenchmarkHttpForwarderV2TranslateAll(b *testing.B) {
 			Tags:        gostatsd.Tags{"tag1", "tag2"},
 			Hostname:    "hostname",
 			SourceIP:    "sourceip",
+			Timestamp:   10,
 			Type:        1 + gostatsd.MetricType(i%4), // Use all types
 		})
 	}
 	mm := gostatsd.NewMetricMap()
 	for _, metric := range metrics {
-		mm.Receive(metric, time.Unix(0, 0))
+		mm.Receive(metric)
 	}
 
 	b.ReportAllocs()

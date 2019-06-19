@@ -145,6 +145,8 @@ const (
 	ParamBadLinesPerMinute = "bad-lines-per-minute"
 	// ParamServerMode is the name of the parameter used to configure the server mode.
 	ParamServerMode = "server-mode"
+	// ParamHostname allows hostname overrides
+	ParamHostname = "hostname"
 )
 
 // AddFlags adds flags to the specified FlagSet.
@@ -177,6 +179,7 @@ func AddFlags(fs *pflag.FlagSet) {
 	fs.Int(ParamReceiveBatchSize, DefaultReceiveBatchSize, "The number of datagrams to read in each receive batch")
 	fs.Bool(ParamConnPerReader, DefaultConnPerReader, "Create a separate connection per reader (requires system support for reusing addresses)")
 	fs.String(ParamServerMode, DefaultServerMode, "The server mode to run in")
+	fs.String(ParamHostname, getHost(), "overrides the hostname of the server")
 }
 
 func minInt(a, b int) int {

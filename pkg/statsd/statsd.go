@@ -50,6 +50,7 @@ type Server struct {
 	DisabledSubTypes          gostatsd.TimerSubtypes
 	BadLineRateLimitPerSecond rate.Limit
 	ServerMode                string
+	Hostname                  string
 	CacheOptions
 	Viper *viper.Viper
 }
@@ -99,15 +100,13 @@ func (s *Server) createStandaloneSink() (gostatsd.PipelineHandler, []gostatsd.Ru
 	}
 
 	backendHandler := NewBackendHandler(s.Backends, uint(s.MaxConcurrentEvents), s.MaxWorkers, s.MaxQueueSize, &factory)
-	runnables = append(runnables, backendHandler.Run)
+	runnables = append(runnables, backendHandler.Run, backendHandler.RunMetricsContext)
 
 	// Create the Flusher
 	flusher := NewMetricFlusher(s.FlushInterval, backendHandler, s.Backends)
 	runnables = append(runnables, flusher.Run)
 
-	// Create the tag processor
-	handler := NewTagHandlerFromViper(s.Viper, backendHandler, s.DefaultTags)
-	return handler, runnables, nil
+	return backendHandler, runnables, nil
 }
 
 func (s *Server) createForwarderSink() (gostatsd.PipelineHandler, []gostatsd.Runnable, error) {
@@ -181,7 +180,7 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 	runnables = append(runnables, receiver.Run) // loop is contained in Run to keep additional logic contained
 
 	// Create the Statser
-	hostname := getHost()
+	hostname := s.Hostname
 	statser := s.createStatser(hostname, handler)
 	if runner, ok := statser.(gostatsd.Runner); ok {
 		runnables = append(runnables, runner.Run)

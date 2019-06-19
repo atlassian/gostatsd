@@ -1,17 +1,14 @@
 package gostatsd
 
 import (
-	//"context"
+	"context"
+	"fmt"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
 	"github.com/tilinna/clock"
-
-	//"fmt"
-	"context"
-	"fmt"
-	"sync"
 )
 
 func TestConsolidation(t *testing.T) {
@@ -26,19 +23,21 @@ func TestConsolidation(t *testing.T) {
 	mc := NewMetricConsolidator(2, 1*time.Second, ch)
 
 	m1 := &Metric{
-		Name:  "foo",
-		Type:  COUNTER,
-		Value: 1,
-		Rate:  1,
+		Name:      "foo",
+		Type:      COUNTER,
+		Value:     1,
+		Rate:      1,
+		Timestamp: 10,
 	}
 	m2 := &Metric{
-		Name:  "foo",
-		Type:  COUNTER,
-		Value: 3,
-		Rate:  0.1,
+		Name:      "foo",
+		Type:      COUNTER,
+		Value:     3,
+		Rate:      0.1,
+		Timestamp: 20,
 	}
-	mc.ReceiveMetric(ctxClock, m1)
-	mc.ReceiveMetric(ctxClock, m2)
+	mc.ReceiveMetrics([]*Metric{m1})
+	mc.ReceiveMetrics([]*Metric{m2})
 	mc.Flush(ctxClock)
 
 	mm := <-ch
@@ -48,7 +47,7 @@ func TestConsolidation(t *testing.T) {
 		"": {
 			PerSecond: 0,
 			Value:     1,
-			Timestamp: Nanotime(mockClock.Now().UnixNano()),
+			Timestamp: 10,
 			Hostname:  "",
 			Tags:      nil,
 		},
@@ -57,7 +56,7 @@ func TestConsolidation(t *testing.T) {
 		"": {
 			PerSecond: 0,
 			Value:     30,
-			Timestamp: Nanotime(mockClock.Now().UnixNano()),
+			Timestamp: 20,
 			Hostname:  "",
 			Tags:      nil,
 		},
@@ -79,6 +78,7 @@ func randomMetric(seed, variations int) *Metric {
 		m.Value = float64(seed)
 		m.Rate = 1
 	}
+	m.Timestamp = 10
 	return m
 }
 
@@ -112,7 +112,7 @@ func benchmarkMetricConsolidator(b *testing.B, parallelism, variations int) {
 		wgWork.Add(1)
 		go func() {
 			for j := 0; j < b.N/parallelism; j++ {
-				mc.ReceiveMetric(context.Background(), randomMetric(j, variations))
+				mc.ReceiveMetrics([]*Metric{randomMetric(j, variations)})
 			}
 			wgWork.Done()
 		}()

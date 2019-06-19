@@ -18,58 +18,6 @@ var _ = math.Inf
 // proto package needs to be updated.
 const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
 
-type EventV1_EventPriority int32
-
-const (
-	EventV1_Normal EventV1_EventPriority = 0
-	EventV1_Low    EventV1_EventPriority = 1
-)
-
-var EventV1_EventPriority_name = map[int32]string{
-	0: "Normal",
-	1: "Low",
-}
-var EventV1_EventPriority_value = map[string]int32{
-	"Normal": 0,
-	"Low":    1,
-}
-
-func (x EventV1_EventPriority) String() string {
-	return proto.EnumName(EventV1_EventPriority_name, int32(x))
-}
-func (EventV1_EventPriority) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_gostatsd_ad5409b6c034803e, []int{1, 0}
-}
-
-type EventV1_AlertType int32
-
-const (
-	EventV1_Info    EventV1_AlertType = 0
-	EventV1_Warning EventV1_AlertType = 1
-	EventV1_Error   EventV1_AlertType = 2
-	EventV1_Success EventV1_AlertType = 3
-)
-
-var EventV1_AlertType_name = map[int32]string{
-	0: "Info",
-	1: "Warning",
-	2: "Error",
-	3: "Success",
-}
-var EventV1_AlertType_value = map[string]int32{
-	"Info":    0,
-	"Warning": 1,
-	"Error":   2,
-	"Success": 3,
-}
-
-func (x EventV1_AlertType) String() string {
-	return proto.EnumName(EventV1_AlertType_name, int32(x))
-}
-func (EventV1_AlertType) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_gostatsd_ad5409b6c034803e, []int{1, 1}
-}
-
 type EventV2_EventPriority int32
 
 const (
@@ -90,7 +38,7 @@ func (x EventV2_EventPriority) String() string {
 	return proto.EnumName(EventV2_EventPriority_name, int32(x))
 }
 func (EventV2_EventPriority) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_gostatsd_ad5409b6c034803e, []int{16, 0}
+	return fileDescriptor_gostatsd_02649f73f2826ea1, []int{9, 0}
 }
 
 type EventV2_AlertType int32
@@ -119,550 +67,7 @@ func (x EventV2_AlertType) String() string {
 	return proto.EnumName(EventV2_AlertType_name, int32(x))
 }
 func (EventV2_AlertType) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_gostatsd_ad5409b6c034803e, []int{16, 1}
-}
-
-type RawMessageV1 struct {
-	RawMetrics           []*RawMetricV1 `protobuf:"bytes,1,rep,name=RawMetrics,proto3" json:"RawMetrics,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}       `json:"-"`
-	XXX_unrecognized     []byte         `json:"-"`
-	XXX_sizecache        int32          `json:"-"`
-}
-
-func (m *RawMessageV1) Reset()         { *m = RawMessageV1{} }
-func (m *RawMessageV1) String() string { return proto.CompactTextString(m) }
-func (*RawMessageV1) ProtoMessage()    {}
-func (*RawMessageV1) Descriptor() ([]byte, []int) {
-	return fileDescriptor_gostatsd_ad5409b6c034803e, []int{0}
-}
-func (m *RawMessageV1) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_RawMessageV1.Unmarshal(m, b)
-}
-func (m *RawMessageV1) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_RawMessageV1.Marshal(b, m, deterministic)
-}
-func (dst *RawMessageV1) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_RawMessageV1.Merge(dst, src)
-}
-func (m *RawMessageV1) XXX_Size() int {
-	return xxx_messageInfo_RawMessageV1.Size(m)
-}
-func (m *RawMessageV1) XXX_DiscardUnknown() {
-	xxx_messageInfo_RawMessageV1.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_RawMessageV1 proto.InternalMessageInfo
-
-func (m *RawMessageV1) GetRawMetrics() []*RawMetricV1 {
-	if m != nil {
-		return m.RawMetrics
-	}
-	return nil
-}
-
-type EventV1 struct {
-	Title                string                `protobuf:"bytes,1,opt,name=Title,proto3" json:"Title,omitempty"`
-	Text                 string                `protobuf:"bytes,2,opt,name=Text,proto3" json:"Text,omitempty"`
-	DateHappened         int64                 `protobuf:"varint,3,opt,name=DateHappened,proto3" json:"DateHappened,omitempty"`
-	Hostname             string                `protobuf:"bytes,4,opt,name=Hostname,proto3" json:"Hostname,omitempty"`
-	AggregationKey       string                `protobuf:"bytes,5,opt,name=AggregationKey,proto3" json:"AggregationKey,omitempty"`
-	SourceTypeName       string                `protobuf:"bytes,6,opt,name=SourceTypeName,proto3" json:"SourceTypeName,omitempty"`
-	Tags                 []string              `protobuf:"bytes,7,rep,name=Tags,proto3" json:"Tags,omitempty"`
-	SourceIP             string                `protobuf:"bytes,8,opt,name=SourceIP,proto3" json:"SourceIP,omitempty"`
-	Priority             EventV1_EventPriority `protobuf:"varint,9,opt,name=Priority,proto3,enum=pb.EventV1_EventPriority" json:"Priority,omitempty"`
-	Type                 EventV1_AlertType     `protobuf:"varint,10,opt,name=Type,proto3,enum=pb.EventV1_AlertType" json:"Type,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}              `json:"-"`
-	XXX_unrecognized     []byte                `json:"-"`
-	XXX_sizecache        int32                 `json:"-"`
-}
-
-func (m *EventV1) Reset()         { *m = EventV1{} }
-func (m *EventV1) String() string { return proto.CompactTextString(m) }
-func (*EventV1) ProtoMessage()    {}
-func (*EventV1) Descriptor() ([]byte, []int) {
-	return fileDescriptor_gostatsd_ad5409b6c034803e, []int{1}
-}
-func (m *EventV1) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_EventV1.Unmarshal(m, b)
-}
-func (m *EventV1) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_EventV1.Marshal(b, m, deterministic)
-}
-func (dst *EventV1) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_EventV1.Merge(dst, src)
-}
-func (m *EventV1) XXX_Size() int {
-	return xxx_messageInfo_EventV1.Size(m)
-}
-func (m *EventV1) XXX_DiscardUnknown() {
-	xxx_messageInfo_EventV1.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_EventV1 proto.InternalMessageInfo
-
-func (m *EventV1) GetTitle() string {
-	if m != nil {
-		return m.Title
-	}
-	return ""
-}
-
-func (m *EventV1) GetText() string {
-	if m != nil {
-		return m.Text
-	}
-	return ""
-}
-
-func (m *EventV1) GetDateHappened() int64 {
-	if m != nil {
-		return m.DateHappened
-	}
-	return 0
-}
-
-func (m *EventV1) GetHostname() string {
-	if m != nil {
-		return m.Hostname
-	}
-	return ""
-}
-
-func (m *EventV1) GetAggregationKey() string {
-	if m != nil {
-		return m.AggregationKey
-	}
-	return ""
-}
-
-func (m *EventV1) GetSourceTypeName() string {
-	if m != nil {
-		return m.SourceTypeName
-	}
-	return ""
-}
-
-func (m *EventV1) GetTags() []string {
-	if m != nil {
-		return m.Tags
-	}
-	return nil
-}
-
-func (m *EventV1) GetSourceIP() string {
-	if m != nil {
-		return m.SourceIP
-	}
-	return ""
-}
-
-func (m *EventV1) GetPriority() EventV1_EventPriority {
-	if m != nil {
-		return m.Priority
-	}
-	return EventV1_Normal
-}
-
-func (m *EventV1) GetType() EventV1_AlertType {
-	if m != nil {
-		return m.Type
-	}
-	return EventV1_Info
-}
-
-type RawMetricV1 struct {
-	Name     string   `protobuf:"bytes,1,opt,name=Name,proto3" json:"Name,omitempty"`
-	Tags     []string `protobuf:"bytes,2,rep,name=Tags,proto3" json:"Tags,omitempty"`
-	Hostname string   `protobuf:"bytes,3,opt,name=Hostname,proto3" json:"Hostname,omitempty"`
-	// Types that are valid to be assigned to M:
-	//	*RawMetricV1_Counter
-	//	*RawMetricV1_Gauge
-	//	*RawMetricV1_Set
-	//	*RawMetricV1_Timer
-	M                    isRawMetricV1_M `protobuf_oneof:"M"`
-	XXX_NoUnkeyedLiteral struct{}        `json:"-"`
-	XXX_unrecognized     []byte          `json:"-"`
-	XXX_sizecache        int32           `json:"-"`
-}
-
-func (m *RawMetricV1) Reset()         { *m = RawMetricV1{} }
-func (m *RawMetricV1) String() string { return proto.CompactTextString(m) }
-func (*RawMetricV1) ProtoMessage()    {}
-func (*RawMetricV1) Descriptor() ([]byte, []int) {
-	return fileDescriptor_gostatsd_ad5409b6c034803e, []int{2}
-}
-func (m *RawMetricV1) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_RawMetricV1.Unmarshal(m, b)
-}
-func (m *RawMetricV1) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_RawMetricV1.Marshal(b, m, deterministic)
-}
-func (dst *RawMetricV1) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_RawMetricV1.Merge(dst, src)
-}
-func (m *RawMetricV1) XXX_Size() int {
-	return xxx_messageInfo_RawMetricV1.Size(m)
-}
-func (m *RawMetricV1) XXX_DiscardUnknown() {
-	xxx_messageInfo_RawMetricV1.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_RawMetricV1 proto.InternalMessageInfo
-
-func (m *RawMetricV1) GetName() string {
-	if m != nil {
-		return m.Name
-	}
-	return ""
-}
-
-func (m *RawMetricV1) GetTags() []string {
-	if m != nil {
-		return m.Tags
-	}
-	return nil
-}
-
-func (m *RawMetricV1) GetHostname() string {
-	if m != nil {
-		return m.Hostname
-	}
-	return ""
-}
-
-type isRawMetricV1_M interface {
-	isRawMetricV1_M()
-}
-
-type RawMetricV1_Counter struct {
-	Counter *RawCounterV1 `protobuf:"bytes,12,opt,name=counter,proto3,oneof"`
-}
-
-type RawMetricV1_Gauge struct {
-	Gauge *RawGaugeV1 `protobuf:"bytes,13,opt,name=gauge,proto3,oneof"`
-}
-
-type RawMetricV1_Set struct {
-	Set *RawSetV1 `protobuf:"bytes,14,opt,name=set,proto3,oneof"`
-}
-
-type RawMetricV1_Timer struct {
-	Timer *RawTimerV1 `protobuf:"bytes,15,opt,name=timer,proto3,oneof"`
-}
-
-func (*RawMetricV1_Counter) isRawMetricV1_M() {}
-
-func (*RawMetricV1_Gauge) isRawMetricV1_M() {}
-
-func (*RawMetricV1_Set) isRawMetricV1_M() {}
-
-func (*RawMetricV1_Timer) isRawMetricV1_M() {}
-
-func (m *RawMetricV1) GetM() isRawMetricV1_M {
-	if m != nil {
-		return m.M
-	}
-	return nil
-}
-
-func (m *RawMetricV1) GetCounter() *RawCounterV1 {
-	if x, ok := m.GetM().(*RawMetricV1_Counter); ok {
-		return x.Counter
-	}
-	return nil
-}
-
-func (m *RawMetricV1) GetGauge() *RawGaugeV1 {
-	if x, ok := m.GetM().(*RawMetricV1_Gauge); ok {
-		return x.Gauge
-	}
-	return nil
-}
-
-func (m *RawMetricV1) GetSet() *RawSetV1 {
-	if x, ok := m.GetM().(*RawMetricV1_Set); ok {
-		return x.Set
-	}
-	return nil
-}
-
-func (m *RawMetricV1) GetTimer() *RawTimerV1 {
-	if x, ok := m.GetM().(*RawMetricV1_Timer); ok {
-		return x.Timer
-	}
-	return nil
-}
-
-// XXX_OneofFuncs is for the internal use of the proto package.
-func (*RawMetricV1) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), func(msg proto.Message) (n int), []interface{}) {
-	return _RawMetricV1_OneofMarshaler, _RawMetricV1_OneofUnmarshaler, _RawMetricV1_OneofSizer, []interface{}{
-		(*RawMetricV1_Counter)(nil),
-		(*RawMetricV1_Gauge)(nil),
-		(*RawMetricV1_Set)(nil),
-		(*RawMetricV1_Timer)(nil),
-	}
-}
-
-func _RawMetricV1_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
-	m := msg.(*RawMetricV1)
-	// M
-	switch x := m.M.(type) {
-	case *RawMetricV1_Counter:
-		b.EncodeVarint(12<<3 | proto.WireBytes)
-		if err := b.EncodeMessage(x.Counter); err != nil {
-			return err
-		}
-	case *RawMetricV1_Gauge:
-		b.EncodeVarint(13<<3 | proto.WireBytes)
-		if err := b.EncodeMessage(x.Gauge); err != nil {
-			return err
-		}
-	case *RawMetricV1_Set:
-		b.EncodeVarint(14<<3 | proto.WireBytes)
-		if err := b.EncodeMessage(x.Set); err != nil {
-			return err
-		}
-	case *RawMetricV1_Timer:
-		b.EncodeVarint(15<<3 | proto.WireBytes)
-		if err := b.EncodeMessage(x.Timer); err != nil {
-			return err
-		}
-	case nil:
-	default:
-		return fmt.Errorf("RawMetricV1.M has unexpected type %T", x)
-	}
-	return nil
-}
-
-func _RawMetricV1_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error) {
-	m := msg.(*RawMetricV1)
-	switch tag {
-	case 12: // M.counter
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		msg := new(RawCounterV1)
-		err := b.DecodeMessage(msg)
-		m.M = &RawMetricV1_Counter{msg}
-		return true, err
-	case 13: // M.gauge
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		msg := new(RawGaugeV1)
-		err := b.DecodeMessage(msg)
-		m.M = &RawMetricV1_Gauge{msg}
-		return true, err
-	case 14: // M.set
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		msg := new(RawSetV1)
-		err := b.DecodeMessage(msg)
-		m.M = &RawMetricV1_Set{msg}
-		return true, err
-	case 15: // M.timer
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		msg := new(RawTimerV1)
-		err := b.DecodeMessage(msg)
-		m.M = &RawMetricV1_Timer{msg}
-		return true, err
-	default:
-		return false, nil
-	}
-}
-
-func _RawMetricV1_OneofSizer(msg proto.Message) (n int) {
-	m := msg.(*RawMetricV1)
-	// M
-	switch x := m.M.(type) {
-	case *RawMetricV1_Counter:
-		s := proto.Size(x.Counter)
-		n += 1 // tag and wire
-		n += proto.SizeVarint(uint64(s))
-		n += s
-	case *RawMetricV1_Gauge:
-		s := proto.Size(x.Gauge)
-		n += 1 // tag and wire
-		n += proto.SizeVarint(uint64(s))
-		n += s
-	case *RawMetricV1_Set:
-		s := proto.Size(x.Set)
-		n += 1 // tag and wire
-		n += proto.SizeVarint(uint64(s))
-		n += s
-	case *RawMetricV1_Timer:
-		s := proto.Size(x.Timer)
-		n += 1 // tag and wire
-		n += proto.SizeVarint(uint64(s))
-		n += s
-	case nil:
-	default:
-		panic(fmt.Sprintf("proto: unexpected type %T in oneof", x))
-	}
-	return n
-}
-
-type RawCounterV1 struct {
-	Value                float64  `protobuf:"fixed64,1,opt,name=Value,proto3" json:"Value,omitempty"`
-	XXX_NoUnkeyedLiteral struct{} `json:"-"`
-	XXX_unrecognized     []byte   `json:"-"`
-	XXX_sizecache        int32    `json:"-"`
-}
-
-func (m *RawCounterV1) Reset()         { *m = RawCounterV1{} }
-func (m *RawCounterV1) String() string { return proto.CompactTextString(m) }
-func (*RawCounterV1) ProtoMessage()    {}
-func (*RawCounterV1) Descriptor() ([]byte, []int) {
-	return fileDescriptor_gostatsd_ad5409b6c034803e, []int{3}
-}
-func (m *RawCounterV1) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_RawCounterV1.Unmarshal(m, b)
-}
-func (m *RawCounterV1) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_RawCounterV1.Marshal(b, m, deterministic)
-}
-func (dst *RawCounterV1) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_RawCounterV1.Merge(dst, src)
-}
-func (m *RawCounterV1) XXX_Size() int {
-	return xxx_messageInfo_RawCounterV1.Size(m)
-}
-func (m *RawCounterV1) XXX_DiscardUnknown() {
-	xxx_messageInfo_RawCounterV1.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_RawCounterV1 proto.InternalMessageInfo
-
-func (m *RawCounterV1) GetValue() float64 {
-	if m != nil {
-		return m.Value
-	}
-	return 0
-}
-
-type RawGaugeV1 struct {
-	Value                float64  `protobuf:"fixed64,1,opt,name=Value,proto3" json:"Value,omitempty"`
-	XXX_NoUnkeyedLiteral struct{} `json:"-"`
-	XXX_unrecognized     []byte   `json:"-"`
-	XXX_sizecache        int32    `json:"-"`
-}
-
-func (m *RawGaugeV1) Reset()         { *m = RawGaugeV1{} }
-func (m *RawGaugeV1) String() string { return proto.CompactTextString(m) }
-func (*RawGaugeV1) ProtoMessage()    {}
-func (*RawGaugeV1) Descriptor() ([]byte, []int) {
-	return fileDescriptor_gostatsd_ad5409b6c034803e, []int{4}
-}
-func (m *RawGaugeV1) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_RawGaugeV1.Unmarshal(m, b)
-}
-func (m *RawGaugeV1) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_RawGaugeV1.Marshal(b, m, deterministic)
-}
-func (dst *RawGaugeV1) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_RawGaugeV1.Merge(dst, src)
-}
-func (m *RawGaugeV1) XXX_Size() int {
-	return xxx_messageInfo_RawGaugeV1.Size(m)
-}
-func (m *RawGaugeV1) XXX_DiscardUnknown() {
-	xxx_messageInfo_RawGaugeV1.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_RawGaugeV1 proto.InternalMessageInfo
-
-func (m *RawGaugeV1) GetValue() float64 {
-	if m != nil {
-		return m.Value
-	}
-	return 0
-}
-
-type RawSetV1 struct {
-	Value                string   `protobuf:"bytes,1,opt,name=Value,proto3" json:"Value,omitempty"`
-	XXX_NoUnkeyedLiteral struct{} `json:"-"`
-	XXX_unrecognized     []byte   `json:"-"`
-	XXX_sizecache        int32    `json:"-"`
-}
-
-func (m *RawSetV1) Reset()         { *m = RawSetV1{} }
-func (m *RawSetV1) String() string { return proto.CompactTextString(m) }
-func (*RawSetV1) ProtoMessage()    {}
-func (*RawSetV1) Descriptor() ([]byte, []int) {
-	return fileDescriptor_gostatsd_ad5409b6c034803e, []int{5}
-}
-func (m *RawSetV1) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_RawSetV1.Unmarshal(m, b)
-}
-func (m *RawSetV1) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_RawSetV1.Marshal(b, m, deterministic)
-}
-func (dst *RawSetV1) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_RawSetV1.Merge(dst, src)
-}
-func (m *RawSetV1) XXX_Size() int {
-	return xxx_messageInfo_RawSetV1.Size(m)
-}
-func (m *RawSetV1) XXX_DiscardUnknown() {
-	xxx_messageInfo_RawSetV1.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_RawSetV1 proto.InternalMessageInfo
-
-func (m *RawSetV1) GetValue() string {
-	if m != nil {
-		return m.Value
-	}
-	return ""
-}
-
-type RawTimerV1 struct {
-	Value                float64  `protobuf:"fixed64,1,opt,name=Value,proto3" json:"Value,omitempty"`
-	Rate                 float64  `protobuf:"fixed64,2,opt,name=Rate,proto3" json:"Rate,omitempty"`
-	XXX_NoUnkeyedLiteral struct{} `json:"-"`
-	XXX_unrecognized     []byte   `json:"-"`
-	XXX_sizecache        int32    `json:"-"`
-}
-
-func (m *RawTimerV1) Reset()         { *m = RawTimerV1{} }
-func (m *RawTimerV1) String() string { return proto.CompactTextString(m) }
-func (*RawTimerV1) ProtoMessage()    {}
-func (*RawTimerV1) Descriptor() ([]byte, []int) {
-	return fileDescriptor_gostatsd_ad5409b6c034803e, []int{6}
-}
-func (m *RawTimerV1) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_RawTimerV1.Unmarshal(m, b)
-}
-func (m *RawTimerV1) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_RawTimerV1.Marshal(b, m, deterministic)
-}
-func (dst *RawTimerV1) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_RawTimerV1.Merge(dst, src)
-}
-func (m *RawTimerV1) XXX_Size() int {
-	return xxx_messageInfo_RawTimerV1.Size(m)
-}
-func (m *RawTimerV1) XXX_DiscardUnknown() {
-	xxx_messageInfo_RawTimerV1.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_RawTimerV1 proto.InternalMessageInfo
-
-func (m *RawTimerV1) GetValue() float64 {
-	if m != nil {
-		return m.Value
-	}
-	return 0
-}
-
-func (m *RawTimerV1) GetRate() float64 {
-	if m != nil {
-		return m.Rate
-	}
-	return 0
+	return fileDescriptor_gostatsd_02649f73f2826ea1, []int{9, 1}
 }
 
 type RawMessageV2 struct {
@@ -679,7 +84,7 @@ func (m *RawMessageV2) Reset()         { *m = RawMessageV2{} }
 func (m *RawMessageV2) String() string { return proto.CompactTextString(m) }
 func (*RawMessageV2) ProtoMessage()    {}
 func (*RawMessageV2) Descriptor() ([]byte, []int) {
-	return fileDescriptor_gostatsd_ad5409b6c034803e, []int{7}
+	return fileDescriptor_gostatsd_02649f73f2826ea1, []int{0}
 }
 func (m *RawMessageV2) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_RawMessageV2.Unmarshal(m, b)
@@ -738,7 +143,7 @@ func (m *CounterTagV2) Reset()         { *m = CounterTagV2{} }
 func (m *CounterTagV2) String() string { return proto.CompactTextString(m) }
 func (*CounterTagV2) ProtoMessage()    {}
 func (*CounterTagV2) Descriptor() ([]byte, []int) {
-	return fileDescriptor_gostatsd_ad5409b6c034803e, []int{8}
+	return fileDescriptor_gostatsd_02649f73f2826ea1, []int{1}
 }
 func (m *CounterTagV2) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_CounterTagV2.Unmarshal(m, b)
@@ -776,7 +181,7 @@ func (m *GaugeTagV2) Reset()         { *m = GaugeTagV2{} }
 func (m *GaugeTagV2) String() string { return proto.CompactTextString(m) }
 func (*GaugeTagV2) ProtoMessage()    {}
 func (*GaugeTagV2) Descriptor() ([]byte, []int) {
-	return fileDescriptor_gostatsd_ad5409b6c034803e, []int{9}
+	return fileDescriptor_gostatsd_02649f73f2826ea1, []int{2}
 }
 func (m *GaugeTagV2) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_GaugeTagV2.Unmarshal(m, b)
@@ -814,7 +219,7 @@ func (m *SetTagV2) Reset()         { *m = SetTagV2{} }
 func (m *SetTagV2) String() string { return proto.CompactTextString(m) }
 func (*SetTagV2) ProtoMessage()    {}
 func (*SetTagV2) Descriptor() ([]byte, []int) {
-	return fileDescriptor_gostatsd_ad5409b6c034803e, []int{10}
+	return fileDescriptor_gostatsd_02649f73f2826ea1, []int{3}
 }
 func (m *SetTagV2) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_SetTagV2.Unmarshal(m, b)
@@ -852,7 +257,7 @@ func (m *TimerTagV2) Reset()         { *m = TimerTagV2{} }
 func (m *TimerTagV2) String() string { return proto.CompactTextString(m) }
 func (*TimerTagV2) ProtoMessage()    {}
 func (*TimerTagV2) Descriptor() ([]byte, []int) {
-	return fileDescriptor_gostatsd_ad5409b6c034803e, []int{11}
+	return fileDescriptor_gostatsd_02649f73f2826ea1, []int{4}
 }
 func (m *TimerTagV2) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_TimerTagV2.Unmarshal(m, b)
@@ -892,7 +297,7 @@ func (m *RawCounterV2) Reset()         { *m = RawCounterV2{} }
 func (m *RawCounterV2) String() string { return proto.CompactTextString(m) }
 func (*RawCounterV2) ProtoMessage()    {}
 func (*RawCounterV2) Descriptor() ([]byte, []int) {
-	return fileDescriptor_gostatsd_ad5409b6c034803e, []int{12}
+	return fileDescriptor_gostatsd_02649f73f2826ea1, []int{5}
 }
 func (m *RawCounterV2) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_RawCounterV2.Unmarshal(m, b)
@@ -946,7 +351,7 @@ func (m *RawGaugeV2) Reset()         { *m = RawGaugeV2{} }
 func (m *RawGaugeV2) String() string { return proto.CompactTextString(m) }
 func (*RawGaugeV2) ProtoMessage()    {}
 func (*RawGaugeV2) Descriptor() ([]byte, []int) {
-	return fileDescriptor_gostatsd_ad5409b6c034803e, []int{13}
+	return fileDescriptor_gostatsd_02649f73f2826ea1, []int{6}
 }
 func (m *RawGaugeV2) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_RawGaugeV2.Unmarshal(m, b)
@@ -1000,7 +405,7 @@ func (m *RawSetV2) Reset()         { *m = RawSetV2{} }
 func (m *RawSetV2) String() string { return proto.CompactTextString(m) }
 func (*RawSetV2) ProtoMessage()    {}
 func (*RawSetV2) Descriptor() ([]byte, []int) {
-	return fileDescriptor_gostatsd_ad5409b6c034803e, []int{14}
+	return fileDescriptor_gostatsd_02649f73f2826ea1, []int{7}
 }
 func (m *RawSetV2) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_RawSetV2.Unmarshal(m, b)
@@ -1055,7 +460,7 @@ func (m *RawTimerV2) Reset()         { *m = RawTimerV2{} }
 func (m *RawTimerV2) String() string { return proto.CompactTextString(m) }
 func (*RawTimerV2) ProtoMessage()    {}
 func (*RawTimerV2) Descriptor() ([]byte, []int) {
-	return fileDescriptor_gostatsd_ad5409b6c034803e, []int{15}
+	return fileDescriptor_gostatsd_02649f73f2826ea1, []int{8}
 }
 func (m *RawTimerV2) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_RawTimerV2.Unmarshal(m, b)
@@ -1123,7 +528,7 @@ func (m *EventV2) Reset()         { *m = EventV2{} }
 func (m *EventV2) String() string { return proto.CompactTextString(m) }
 func (*EventV2) ProtoMessage()    {}
 func (*EventV2) Descriptor() ([]byte, []int) {
-	return fileDescriptor_gostatsd_ad5409b6c034803e, []int{16}
+	return fileDescriptor_gostatsd_02649f73f2826ea1, []int{9}
 }
 func (m *EventV2) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_EventV2.Unmarshal(m, b)
@@ -1214,13 +619,6 @@ func (m *EventV2) GetType() EventV2_AlertType {
 }
 
 func init() {
-	proto.RegisterType((*RawMessageV1)(nil), "pb.RawMessageV1")
-	proto.RegisterType((*EventV1)(nil), "pb.EventV1")
-	proto.RegisterType((*RawMetricV1)(nil), "pb.RawMetricV1")
-	proto.RegisterType((*RawCounterV1)(nil), "pb.RawCounterV1")
-	proto.RegisterType((*RawGaugeV1)(nil), "pb.RawGaugeV1")
-	proto.RegisterType((*RawSetV1)(nil), "pb.RawSetV1")
-	proto.RegisterType((*RawTimerV1)(nil), "pb.RawTimerV1")
 	proto.RegisterType((*RawMessageV2)(nil), "pb.RawMessageV2")
 	proto.RegisterMapType((map[string]*CounterTagV2)(nil), "pb.RawMessageV2.CountersEntry")
 	proto.RegisterMapType((map[string]*GaugeTagV2)(nil), "pb.RawMessageV2.GaugesEntry")
@@ -1239,69 +637,55 @@ func init() {
 	proto.RegisterType((*RawSetV2)(nil), "pb.RawSetV2")
 	proto.RegisterType((*RawTimerV2)(nil), "pb.RawTimerV2")
 	proto.RegisterType((*EventV2)(nil), "pb.EventV2")
-	proto.RegisterEnum("pb.EventV1_EventPriority", EventV1_EventPriority_name, EventV1_EventPriority_value)
-	proto.RegisterEnum("pb.EventV1_AlertType", EventV1_AlertType_name, EventV1_AlertType_value)
 	proto.RegisterEnum("pb.EventV2_EventPriority", EventV2_EventPriority_name, EventV2_EventPriority_value)
 	proto.RegisterEnum("pb.EventV2_AlertType", EventV2_AlertType_name, EventV2_AlertType_value)
 }
 
-func init() { proto.RegisterFile("pb/gostatsd.proto", fileDescriptor_gostatsd_ad5409b6c034803e) }
+func init() { proto.RegisterFile("pb/gostatsd.proto", fileDescriptor_gostatsd_02649f73f2826ea1) }
 
-var fileDescriptor_gostatsd_ad5409b6c034803e = []byte{
-	// 870 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xec, 0x56, 0x5d, 0x6f, 0xe3, 0x44,
-	0x14, 0xed, 0xc4, 0x6e, 0x3e, 0xae, 0xd3, 0xae, 0x19, 0x01, 0x1a, 0xa2, 0x15, 0xb2, 0xac, 0x6a,
-	0x15, 0x24, 0x94, 0xa5, 0xe6, 0x43, 0xa8, 0x2f, 0x68, 0x81, 0x6a, 0x5b, 0x2d, 0x5d, 0xad, 0x9c,
-	0x28, 0x3c, 0x4f, 0xb3, 0x83, 0x15, 0x91, 0xd8, 0x96, 0x3d, 0xe9, 0x92, 0x1f, 0xc0, 0x13, 0x4f,
-	0xf0, 0x67, 0xf8, 0x67, 0x3c, 0xa3, 0xb9, 0x33, 0x76, 0x3c, 0x89, 0xab, 0xdd, 0x0a, 0xc4, 0x13,
-	0x4f, 0xcd, 0xdc, 0x7b, 0xee, 0x99, 0x33, 0xe7, 0xce, 0xdc, 0x1a, 0xde, 0xcb, 0x6f, 0x9f, 0x26,
-	0x59, 0x29, 0xb9, 0x2c, 0x5f, 0x4f, 0xf2, 0x22, 0x93, 0x19, 0xed, 0xe4, 0xb7, 0xe1, 0x37, 0x30,
-	0x8c, 0xf9, 0x9b, 0x1b, 0x51, 0x96, 0x3c, 0x11, 0xf3, 0x73, 0xfa, 0x14, 0x00, 0xd7, 0xb2, 0x58,
-	0x2e, 0x4a, 0x46, 0x02, 0x67, 0xec, 0x45, 0x8f, 0x26, 0xf9, 0xed, 0xa4, 0x8e, 0xce, 0xcf, 0xe3,
-	0x06, 0x24, 0xfc, 0xd3, 0x81, 0xde, 0xe5, 0x9d, 0x48, 0xe5, 0xfc, 0x9c, 0xbe, 0x0f, 0xc7, 0xb3,
-	0xa5, 0x5c, 0x09, 0x46, 0x02, 0x32, 0x1e, 0xc4, 0x7a, 0x41, 0x29, 0xb8, 0x33, 0xf1, 0x8b, 0x64,
-	0x1d, 0x0c, 0xe2, 0x6f, 0x1a, 0xc2, 0xf0, 0x7b, 0x2e, 0xc5, 0x15, 0xcf, 0x73, 0x91, 0x8a, 0xd7,
-	0xcc, 0x09, 0xc8, 0xd8, 0x89, 0xad, 0x18, 0x1d, 0x41, 0xff, 0x2a, 0x2b, 0x65, 0xca, 0xd7, 0x82,
-	0xb9, 0x58, 0x5b, 0xaf, 0xe9, 0x13, 0x38, 0x7d, 0x96, 0x24, 0x85, 0x48, 0xb8, 0x5c, 0x66, 0xe9,
-	0x0b, 0xb1, 0x65, 0xc7, 0x88, 0xd8, 0x8b, 0x2a, 0xdc, 0x34, 0xdb, 0x14, 0x0b, 0x31, 0xdb, 0xe6,
-	0xe2, 0xa5, 0x62, 0xea, 0x6a, 0x9c, 0x1d, 0x45, 0x8d, 0x3c, 0x29, 0x59, 0x2f, 0x70, 0x50, 0x23,
-	0x4f, 0x4a, 0xb5, 0xbf, 0x46, 0x5d, 0xbf, 0x62, 0x7d, 0xbd, 0x7f, 0xb5, 0xa6, 0x5f, 0x42, 0xff,
-	0x55, 0xb1, 0xcc, 0x8a, 0xa5, 0xdc, 0xb2, 0x41, 0x40, 0xc6, 0xa7, 0xd1, 0x47, 0xca, 0x24, 0x63,
-	0x84, 0xfe, 0x5b, 0x01, 0xe2, 0x1a, 0x4a, 0x3f, 0x01, 0x57, 0x6d, 0xc9, 0x00, 0x4b, 0x3e, 0x68,
-	0x96, 0x3c, 0x5b, 0x89, 0x42, 0xaa, 0x64, 0x8c, 0x90, 0xf0, 0x0c, 0x4e, 0x2c, 0x16, 0x0a, 0xd0,
-	0x7d, 0x99, 0x15, 0x6b, 0xbe, 0xf2, 0x8f, 0x68, 0x0f, 0x9c, 0x1f, 0xb2, 0x37, 0x3e, 0x09, 0x2f,
-	0x60, 0x50, 0x17, 0xd2, 0x3e, 0xb8, 0xd7, 0xe9, 0x4f, 0x99, 0x7f, 0x44, 0x3d, 0xe8, 0xfd, 0xc8,
-	0x8b, 0x74, 0x99, 0x26, 0x3e, 0xa1, 0x03, 0x38, 0xbe, 0x2c, 0x8a, 0xac, 0xf0, 0x3b, 0x2a, 0x3e,
-	0xdd, 0x2c, 0x16, 0xa2, 0x2c, 0x7d, 0x27, 0xfc, 0x8b, 0x80, 0xd7, 0xe8, 0xaa, 0xf2, 0x00, 0x1d,
-	0xd2, 0xcd, 0x73, 0x2d, 0x5f, 0x3a, 0xb6, 0x2f, 0x75, 0x5f, 0x9c, 0xbd, 0xbe, 0x7c, 0x0a, 0xbd,
-	0x45, 0xb6, 0x49, 0xa5, 0x28, 0xd8, 0x30, 0x20, 0x63, 0x2f, 0xf2, 0xcd, 0xdd, 0xf9, 0x4e, 0x47,
-	0xe7, 0xe7, 0x57, 0x47, 0x71, 0x05, 0xa1, 0x4f, 0xe0, 0x38, 0xe1, 0x9b, 0x44, 0xb0, 0x13, 0xc4,
-	0x9e, 0x1a, 0xec, 0x73, 0x15, 0x43, 0xa4, 0x4e, 0xd3, 0x00, 0x9c, 0x52, 0x48, 0x76, 0x8a, 0xa8,
-	0xa1, 0x41, 0x4d, 0x85, 0x44, 0x8c, 0x4a, 0x29, 0x26, 0xb9, 0x5c, 0x8b, 0x82, 0x3d, 0xb2, 0x98,
-	0x66, 0x2a, 0xa6, 0x99, 0x30, 0xfd, 0xad, 0x03, 0xe4, 0x26, 0x3c, 0xc3, 0x3b, 0x5f, 0x2b, 0x52,
-	0xd7, 0x76, 0xce, 0x57, 0x1b, 0x7d, 0x72, 0x12, 0xeb, 0x45, 0x18, 0xe2, 0x4b, 0x30, 0x5a, 0xee,
-	0xc1, 0x04, 0xd0, 0xaf, 0x94, 0xd8, 0x88, 0x41, 0x85, 0xf8, 0x0a, 0x59, 0x8c, 0x8e, 0x76, 0x16,
-	0x65, 0x72, 0xcc, 0xa5, 0xc0, 0x07, 0x42, 0x62, 0xfc, 0x1d, 0xfe, 0xe1, 0x5a, 0x0f, 0x33, 0xa2,
-	0x17, 0xd0, 0x37, 0x8a, 0xab, 0x67, 0xf9, 0x71, 0xfd, 0x2c, 0x0d, 0x66, 0x52, 0x01, 0x2e, 0x53,
-	0x59, 0x6c, 0xe3, 0x1a, 0x4f, 0xbf, 0x80, 0x2e, 0x9e, 0x43, 0xf7, 0xd1, 0x8b, 0x1e, 0x1f, 0x54,
-	0xea, 0xb4, 0xae, 0x33, 0x58, 0x3a, 0x01, 0x77, 0x2a, 0x64, 0xc9, 0x1c, 0xac, 0x19, 0x1d, 0xd4,
-	0xa8, 0xa4, 0xae, 0x40, 0x9c, 0xda, 0x05, 0xcf, 0x59, 0x32, 0xf7, 0x9e, 0x5d, 0x74, 0xda, 0xec,
-	0xa2, 0x17, 0xa3, 0x1b, 0x38, 0xb1, 0x64, 0x53, 0x1f, 0x9c, 0x9f, 0xc5, 0xd6, 0xb8, 0xa8, 0x7e,
-	0xaa, 0xe6, 0xde, 0xa1, 0x6b, 0x9d, 0xdd, 0x95, 0x32, 0x35, 0x33, 0x9e, 0xcc, 0xa3, 0x58, 0xa7,
-	0x2f, 0x3a, 0x5f, 0x93, 0xd1, 0x35, 0x78, 0x8d, 0xb3, 0xb4, 0x90, 0x9d, 0xd9, 0x64, 0x78, 0x53,
-	0xb0, 0xe2, 0x80, 0xea, 0x12, 0x06, 0xf5, 0x11, 0x5b, 0x88, 0x42, 0x9b, 0x08, 0xaf, 0xe5, 0x54,
-	0xc8, 0x36, 0x45, 0x8d, 0x73, 0xbf, 0xa3, 0x22, 0xac, 0xd8, 0xa7, 0x0a, 0x7f, 0x27, 0x30, 0x6c,
-	0x1e, 0x1c, 0x2d, 0xe7, 0xc9, 0x0d, 0xcf, 0xcd, 0x95, 0x78, 0xbc, 0x6f, 0xcd, 0x44, 0xa7, 0x2b,
-	0xcb, 0x71, 0x31, 0x7a, 0x01, 0x5e, 0x23, 0xfc, 0x8e, 0x86, 0x37, 0x5e, 0x8c, 0xa5, 0xe9, 0x37,
-	0x02, 0xb0, 0xf3, 0x8f, 0x46, 0x7b, 0x8a, 0x46, 0xb6, 0xbf, 0xad, 0x7a, 0xae, 0xdf, 0xa6, 0xa7,
-	0xcd, 0xa1, 0xfa, 0x6d, 0x5a, 0x6a, 0x7e, 0x25, 0xd0, 0xaf, 0x9a, 0x40, 0x3f, 0xdb, 0xd3, 0xc2,
-	0x9a, 0x2d, 0x6a, 0x55, 0xf2, 0xfc, 0x6d, 0x4a, 0xda, 0x9a, 0x6e, 0x26, 0xc0, 0x81, 0x2b, 0xbb,
-	0x1e, 0xb6, 0xbb, 0xb2, 0xcb, 0xff, 0xab, 0xae, 0xe8, 0x59, 0x63, 0xa9, 0x99, 0x59, 0x03, 0x2f,
-	0xaa, 0xa7, 0x3a, 0xb9, 0x67, 0xaa, 0x77, 0xf6, 0xa6, 0x7a, 0x3d, 0xb6, 0xf4, 0xbf, 0x69, 0x33,
-	0xda, 0xe2, 0xc6, 0x80, 0xfc, 0x87, 0x9c, 0x64, 0xc7, 0x59, 0x0d, 0xd4, 0x87, 0x33, 0x7e, 0x08,
-	0x5d, 0x24, 0xd1, 0x13, 0x6b, 0x10, 0x9b, 0x55, 0x78, 0xd7, 0x18, 0xc1, 0x0f, 0x67, 0x0d, 0xc0,
-	0x9b, 0xf2, 0x75, 0xbe, 0x12, 0x68, 0x9f, 0x51, 0xdb, 0x0c, 0x35, 0xf6, 0x55, 0x73, 0x8f, 0xd4,
-	0xfb, 0xee, 0xbe, 0x8c, 0xa2, 0xff, 0xbf, 0x8c, 0x8c, 0x11, 0x0f, 0xff, 0x32, 0x8a, 0xfe, 0xfb,
-	0x2f, 0xa3, 0xdb, 0x2e, 0x7e, 0x1f, 0x7f, 0xfe, 0x77, 0x00, 0x00, 0x00, 0xff, 0xff, 0x04, 0xef,
-	0x8f, 0xb2, 0x34, 0x0b, 0x00, 0x00,
+var fileDescriptor_gostatsd_02649f73f2826ea1 = []byte{
+	// 684 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xac, 0x55, 0x5d, 0x6f, 0xd3, 0x30,
+	0x14, 0x9d, 0x9b, 0xb4, 0x4d, 0x6e, 0xbb, 0x29, 0x58, 0x03, 0x85, 0x6a, 0x42, 0x55, 0x34, 0x4d,
+	0xe5, 0xa5, 0xa0, 0x02, 0x12, 0xda, 0xdb, 0x04, 0xd5, 0x56, 0x8d, 0x4d, 0x93, 0x5b, 0x8d, 0x67,
+	0x77, 0x33, 0x51, 0x45, 0x9b, 0x44, 0x8e, 0xbb, 0xd2, 0x1f, 0xc0, 0x13, 0x4f, 0xf0, 0x67, 0xf8,
+	0x7b, 0xc8, 0x76, 0x9a, 0xc6, 0x6d, 0xd0, 0x36, 0xc1, 0x53, 0x7d, 0x3f, 0xce, 0xb9, 0xc7, 0xe7,
+	0x46, 0x2e, 0x3c, 0x49, 0xc6, 0xaf, 0xc2, 0x38, 0x15, 0x54, 0xa4, 0xb7, 0xdd, 0x84, 0xc7, 0x22,
+	0xc6, 0x95, 0x64, 0x1c, 0xfc, 0xb2, 0xa1, 0x49, 0xe8, 0xe2, 0x82, 0xa5, 0x29, 0x0d, 0xd9, 0x75,
+	0x0f, 0x1f, 0x83, 0xf3, 0x21, 0x9e, 0x47, 0x82, 0xf1, 0xd4, 0x47, 0x6d, 0xab, 0xd3, 0xe8, 0xbd,
+	0xe8, 0x26, 0xe3, 0x6e, 0xb1, 0xa7, 0xbb, 0x6a, 0xe8, 0x47, 0x82, 0x2f, 0x49, 0xde, 0x8f, 0xdf,
+	0x42, 0xed, 0x94, 0xce, 0x43, 0x96, 0xfa, 0x15, 0x85, 0x3c, 0xd8, 0x42, 0xea, 0xb2, 0xc6, 0x65,
+	0xbd, 0xb8, 0x0b, 0xf6, 0x90, 0x89, 0xd4, 0xb7, 0x14, 0xa6, 0xb5, 0x85, 0x91, 0x45, 0x8d, 0x50,
+	0x7d, 0x72, 0xca, 0x68, 0x32, 0x93, 0xfa, 0xec, 0xbf, 0x4c, 0xd1, 0xe5, 0x6c, 0x8a, 0x0e, 0x5a,
+	0x17, 0xb0, 0x6b, 0xc8, 0xc6, 0x1e, 0x58, 0x5f, 0xd9, 0xd2, 0x47, 0x6d, 0xd4, 0x71, 0x89, 0x3c,
+	0xe2, 0x23, 0xa8, 0xde, 0xd1, 0xe9, 0x9c, 0xf9, 0x95, 0x36, 0xea, 0x34, 0x7a, 0x9e, 0xe4, 0xcd,
+	0x30, 0x23, 0x1a, 0x5e, 0xf7, 0x88, 0x2e, 0x1f, 0x57, 0xde, 0xa3, 0xd6, 0x00, 0x1a, 0x85, 0xbb,
+	0x94, 0x90, 0x1d, 0x9a, 0x64, 0x7b, 0x92, 0x4c, 0x21, 0xb6, 0xa8, 0xfa, 0xe0, 0xe6, 0x57, 0x2c,
+	0x21, 0x0a, 0x4c, 0xa2, 0xa6, 0x24, 0x1a, 0x32, 0x51, 0xa6, 0xa8, 0x70, 0xef, 0x07, 0x2a, 0x52,
+	0x88, 0x4d, 0xaa, 0xe0, 0x27, 0x82, 0x66, 0xf1, 0xe2, 0xca, 0x72, 0x1a, 0x5e, 0xd0, 0x24, 0xfb,
+	0x24, 0x0e, 0x36, 0xad, 0xe9, 0xea, 0xf2, 0xca, 0x72, 0x15, 0xb4, 0xce, 0xa1, 0x51, 0x48, 0x3f,
+	0xd0, 0x70, 0x42, 0x17, 0x19, 0xb1, 0xa9, 0xe9, 0x07, 0x02, 0x58, 0xfb, 0x87, 0x7b, 0x1b, 0x8a,
+	0x5a, 0xa6, 0xbf, 0xa5, 0x7a, 0x06, 0xf7, 0xe9, 0x29, 0x73, 0x88, 0xd0, 0x85, 0xa2, 0x35, 0xd5,
+	0x7c, 0x47, 0xe0, 0xac, 0x96, 0x80, 0x5f, 0x6f, 0x68, 0xf1, 0x8b, 0x2b, 0x2a, 0x55, 0x72, 0x7a,
+	0x9f, 0x92, 0xb2, 0xa5, 0x13, 0xba, 0x18, 0x32, 0xb1, 0xed, 0xca, 0x7a, 0x87, 0xe5, 0xae, 0xac,
+	0xeb, 0xff, 0xd5, 0x15, 0x45, 0x6b, 0xaa, 0x19, 0xa9, 0xb7, 0x24, 0x5f, 0x1f, 0xc6, 0x60, 0x8f,
+	0x68, 0xa8, 0xdf, 0x11, 0x97, 0xa8, 0x33, 0x6e, 0x81, 0x73, 0x16, 0xa7, 0x22, 0xa2, 0x33, 0x4d,
+	0xe8, 0x92, 0x3c, 0xc6, 0xfb, 0x50, 0xbd, 0x56, 0x93, 0xac, 0x36, 0xea, 0x58, 0x44, 0x07, 0x01,
+	0x01, 0x58, 0x2f, 0xe1, 0xdf, 0x38, 0xd1, 0x9a, 0xd3, 0x59, 0xd9, 0xf9, 0x68, 0xc6, 0x67, 0x50,
+	0x53, 0x24, 0xfa, 0xc5, 0x72, 0x49, 0x16, 0x05, 0x77, 0x4a, 0x67, 0x66, 0xcb, 0xa3, 0x59, 0xdb,
+	0xd0, 0x18, 0xd2, 0x59, 0x32, 0x65, 0xca, 0xbe, 0x4c, 0x6d, 0x31, 0x55, 0x98, 0x2b, 0xdf, 0x3d,
+	0x94, 0xcf, 0xfd, 0x6d, 0x41, 0xbd, 0x7f, 0xc7, 0x22, 0x79, 0x97, 0x7d, 0xa8, 0x8e, 0x26, 0x62,
+	0xca, 0xb2, 0xfd, 0xe9, 0x40, 0x69, 0x61, 0xdf, 0x44, 0x36, 0x53, 0x9d, 0x71, 0x00, 0xcd, 0x8f,
+	0x54, 0xb0, 0x33, 0x9a, 0x24, 0x2c, 0x62, 0xb7, 0x99, 0xe5, 0x46, 0xce, 0xd0, 0x6b, 0x6f, 0xe8,
+	0x3d, 0x82, 0xbd, 0x93, 0x30, 0xe4, 0x2c, 0xa4, 0x62, 0x12, 0x47, 0xe7, 0x6c, 0xe9, 0x57, 0x55,
+	0xc7, 0x46, 0x56, 0xf6, 0x0d, 0xe3, 0x39, 0xbf, 0x61, 0xa3, 0x65, 0xc2, 0x2e, 0x25, 0x53, 0x4d,
+	0xf7, 0x99, 0xd9, 0xdc, 0xaf, 0xba, 0xe9, 0x97, 0xee, 0x1a, 0x5c, 0xf9, 0x8e, 0x9e, 0xbf, 0x8a,
+	0xf1, 0x3b, 0x70, 0xae, 0xf8, 0x24, 0xe6, 0x13, 0xb1, 0xf4, 0xdd, 0x36, 0xea, 0xec, 0xf5, 0x9e,
+	0xcb, 0x0f, 0x33, 0x33, 0x42, 0xff, 0xae, 0x1a, 0x48, 0xde, 0x8a, 0x5f, 0x82, 0x2d, 0x47, 0xfa,
+	0xa0, 0x20, 0x4f, 0x8b, 0x90, 0x93, 0x29, 0xe3, 0x42, 0x16, 0x89, 0x6a, 0x09, 0x0e, 0x61, 0xd7,
+	0x60, 0xc1, 0x00, 0xb5, 0xcb, 0x98, 0xcf, 0xe8, 0xd4, 0xdb, 0xc1, 0x75, 0xb0, 0x3e, 0xc5, 0x0b,
+	0x0f, 0x05, 0xc7, 0xe0, 0xe6, 0x40, 0xec, 0x80, 0x3d, 0x88, 0xbe, 0xc4, 0xde, 0x0e, 0x6e, 0x40,
+	0xfd, 0x33, 0xe5, 0xd1, 0x24, 0x0a, 0x3d, 0x84, 0x5d, 0xa8, 0xf6, 0x39, 0x8f, 0xb9, 0x57, 0x91,
+	0xf9, 0xe1, 0xfc, 0xe6, 0x86, 0xa5, 0xa9, 0x67, 0x8d, 0x6b, 0xea, 0x7f, 0xf8, 0xcd, 0x9f, 0x00,
+	0x00, 0x00, 0xff, 0xff, 0x08, 0x18, 0x8e, 0x08, 0x9c, 0x07, 0x00, 0x00,
 }

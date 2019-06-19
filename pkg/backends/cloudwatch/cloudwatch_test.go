@@ -132,6 +132,7 @@ func TestSendMetricDimensions(t *testing.T) {
 
 }
 
+// nolint:dupl
 func metricsOneOfEach() *gostatsd.MetricMap {
 	return &gostatsd.MetricMap{
 		Counters: gostatsd.Counters{

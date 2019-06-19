@@ -25,7 +25,7 @@ server based on load. The server can also be run HA and be scaled out, see
 
 Building the server
 -------------------
-Gostatsd currently targets Go 1.10.2.  There are no known hard dependencies in the code beween 1.9 and 1.10.2, but some may be introduced in future.
+Gostatsd currently targets Go 1.12.3.  If you are compiling from source, please ensure you are running this version.
 
 From the `gostatsd` directory run `make build`. The binary will be built in `build/bin/<arch>/gostatsd`.
 
@@ -34,7 +34,7 @@ and again if the dependencies change.  A [protobuf](https://github.com/protocolb
 directory.  Managing this in a platform agnostic way is difficult, but PRs are welcome. Hopefully it will be sufficient to use the generated protobuf
 files in the majority of cases.
 
-If you are unable to build `gostatsd` please try running `make setup` again before reporting a bug.
+If you are unable to build `gostatsd` please check your go version, and try running `make setup` again before reporting a bug.
 
 Running the server
 ------------------
@@ -119,79 +119,18 @@ There is no capability to run an https server at this point in time, and no auth
 addresses).  You could also put a reverse proxy in front of the service.  Documentation for the endpoints can be found
 under HTTP.md
 
-Configuring backends and cloud providers
-----------------------------------------
-Backends and cloud providers are configured using `toml`, `json` or `yaml` configuration file
-passed via the `--config-path` flag. For all configuration options see source code of the backends you
-are interested in. Configuration file might look like this:
-```
-[graphite]
-	address = "192.168.99.100:2003"
+Configuring backends
+--------------------
+Refer to [BACKENDS.md] for configuration options for the backends
 
-[datadog]
-	api_key = "my-secret-key" # Datadog API key required.
+Cloud providers
+--------------
+Cloud providers are a way to automatically enrich metrics with metadata from a cloud vendor.  Currently only AWS is
+supported.  If enabled, the AWS cloudprovider will set the `host` to the instance id, collect all the EC2 tags, and
+the region.
 
-[statsdaemon]
-	address = "docker.local:8125"
-	disable_tags = false
-
-[aws]
-	max_retries = 4
-
-[newrelic]
-	address = "http://localhost:8001/v1/data"
-	event-type = "GoStatsD"
-	#see full configuration options further below
-```
-
-New Relic Backend
------------------------------
-Supports two routes for flushing metrics to New Relic.
-- Directly to the Insights Collector - [Insights Event API](https://docs.newrelic.com/docs/insights/insights-data-sources/custom-data/send-custom-events-event-api)
-- Via the Infrastructure Agent's inbuilt HTTP Server
-
-### [New Relic Insights Event API](https://docs.newrelic.com/docs/insights/insights-data-sources/custom-data/send-custom-events-event-api)
-Sending directly to the Event API alleviates the requirement of needing to have the New Relic Infrastructure Agent. Therefore you can run this from nearly anywhere for maximum flexibility. This also becomes a shorter data path with less resource requirements becoming a simpler setup.
-
-To use this method, create an Insert API Key from here: https://insights.newrelic.com/accounts/YOUR_ACCOUNT_ID/manage/api_keys
-
-```
-#Example configuration
-
-[newrelic]
-    address = "https://insights-collector.newrelic.com/v1/accounts/YOUR_ACCOUNT_ID/events"
-    api-key = "yourEventAPIInsertKey"
-```
-
-### [New Relic Infrastructure Agent](https://newrelic.com/products/infrastructure)
-Sending via the Infrastructure Agent's inbuilt HTTP server provides additional features, such as automatically applying additional metadata to the event the host may have such as AWS tags, instance type, host information, labels etc.
-
-The payload structure required to be accepted by the agent can be viewed [here.](https://github.com/newrelic/infra-integrations-sdk/blob/master/docs/v2tov3.md#v2-json-full-sample)
-
-To enable the HTTP server, modify /etc/newrelic.yml to include the below, and restart the agent ([Step 1.2](https://docs.newrelic.com/docs/integrations/host-integrations/host-integrations-list/statsd-monitoring-integration#install)).
-```
-http_server_enabled: true
-http_server_host: 127.0.0.1 #(default host)
-http_server_port: 8001 #(default port)
-```
-
-Additional options are available to rename attributes if required.
-```
-[newrelic]
-	tag-prefix = ""
-	metric-name = "name"
-	metric-type = "type"
-	per-second = "per_second"
-	value = "value"
-	timer-min = "min"
-	timer-max = "max"
-	timer-count = "samples_count"
-	timer-mean = "samples_mean"
-	timer-median = "samples_median"
-	timer-stddev = "samples_std_dev"
-	timer-sum = "samples_sum"
-	timer-sumsquare = "samples_sum_squares"
-```
+They should be disabled on the aggregation server when using http forwarding, as the source IP isn't propagated, and
+that information should be collected on the ingestion server.
 
 
 Configuring timer sub-metrics

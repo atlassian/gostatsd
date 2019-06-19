@@ -9,8 +9,7 @@ GOBUILD_VERSION_ARGS_WITH_SYMS := -ldflags "-X $(VERSION_VAR)=$(REPO_VERSION) -X
 BINARY_NAME := gostatsd
 IMAGE_NAME := atlassianlabs/$(BINARY_NAME)
 ARCH ?= $$(uname -s | tr A-Z a-z)
-METALINTER_CONCURRENCY ?= 4
-GOVERSION := 1.10.2
+GOVERSION := 1.12.3  # Keep in sync with .travis.yml
 GP := /gopath
 MAIN_PKG := github.com/atlassian/gostatsd/cmd/gostatsd
 CLUSTER_PKG := github.com/atlassian/gostatsd/cmd/cluster
@@ -28,8 +27,7 @@ tools/bin/protoc:
 
 setup-ci: tools/bin/protoc
 	go get -u github.com/Masterminds/glide
-	GO111MODULE=off go get -u github.com/alecthomas/gometalinter
-	GO111MODULE=off gometalinter --install
+	go get -u github.com/golangci/golangci-lint/cmd/golangci-lint
 	glide install --strip-vendor
 
 build-cluster: fmt
@@ -82,15 +80,13 @@ junit-test: build
 check: pb/gostatsd.pb.go
 	go install ./cmd/gostatsd
 	go install ./cmd/tester
-	gometalinter --concurrency=$(METALINTER_CONCURRENCY) --deadline=600s ./... --vendor \
-		--linter='errcheck:errcheck:-ignore=net:Close' --cyclo-over=20 \
-		--disable=interfacer --disable=golint --disable=gosec --dupl-threshold=200
+	golangci-lint run --deadline=600s --enable=gocyclo --enable=dupl \
+		--disable=interfacer --disable=golint
 
 check-all: pb/gostatsd.pb.go
 	go install ./cmd/gostatsd
 	go install ./cmd/tester
-	gometalinter --concurrency=$(METALINTER_CONCURRENCY) --deadline=600s ./... --vendor --cyclo-over=20 \
-		--dupl-threshold=65
+	golangci-lint run --deadline=600s --enable=gocyclo --enable=dupl
 
 fuzz-setup:
 	go get -v -u github.com/dvyukov/go-fuzz/go-fuzz

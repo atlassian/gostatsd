@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/sirupsen/logrus"
 )
@@ -28,19 +27,18 @@ func NewMetricMap() *MetricMap {
 }
 
 // Receive adds a single Metric to the MetricMap, and releases the Metric.
-func (mm *MetricMap) Receive(m *Metric, now time.Time) {
-	tagsKey := m.TagsKey
-	nowNano := Nanotime(now.UnixNano())
+func (mm *MetricMap) Receive(m *Metric) {
+	tagsKey := m.FormatTagsKey()
 
 	switch m.Type {
 	case COUNTER:
-		mm.receiveCounter(m, tagsKey, nowNano)
+		mm.receiveCounter(m, tagsKey)
 	case GAUGE:
-		mm.receiveGauge(m, tagsKey, nowNano)
+		mm.receiveGauge(m, tagsKey)
 	case TIMER:
-		mm.receiveTimer(m, tagsKey, nowNano)
+		mm.receiveTimer(m, tagsKey)
 	case SET:
-		mm.receiveSet(m, tagsKey, nowNano)
+		mm.receiveSet(m, tagsKey)
 	default:
 		logrus.StandardLogger().Errorf("Unknown metric type %s for %s", m.Type, m.Name)
 	}
@@ -131,58 +129,111 @@ func (mm *MetricMap) Merge(mmFrom *MetricMap) {
 	})
 }
 
-func (mm *MetricMap) receiveCounter(m *Metric, tagsKey string, now Nanotime) {
+func (mm *MetricMap) IsEmpty() bool {
+	return len(mm.Counters)+len(mm.Timers)+len(mm.Sets)+len(mm.Gauges) == 0
+}
+
+// Split will split a MetricMap up in to multiple MetricMaps, where each one contains metrics only for its buckets.
+func (mm *MetricMap) Split(count int) []*MetricMap {
+	maps := make([]*MetricMap, count)
+	for i := 0; i < count; i++ {
+		maps[i] = NewMetricMap()
+	}
+
+	mm.Counters.Each(func(metricName string, tagsKey string, c Counter) {
+		mmSplit := maps[Bucket(metricName, c.Hostname, count)]
+		if v, ok := mmSplit.Counters[metricName]; ok {
+			v[tagsKey] = c
+		} else {
+			mmSplit.Counters[metricName] = map[string]Counter{tagsKey: c}
+		}
+	})
+	mm.Gauges.Each(func(metricName string, tagsKey string, g Gauge) {
+		mmSplit := maps[Bucket(metricName, g.Hostname, count)]
+		if v, ok := mmSplit.Gauges[metricName]; ok {
+			v[tagsKey] = g
+		} else {
+			mmSplit.Gauges[metricName] = map[string]Gauge{tagsKey: g}
+		}
+	})
+	mm.Timers.Each(func(metricName string, tagsKey string, t Timer) {
+		mmSplit := maps[Bucket(metricName, t.Hostname, count)]
+		if v, ok := mmSplit.Timers[metricName]; ok {
+			v[tagsKey] = t
+		} else {
+			mmSplit.Timers[metricName] = map[string]Timer{tagsKey: t}
+		}
+	})
+	mm.Sets.Each(func(metricName string, tagsKey string, s Set) {
+		mmSplit := maps[Bucket(metricName, s.Hostname, count)]
+		if v, ok := mmSplit.Sets[metricName]; ok {
+			v[tagsKey] = s
+		} else {
+			mmSplit.Sets[metricName] = map[string]Set{tagsKey: s}
+		}
+	})
+
+	return maps
+}
+
+func (mm *MetricMap) receiveCounter(m *Metric, tagsKey string) {
 	value := int64(m.Value / m.Rate)
 	v, ok := mm.Counters[m.Name]
 	if ok {
 		c, ok := v[tagsKey]
 		if ok {
 			c.Value += value
-			c.Timestamp = now
+			if m.Timestamp > c.Timestamp {
+				c.Timestamp = m.Timestamp
+			}
 		} else {
-			c = NewCounter(now, value, m.Hostname, m.Tags)
+			c = NewCounter(m.Timestamp, value, m.Hostname, m.Tags)
 		}
 		v[tagsKey] = c
 	} else {
 		mm.Counters[m.Name] = map[string]Counter{
-			tagsKey: NewCounter(now, value, m.Hostname, m.Tags),
+			tagsKey: NewCounter(m.Timestamp, value, m.Hostname, m.Tags),
 		}
 	}
 }
 
-func (mm *MetricMap) receiveGauge(m *Metric, tagsKey string, now Nanotime) {
+func (mm *MetricMap) receiveGauge(m *Metric, tagsKey string) {
 	v, ok := mm.Gauges[m.Name]
 	if ok {
 		g, ok := v[tagsKey]
 		if ok {
-			g.Value = m.Value
-			g.Timestamp = now
+			if m.Timestamp > g.Timestamp {
+				g.Value = m.Value
+				g.Timestamp = m.Timestamp
+			}
 		} else {
-			g = NewGauge(now, m.Value, m.Hostname, m.Tags)
+			g = NewGauge(m.Timestamp, m.Value, m.Hostname, m.Tags)
 		}
 		v[tagsKey] = g
 	} else {
 		mm.Gauges[m.Name] = map[string]Gauge{
-			tagsKey: NewGauge(now, m.Value, m.Hostname, m.Tags),
+			tagsKey: NewGauge(m.Timestamp, m.Value, m.Hostname, m.Tags),
 		}
 	}
 }
 
-func (mm *MetricMap) receiveTimer(m *Metric, tagsKey string, now Nanotime) {
+func (mm *MetricMap) receiveTimer(m *Metric, tagsKey string) {
 	v, ok := mm.Timers[m.Name]
 	if ok {
 		t, ok := v[tagsKey]
 		if ok {
 			t.Values = append(t.Values, m.Value)
-			t.Timestamp = now
+			if m.Timestamp > t.Timestamp {
+				t.Timestamp = m.Timestamp
+			}
 			t.SampledCount += 1.0 / m.Rate
 		} else {
-			t = NewTimer(now, []float64{m.Value}, m.Hostname, m.Tags)
+			t = NewTimer(m.Timestamp, []float64{m.Value}, m.Hostname, m.Tags)
 			t.SampledCount = 1.0 / m.Rate
 		}
 		v[tagsKey] = t
 	} else {
-		t := NewTimer(now, []float64{m.Value}, m.Hostname, m.Tags)
+		t := NewTimer(m.Timestamp, []float64{m.Value}, m.Hostname, m.Tags)
 		t.SampledCount = 1.0 / m.Rate
 
 		mm.Timers[m.Name] = map[string]Timer{
@@ -191,20 +242,22 @@ func (mm *MetricMap) receiveTimer(m *Metric, tagsKey string, now Nanotime) {
 	}
 }
 
-func (mm *MetricMap) receiveSet(m *Metric, tagsKey string, now Nanotime) {
+func (mm *MetricMap) receiveSet(m *Metric, tagsKey string) {
 	v, ok := mm.Sets[m.Name]
 	if ok {
 		s, ok := v[tagsKey]
 		if ok {
 			s.Values[m.StringValue] = struct{}{}
-			s.Timestamp = now
+			if m.Timestamp > s.Timestamp {
+				s.Timestamp = m.Timestamp
+			}
 		} else {
-			s = NewSet(now, map[string]struct{}{m.StringValue: {}}, m.Hostname, m.Tags)
+			s = NewSet(m.Timestamp, map[string]struct{}{m.StringValue: {}}, m.Hostname, m.Tags)
 		}
 		v[tagsKey] = s
 	} else {
 		mm.Sets[m.Name] = map[string]Set{
-			tagsKey: NewSet(now, map[string]struct{}{m.StringValue: {}}, m.Hostname, m.Tags),
+			tagsKey: NewSet(m.Timestamp, map[string]struct{}{m.StringValue: {}}, m.Hostname, m.Tags),
 		}
 	}
 }
@@ -212,48 +265,52 @@ func (mm *MetricMap) receiveSet(m *Metric, tagsKey string, now Nanotime) {
 func (mm *MetricMap) String() string {
 	buf := new(bytes.Buffer)
 	mm.Counters.Each(func(k, tags string, counter Counter) {
-		fmt.Fprintf(buf, "stats.counter.%s: %d tags=%s\n", k, counter.Value, tags)
+		_, _ = fmt.Fprintf(buf, "stats.counter.%s: %d tags=%s\n", k, counter.Value, tags)
 	})
 	mm.Timers.Each(func(k, tags string, timer Timer) {
 		for _, value := range timer.Values {
-			fmt.Fprintf(buf, "stats.timer.%s: %f tags=%s\n", k, value, tags)
+			_, _ = fmt.Fprintf(buf, "stats.timer.%s: %f tags=%s\n", k, value, tags)
 		}
 	})
 	mm.Gauges.Each(func(k, tags string, gauge Gauge) {
-		fmt.Fprintf(buf, "stats.gauge.%s: %f tags=%s\n", k, gauge.Value, tags)
+		_, _ = fmt.Fprintf(buf, "stats.gauge.%s: %f tags=%s\n", k, gauge.Value, tags)
 	})
 	mm.Sets.Each(func(k, tags string, set Set) {
-		fmt.Fprintf(buf, "stats.set.%s: %d tags=%s\n", k, len(set.Values), tags)
+		_, _ = fmt.Fprintf(buf, "stats.set.%s: %d tags=%s\n", k, len(set.Values), tags)
 	})
 	return buf.String()
 }
 
 // DispatchMetrics will synthesize Metrics from the MetricMap and push them to the supplied PipelineHandler
 func (mm *MetricMap) DispatchMetrics(ctx context.Context, handler RawMetricHandler) {
+	var metrics []*Metric
+
 	mm.Counters.Each(func(metricName string, tagsKey string, c Counter) {
 		m := &Metric{
-			Name:     metricName,
-			Type:     COUNTER,
-			Value:    float64(c.Value),
-			Rate:     1,
-			Tags:     c.Tags.Copy(),
-			TagsKey:  tagsKey,
-			Hostname: c.Hostname,
+			Name:      metricName,
+			Type:      COUNTER,
+			Value:     float64(c.Value),
+			Rate:      1,
+			Tags:      c.Tags.Copy(),
+			TagsKey:   tagsKey,
+			Timestamp: c.Timestamp,
+			Hostname:  c.Hostname,
 		}
-		handler.DispatchMetric(ctx, m)
+		metrics = append(metrics, m)
 	})
 
 	mm.Gauges.Each(func(metricName string, tagsKey string, g Gauge) {
 		m := &Metric{
-			Name:     metricName,
-			Type:     GAUGE,
-			Value:    g.Value,
-			Rate:     1,
-			Tags:     g.Tags.Copy(),
-			TagsKey:  tagsKey,
-			Hostname: g.Hostname,
+			Name:      metricName,
+			Type:      GAUGE,
+			Value:     g.Value,
+			Rate:      1,
+			Tags:      g.Tags.Copy(),
+			TagsKey:   tagsKey,
+			Timestamp: g.Timestamp,
+			Hostname:  g.Hostname,
 		}
-		handler.DispatchMetric(ctx, m)
+		metrics = append(metrics, m)
 	})
 
 	mm.Timers.Each(func(metricName string, tagsKey string, t Timer) {
@@ -262,15 +319,16 @@ func (mm *MetricMap) DispatchMetrics(ctx context.Context, handler RawMetricHandl
 		rate := float64(len(t.Values)) / t.SampledCount
 		for _, value := range t.Values {
 			m := &Metric{
-				Name:     metricName,
-				Type:     TIMER,
-				Value:    value,
-				Rate:     rate,
-				Tags:     t.Tags.Copy(),
-				TagsKey:  tagsKey,
-				Hostname: t.Hostname,
+				Name:      metricName,
+				Type:      TIMER,
+				Value:     value,
+				Rate:      rate,
+				Tags:      t.Tags.Copy(),
+				TagsKey:   tagsKey,
+				Timestamp: t.Timestamp,
+				Hostname:  t.Hostname,
 			}
-			handler.DispatchMetric(ctx, m)
+			metrics = append(metrics, m)
 		}
 	})
 
@@ -283,9 +341,12 @@ func (mm *MetricMap) DispatchMetrics(ctx context.Context, handler RawMetricHandl
 				Rate:        1.0,
 				Tags:        s.Tags.Copy(),
 				TagsKey:     tagsKey,
+				Timestamp:   s.Timestamp,
 				Hostname:    s.Hostname,
 			}
-			handler.DispatchMetric(ctx, m)
+			metrics = append(metrics, m)
 		}
 	})
+
+	handler.DispatchMetrics(ctx, metrics)
 }

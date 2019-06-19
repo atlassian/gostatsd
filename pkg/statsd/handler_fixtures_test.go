@@ -8,16 +8,21 @@ import (
 )
 
 type capturingHandler struct {
-	m []*gostatsd.Metric
-	e []*gostatsd.Event
+	m  []*gostatsd.Metric
+	mm []*gostatsd.MetricMap
+	e  []*gostatsd.Event
 }
 
 func (tch *capturingHandler) EstimatedTags() int {
 	return 0
 }
 
-func (tch *capturingHandler) DispatchMetric(ctx context.Context, m *gostatsd.Metric) {
-	tch.m = append(tch.m, m)
+func (tch *capturingHandler) DispatchMetrics(ctx context.Context, metrics []*gostatsd.Metric) {
+	tch.m = append(tch.m, metrics...)
+}
+
+func (tch *capturingHandler) DispatchMetricMap(ctx context.Context, metrics *gostatsd.MetricMap) {
+	tch.mm = append(tch.mm, metrics)
 }
 
 func (tch *capturingHandler) DispatchEvent(ctx context.Context, e *gostatsd.Event) {
@@ -33,7 +38,10 @@ func (nh *nopHandler) EstimatedTags() int {
 	return 0
 }
 
-func (nh *nopHandler) DispatchMetric(ctx context.Context, m *gostatsd.Metric) {
+func (nh *nopHandler) DispatchMetrics(ctx context.Context, m []*gostatsd.Metric) {
+}
+
+func (nh *nopHandler) DispatchMetricMap(ctx context.Context, mm *gostatsd.MetricMap) {
 }
 
 func (nh *nopHandler) DispatchEvent(ctx context.Context, e *gostatsd.Event) {
@@ -52,11 +60,18 @@ func (ch *countingHandler) EstimatedTags() int {
 	return 0
 }
 
-func (ch *countingHandler) DispatchMetric(ctx context.Context, m *gostatsd.Metric) {
-	m.DoneFunc = nil // Clear DoneFunc because it contains non-predictable variable data which interferes with the tests
+func (ch *countingHandler) DispatchMetrics(ctx context.Context, metrics []*gostatsd.Metric) {
 	ch.mu.Lock()
 	defer ch.mu.Unlock()
-	ch.metrics = append(ch.metrics, *m)
+	for _, m := range metrics {
+		m.DoneFunc = nil // Clear DoneFunc because it contains non-predictable variable data which interferes with the tests
+		ch.metrics = append(ch.metrics, *m)
+	}
+}
+
+// DispatchMetricMap re-dispatches a metric map through BackendHandler.DispatchMetrics
+func (ch *countingHandler) DispatchMetricMap(ctx context.Context, mm *gostatsd.MetricMap) {
+	mm.DispatchMetrics(ctx, ch)
 }
 
 func (ch *countingHandler) DispatchEvent(ctx context.Context, e *gostatsd.Event) {

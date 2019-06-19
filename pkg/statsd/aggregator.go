@@ -23,13 +23,14 @@ type percentStruct struct {
 
 // MetricAggregator aggregates metrics.
 type MetricAggregator struct {
-	metricsReceived   uint64
-	expiryInterval    time.Duration // How often to expire metrics
-	percentThresholds map[float64]percentStruct
-	now               func() time.Time // Returns current time. Useful for testing.
-	statser           stats.Statser
-	disabledSubtypes  gostatsd.TimerSubtypes
-	metricMap         *gostatsd.MetricMap
+	metricsReceived    uint64
+	metricMapsReceived uint64
+	expiryInterval     time.Duration // How often to expire metrics
+	percentThresholds  map[float64]percentStruct
+	now                func() time.Time // Returns current time. Useful for testing.
+	statser            stats.Statser
+	disabledSubtypes   gostatsd.TimerSubtypes
+	metricMap          *gostatsd.MetricMap
 }
 
 // NewMetricAggregator creates a new MetricAggregator object.
@@ -65,6 +66,7 @@ func round(v float64) float64 {
 // Flush prepares the contents of a MetricAggregator for sending via the Sender.
 func (a *MetricAggregator) Flush(flushInterval time.Duration) {
 	a.statser.Gauge("aggregator.metrics_received", float64(a.metricsReceived), nil)
+	a.statser.Gauge("aggregator.metricmaps_received", float64(a.metricMapsReceived), nil)
 
 	flushInSeconds := float64(flushInterval) / float64(time.Second)
 
@@ -249,7 +251,14 @@ func (a *MetricAggregator) Reset() {
 }
 
 // Receive aggregates an incoming metric.
-func (a *MetricAggregator) Receive(m *gostatsd.Metric, now time.Time) {
-	a.metricsReceived++
-	a.metricMap.Receive(m, now)
+func (a *MetricAggregator) Receive(ms ...*gostatsd.Metric) {
+	a.metricsReceived += uint64(len(ms))
+	for _, m := range ms {
+		a.metricMap.Receive(m)
+	}
+}
+
+func (a *MetricAggregator) ReceiveMap(mm *gostatsd.MetricMap) {
+	a.metricMapsReceived++
+	a.metricMap.Merge(mm)
 }

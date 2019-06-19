@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 	"regexp"
+	"strings"
 	"sync"
 	"time"
 
@@ -37,8 +38,8 @@ const (
 	DefaultPrefixSet = "sets"
 	// DefaultGlobalSuffix is the default global suffix.
 	DefaultGlobalSuffix = ""
-	// DefaultLegacyNamespace controls whether legacy namespace should be used by default.
-	DefaultLegacyNamespace = true
+	// DefaultMode controls whether to use legacy namespace, no tags, or tags
+	DefaultMode = "tags"
 )
 
 const (
@@ -53,29 +54,16 @@ var (
 	regNonAlphaNum = regexp.MustCompile(`[^a-zA-Z\d_.-]`)
 )
 
-// Config holds configuration for the Graphite backend.
-type Config struct {
-	Address         *string
-	DialTimeout     *time.Duration
-	WriteTimeout    *time.Duration
-	GlobalPrefix    *string
-	PrefixCounter   *string
-	PrefixTimer     *string
-	PrefixGauge     *string
-	PrefixSet       *string
-	GlobalSuffix    *string
-	LegacyNamespace *bool
-}
-
 // Client is an object that is used to send messages to a Graphite server's TCP interface.
 type Client struct {
 	sender           sender.Sender
-	counterNamespace string
+	counterNamespace string // all strings have . stripped off start and end, and are normalized.
 	timerNamespace   string
 	gaugesNamespace  string
 	setsNamespace    string
 	globalSuffix     string
 	legacyNamespace  bool
+	enableTags       bool
 	disabledSubtypes gostatsd.TimerSubtypes
 }
 
@@ -97,60 +85,114 @@ func (client *Client) SendMetricsAsync(ctx context.Context, metrics *gostatsd.Me
 	}
 }
 
+// normalizeMetricName will:
+// - Replace:
+// -- whitespace with "_"
+// -- "/" with "-"
+// - Delete:
+// -- any character that is non alphanumeric, "_", ".", or "-"
+func normalizeMetricName(s string) string {
+	r1 := regWhitespace.ReplaceAllLiteral([]byte(s), []byte{'_'})
+	r2 := bytes.Replace(r1, []byte{'/'}, []byte{'-'}, -1)
+	return string(regNonAlphaNum.ReplaceAllLiteral(r2, nil))
+}
+
+// asGraphiteTag will convert a `key:value` or `value` tag to `key=value` or `unnamed=value`
+func asGraphiteTag(tag string) string {
+	if strings.Contains(tag, ":") {
+		return strings.Replace(tag, ":", "=", 1)
+	}
+	return "unnamed=" + tag
+}
+
+// prepareName will create a metric name, handling correct prefix, suffixes, and tags, with an optional host tag if
+// not overridden by a tag on the metric.
+func (client *Client) prepareName(namespace, name, suffix, hostname string, tags gostatsd.Tags) string {
+	buf := bytes.Buffer{}
+	if namespace != "" {
+		buf.WriteString(namespace)
+		buf.WriteByte('.')
+	}
+	buf.WriteString(normalizeMetricName(name))
+	if suffix != "" {
+		buf.WriteByte('.')
+		buf.WriteString(suffix)
+	}
+	if client.globalSuffix != "" {
+		buf.WriteByte('.')
+		buf.WriteString(client.globalSuffix)
+	}
+
+	if client.enableTags {
+		haveHost := false
+		for _, tag := range tags {
+			graphiteTag := asGraphiteTag(tag)
+			buf.WriteByte(';')
+			buf.WriteString(graphiteTag)
+			if strings.HasPrefix(tag, "host:") {
+				haveHost = true
+			}
+		}
+		if !haveHost && hostname != "" {
+			buf.WriteString(";host=")
+			buf.WriteString(hostname)
+		}
+	}
+
+	return buf.String()
+}
+
 func (client *Client) preparePayload(metrics *gostatsd.MetricMap, ts time.Time) *bytes.Buffer {
 	buf := client.sender.GetBuffer()
 	now := ts.Unix()
 	if client.legacyNamespace {
 		metrics.Counters.Each(func(key, tagsKey string, counter gostatsd.Counter) {
-			k := sk(key)
-			fmt.Fprintf(buf, "stats_counts.%s%s %d %d\n", k, client.globalSuffix, counter.Value, now)                   // #nosec
-			fmt.Fprintf(buf, "%s%s%s %f %d\n", client.counterNamespace, k, client.globalSuffix, counter.PerSecond, now) // #nosec
+			_, _ = fmt.Fprintf(buf, "%s %d %d\n", client.prepareName("stats_counts", key, "", counter.Hostname, counter.Tags), counter.Value, now)
+			_, _ = fmt.Fprintf(buf, "%s %f %d\n", client.prepareName(client.counterNamespace, key, "", counter.Hostname, counter.Tags), counter.PerSecond, now)
 		})
 	} else {
 		metrics.Counters.Each(func(key, tagsKey string, counter gostatsd.Counter) {
-			k := sk(key)
-			fmt.Fprintf(buf, "%s%s.count%s %d %d\n", client.counterNamespace, k, client.globalSuffix, counter.Value, now)    // #nosec
-			fmt.Fprintf(buf, "%s%s.rate%s %f %d\n", client.counterNamespace, k, client.globalSuffix, counter.PerSecond, now) // #nosec
+			_, _ = fmt.Fprintf(buf, "%s %d %d\n", client.prepareName(client.counterNamespace, key, "count", counter.Hostname, counter.Tags), counter.Value, now)
+			_, _ = fmt.Fprintf(buf, "%s %f %d\n", client.prepareName(client.counterNamespace, key, "rate", counter.Hostname, counter.Tags), counter.PerSecond, now)
 		})
 	}
 	metrics.Timers.Each(func(key, tagsKey string, timer gostatsd.Timer) {
-		k := sk(key)
 		if !client.disabledSubtypes.Lower {
-			fmt.Fprintf(buf, "%s%s.lower%s %f %d\n", client.timerNamespace, k, client.globalSuffix, timer.Min, now) // #nosec
+			_, _ = fmt.Fprintf(buf, "%s %f %d\n", client.prepareName(client.timerNamespace, key, "lower", timer.Hostname, timer.Tags), timer.Min, now)
 		}
 		if !client.disabledSubtypes.Upper {
-			fmt.Fprintf(buf, "%s%s.upper%s %f %d\n", client.timerNamespace, k, client.globalSuffix, timer.Max, now) // #nosec
+			_, _ = fmt.Fprintf(buf, "%s %f %d\n", client.prepareName(client.timerNamespace, key, "upper", timer.Hostname, timer.Tags), timer.Max, now)
 		}
 		if !client.disabledSubtypes.Count {
-			fmt.Fprintf(buf, "%s%s.count%s %d %d\n", client.timerNamespace, k, client.globalSuffix, timer.Count, now) // #nosec
+			_, _ = fmt.Fprintf(buf, "%s %d %d\n", client.prepareName(client.timerNamespace, key, "count", timer.Hostname, timer.Tags), timer.Count, now)
 		}
 		if !client.disabledSubtypes.CountPerSecond {
-			fmt.Fprintf(buf, "%s%s.count_ps%s %f %d\n", client.timerNamespace, k, client.globalSuffix, timer.PerSecond, now) // #nosec
+			_, _ = fmt.Fprintf(buf, "%s %f %d\n", client.prepareName(client.timerNamespace, key, "count_ps", timer.Hostname, timer.Tags), timer.PerSecond, now)
 		}
 		if !client.disabledSubtypes.Mean {
-			fmt.Fprintf(buf, "%s%s.mean%s %f %d\n", client.timerNamespace, k, client.globalSuffix, timer.Mean, now) // #nosec
+			_, _ = fmt.Fprintf(buf, "%s %f %d\n", client.prepareName(client.timerNamespace, key, "mean", timer.Hostname, timer.Tags), timer.Mean, now)
 		}
 		if !client.disabledSubtypes.Median {
-			fmt.Fprintf(buf, "%s%s.median%s %f %d\n", client.timerNamespace, k, client.globalSuffix, timer.Median, now) // #nosec
+			_, _ = fmt.Fprintf(buf, "%s %f %d\n", client.prepareName(client.timerNamespace, key, "median", timer.Hostname, timer.Tags), timer.Median, now)
 		}
 		if !client.disabledSubtypes.StdDev {
-			fmt.Fprintf(buf, "%s%s.std%s %f %d\n", client.timerNamespace, k, client.globalSuffix, timer.StdDev, now) // #nosec
+			_, _ = fmt.Fprintf(buf, "%s %f %d\n", client.prepareName(client.timerNamespace, key, "std", timer.Hostname, timer.Tags), timer.StdDev, now)
 		}
 		if !client.disabledSubtypes.Sum {
-			fmt.Fprintf(buf, "%s%s.sum%s %f %d\n", client.timerNamespace, k, client.globalSuffix, timer.Sum, now) // #nosec
+			_, _ = fmt.Fprintf(buf, "%s %f %d\n", client.prepareName(client.timerNamespace, key, "sum", timer.Hostname, timer.Tags), timer.Sum, now)
 		}
 		if !client.disabledSubtypes.SumSquares {
-			fmt.Fprintf(buf, "%s%s.sum_squares%s %f %d\n", client.timerNamespace, k, client.globalSuffix, timer.SumSquares, now) // #nosec
+			_, _ = fmt.Fprintf(buf, "%s %f %d\n", client.prepareName(client.timerNamespace, key, "sum_squares", timer.Hostname, timer.Tags), timer.SumSquares, now)
 		}
 		for _, pct := range timer.Percentiles {
-			fmt.Fprintf(buf, "%s%s.%s%s %f %d\n", client.timerNamespace, k, pct.Str, client.globalSuffix, pct.Float, now) // #nosec
+			_, _ = fmt.Fprintf(buf, "%s %f %d\n", client.prepareName(client.timerNamespace, key, pct.Str, timer.Hostname, timer.Tags), pct.Float, now)
 		}
 	})
 	metrics.Gauges.Each(func(key, tagsKey string, gauge gostatsd.Gauge) {
-		fmt.Fprintf(buf, "%s%s%s %f %d\n", client.gaugesNamespace, sk(key), client.globalSuffix, gauge.Value, now) // #nosec
+		_, _ = fmt.Fprintf(buf, "%s %f %d\n", client.prepareName(client.gaugesNamespace, key, "", gauge.Hostname, gauge.Tags), gauge.Value, now)
 	})
 	metrics.Sets.Each(func(key, tagsKey string, set gostatsd.Set) {
-		fmt.Fprintf(buf, "%s%s%s %d %d\n", client.setsNamespace, sk(key), client.globalSuffix, len(set.Values), now) // #nosec
+		_, _ = fmt.Fprintf(buf, "%s %d %d\n", client.prepareName(client.setsNamespace, key, "", set.Hostname, set.Tags), len(set.Values), now)
 	})
 	return buf
 }
@@ -165,7 +207,7 @@ func (client *Client) Name() string {
 	return BackendName
 }
 
-// NewClientFromViper constructs a GraphiteClient object by connecting to an address.
+// NewClientFromViper constructs a Client object using configuration provided by Viper
 func NewClientFromViper(v *viper.Viper) (gostatsd.Backend, error) {
 	g := getSubViper(v, "graphite")
 	g.SetDefault("address", DefaultAddress)
@@ -177,59 +219,96 @@ func NewClientFromViper(v *viper.Viper) (gostatsd.Backend, error) {
 	g.SetDefault("prefix_gauge", DefaultPrefixGauge)
 	g.SetDefault("prefix_set", DefaultPrefixSet)
 	g.SetDefault("global_suffix", DefaultGlobalSuffix)
-	g.SetDefault("legacy_namespace", DefaultLegacyNamespace)
-	return NewClient(&Config{
-		Address:         addr(g.GetString("address")),
-		DialTimeout:     addrD(g.GetDuration("dial_timeout")),
-		WriteTimeout:    addrD(g.GetDuration("write_timeout")),
-		GlobalPrefix:    addr(g.GetString("global_prefix")),
-		PrefixCounter:   addr(g.GetString("prefix_counter")),
-		PrefixTimer:     addr(g.GetString("prefix_timer")),
-		PrefixGauge:     addr(g.GetString("prefix_gauge")),
-		PrefixSet:       addr(g.GetString("prefix_set")),
-		GlobalSuffix:    addr(g.GetString("global_suffix")),
-		LegacyNamespace: addrB(g.GetBool("legacy_namespace")),
-	}, gostatsd.DisabledSubMetrics(v))
+	g.SetDefault("mode", DefaultMode)
+	return NewClient(
+		g.GetString("address"),
+		g.GetDuration("dial_timeout"),
+		g.GetDuration("write_timeout"),
+		g.GetString("global_prefix"),
+		g.GetString("prefix_counter"),
+		g.GetString("prefix_timer"),
+		g.GetString("prefix_gauge"),
+		g.GetString("prefix_set"),
+		g.GetString("global_suffix"),
+		g.GetString("mode"),
+		gostatsd.DisabledSubMetrics(v),
+	)
 }
 
 // NewClient constructs a Graphite backend object.
-func NewClient(config *Config, disabled gostatsd.TimerSubtypes) (*Client, error) {
-	address := getOrDefaultStr(config.Address, DefaultAddress)
+func NewClient(
+	address string,
+	dialTimeout time.Duration,
+	writeTimeout time.Duration,
+	globalPrefix string,
+	prefixCounter string,
+	prefixTimer string,
+	prefixGauge string,
+	prefixSet string,
+	globalSuffix string,
+	mode string,
+	disabled gostatsd.TimerSubtypes,
+) (*Client, error) {
 	if address == "" {
 		return nil, fmt.Errorf("[%s] address is required", BackendName)
 	}
-	dialTimeout := getOrDefaultDur(config.DialTimeout, DefaultDialTimeout)
 	if dialTimeout <= 0 {
 		return nil, fmt.Errorf("[%s] dialTimeout should be positive", BackendName)
 	}
-	writeTimeout := getOrDefaultDur(config.WriteTimeout, DefaultWriteTimeout)
 	if writeTimeout < 0 {
 		return nil, fmt.Errorf("[%s] writeTimeout should be non-negative", BackendName)
 	}
-	globalSuffix := getOrDefaultStr(config.GlobalSuffix, DefaultGlobalSuffix)
-	if globalSuffix != "" {
-		globalSuffix = `.` + globalSuffix
+	globalSuffix = strings.Trim(globalSuffix, ".")
+
+	var legacyNamespace, enableTags bool
+	switch mode {
+	case "legacy":
+		legacyNamespace = true
+		enableTags = false
+	case "basic":
+		legacyNamespace = false
+		enableTags = false
+	case "tags":
+		legacyNamespace = false
+		enableTags = true
+	default:
+		return nil, fmt.Errorf("[%s] mode must be one of 'legacy', 'basic', or 'tags'", BackendName)
 	}
+
 	var counterNamespace, timerNamespace, gaugesNamespace, setsNamespace string
-	var legacyNamespace bool
-	if config.LegacyNamespace != nil {
-		legacyNamespace = *config.LegacyNamespace
-	} else {
-		legacyNamespace = DefaultLegacyNamespace
-	}
+
 	if legacyNamespace {
-		counterNamespace = DefaultGlobalPrefix + `.`
-		timerNamespace = DefaultGlobalPrefix + ".timers."
-		gaugesNamespace = DefaultGlobalPrefix + ".gauges."
-		setsNamespace = DefaultGlobalPrefix + ".sets."
+		counterNamespace = DefaultGlobalPrefix
+		timerNamespace = combine(DefaultGlobalPrefix, "timers")
+		gaugesNamespace = combine(DefaultGlobalPrefix, "gauges")
+		setsNamespace = combine(DefaultGlobalPrefix, "sets")
 	} else {
-		globalPrefix := getOrDefaultPrefix(config.GlobalPrefix, DefaultGlobalPrefix)
-		counterNamespace = globalPrefix + getOrDefaultPrefix(config.PrefixCounter, DefaultPrefixCounter)
-		timerNamespace = globalPrefix + getOrDefaultPrefix(config.PrefixTimer, DefaultPrefixTimer)
-		gaugesNamespace = globalPrefix + getOrDefaultPrefix(config.PrefixGauge, DefaultPrefixGauge)
-		setsNamespace = globalPrefix + getOrDefaultPrefix(config.PrefixSet, DefaultPrefixSet)
+		globalPrefix := globalPrefix
+		counterNamespace = combine(globalPrefix, prefixCounter)
+		timerNamespace = combine(globalPrefix, prefixTimer)
+		gaugesNamespace = combine(globalPrefix, prefixGauge)
+		setsNamespace = combine(globalPrefix, prefixSet)
 	}
-	log.Infof("[%s] address=%s dialTimeout=%s writeTimeout=%s", BackendName, address, dialTimeout, writeTimeout)
+
+	counterNamespace = normalizeMetricName(counterNamespace)
+	timerNamespace = normalizeMetricName(timerNamespace)
+	gaugesNamespace = normalizeMetricName(gaugesNamespace)
+	setsNamespace = normalizeMetricName(setsNamespace)
+	globalSuffix = normalizeMetricName(globalSuffix)
+
+	log.Infof("[%s] address=%s dialTimeout=%s writeTimeout=%s counterNamespace=%s timerNamespace=%s gaugesNamespace=%s setsNamespace=%s globalSuffix=%s mode=%s",
+		BackendName,
+		address,
+		dialTimeout,
+		writeTimeout,
+		counterNamespace,
+		timerNamespace,
+		gaugesNamespace,
+		setsNamespace,
+		globalSuffix,
+		mode,
+	)
+
 	return &Client{
 		sender: sender.Sender{
 			ConnFactory: func() (net.Conn, error) {
@@ -251,48 +330,21 @@ func NewClient(config *Config, disabled gostatsd.TimerSubtypes) (*Client, error)
 		setsNamespace:    setsNamespace,
 		globalSuffix:     globalSuffix,
 		legacyNamespace:  legacyNamespace,
+		enableTags:       enableTags,
 		disabledSubtypes: disabled,
 	}, nil
 }
 
-func getOrDefaultPrefix(val *string, def string) string {
-	v := getOrDefaultStr(val, def)
-	if v != "" {
-		return v + `.`
+func combine(prefix, suffix string) string {
+	prefix = strings.Trim(prefix, ".")
+	suffix = strings.Trim(suffix, ".")
+	if prefix != "" && suffix != "" {
+		return prefix + "." + suffix
 	}
-	return ""
-}
-
-func getOrDefaultStr(val *string, def string) string {
-	if val != nil {
-		return *val
+	if prefix != "" {
+		return prefix
 	}
-	return def
-}
-
-func getOrDefaultDur(val *time.Duration, def time.Duration) time.Duration {
-	if val != nil {
-		return *val
-	}
-	return def
-}
-
-func sk(s string) []byte {
-	r1 := regWhitespace.ReplaceAllLiteral([]byte(s), []byte{'_'})
-	r2 := bytes.Replace(r1, []byte{'/'}, []byte{'-'}, -1)
-	return regNonAlphaNum.ReplaceAllLiteral(r2, nil)
-}
-
-func addr(s string) *string {
-	return &s
-}
-
-func addrB(b bool) *bool {
-	return &b
-}
-
-func addrD(d time.Duration) *time.Duration {
-	return &d
+	return suffix
 }
 
 func getSubViper(v *viper.Viper, key string) *viper.Viper {

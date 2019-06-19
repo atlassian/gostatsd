@@ -16,7 +16,9 @@ type traceProfiler struct {
 func (tp *traceProfiler) Trace(w http.ResponseWriter, r *http.Request) {
 	tp.mutex.Lock()
 	defer tp.mutex.Unlock()
-	trace.Start(w)
+	if err := trace.Start(w); err != nil {
+		return
+	}
 	defer trace.Stop()
 	time.Sleep(30 * time.Second)
 }
@@ -24,7 +26,9 @@ func (tp *traceProfiler) Trace(w http.ResponseWriter, r *http.Request) {
 func (tp *traceProfiler) PProf(w http.ResponseWriter, r *http.Request) {
 	tp.mutex.Lock()
 	defer tp.mutex.Unlock()
-	pprof.StartCPUProfile(w)
+	if err := pprof.StartCPUProfile(w); err != nil {
+		return
+	}
 	defer pprof.StopCPUProfile()
 	time.Sleep(30 * time.Second)
 }
@@ -33,5 +37,5 @@ func (tp *traceProfiler) MemProf(w http.ResponseWriter, r *http.Request) {
 	tp.mutex.Lock()
 	defer tp.mutex.Unlock()
 	runtime.GC()
-	pprof.Lookup("heap").WriteTo(w, 0)
+	_ = pprof.Lookup("heap").WriteTo(w, 0)
 }

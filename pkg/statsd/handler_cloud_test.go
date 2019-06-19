@@ -40,7 +40,7 @@ func BenchmarkCloudHandlerDispatchMetric(b *testing.B) {
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
 			m := sm1()
-			ch.DispatchMetric(ctxBackground, &m)
+			ch.DispatchMetrics(ctxBackground, []*gostatsd.Metric{&m})
 		}
 	})
 }
@@ -76,14 +76,14 @@ func TestTransientInstanceFailure(t *testing.T) {
 	m2 := sm1()
 
 	// t+0: prime the cache
-	ch.DispatchMetric(ctx, &m1)
+	ch.DispatchMetrics(ctx, []*gostatsd.Metric{&m1})
 
 	time.Sleep(50 * time.Millisecond)
 	// t+50: refresh
 	time.Sleep(50 * time.Millisecond)
 
 	// t+100ms: read from cache, must still be valid
-	ch.DispatchMetric(ctx, &m2)
+	ch.DispatchMetrics(ctx, []*gostatsd.Metric{&m2})
 
 	cancelFunc()
 	wg.Wait()
@@ -111,7 +111,7 @@ func TestCloudHandlerExpirationAndRefresh(t *testing.T) {
 	t.Run("1.2.3.4", func(t *testing.T) {
 		testExpire(t, []gostatsd.IP{"1.2.3.4", "1.2.3.4"}, func(h *CloudHandler) {
 			m := sm1()
-			h.DispatchMetric(context.Background(), &m)
+			h.DispatchMetrics(context.Background(), []*gostatsd.Metric{&m})
 		})
 	})
 }
@@ -228,10 +228,10 @@ func doCheck(t *testing.T, cloud gostatsd.CloudProvider, m1 gostatsd.Metric, e1 
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	defer cancelFunc()
 	wg.StartWithContext(ctx, ch.Run)
-	ch.DispatchMetric(ctx, &m1)
+	ch.DispatchMetrics(ctx, []*gostatsd.Metric{&m1})
 	ch.DispatchEvent(ctx, &e1)
 	time.Sleep(1 * time.Second)
-	ch.DispatchMetric(ctx, &m2)
+	ch.DispatchMetrics(ctx, []*gostatsd.Metric{&m2})
 	ch.DispatchEvent(ctx, &e2)
 	time.Sleep(1 * time.Second)
 	cancelFunc()

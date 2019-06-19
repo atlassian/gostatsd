@@ -1,3 +1,49 @@
+17.0.0
+------
+- BREAKING: Added support for [Graphite 1.1 style tags](https://grafana.com/blog/2018/01/11/graphite-1.1-teaching-an-old-dog-new-tricks/),
+  details can be found in [BACKENDS.md].
+- Moved backend documentation from [README.md] to [BACKENDS.md], still lacking documentation for most backends.
+
+16.0.0
+------
+- Build with Go 1.12.3 for real.
+
+15.0.2
+------
+- Fixed events in HTTP style
+
+15.0.1
+------
+- Update to Alpine 3.9
+
+15.0.0
+------
+- Build with Go 1.12.3
+- Changed linter to golangci-lint
+
+14.1.0
+------
+- Fixes internal metrics for the `dispatch_aggregator` channel stats, and `aggregator.*` metrics.
+
+14.0.0
+------
+- More internal pipeline refactoring, to optimize the http ingestion path.
+
+13.0.1
+------
+- Adjust log level about forwarding failures and stop logging retries.
+
+13.0.0
+------
+- Removed v1 ingestion
+- Refactor internal pipeline
+- Added `hostname` flag to support override for internal metrics.  Defaults to system hostname.
+  Use this flag when running within docker to make host identification easier.
+
+12.0.2
+------
+- Fix bug with metrics going through the consolidator not having tags applied properly
+
 12.0.1
 ------
 - Emit v2 ingestion http metrics.
