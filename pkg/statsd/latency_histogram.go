@@ -13,7 +13,7 @@ const (
 	HistogramThresholdsSeparator = "_"
 )
 
-func AggregatePercentiles(timer gostatsd.Timer) map[gostatsd.HistogramThreshold]int {
+func LatencyHistogram(timer gostatsd.Timer) map[gostatsd.HistogramThreshold]int {
 	result := make(map[gostatsd.HistogramThreshold]int)
 	thresholds := retrieveThresholds(timer)
 

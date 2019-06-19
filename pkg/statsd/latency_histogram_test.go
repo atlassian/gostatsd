@@ -27,46 +27,46 @@ func TestLatencyHistogram(t *testing.T) {
 			name:  "happy path",
 			timer: Timer("10_30_45", 1, 10, 11, 12, 29, 30, 31, 45, 100, 100000),
 			want: map[gostatsd.HistogramThreshold]int{
-				{10}:          2,
-				{30}:          6,
-				{45}:          8,
-				{math.Inf(1)}: 10,
+				{Le: 10}:          2,
+				{Le: 30}:          6,
+				{Le: 45}:          8,
+				{Le: math.Inf(1)}: 10,
 			},
 		},
 		{
 			name:  "float thresholds",
 			timer: Timer("1.5_4_7.0", 1.4999, 1.5, 1.51, 4.0, 7.01),
 			want: map[gostatsd.HistogramThreshold]int{
-				{1.5}:         2,
-				{4}:           4,
-				{7.0}:         4,
-				{math.Inf(1)}: 5,
+				{Le: 1.5}:         2,
+				{Le: 4}:           4,
+				{Le: 7.0}:         4,
+				{Le: math.Inf(1)}: 5,
 			},
 		},
 		{
 			name:  "no timer values",
 			timer: Timer("1_5_10"),
 			want: map[gostatsd.HistogramThreshold]int{
-				{1}:           0,
-				{5}:           0,
-				{10}:          0,
-				{math.Inf(1)}: 0,
+				{Le: 1}:           0,
+				{Le: 5}:           0,
+				{Le: 10}:          0,
+				{Le: math.Inf(1)}: 0,
 			},
 		},
 		{
 			name:  "one non parsable thresholds",
 			timer: Timer("1_incorrect_10", 0, 10, 20),
 			want: map[gostatsd.HistogramThreshold]int{
-				{1}:           1,
-				{10}:          2,
-				{math.Inf(1)}: 3,
+				{Le: 1}:           1,
+				{Le: 10}:          2,
+				{Le: math.Inf(1)}: 3,
 			},
 		},
 		{
 			name:  "totally unparsable tag",
 			timer: Timer("nothresoldsatall", 0, 10, 20),
 			want: map[gostatsd.HistogramThreshold]int{
-				{math.Inf(1)}: 3,
+				{Le: math.Inf(1)}: 3,
 			},
 		},
 		{
@@ -81,7 +81,7 @@ func TestLatencyHistogram(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			buckets := AggregatePercentiles(tt.timer)
+			buckets := LatencyHistogram(tt.timer)
 			assert.Equal(t, tt.want, buckets)
 		})
 	}

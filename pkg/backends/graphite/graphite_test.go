@@ -116,20 +116,20 @@ func TestPreparePayloadHistogram(t *testing.T) {
 	metrics := metricsWithHistogram()
 	expected :=
 		"gp.pt.t1.lower.gs 0.000000 1234\n" +
-		"gp.pt.t1.upper.gs 0.000000 1234\n" +
-		"gp.pt.t1.count.gs 0 1234\n" +
-		"gp.pt.t1.count_ps.gs 0.000000 1234\n" +
-		"gp.pt.t1.mean.gs 0.000000 1234\n" +
-		"gp.pt.t1.median.gs 0.000000 1234\n" +
-		"gp.pt.t1.std.gs 0.000000 1234\n" +
-		"gp.pt.t1.sum.gs 0.000000 1234\n" +
-		"gp.pt.t1.sum_squares.gs 0.000000 1234\n" +
-		"gp.pc.t1.histogram.gs;le=20 5 1234\n" +
-		"gp.pc.t1.histogram.gs;le=30 10 1234\n" +
-		"gp.pc.t1.histogram.gs;le=40 10 1234\n" +
-		"gp.pc.t1.histogram.gs;le=50 10 1234\n" +
-		"gp.pc.t1.histogram.gs;le=60 19 1234\n" +
-		"gp.pc.t1.histogram.gs;le=+Inf 19 1234\n"
+			"gp.pt.t1.upper.gs 0.000000 1234\n" +
+			"gp.pt.t1.count.gs 0 1234\n" +
+			"gp.pt.t1.count_ps.gs 0.000000 1234\n" +
+			"gp.pt.t1.mean.gs 0.000000 1234\n" +
+			"gp.pt.t1.median.gs 0.000000 1234\n" +
+			"gp.pt.t1.std.gs 0.000000 1234\n" +
+			"gp.pt.t1.sum.gs 0.000000 1234\n" +
+			"gp.pt.t1.sum_squares.gs 0.000000 1234\n" +
+			"gp.pc.t1.histogram.gs;le=20 5 1234\n" +
+			"gp.pc.t1.histogram.gs;le=30 10 1234\n" +
+			"gp.pc.t1.histogram.gs;le=40 10 1234\n" +
+			"gp.pc.t1.histogram.gs;le=50 10 1234\n" +
+			"gp.pc.t1.histogram.gs;le=60 19 1234\n" +
+			"gp.pc.t1.histogram.gs;le=+Inf 19 1234\n"
 
 	cl, err := NewClient("127.0.0.1:9", 1*time.Second, 1*time.Second, "gp", "pc", "pt", "pg", "ps", "gs", "tags", gostatsd.TimerSubtypes{})
 	require.NoError(t, err)
@@ -212,12 +212,12 @@ func metricsWithHistogram() *gostatsd.MetricMap {
 	mm := gostatsd.NewMetricMap()
 	mm.Timers["t1"] = map[string]gostatsd.Timer{}
 	mm.Timers["t1"][""] = gostatsd.Timer{Values: []float64{10}, Timestamp: timestamp, Histogram: map[gostatsd.HistogramThreshold]int{
-		{20}:          5,
-		{30}:          10,
-		{40}:          10,
-		{50}:          10,
-		{60}:          19,
-		{math.Inf(1)}: 19,
+		{Le: 20}:          5,
+		{Le: 30}:          10,
+		{Le: 40}:          10,
+		{Le: 50}:          10,
+		{Le: 60}:          19,
+		{Le: math.Inf(1)}: 19,
 	}}
 	return mm
 }
