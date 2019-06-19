@@ -3,6 +3,7 @@ package newrelic
 import (
 	"context"
 	"io/ioutil"
+	"math"
 	"net/http"
 	"net/http/httptest"
 	"sync/atomic"
@@ -122,6 +123,49 @@ func TestSendMetrics(t *testing.T) {
 	}
 }
 
+func TestSendMetricsWithHistogram(t *testing.T) {
+	t.Parallel()
+	mux := http.NewServeMux()
+	mux.HandleFunc("/v1/data", func(w http.ResponseWriter, r *http.Request) {
+		data, err := ioutil.ReadAll(r.Body)
+		if !assert.NoError(t, err) {
+			return
+		}
+		expected := []string{
+			`{"event_type":"GoStatsD","integration_version":"2.1.0","interval":1,"le":20,"metric_name":"t1.histogram","metric_per_second":0,"metric_type":"counter","metric_value":5,"timestamp":0}`,
+			`{"event_type":"GoStatsD","integration_version":"2.1.0","interval":1,"le":30,"metric_name":"t1.histogram","metric_per_second":0,"metric_type":"counter","metric_value":10,"timestamp":0}`,
+			`{"event_type":"GoStatsD","integration_version":"2.1.0","interval":1,"le":40,"metric_name":"t1.histogram","metric_per_second":0,"metric_type":"counter","metric_value":10,"timestamp":0}`,
+			`{"event_type":"GoStatsD","integration_version":"2.1.0","interval":1,"le":50,"metric_name":"t1.histogram","metric_per_second":0,"metric_type":"counter","metric_value":10,"timestamp":0}`,
+			`{"event_type":"GoStatsD","integration_version":"2.1.0","interval":1,"le":60,"metric_name":"t1.histogram","metric_per_second":0,"metric_type":"counter","metric_value":19,"timestamp":0}`,
+			`{"event_type":"GoStatsD","integration_version":"2.1.0","interval":1,"le":"infinity","metric_name":"t1.histogram","metric_per_second":0,"metric_type":"counter","metric_value":19,"timestamp":0}`,
+		}
+
+		for _, e := range expected {
+			assert.Contains(t, string(data), e)
+		}
+	})
+	ts := httptest.NewServer(mux)
+	defer ts.Close()
+
+	client, err := NewClient(ts.URL+"/v1/data", "GoStatsD", "", "", "", "metric_name", "metric_type",
+		"metric_per_second", "metric_value", "samples_min", "samples_max", "samples_count",
+		"samples_mean", "samples_median", "samples_std_dev", "samples_sum", "samples_sum_squares", "agent", "tcp",
+		defaultMetricsPerBatch, defaultMaxRequests, false, 1*time.Second, 2*time.Second, 1*time.Second, gostatsd.TimerSubtypes{})
+
+	require.NoError(t, err)
+	client.now = func() time.Time {
+		return time.Unix(100, 0)
+	}
+	res := make(chan []error, 1)
+	client.SendMetricsAsync(context.Background(), metricsWithHistogram(), func(errs []error) {
+		res <- errs
+	})
+	errs := <-res
+	for _, err := range errs {
+		assert.NoError(t, err)
+	}
+}
+
 // twoCounters returns two counters.
 func twoCounters() *gostatsd.MetricMap {
 	return &gostatsd.MetricMap{
@@ -185,4 +229,21 @@ func metricsOneOfEach() *gostatsd.MetricMap {
 			},
 		},
 	}
+}
+
+func metricsWithHistogram() *gostatsd.MetricMap {
+	mm := gostatsd.NewMetricMap()
+	mm.Timers["t1"] = map[string]gostatsd.Timer{}
+	mm.Timers["t1"]["tag2"] = gostatsd.Timer{
+		Values:    []float64{10},
+		Timestamp: 0,
+		Histogram: map[gostatsd.HistogramThreshold]int{
+			{20}:          5,
+			{30}:          10,
+			{40}:          10,
+			{50}:          10,
+			{60}:          19,
+			{math.Inf(1)}: 19,
+		}}
+	return mm
 }
