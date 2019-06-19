@@ -3,6 +3,7 @@ package graphite
 import (
 	"context"
 	"io"
+	"math"
 	"net"
 	"sort"
 	"strings"
@@ -110,6 +111,34 @@ func TestPreparePayloadTags(t *testing.T) {
 	require.Equal(t, expected, actual)
 }
 
+func TestPreparePayloadHistogram(t *testing.T) {
+	t.Parallel()
+	metrics := metricsWithHistogram()
+	expected :=
+		"gp.pt.t1.lower.gs 0.000000 1234\n" +
+		"gp.pt.t1.upper.gs 0.000000 1234\n" +
+		"gp.pt.t1.count.gs 0 1234\n" +
+		"gp.pt.t1.count_ps.gs 0.000000 1234\n" +
+		"gp.pt.t1.mean.gs 0.000000 1234\n" +
+		"gp.pt.t1.median.gs 0.000000 1234\n" +
+		"gp.pt.t1.std.gs 0.000000 1234\n" +
+		"gp.pt.t1.sum.gs 0.000000 1234\n" +
+		"gp.pt.t1.sum_squares.gs 0.000000 1234\n" +
+		"gp.pc.t1.histogram.gs;le=20 5 1234\n" +
+		"gp.pc.t1.histogram.gs;le=30 10 1234\n" +
+		"gp.pc.t1.histogram.gs;le=40 10 1234\n" +
+		"gp.pc.t1.histogram.gs;le=50 10 1234\n" +
+		"gp.pc.t1.histogram.gs;le=60 19 1234\n" +
+		"gp.pc.t1.histogram.gs;le=+Inf 19 1234\n"
+
+	cl, err := NewClient("127.0.0.1:9", 1*time.Second, 1*time.Second, "gp", "pc", "pt", "pg", "ps", "gs", "tags", gostatsd.TimerSubtypes{})
+	require.NoError(t, err)
+	b := cl.preparePayload(metrics, time.Unix(1234, 0))
+	expected = sortLines(expected)
+	actual := sortLines(b.String())
+	require.Equal(t, expected, actual)
+}
+
 func sortLines(s string) string {
 	lines := strings.Split(s, "\n")
 	sort.Strings(lines)
@@ -174,6 +203,22 @@ func metrics() *gostatsd.MetricMap {
 	mm.Gauges["g1"][""] = gostatsd.Gauge{Value: 3, Timestamp: timestamp}
 	mm.Sets["users"] = map[string]gostatsd.Set{}
 	mm.Sets["users"][""] = gostatsd.Set{Values: map[string]struct{}{"joe": {}, "bob": {}, "john": {}}, Timestamp: timestamp}
+	return mm
+}
+
+func metricsWithHistogram() *gostatsd.MetricMap {
+	timestamp := gostatsd.Nanotime(time.Unix(123456, 0).UnixNano())
+
+	mm := gostatsd.NewMetricMap()
+	mm.Timers["t1"] = map[string]gostatsd.Timer{}
+	mm.Timers["t1"][""] = gostatsd.Timer{Values: []float64{10}, Timestamp: timestamp, Histogram: map[gostatsd.HistogramThreshold]int{
+		{20}:          5,
+		{30}:          10,
+		{40}:          10,
+		{50}:          10,
+		{60}:          19,
+		{math.Inf(1)}: 19,
+	}}
 	return mm
 }
 

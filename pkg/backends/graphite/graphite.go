@@ -4,8 +4,10 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"math"
 	"net"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -186,6 +188,18 @@ func (client *Client) preparePayload(metrics *gostatsd.MetricMap, ts time.Time) 
 		}
 		for _, pct := range timer.Percentiles {
 			_, _ = fmt.Fprintf(buf, "%s %f %d\n", client.prepareName(client.timerNamespace, key, pct.Str, timer.Hostname, timer.Tags), pct.Float, now)
+		}
+	})
+	metrics.Timers.Each(func(key, tagsKey string, timer gostatsd.Timer) {
+		if timer.Histogram != nil {
+			for histogramThreshold, count := range timer.Histogram {
+				bucketTag := "le:+Inf"
+				if !math.IsInf(histogramThreshold.Le, 1) {
+					bucketTag = "le:" + strconv.FormatFloat(histogramThreshold.Le, 'f', -1, 64)
+				}
+				newTags := timer.Tags.Concat([]string  {bucketTag})
+				_, _ = fmt.Fprintf(buf, "%s %d %d\n", client.prepareName(client.counterNamespace, key, "histogram", timer.Hostname, newTags), count, now)
+			}
 		}
 	})
 	metrics.Gauges.Each(func(key, tagsKey string, gauge gostatsd.Gauge) {
