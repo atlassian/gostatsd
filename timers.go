@@ -22,7 +22,7 @@ type Timer struct {
 
 	// Map bounds to count of measures seen in that bucket.
 	// This map only non-empty if the metric specifies percentile aggregation in its tags.
-	Buckets map[HistogramThreshold]int
+	Histogram map[HistogramThreshold]int
 }
 
 type HistogramThreshold struct {

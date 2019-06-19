@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"math"
 	"net"
 	"net/http"
 	"net/url"
@@ -19,10 +20,8 @@ import (
 
 	"github.com/atlassian/gostatsd"
 	"github.com/atlassian/gostatsd/pkg/stats"
-	"github.com/atlassian/gostatsd/pkg/statsd"
-
 	"github.com/cenkalti/backoff"
-	jsoniter "github.com/json-iterator/go"
+	"github.com/json-iterator/go"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 )
@@ -206,24 +205,14 @@ func (d *Client) processMetrics(metrics *gostatsd.MetricMap, cb func(*timeSeries
 	})
 
 	metrics.Timers.Each(func(key, tagsKey string, timer gostatsd.Timer) {
-		if timer.Buckets != nil {
-			for bucketBound, val := range timer.Buckets {
-				var bucketMax string
-				if bucketBound.Max == statsd.PosInfinityBucketLimit {
-					bucketMax = "Inf"
-				} else {
-					bucketMax = strconv.Itoa(bucketBound.Max)
+		if timer.Histogram != nil {
+			for histogramThreshold, count := range timer.Histogram {
+				bucketTag := "le:+Inf"
+				if !math.IsInf(histogramThreshold.Le, 1) {
+					bucketTag = "le:" + strconv.FormatFloat(histogramThreshold.Le, 'f', -1, 64)
 				}
-				var bucketMin string
-				if bucketBound.Min == statsd.NegInfinityBucketLimit {
-					bucketMin = "NegInf"
-				} else {
-					bucketMin = strconv.Itoa(bucketBound.Min)
-				}
-
-				bucketTag := "between:" + bucketMin + "_" + bucketMax
 				newTags := timer.Tags.Concat([]string{bucketTag})
-				fl.addMetricf(counter, float64(val), timer.Hostname, newTags, "%s.buckets", key)
+				fl.addMetricf(counter, float64(count), timer.Hostname, newTags, "%s.histogram", key)
 			}
 			fl.maybeFlush()
 		}

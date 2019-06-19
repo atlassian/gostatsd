@@ -11,9 +11,9 @@ import (
 
 func Timer(histogramThresholds string, values ...float64) gostatsd.Timer {
 	return gostatsd.Timer{
-		Values:  values,
-		Tags:    []string{HistogramThresholdsTagPrefix + histogramThresholds},
-		Buckets: map[gostatsd.HistogramThreshold]int{},
+		Values:    values,
+		Tags:      []string{HistogramThresholdsTagPrefix + histogramThresholds},
+		Histogram: map[gostatsd.HistogramThreshold]int{},
 	}
 }
 
@@ -72,9 +72,9 @@ func TestLatencyHistogram(t *testing.T) {
 		{
 			name: "timer without the tag at all",
 			timer: gostatsd.Timer{
-				Values:  []float64{1, 2, 3},
-				Tags:    []string{"some_different_tag:yep"},
-				Buckets: map[gostatsd.HistogramThreshold]int{},
+				Values:    []float64{1, 2, 3},
+				Tags:      []string{"some_different_tag:yep"},
+				Histogram: map[gostatsd.HistogramThreshold]int{},
 			},
 			want: nil,
 		},

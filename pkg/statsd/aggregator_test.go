@@ -56,16 +56,16 @@ func TestPercentileBuckets(t *testing.T) {
 	ma := newFakeAggregator()
 	ma.metricMap.Timers["testTimer"] = make(map[string]gostatsd.Timer)
 	values := gostatsd.NewTimerValues([]float64{10.0, 20.0, 29.9, 2000.0})
-	values.Tags = gostatsd.Tags{HistogramThresholdsTagPrefix+"20_50_5000"}
+	values.Tags = gostatsd.Tags{HistogramThresholdsTagPrefix + "20_50_5000"}
 	ma.metricMap.Timers["testTimer"]["simple"] = values
 
 	ma.Flush(10)
 
 	result := ma.metricMap.Timers["testTimer"]["simple"]
-	assrt.Equal(2, result.Buckets[gostatsd.HistogramThreshold{20}])
-	assrt.Equal(3, result.Buckets[gostatsd.HistogramThreshold{50}])
-	assrt.Equal(4, result.Buckets[gostatsd.HistogramThreshold{5000}])
-	assrt.Equal(4, result.Buckets[gostatsd.HistogramThreshold{math.Inf(1)}])
+	assrt.Equal(2, result.Histogram[gostatsd.HistogramThreshold{20}])
+	assrt.Equal(3, result.Histogram[gostatsd.HistogramThreshold{50}])
+	assrt.Equal(4, result.Histogram[gostatsd.HistogramThreshold{5000}])
+	assrt.Equal(4, result.Histogram[gostatsd.HistogramThreshold{math.Inf(1)}])
 }
 
 //func TestPercentileBucketsInfinityValue(t *testing.T) {
@@ -80,8 +80,8 @@ func TestPercentileBuckets(t *testing.T) {
 //	ma.Flush(10)
 //
 //	result := ma.metricMap.Timers["testTimer"]["simple"]
-//	assrt.Equal(1, result.Buckets[gostatsd.HistogramThreshold{10, 20}])
-//	assrt.Equal(1, result.Buckets[gostatsd.HistogramThreshold{10000, PosInfinityBucketLimit}])
+//	assrt.Equal(1, result.Histogram[gostatsd.HistogramThreshold{10, 20}])
+//	assrt.Equal(1, result.Histogram[gostatsd.HistogramThreshold{10000, PosInfinityBucketLimit}])
 //}
 
 func TestFlush(t *testing.T) {

@@ -5,6 +5,7 @@ import (
 	"compress/zlib"
 	"context"
 	"io/ioutil"
+	"math"
 	"net/http"
 	"net/http/httptest"
 	"sync/atomic"
@@ -12,8 +13,6 @@ import (
 	"time"
 
 	"github.com/atlassian/gostatsd"
-	"github.com/atlassian/gostatsd/pkg/statsd"
-
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -198,7 +197,7 @@ func metricsOneOfEach() *gostatsd.MetricMap {
 	}
 }
 
-func TestSendPercentileMetrics(t *testing.T) {
+func TestSendHistogram(t *testing.T) {
 	t.Parallel()
 	mux := http.NewServeMux()
 	mux.HandleFunc("/api/v1/series", func(w http.ResponseWriter, r *http.Request) {
@@ -215,23 +214,18 @@ func TestSendPercentileMetrics(t *testing.T) {
 			data, err = ioutil.ReadAll(decompressor)
 			assert.NoError(t, err)
 		}
-		expected := `{"series":[` +
-			`{"host":"h2","interval":1.1,"metric":"t1.lower","points":[[100,0]],"tags":["tag2"],"type":"gauge"},` +
-			`{"host":"h2","interval":1.1,"metric":"t1.upper","points":[[100,0]],"tags":["tag2"],"type":"gauge"},` +
-			`{"host":"h2","interval":1.1,"metric":"t1.count","points":[[100,0]],"tags":["tag2"],"type":"gauge"},` +
-			`{"host":"h2","interval":1.1,"metric":"t1.count_ps","points":[[100,0]],"tags":["tag2"],"type":"rate"},` +
-			`{"host":"h2","interval":1.1,"metric":"t1.mean","points":[[100,0]],"tags":["tag2"],"type":"gauge"},` +
-			`{"host":"h2","interval":1.1,"metric":"t1.median","points":[[100,0]],"tags":["tag2"],"type":"gauge"},` +
-			`{"host":"h2","interval":1.1,"metric":"t1.std","points":[[100,0]],"tags":["tag2"],"type":"gauge"},` +
-			`{"host":"h2","interval":1.1,"metric":"t1.sum","points":[[100,0]],"tags":["tag2"],"type":"gauge"},` +
-			`{"host":"h2","interval":1.1,"metric":"t1.sum_squares","points":[[100,0]],"tags":["tag2"],"type":"gauge"},` +
-			`{"host":"h2","interval":1.1,"metric":"t1.buckets","points":[[100,5]],"tags":["tag2","between:0_20"],"type":"count"},` +
-			`{"host":"h2","interval":1.1,"metric":"t1.buckets","points":[[100,5]],"tags":["tag2","between:20_30"],"type":"count"},` +
-			`{"host":"h2","interval":1.1,"metric":"t1.buckets","points":[[100,0]],"tags":["tag2","between:30_40"],"type":"count"},` +
-			`{"host":"h2","interval":1.1,"metric":"t1.buckets","points":[[100,0]],"tags":["tag2","between:40_50"],"type":"count"},` +
-			`{"host":"h2","interval":1.1,"metric":"t1.buckets","points":[[100,9]],"tags":["tag2","between:50_60"],"type":"count"},` +
-			`{"host":"h2","interval":1.1,"metric":"t1.buckets","points":[[100,10]],"tags":["tag2","between:60_+Inf"],"type":"count"}]}`
-		assert.Equal(t, expected, string(data))
+		expected := []string{
+			`{"host":"h2","interval":1.1,"metric":"t1.histogram","points":[[100,5]],"tags":["tag2","le:20"],"type":"count"}`,
+			`{"host":"h2","interval":1.1,"metric":"t1.histogram","points":[[100,10]],"tags":["tag2","le:30"],"type":"count"}`,
+			`{"host":"h2","interval":1.1,"metric":"t1.histogram","points":[[100,10]],"tags":["tag2","le:40"],"type":"count"}`,
+			`{"host":"h2","interval":1.1,"metric":"t1.histogram","points":[[100,10]],"tags":["tag2","le:50"],"type":"count"}`,
+			`{"host":"h2","interval":1.1,"metric":"t1.histogram","points":[[100,19]],"tags":["tag2","le:60"],"type":"count"}`,
+			`{"host":"h2","interval":1.1,"metric":"t1.histogram","points":[[100,19]],"tags":["tag2","le:+Inf"],"type":"count"}`,
+		}
+
+		for _, e := range expected {
+			assert.Contains(t, string(data), e)
+		}
 	})
 	ts := httptest.NewServer(mux)
 	defer ts.Close()
@@ -260,13 +254,13 @@ func metricsPercentiles() *gostatsd.MetricMap {
 					Timestamp: gostatsd.Nanotime(200),
 					Hostname:  "h2",
 					Tags:      gostatsd.Tags{"tag2"},
-					Buckets: map[gostatsd.HistogramThreshold]int{
-						{0, 20}:                             5,
-						{20, 30}:                            5,
-						{30, 40}:                            0,
-						{40, 50}:                            0,
-						{50, 60}:                            9,
-						{60, statsd.PosInfinityBucketLimit}: 10,
+					Histogram: map[gostatsd.HistogramThreshold]int{
+						{20}:          5,
+						{30}:          10,
+						{40}:          10,
+						{50}:          10,
+						{60}:          19,
+						{math.Inf(1)}: 19,
 					},
 				},
 			},

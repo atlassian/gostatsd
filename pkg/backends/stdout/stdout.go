@@ -4,13 +4,12 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"math"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/atlassian/gostatsd"
-	"github.com/atlassian/gostatsd/pkg/statsd"
-
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 )
@@ -114,26 +113,18 @@ func preparePayload(metrics *gostatsd.MetricMap, disabled *gostatsd.TimerSubtype
 		}
 	})
 	metrics.Timers.Each(func(key, tagsKey string, timer gostatsd.Timer) {
-		if timer.Buckets != nil {
+		if timer.Histogram != nil {
 			nk := composeMetricName(key, tagsKey)
-			for bucketBound, val := range timer.Buckets {
-				var bucketMax string
-				if bucketBound.Max == statsd.PosInfinityBucketLimit {
-					bucketMax = "Inf"
-				} else {
-					bucketMax = strconv.Itoa(bucketBound.Max)
+			for histogramThreshold, count := range timer.Histogram {
+				bucketTag := "le:+Inf"
+				if !math.IsInf(histogramThreshold.Le, 1) {
+					bucketTag = "le:" + strconv.FormatFloat(histogramThreshold.Le, 'f', -1, 64)
 				}
-				var bucketMin string
-				if bucketBound.Min == statsd.NegInfinityBucketLimit {
-					bucketMin = "NegInf"
-				} else {
-					bucketMin = strconv.Itoa(bucketBound.Min)
-				}
-				bucketTag := "between_" + bucketMin + "_" + bucketMax
-				fmt.Fprintf(buf, "stats.timers.%s.bucket.%s %d %d\n", nk, bucketTag, val, now) // #nosec
+				fmt.Fprintf(buf, "stats.timers.%s.histogram.%s %d %d\n", nk, bucketTag, count, now) // #nosec
 			}
 		}
 	})
+
 	metrics.Gauges.Each(func(key, tagsKey string, gauge gostatsd.Gauge) {
 		nk := composeMetricName(key, tagsKey)
 		fmt.Fprintf(buf, "stats.gauge.%s %f %d\n", nk, gauge.Value, now) // #nosec

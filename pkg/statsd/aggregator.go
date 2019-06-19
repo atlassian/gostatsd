@@ -172,9 +172,9 @@ func (a *MetricAggregator) Flush(flushInterval time.Duration) {
 	})
 
 	a.metricMap.Timers.Each(func(key, tagsKey string, timer gostatsd.Timer) {
-		buckets := AggregatePercentiles(timer)
-		if buckets != nil {
-			timer.Buckets = buckets
+		histogram := AggregatePercentiles(timer)
+		if histogram != nil {
+			timer.Histogram = histogram
 			a.metricMap.Timers[key][tagsKey] = timer
 		}
 	})
