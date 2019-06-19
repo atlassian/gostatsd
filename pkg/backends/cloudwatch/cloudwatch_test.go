@@ -2,6 +2,7 @@ package cloudwatch
 
 import (
 	"context"
+	"math"
 	"testing"
 
 	"github.com/atlassian/gostatsd"
@@ -182,4 +183,68 @@ func metricsOneOfEach() *gostatsd.MetricMap {
 			},
 		},
 	}
+}
+
+func TestSendHistogram(t *testing.T) {
+	t.Parallel()
+
+	cli, err := NewClient("ns", gostatsd.TimerSubtypes{})
+	require.NoError(t, err)
+
+	metricMap := &gostatsd.MetricMap{
+		Timers: gostatsd.Timers{
+			"t1": map[string]gostatsd.Timer{
+				"tag2": {
+					Values:    []float64{0, 1},
+					Timestamp: gostatsd.Nanotime(200),
+					Hostname:  "h2",
+					Tags:      gostatsd.Tags{"tag2"},
+					Histogram: map[gostatsd.HistogramThreshold]int{
+						{20}:          5,
+						{30}:          10,
+						{40}:          10,
+						{50}:          10,
+						{60}:          19,
+						{math.Inf(1)}: 19,
+					},
+				},
+			},
+		},
+	}
+
+	cli.cloudwatch = &mockedCloudwatch{
+		PutMetricDataHandler: func(input *cloudwatch.PutMetricDataInput) (*cloudwatch.PutMetricDataOutput, error) {
+			assert.Equal(t, *findMetricDatum(input, "stats.timers.t1.histogram", "le", "20").Value, float64(5))
+			assert.Equal(t, *findMetricDatum(input, "stats.timers.t1.histogram", "le", "30").Value, float64(10))
+			assert.Equal(t, *findMetricDatum(input, "stats.timers.t1.histogram", "le", "40").Value, float64(10))
+			assert.Equal(t, *findMetricDatum(input, "stats.timers.t1.histogram", "le", "50").Value, float64(10))
+			assert.Equal(t, *findMetricDatum(input, "stats.timers.t1.histogram", "le", "60").Value, float64(19))
+			assert.Equal(t, *findMetricDatum(input, "stats.timers.t1.histogram", "le", "+Inf").Value, float64(19))
+			return nil, nil
+		},
+	}
+
+	res := make(chan []error, 1)
+	cli.SendMetricsAsync(context.Background(), metricMap, func(errs []error) {
+		res <- errs
+	})
+	errs := <-res
+	for _, err := range errs {
+		assert.NoError(t, err)
+	}
+}
+
+func findMetricDatum(input *cloudwatch.PutMetricDataInput, name string, dimenensionName string, dimensionValue string) *cloudwatch.MetricDatum {
+	for _, data := range input.MetricData {
+		MetricName := *data.MetricName
+		if MetricName != name {
+			continue
+		}
+		for _, dimension := range data.Dimensions {
+			if *dimension.Name == dimenensionName && *dimension.Value == dimensionValue {
+				return data
+			}
+		}
+	}
+	return nil
 }

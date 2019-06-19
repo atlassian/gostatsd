@@ -2,6 +2,8 @@ package cloudwatch
 
 import (
 	"context"
+	"math"
+	"strconv"
 	"strings"
 	"time"
 
@@ -141,6 +143,19 @@ func (client Client) buildMetricData(metrics *gostatsd.MetricMap) (metricData []
 		}
 		for _, pct := range timer.Percentiles {
 			addMetricData(key+"."+pct.Str, "Milliseconds", pct.Float, timer.Tags)
+		}
+	})
+
+	metrics.Timers.Each(func(key, tagsKey string, timer gostatsd.Timer) {
+		if timer.Histogram != nil {
+			for histogramThreshold, count := range timer.Histogram {
+				bucketTag := "le:+Inf"
+				if !math.IsInf(histogramThreshold.Le, 1) {
+					bucketTag = "le:" + strconv.FormatFloat(histogramThreshold.Le, 'f', -1, 64)
+				}
+				newTags := timer.Tags.Concat([]string{bucketTag})
+				addMetricData(key+".histogram", "Count", float64(count), newTags)
+			}
 		}
 	})
 

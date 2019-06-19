@@ -236,7 +236,7 @@ func TestSendHistogram(t *testing.T) {
 		return time.Unix(100, 0)
 	}
 	res := make(chan []error, 1)
-	client.SendMetricsAsync(context.Background(), metricsPercentiles(), func(errs []error) {
+	client.SendMetricsAsync(context.Background(), metricsWithHistogram(), func(errs []error) {
 		res <- errs
 	})
 	errs := <-res
@@ -245,7 +245,7 @@ func TestSendHistogram(t *testing.T) {
 	}
 }
 
-func metricsPercentiles() *gostatsd.MetricMap {
+func metricsWithHistogram() *gostatsd.MetricMap {
 	return &gostatsd.MetricMap{
 		Timers: gostatsd.Timers{
 			"t1": map[string]gostatsd.Timer{
