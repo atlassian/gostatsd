@@ -1,3 +1,7 @@
+17.0.1
+------
+- Added support for generating latency histograms for timers, more details in [README.md]
+
 17.0.0
 ------
 - BREAKING: Added support for [Graphite 1.1 style tags](https://grafana.com/blog/2018/01/11/graphite-1.1-teaching-an-old-dog-new-tricks/),

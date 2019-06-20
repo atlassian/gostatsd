@@ -194,8 +194,8 @@ func (n *Client) processMetrics(metrics *gostatsd.MetricMap, cb func(*timeSeries
 		if timer.Histogram != nil {
 			for histogramThreshold, count := range timer.Histogram {
 				bucketTag := "le:infinity"
-				if !math.IsInf(histogramThreshold.Le, 1) {
-					bucketTag = "le:" + strconv.FormatFloat(histogramThreshold.Le, 'f', -1, 64)
+				if !math.IsInf(float64(histogramThreshold), 1) {
+					bucketTag = "le:" + strconv.FormatFloat(float64(histogramThreshold), 'f', -1, 64)
 				}
 				newTags := timer.Tags.Concat(gostatsd.Tags{bucketTag})
 				fl.addMetric(n, "counter", float64(count), 0, timer.Hostname, newTags, key+".histogram", timer.Timestamp)
@@ -386,9 +386,9 @@ func NewClientFromViper(v *viper.Viper) (gostatsd.Backend, error) {
 
 // NewClient returns a new New Relic client.
 func NewClient(address, eventType, flushType, apiKey, tagPrefix,
-	metricName, metricType, metricPerSecond, metricValue,
-	timerMin, timerMax, timerCount, timerMean, timerMedian, timerStdDev, timerSum, timerSumSquares,
-	userAgent, network string, metricsPerBatch int, maxRequests uint, enableHttp2 bool,
+metricName, metricType, metricPerSecond, metricValue,
+timerMin, timerMax, timerCount, timerMean, timerMedian, timerStdDev, timerSum, timerSumSquares,
+userAgent, network string, metricsPerBatch int, maxRequests uint, enableHttp2 bool,
 	clientTimeout, maxRequestElapsedTime, flushInterval time.Duration, disabled gostatsd.TimerSubtypes) (*Client, error) {
 
 	if metricsPerBatch <= 0 {

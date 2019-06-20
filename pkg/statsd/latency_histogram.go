@@ -20,7 +20,7 @@ func LatencyHistogram(timer gostatsd.Timer) map[gostatsd.HistogramThreshold]int 
 	if thresholds == nil {
 		return nil
 	}
-	infiniteThreshold := gostatsd.HistogramThreshold{Le: math.Inf(1)}
+	infiniteThreshold := gostatsd.HistogramThreshold(math.Inf(1))
 
 	for _, histogramThreshold := range thresholds {
 		result[histogramThreshold] = 0
@@ -29,7 +29,7 @@ func LatencyHistogram(timer gostatsd.Timer) map[gostatsd.HistogramThreshold]int 
 
 	for _, value := range timer.Values {
 		for _, latencyBucket := range thresholds {
-			if value <= latencyBucket.Le {
+			if value <= float64(latencyBucket) {
 				result[latencyBucket] += 1
 			}
 		}
@@ -57,7 +57,7 @@ func mapToThresholds(vs []string) []gostatsd.HistogramThreshold {
 	for _, v := range vs {
 		floatBucket, err := strconv.ParseFloat(v, 64)
 		if err == nil {
-			lb = append(lb, gostatsd.HistogramThreshold{Le: floatBucket})
+			lb = append(lb, gostatsd.HistogramThreshold(floatBucket))
 		}
 	}
 	return lb

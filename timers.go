@@ -25,9 +25,7 @@ type Timer struct {
 	Histogram map[HistogramThreshold]int
 }
 
-type HistogramThreshold struct {
-	Le float64 // Inclusive upper limit
-}
+type HistogramThreshold float64
 
 // NewTimer initialises a new timer.
 func NewTimer(timestamp Nanotime, values []float64, hostname string, tags Tags) Timer {

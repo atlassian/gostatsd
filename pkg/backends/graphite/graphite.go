@@ -192,8 +192,8 @@ func (client *Client) preparePayload(metrics *gostatsd.MetricMap, ts time.Time) 
 		if timer.Histogram != nil {
 			for histogramThreshold, count := range timer.Histogram {
 				bucketTag := "le:+Inf"
-				if !math.IsInf(histogramThreshold.Le, 1) {
-					bucketTag = "le:" + strconv.FormatFloat(histogramThreshold.Le, 'f', -1, 64)
+				if !math.IsInf(float64(histogramThreshold), 1) {
+					bucketTag = "le:" + strconv.FormatFloat(float64(histogramThreshold), 'f', -1, 64)
 				}
 				newTags := timer.Tags.Concat(gostatsd.Tags{bucketTag})
 				_, _ = fmt.Fprintf(buf, "%s %d %d\n", client.prepareName(client.counterNamespace, key, "histogram", timer.Hostname, newTags), count, now)

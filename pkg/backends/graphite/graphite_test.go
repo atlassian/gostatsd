@@ -212,12 +212,12 @@ func metricsWithHistogram() *gostatsd.MetricMap {
 	mm := gostatsd.NewMetricMap()
 	mm.Timers["t1"] = map[string]gostatsd.Timer{}
 	mm.Timers["t1"]["gsd_histogram:20_30_40_50_60"] = gostatsd.Timer{Values: []float64{10}, Timestamp: timestamp, Histogram: map[gostatsd.HistogramThreshold]int{
-		{Le: 20}:          5,
-		{Le: 30}:          10,
-		{Le: 40}:          10,
-		{Le: 50}:          10,
-		{Le: 60}:          19,
-		{Le: math.Inf(1)}: 19,
+		20:          5,
+		30:          10,
+		40:          10,
+		50:          10,
+		60:          19,
+		gostatsd.HistogramThreshold(math.Inf(1)): 19,
 	}}
 	return mm
 }

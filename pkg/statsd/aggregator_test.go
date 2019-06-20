@@ -62,10 +62,10 @@ func TestLatencyHistograms(t *testing.T) {
 	ma.Flush(10)
 
 	result := ma.metricMap.Timers["testTimer"]["simple"]
-	assrt.Equal(2, result.Histogram[gostatsd.HistogramThreshold{Le: 20}])
-	assrt.Equal(3, result.Histogram[gostatsd.HistogramThreshold{Le: 50}])
-	assrt.Equal(4, result.Histogram[gostatsd.HistogramThreshold{Le: 5000}])
-	assrt.Equal(4, result.Histogram[gostatsd.HistogramThreshold{Le: math.Inf(1)}])
+	assrt.Equal(2, result.Histogram[gostatsd.HistogramThreshold(20)])
+	assrt.Equal(3, result.Histogram[gostatsd.HistogramThreshold(50)])
+	assrt.Equal(4, result.Histogram[gostatsd.HistogramThreshold(5000)])
+	assrt.Equal(4, result.Histogram[gostatsd.HistogramThreshold(math.Inf(1))])
 }
 
 func TestFlush(t *testing.T) {

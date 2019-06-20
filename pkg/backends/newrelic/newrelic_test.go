@@ -238,12 +238,12 @@ func metricsWithHistogram() *gostatsd.MetricMap {
 		Values:    []float64{10},
 		Timestamp: 0,
 		Histogram: map[gostatsd.HistogramThreshold]int{
-			{Le: 20}:          5,
-			{Le: 30}:          10,
-			{Le: 40}:          10,
-			{Le: 50}:          10,
-			{Le: 60}:          19,
-			{Le: math.Inf(1)}: 19,
+			20:                                       5,
+			30:                                       10,
+			40:                                       10,
+			50:                                       10,
+			60:                                       19,
+			gostatsd.HistogramThreshold(math.Inf(1)): 19,
 		}}
 	return mm
 }

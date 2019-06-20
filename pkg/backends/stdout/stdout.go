@@ -115,8 +115,8 @@ func preparePayload(metrics *gostatsd.MetricMap, disabled *gostatsd.TimerSubtype
 			nk := composeMetricName(key, tagsKey)
 			for histogramThreshold, count := range timer.Histogram {
 				bucketTag := "le:+Inf"
-				if !math.IsInf(histogramThreshold.Le, 1) {
-					bucketTag = "le:" + strconv.FormatFloat(histogramThreshold.Le, 'f', -1, 64)
+				if !math.IsInf(float64(histogramThreshold), 1) {
+					bucketTag = "le:" + strconv.FormatFloat(float64(histogramThreshold), 'f', -1, 64)
 				}
 				fmt.Fprintf(buf, "stats.timers.%s.histogram.%s %d %d\n", nk, bucketTag, count, now) // #nosec
 			}

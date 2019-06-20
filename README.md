@@ -186,6 +186,9 @@ upper-pct=false
 
 By default (for compatibility), they are all false and the metrics will be emitted.
 
+Timer histograms
+----------------
+
 
 
 Sending metrics
