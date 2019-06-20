@@ -197,7 +197,7 @@ func (client *Client) preparePayload(metrics *gostatsd.MetricMap, ts time.Time) 
 				if !math.IsInf(histogramThreshold.Le, 1) {
 					bucketTag = "le:" + strconv.FormatFloat(histogramThreshold.Le, 'f', -1, 64)
 				}
-				newTags := timer.Tags.Concat([]string  {bucketTag})
+				newTags := timer.Tags.Concat([]string{bucketTag})
 				_, _ = fmt.Fprintf(buf, "%s %d %d\n", client.prepareName(client.counterNamespace, key, "histogram", timer.Hostname, newTags), count, now)
 			}
 		}

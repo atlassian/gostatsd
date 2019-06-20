@@ -18,7 +18,7 @@ PROTOBUF_VERSION ?= 3.6.1
 setup: setup-ci
 	go get -u github.com/githubnemo/CompileDaemon
 	go get -u github.com/jstemmer/go-junit-report
-	GO111MODULE=off go get -u golang.org/x/tools/cmd/goimports
+	go get -u golang.org/x/tools/cmd/goimports
 
 tools/bin/protoc:
 	curl -L -O https://github.com/protocolbuffers/protobuf/releases/download/v$(PROTOBUF_VERSION)/protoc-$(PROTOBUF_VERSION)-linux-x86_64.zip

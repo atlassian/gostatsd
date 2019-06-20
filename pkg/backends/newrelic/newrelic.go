@@ -390,9 +390,9 @@ func NewClientFromViper(v *viper.Viper) (gostatsd.Backend, error) {
 
 // NewClient returns a new New Relic client.
 func NewClient(address, eventType, flushType, apiKey, tagPrefix,
-metricName, metricType, metricPerSecond, metricValue,
-timerMin, timerMax, timerCount, timerMean, timerMedian, timerStdDev, timerSum, timerSumSquares,
-userAgent, network string, metricsPerBatch int, maxRequests uint, enableHttp2 bool,
+	metricName, metricType, metricPerSecond, metricValue,
+	timerMin, timerMax, timerCount, timerMean, timerMedian, timerStdDev, timerSum, timerSumSquares,
+	userAgent, network string, metricsPerBatch int, maxRequests uint, enableHttp2 bool,
 	clientTimeout, maxRequestElapsedTime, flushInterval time.Duration, disabled gostatsd.TimerSubtypes) (*Client, error) {
 
 	if metricsPerBatch <= 0 {
