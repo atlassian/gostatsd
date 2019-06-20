@@ -201,7 +201,7 @@ func (n *Client) processMetrics(metrics *gostatsd.MetricMap, cb func(*timeSeries
 				if !math.IsInf(histogramThreshold.Le, 1) {
 					bucketTag = "le:" + strconv.FormatFloat(histogramThreshold.Le, 'f', -1, 64)
 				}
-				newTags := timer.Tags.Concat([]string{bucketTag})
+				newTags := timer.Tags.Concat(gostatsd.Tags{bucketTag})
 				fl.addMetric(n, "counter", float64(count), 0, timer.Hostname, newTags, key+".histogram", timer.Timestamp)
 			}
 			fl.maybeFlush()

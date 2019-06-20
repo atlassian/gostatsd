@@ -153,7 +153,7 @@ func (client Client) buildMetricData(metrics *gostatsd.MetricMap) (metricData []
 				if !math.IsInf(histogramThreshold.Le, 1) {
 					bucketTag = "le:" + strconv.FormatFloat(histogramThreshold.Le, 'f', -1, 64)
 				}
-				newTags := timer.Tags.Concat([]string{bucketTag})
+				newTags := timer.Tags.Concat(gostatsd.Tags{bucketTag})
 				addMetricData(key+".histogram", "Count", float64(count), newTags)
 			}
 		}
