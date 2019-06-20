@@ -215,12 +215,12 @@ func TestSendHistogram(t *testing.T) {
 			assert.NoError(t, err)
 		}
 		expected := []string{
-			`{"host":"h2","interval":1.1,"metric":"t1.histogram","points":[[100,5]],"tags":["tag2","le:20"],"type":"count"}`,
-			`{"host":"h2","interval":1.1,"metric":"t1.histogram","points":[[100,10]],"tags":["tag2","le:30"],"type":"count"}`,
-			`{"host":"h2","interval":1.1,"metric":"t1.histogram","points":[[100,10]],"tags":["tag2","le:40"],"type":"count"}`,
-			`{"host":"h2","interval":1.1,"metric":"t1.histogram","points":[[100,10]],"tags":["tag2","le:50"],"type":"count"}`,
-			`{"host":"h2","interval":1.1,"metric":"t1.histogram","points":[[100,19]],"tags":["tag2","le:60"],"type":"count"}`,
-			`{"host":"h2","interval":1.1,"metric":"t1.histogram","points":[[100,19]],"tags":["tag2","le:+Inf"],"type":"count"}`,
+			`{"host":"h2","interval":1.1,"metric":"t1.histogram","points":[[100,5]],"tags":["tag2","gsd_histogram:20_30_40_50_60","le:20"],"type":"count"}`,
+			`{"host":"h2","interval":1.1,"metric":"t1.histogram","points":[[100,10]],"tags":["tag2","gsd_histogram:20_30_40_50_60","le:30"],"type":"count"}`,
+			`{"host":"h2","interval":1.1,"metric":"t1.histogram","points":[[100,10]],"tags":["tag2","gsd_histogram:20_30_40_50_60","le:40"],"type":"count"}`,
+			`{"host":"h2","interval":1.1,"metric":"t1.histogram","points":[[100,10]],"tags":["tag2","gsd_histogram:20_30_40_50_60","le:50"],"type":"count"}`,
+			`{"host":"h2","interval":1.1,"metric":"t1.histogram","points":[[100,19]],"tags":["tag2","gsd_histogram:20_30_40_50_60","le:60"],"type":"count"}`,
+			`{"host":"h2","interval":1.1,"metric":"t1.histogram","points":[[100,19]],"tags":["tag2","gsd_histogram:20_30_40_50_60","le:+Inf"],"type":"count"}`,
 		}
 
 		for _, e := range expected {
@@ -253,7 +253,7 @@ func metricsWithHistogram() *gostatsd.MetricMap {
 					Values:    []float64{0, 1},
 					Timestamp: gostatsd.Nanotime(200),
 					Hostname:  "h2",
-					Tags:      gostatsd.Tags{"tag2"},
+					Tags:      gostatsd.Tags{"tag2", "gsd_histogram:20_30_40_50_60"},
 					Histogram: map[gostatsd.HistogramThreshold]int{
 						{Le: 20}:          5,
 						{Le: 30}:          10,

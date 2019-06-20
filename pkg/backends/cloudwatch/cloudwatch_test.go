@@ -198,7 +198,7 @@ func TestSendHistogram(t *testing.T) {
 					Values:    []float64{0, 1},
 					Timestamp: gostatsd.Nanotime(200),
 					Hostname:  "h2",
-					Tags:      gostatsd.Tags{"tag2"},
+					Tags:      gostatsd.Tags{"tag2", "gsd_histogram:20_30_40_50_60"},
 					Histogram: map[gostatsd.HistogramThreshold]int{
 						{Le: 20}:          5,
 						{Le: 30}:          10,
