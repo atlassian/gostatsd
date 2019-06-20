@@ -9,7 +9,7 @@ import (
 	"github.com/atlassian/gostatsd"
 )
 
-func Timer(histogramThresholds string, values ...float64) gostatsd.Timer {
+func timer(histogramThresholds string, values ...float64) gostatsd.Timer {
 	return gostatsd.Timer{
 		Values:    values,
 		Tags:      []string{HistogramThresholdsTagPrefix + histogramThresholds},
@@ -25,7 +25,7 @@ func TestLatencyHistogram(t *testing.T) {
 	}{
 		{
 			name:  "happy path",
-			timer: Timer("10_30_45", 1, 10, 11, 12, 29, 30, 31, 45, 100, 100000),
+			timer: timer("10_30_45", 1, 10, 11, 12, 29, 30, 31, 45, 100, 100000),
 			want: map[gostatsd.HistogramThreshold]int{
 				{Le: 10}:          2,
 				{Le: 30}:          6,
@@ -35,7 +35,7 @@ func TestLatencyHistogram(t *testing.T) {
 		},
 		{
 			name:  "float thresholds",
-			timer: Timer("1.5_4_7.0", 1.4999, 1.5, 1.51, 4.0, 7.01),
+			timer: timer("1.5_4_7.0", 1.4999, 1.5, 1.51, 4.0, 7.01),
 			want: map[gostatsd.HistogramThreshold]int{
 				{Le: 1.5}:         2,
 				{Le: 4}:           4,
@@ -45,7 +45,7 @@ func TestLatencyHistogram(t *testing.T) {
 		},
 		{
 			name:  "no timer values",
-			timer: Timer("1_5_10"),
+			timer: timer("1_5_10"),
 			want: map[gostatsd.HistogramThreshold]int{
 				{Le: 1}:           0,
 				{Le: 5}:           0,
@@ -55,7 +55,7 @@ func TestLatencyHistogram(t *testing.T) {
 		},
 		{
 			name:  "one non parsable thresholds",
-			timer: Timer("1_incorrect_10", 0, 10, 20),
+			timer: timer("1_incorrect_10", 0, 10, 20),
 			want: map[gostatsd.HistogramThreshold]int{
 				{Le: 1}:           1,
 				{Le: 10}:          2,
@@ -64,7 +64,7 @@ func TestLatencyHistogram(t *testing.T) {
 		},
 		{
 			name:  "totally unparsable tag",
-			timer: Timer("nothresoldsatall", 0, 10, 20),
+			timer: timer("nothresoldsatall", 0, 10, 20),
 			want: map[gostatsd.HistogramThreshold]int{
 				{Le: math.Inf(1)}: 3,
 			},
