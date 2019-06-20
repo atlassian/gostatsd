@@ -39,9 +39,9 @@ func LatencyHistogram(timer gostatsd.Timer) map[gostatsd.HistogramThreshold]int 
 }
 
 func retrieveThresholds(timer gostatsd.Timer) []gostatsd.HistogramThreshold {
-	tag := findTag(timer.Tags, HistogramThresholdsTagPrefix)
-	if tag != nil {
-		bucketsTagValue := (*tag)[len(HistogramThresholdsTagPrefix):]
+	tag, found := findTag(timer.Tags, HistogramThresholdsTagPrefix)
+	if found {
+		bucketsTagValue := tag[len(HistogramThresholdsTagPrefix):]
 		stringThresholds := strings.Split(bucketsTagValue, HistogramThresholdsSeparator)
 		floatThresholds := mapToThresholds(stringThresholds)
 		if floatThresholds == nil {
@@ -63,12 +63,11 @@ func mapToThresholds(vs []string) []gostatsd.HistogramThreshold {
 	return lb
 }
 
-// returns the first string in a that begins with prefix
-func findTag(a []string, prefix string) *string {
+func findTag(a []string, prefix string) (string, bool) {
 	for _, n := range a {
 		if strings.HasPrefix(n, prefix) {
-			return &n
+			return n, true
 		}
 	}
-	return nil
+	return "", false
 }
