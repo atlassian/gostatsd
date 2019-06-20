@@ -189,8 +189,6 @@ func (client *Client) preparePayload(metrics *gostatsd.MetricMap, ts time.Time) 
 		for _, pct := range timer.Percentiles {
 			_, _ = fmt.Fprintf(buf, "%s %f %d\n", client.prepareName(client.timerNamespace, key, pct.Str, timer.Hostname, timer.Tags), pct.Float, now)
 		}
-	})
-	metrics.Timers.Each(func(key, tagsKey string, timer gostatsd.Timer) {
 		if timer.Histogram != nil {
 			for histogramThreshold, count := range timer.Histogram {
 				bucketTag := "le:+Inf"

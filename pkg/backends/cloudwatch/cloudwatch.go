@@ -144,9 +144,6 @@ func (client Client) buildMetricData(metrics *gostatsd.MetricMap) (metricData []
 		for _, pct := range timer.Percentiles {
 			addMetricData(key+"."+pct.Str, "Milliseconds", pct.Float, timer.Tags)
 		}
-	})
-
-	metrics.Timers.Each(func(key, tagsKey string, timer gostatsd.Timer) {
 		if timer.Histogram != nil {
 			for histogramThreshold, count := range timer.Histogram {
 				bucketTag := "le:+Inf"

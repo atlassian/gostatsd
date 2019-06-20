@@ -111,8 +111,6 @@ func preparePayload(metrics *gostatsd.MetricMap, disabled *gostatsd.TimerSubtype
 		for _, pct := range timer.Percentiles {
 			fmt.Fprintf(buf, "stats.timers.%s.%s %f %d\n", nk, pct.Str, pct.Float, now) // #nosec
 		}
-	})
-	metrics.Timers.Each(func(key, tagsKey string, timer gostatsd.Timer) {
 		if timer.Histogram != nil {
 			nk := composeMetricName(key, tagsKey)
 			for histogramThreshold, count := range timer.Histogram {
@@ -124,7 +122,6 @@ func preparePayload(metrics *gostatsd.MetricMap, disabled *gostatsd.TimerSubtype
 			}
 		}
 	})
-
 	metrics.Gauges.Each(func(key, tagsKey string, gauge gostatsd.Gauge) {
 		nk := composeMetricName(key, tagsKey)
 		fmt.Fprintf(buf, "stats.gauge.%s %f %d\n", nk, gauge.Value, now) // #nosec

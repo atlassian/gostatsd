@@ -22,7 +22,7 @@ import (
 	"github.com/atlassian/gostatsd/pkg/stats"
 
 	"github.com/cenkalti/backoff"
-	jsoniter "github.com/json-iterator/go"
+	"github.com/json-iterator/go"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 )
@@ -202,10 +202,6 @@ func (d *Client) processMetrics(metrics *gostatsd.MetricMap, cb func(*timeSeries
 		for _, pct := range timer.Percentiles {
 			fl.addMetricf(gauge, pct.Float, timer.Hostname, timer.Tags, "%s.%s", key, pct.Str)
 		}
-		fl.maybeFlush()
-	})
-
-	metrics.Timers.Each(func(key, tagsKey string, timer gostatsd.Timer) {
 		if timer.Histogram != nil {
 			for histogramThreshold, count := range timer.Histogram {
 				bucketTag := "le:+Inf"
@@ -215,8 +211,8 @@ func (d *Client) processMetrics(metrics *gostatsd.MetricMap, cb func(*timeSeries
 				newTags := timer.Tags.Concat(gostatsd.Tags{bucketTag})
 				fl.addMetricf(counter, float64(count), timer.Hostname, newTags, "%s.histogram", key)
 			}
-			fl.maybeFlush()
 		}
+		fl.maybeFlush()
 	})
 
 	metrics.Gauges.Each(func(key, tagsKey string, g gostatsd.Gauge) {
