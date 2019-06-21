@@ -69,6 +69,30 @@ func TestLatencyHistograms(t *testing.T) {
 	assrt.Equal(4, result.Histogram[gostatsd.HistogramThreshold(math.Inf(1))])
 }
 
+func TestLatencyHistogramDisablesAggregations(t *testing.T) {
+	t.Parallel()
+	assrt := assert.New(t)
+	ma := newFakeAggregator()
+	ma.metricMap.Timers["testTimer"] = make(map[string]gostatsd.Timer)
+	values := gostatsd.NewTimerValues([]float64{10.0, 20.0, 29.9, 2000.0})
+	values.Tags = gostatsd.Tags{HistogramThresholdsTagPrefix + "20_50_5000"}
+	ma.metricMap.Timers["testTimer"]["simple"] = values
+
+	ma.Flush(10)
+
+	result := ma.metricMap.Timers["testTimer"]["simple"]
+
+	assrt.Equal(0, result.Count)
+	assrt.Equal(0.0, result.PerSecond)
+	assrt.Equal(0.0, result.Mean)
+	assrt.Equal(0.0, result.Min)
+	assrt.Equal(0.0, result.Max)
+	assrt.Equal(0.0, result.StdDev)
+	assrt.Equal(0.0, result.Sum)
+	assrt.Equal(0.0, result.SumSquares)
+	assrt.Nil(result.Percentiles)
+}
+
 func TestFlush(t *testing.T) {
 	t.Parallel()
 	assrt := assert.New(t)

@@ -70,6 +70,11 @@ func mapToThresholds(vs []string) []gostatsd.HistogramThreshold {
 	return lb
 }
 
+func hasHistogramTag(timer gostatsd.Timer) bool {
+	_, found := findTag(timer.Tags, HistogramThresholdsTagPrefix)
+	return found
+}
+
 func findTag(a []string, prefix string) (string, bool) {
 	for _, n := range a {
 		if strings.HasPrefix(n, prefix) {
