@@ -34,6 +34,15 @@ func TestLatencyHistogram(t *testing.T) {
 			},
 		},
 		{
+			name:  "empty threshold",
+			timer: timer("10__45", 1, 10, 11, 12, 29, 30, 31, 45, 100, 100000),
+			want: map[gostatsd.HistogramThreshold]int{
+				10:                                       2,
+				45:                                       8,
+				gostatsd.HistogramThreshold(math.Inf(1)): 10,
+			},
+		},
+		{
 			name:  "float thresholds",
 			timer: timer("1.5_4_7.0", 1.4999, 1.5, 1.51, 4.0, 7.01),
 			want: map[gostatsd.HistogramThreshold]int{
@@ -81,8 +90,54 @@ func TestLatencyHistogram(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			buckets := latencyHistogram(tt.timer)
+			buckets := latencyHistogram(tt.timer, math.MaxUint32)
 			assert.Equal(t, tt.want, buckets)
 		})
 	}
+}
+
+func TestBucketLimit(t *testing.T) {
+	timer := timer("10_20_30_50", 1, 10, 20, 30, 40, 50, 60)
+	infinity := gostatsd.HistogramThreshold(math.Inf(1))
+	tests := []struct {
+		name  string
+		limit uint32
+		want  []gostatsd.HistogramThreshold
+	}{
+		{
+			name:  "no limit",
+			limit: math.MaxUint32,
+			want:  []gostatsd.HistogramThreshold{10, 20, 30, 50, infinity},
+		},
+		{
+			name:  "histogram disabled",
+			limit: 0,
+			want:  []gostatsd.HistogramThreshold{},
+		},
+		{
+			name:  "histogram buckets limited",
+			limit: 2,
+			want:  []gostatsd.HistogramThreshold{10, 20, infinity},
+		},
+		{
+			name:  "limit equal to thresholds",
+			limit: 4,
+			want:  []gostatsd.HistogramThreshold{10, 20, 30, 50, infinity},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			buckets := thresholds(latencyHistogram(timer, tt.limit))
+			assert.ElementsMatch(t, buckets, tt.want)
+		})
+	}
+}
+
+func thresholds(buckets map[gostatsd.HistogramThreshold]int) []gostatsd.HistogramThreshold {
+	keys := make([]gostatsd.HistogramThreshold, 0, len(buckets))
+	for key := range buckets {
+		keys = append(keys, key)
+	}
+	return keys
 }

@@ -13,9 +13,14 @@ const (
 	HistogramThresholdsSeparator = "_"
 )
 
-func latencyHistogram(timer gostatsd.Timer) map[gostatsd.HistogramThreshold]int {
+func latencyHistogram(timer gostatsd.Timer, bucketLimit uint32) map[gostatsd.HistogramThreshold]int {
 	result := make(map[gostatsd.HistogramThreshold]int)
-	thresholds := retrieveThresholds(timer)
+
+	if bucketLimit==0 {
+		return result
+	}
+
+	thresholds := retrieveThresholds(timer, bucketLimit)
 
 	if thresholds == nil {
 		return nil
@@ -35,15 +40,17 @@ func latencyHistogram(timer gostatsd.Timer) map[gostatsd.HistogramThreshold]int 
 		}
 	}
 	result[infiniteThreshold] += len(timer.Values)
+
 	return result
 }
 
-func retrieveThresholds(timer gostatsd.Timer) []gostatsd.HistogramThreshold {
+func retrieveThresholds(timer gostatsd.Timer, bucketlimit uint32) []gostatsd.HistogramThreshold {
 	tag, found := findTag(timer.Tags, HistogramThresholdsTagPrefix)
 	if found {
 		bucketsTagValue := tag[len(HistogramThresholdsTagPrefix):]
 		stringThresholds := strings.Split(bucketsTagValue, HistogramThresholdsSeparator)
 		floatThresholds := mapToThresholds(stringThresholds)
+		floatThresholds = floatThresholds[:(min(uint32(len(floatThresholds)), bucketlimit))]
 		if floatThresholds == nil {
 			return []gostatsd.HistogramThreshold{}
 		}
@@ -70,4 +77,11 @@ func findTag(a []string, prefix string) (string, bool) {
 		}
 	}
 	return "", false
+}
+
+func min(a, b uint32) uint32 {
+	if a < b {
+		return a
+	}
+	return b
 }

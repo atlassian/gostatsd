@@ -172,7 +172,7 @@ func (a *MetricAggregator) Flush(flushInterval time.Duration) {
 	})
 
 	a.metricMap.Timers.Each(func(key, tagsKey string, timer gostatsd.Timer) {
-		histogram := latencyHistogram(timer)
+		histogram := latencyHistogram(timer, math.MaxUint32)
 		if histogram != nil {
 			timer.Histogram = histogram
 			a.metricMap.Timers[key][tagsKey] = timer
