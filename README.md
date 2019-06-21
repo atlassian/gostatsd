@@ -189,7 +189,15 @@ By default (for compatibility), they are all false and the metrics will be emitt
 Timer histograms
 ----------------
 
+Timer histograms inspired by [Promehteus implementaion](https://prometheus.io/docs/concepts/metric_types/#histogram) can be
+enabled on a per time series basis using `gsd_histogram` meta tag with value containing histogram bucketing definition (joined with `_`) 
+e.g. `gsd_histogram:5_10_25_50`.
 
+It will:
+* output additional cumulative counter time series with name `<metric_name>.histogram` and `le` tags specifying histogram buckets.
+* disable default aggregations for timers
+
+To limit cardinality, `timer-histogram-limit` option can be specified to limit number of buckets that will be created (default is `math.MaxUint32`).
 
 Sending metrics
 ---------------
