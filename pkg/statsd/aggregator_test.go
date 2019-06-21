@@ -18,6 +18,7 @@ func newFakeAggregator() *MetricAggregator {
 		[]float64{90},
 		5*time.Minute,
 		gostatsd.TimerSubtypes{},
+		math.MaxUint32,
 	)
 }
 
@@ -389,6 +390,7 @@ func TestDisabledLower(t *testing.T) {
 		[]float64{-90},
 		5*time.Minute,
 		gostatsd.TimerSubtypes{},
+		math.MaxUint32,
 	)
 	ma.disabledSubtypes.LowerPct = true
 	ma.Receive(&gostatsd.Metric{Name: "x", Value: 1, Type: gostatsd.TIMER})

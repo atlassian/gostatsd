@@ -145,6 +145,7 @@ func constructServer(v *viper.Viper) (*statsd.Server, error) {
 		},
 		DisabledSubTypes:          gostatsd.DisabledSubMetrics(v),
 		BadLineRateLimitPerSecond: rate.Limit(v.GetFloat64(statsd.ParamBadLinesPerMinute) / 60.0),
+		HistogramLimit:            v.GetUint32(statsd.ParamTimerHistogramLimit),
 		Viper:                     v,
 	}, nil
 }

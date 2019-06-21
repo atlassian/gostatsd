@@ -14,7 +14,7 @@ import (
 	"github.com/atlassian/gostatsd/pkg/web"
 
 	"github.com/ash2k/stager"
-	reuseport "github.com/libp2p/go-reuseport"
+	"github.com/libp2p/go-reuseport"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"golang.org/x/time/rate"
@@ -48,6 +48,7 @@ type Server struct {
 	HeartbeatTags             gostatsd.Tags
 	ReceiveBatchSize          int
 	DisabledSubTypes          gostatsd.TimerSubtypes
+	HistogramLimit            uint32
 	BadLineRateLimitPerSecond rate.Limit
 	ServerMode                string
 	Hostname                  string
@@ -97,6 +98,7 @@ func (s *Server) createStandaloneSink() (gostatsd.PipelineHandler, []gostatsd.Ru
 		percentThresholds: s.PercentThreshold,
 		expiryInterval:    s.ExpiryInterval,
 		disabledSubtypes:  s.DisabledSubTypes,
+		histogramLimit:    s.HistogramLimit,
 	}
 
 	backendHandler := NewBackendHandler(s.Backends, uint(s.MaxConcurrentEvents), s.MaxWorkers, s.MaxQueueSize, &factory)
@@ -270,10 +272,11 @@ type agrFactory struct {
 	percentThresholds []float64
 	expiryInterval    time.Duration
 	disabledSubtypes  gostatsd.TimerSubtypes
+	histogramLimit    uint32
 }
 
 func (af *agrFactory) Create() Aggregator {
-	return NewMetricAggregator(af.percentThresholds, af.expiryInterval, af.disabledSubtypes)
+	return NewMetricAggregator(af.percentThresholds, af.expiryInterval, af.disabledSubtypes, af.histogramLimit)
 }
 
 func toStringSlice(fs []float64) []string {

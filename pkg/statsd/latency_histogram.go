@@ -16,7 +16,7 @@ const (
 func latencyHistogram(timer gostatsd.Timer, bucketLimit uint32) map[gostatsd.HistogramThreshold]int {
 	result := make(map[gostatsd.HistogramThreshold]int)
 
-	if bucketLimit==0 {
+	if bucketLimit == 0 {
 		return result
 	}
 
