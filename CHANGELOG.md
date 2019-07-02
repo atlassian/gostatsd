@@ -1,3 +1,7 @@
+17.0.1
+------
+- Moved noisy log line from info to debug
+
 17.0.0
 ------
 - BREAKING: Added support for [Graphite 1.1 style tags](https://grafana.com/blog/2018/01/11/graphite-1.1-teaching-an-old-dog-new-tricks/),
