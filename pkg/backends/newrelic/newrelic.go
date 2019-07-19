@@ -329,7 +329,7 @@ func (n *Client) postWrapper(ctx context.Context, mJSON []byte) (func() error, e
 
 		req, err := http.NewRequest("POST", n.address, bytes.NewBuffer(json))
 		if err != nil {
-			return err
+			return fmt.Errorf("unable to create http.Request: %v", err)
 		}
 		req = req.WithContext(ctx)
 		for header, v := range headers {
@@ -337,7 +337,7 @@ func (n *Client) postWrapper(ctx context.Context, mJSON []byte) (func() error, e
 		}
 		resp, err := n.client.Do(req)
 		if err != nil {
-			return err
+			return fmt.Errorf("error POSTing: %s", err.Error())
 		}
 		defer resp.Body.Close()
 		body := io.LimitReader(resp.Body, maxResponseSize)
