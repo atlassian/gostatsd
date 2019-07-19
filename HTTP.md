@@ -1,7 +1,7 @@
 ## HTTP endpoints
 
 ### `prof` endpoints
-- `/memprof`, runs a trace profile for 30 seconds
+- `/trace`, runs a trace profile for 30 seconds
 - `/pprof`, runs a pprof profile for 30 seconds
 - `/memprof`, runs a `heap` memory profile for 30 seconds
 
