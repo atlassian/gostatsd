@@ -100,7 +100,7 @@ func newMetricSet(n *Client, f *flush, metricName, Type string, Value float64, t
 	metricSet[n.metricType] = Type
 	metricSet[n.metricName] = metricName
 	metricSet[n.metricValue] = Value
-	n.setTags(tags, &metricSet)
+	n.setTags(tags, metricSet)
 
 	return metricSet
 }

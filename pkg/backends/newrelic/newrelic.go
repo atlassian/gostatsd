@@ -2,7 +2,7 @@ package newrelic
 
 import (
 	"bytes"
-	"compress/gzip"
+	"compress/zlib"
 	"context"
 	"crypto/tls"
 	"encoding/json"
@@ -226,7 +226,7 @@ func (n *Client) EventFormatter(e *gostatsd.Event) interface{} {
 		"Priority":       e.Priority.StringWithEmptyDefault(),
 		"AlertType":      e.AlertType.StringWithEmptyDefault(),
 	}
-	n.setTags(e.Tags, &event)
+	n.setTags(e.Tags, event)
 
 	switch n.flushType {
 	case flushTypeInsights:
@@ -300,8 +300,7 @@ func (n *Client) constructPost(ctx context.Context, buffer *bytes.Buffer, data i
 }
 
 // postWrapper compresses JSON for Insights
-func (n *Client) postWrapper(ctx context.Context, mJSON []byte) (func() error, error) {
-	json := mJSON
+func (n *Client) postWrapper(ctx context.Context, json []byte) (func() error, error) {
 	return func() error {
 		headers := map[string]string{
 			"Content-Type": "application/json",
@@ -311,10 +310,10 @@ func (n *Client) postWrapper(ctx context.Context, mJSON []byte) (func() error, e
 		// Insights Event API requires gzip or deflate compression
 		if n.flushType == flushTypeInsights && n.apiKey != "" {
 			headers["X-Insert-Key"] = n.apiKey
-			headers["Content-Encoding"] = "gzip"
-			// gzip json
+			headers["Content-Encoding"] = "deflate"
+			// zlib json
 			var buf bytes.Buffer
-			zw := gzip.NewWriter(&buf)
+			zw := zlib.NewWriter(&buf)
 			_, err := zw.Write([]byte(json))
 			if err != nil {
 				return err
@@ -539,18 +538,18 @@ func newInfraPayload(data interface{}) NewRelicInfraPayload {
 	}
 }
 
-func (n *Client) setTags(tags gostatsd.Tags, data *map[string]interface{}) {
+func (n *Client) setTags(tags gostatsd.Tags, data map[string]interface{}) {
 	for _, tag := range tags {
 		if strings.Contains(tag, ":") {
 			keyvalpair := strings.SplitN(tag, ":", 2)
 			parsed, err := strconv.ParseFloat(keyvalpair[1], 64)
 			if err != nil || strings.EqualFold(keyvalpair[1], "infinity") {
-				(*data)[n.tagPrefix+keyvalpair[0]] = keyvalpair[1]
+				data[n.tagPrefix+keyvalpair[0]] = keyvalpair[1]
 			} else {
-				(*data)[n.tagPrefix+keyvalpair[0]] = parsed
+				data[n.tagPrefix+keyvalpair[0]] = parsed
 			}
 		} else {
-			(*data)[n.tagPrefix+tag] = "true"
+			data[n.tagPrefix+tag] = "true"
 		}
 	}
 }
