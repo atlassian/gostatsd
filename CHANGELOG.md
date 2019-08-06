@@ -1,3 +1,7 @@
+17.1.0
+------
+- NewRelic event support added by Kav91
+
 17.0.1
 ------
 - Moved noisy log line from info to debug
