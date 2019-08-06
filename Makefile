@@ -50,8 +50,8 @@ build-all: pb/gostatsd.pb.go
 test-all: fmt test test-race bench bench-race check cover
 
 fmt:
-	gofmt -w=true -s $$(find . -type f -name '*.go' -not -path "./vendor/*")
-	goimports -w=true -d $$(find . -type f -name '*.go' -not -path "./vendor/*")
+	gofmt -w=true -s $$(find . -type f -name '*.go' -not -path "./vendor/*" -not -path "./pb/*")
+	goimports -w=true -d $$(find . -type f -name '*.go' -not -path "./vendor/*" -not -path "./pb/*")
 
 test: pb/gostatsd.pb.go
 	go test $$(glide nv)
