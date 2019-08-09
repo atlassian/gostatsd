@@ -190,7 +190,6 @@ func (n *Client) processMetrics(metrics *gostatsd.MetricMap, cb func(*timeSeries
 	})
 
 	metrics.Timers.Each(func(key, tagsKey string, timer gostatsd.Timer) {
-		fl.addTimerMetric(n, "timer", timer, tagsKey, key)
 		if timer.Histogram != nil {
 			for histogramThreshold, count := range timer.Histogram {
 				bucketTag := "le:infinity"
@@ -200,6 +199,8 @@ func (n *Client) processMetrics(metrics *gostatsd.MetricMap, cb func(*timeSeries
 				newTags := timer.Tags.Concat(gostatsd.Tags{bucketTag})
 				fl.addMetric(n, "counter", float64(count), 0, timer.Hostname, newTags, key+".histogram", timer.Timestamp)
 			}
+		} else {
+			fl.addTimerMetric(n, "timer", timer, tagsKey, key)
 		}
 		fl.maybeFlush()
 	})

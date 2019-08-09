@@ -114,36 +114,6 @@ func (client Client) buildMetricData(metrics *gostatsd.MetricMap) (metricData []
 
 	prefix = "stats.timers."
 	metrics.Timers.Each(func(key, tagsKey string, timer gostatsd.Timer) {
-		if !disabled.Lower {
-			addMetricData(key+".lower", "Milliseconds", timer.Min, timer.Tags)
-		}
-		if !disabled.Upper {
-			addMetricData(key+".upper", "Milliseconds", timer.Max, timer.Tags)
-		}
-		if !disabled.Count {
-			addMetricData(key+".count", "Count", float64(timer.Count), timer.Tags)
-		}
-		if !disabled.CountPerSecond {
-			addMetricData(key+".count_ps", "Count/Second", timer.PerSecond, timer.Tags)
-		}
-		if !disabled.Mean {
-			addMetricData(key+".mean", "Milliseconds", timer.Mean, timer.Tags)
-		}
-		if !disabled.Median {
-			addMetricData(key+".median", "Milliseconds", timer.Median, timer.Tags)
-		}
-		if !disabled.StdDev {
-			addMetricData(key+".std", "Milliseconds", timer.StdDev, timer.Tags)
-		}
-		if !disabled.Sum {
-			addMetricData(key+".sum", "Milliseconds", timer.Sum, timer.Tags)
-		}
-		if !disabled.SumSquares {
-			addMetricData(key+".sum_squares", "Milliseconds", timer.SumSquares, timer.Tags)
-		}
-		for _, pct := range timer.Percentiles {
-			addMetricData(key+"."+pct.Str, "Milliseconds", pct.Float, timer.Tags)
-		}
 		if timer.Histogram != nil {
 			for histogramThreshold, count := range timer.Histogram {
 				bucketTag := "le:+Inf"
@@ -152,6 +122,37 @@ func (client Client) buildMetricData(metrics *gostatsd.MetricMap) (metricData []
 				}
 				newTags := timer.Tags.Concat(gostatsd.Tags{bucketTag})
 				addMetricData(key+".histogram", "Count", float64(count), newTags)
+			}
+		} else {
+			if !disabled.Lower {
+				addMetricData(key+".lower", "Milliseconds", timer.Min, timer.Tags)
+			}
+			if !disabled.Upper {
+				addMetricData(key+".upper", "Milliseconds", timer.Max, timer.Tags)
+			}
+			if !disabled.Count {
+				addMetricData(key+".count", "Count", float64(timer.Count), timer.Tags)
+			}
+			if !disabled.CountPerSecond {
+				addMetricData(key+".count_ps", "Count/Second", timer.PerSecond, timer.Tags)
+			}
+			if !disabled.Mean {
+				addMetricData(key+".mean", "Milliseconds", timer.Mean, timer.Tags)
+			}
+			if !disabled.Median {
+				addMetricData(key+".median", "Milliseconds", timer.Median, timer.Tags)
+			}
+			if !disabled.StdDev {
+				addMetricData(key+".std", "Milliseconds", timer.StdDev, timer.Tags)
+			}
+			if !disabled.Sum {
+				addMetricData(key+".sum", "Milliseconds", timer.Sum, timer.Tags)
+			}
+			if !disabled.SumSquares {
+				addMetricData(key+".sum_squares", "Milliseconds", timer.SumSquares, timer.Tags)
+			}
+			for _, pct := range timer.Percentiles {
+				addMetricData(key+"."+pct.Str, "Milliseconds", pct.Float, timer.Tags)
 			}
 		}
 	})

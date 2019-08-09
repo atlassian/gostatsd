@@ -81,36 +81,6 @@ func preparePayload(metrics *gostatsd.MetricMap, disabled *gostatsd.TimerSubtype
 	})
 	metrics.Timers.Each(func(key, tagsKey string, timer gostatsd.Timer) {
 		nk := composeMetricName(key, tagsKey)
-		if !disabled.Lower {
-			fmt.Fprintf(buf, "stats.timers.%s.lower %f %d\n", nk, timer.Min, now) // #nosec
-		}
-		if !disabled.Upper {
-			fmt.Fprintf(buf, "stats.timers.%s.upper %f %d\n", nk, timer.Max, now) // #nosec
-		}
-		if !disabled.Count {
-			fmt.Fprintf(buf, "stats.timers.%s.count %d %d\n", nk, timer.Count, now) // #nosec
-		}
-		if !disabled.CountPerSecond {
-			fmt.Fprintf(buf, "stats.timers.%s.count_ps %f %d\n", nk, timer.PerSecond, now) // #nosec
-		}
-		if !disabled.Mean {
-			fmt.Fprintf(buf, "stats.timers.%s.mean %f %d\n", nk, timer.Mean, now) // #nosec
-		}
-		if !disabled.Median {
-			fmt.Fprintf(buf, "stats.timers.%s.median %f %d\n", nk, timer.Median, now) // #nosec
-		}
-		if !disabled.StdDev {
-			fmt.Fprintf(buf, "stats.timers.%s.std %f %d\n", nk, timer.StdDev, now) // #nosec
-		}
-		if !disabled.Sum {
-			fmt.Fprintf(buf, "stats.timers.%s.sum %f %d\n", nk, timer.Sum, now) // #nosec
-		}
-		if !disabled.SumSquares {
-			fmt.Fprintf(buf, "stats.timers.%s.sum_squares %f %d\n", nk, timer.SumSquares, now) // #nosec
-		}
-		for _, pct := range timer.Percentiles {
-			fmt.Fprintf(buf, "stats.timers.%s.%s %f %d\n", nk, pct.Str, pct.Float, now) // #nosec
-		}
 		if timer.Histogram != nil {
 			nk := composeMetricName(key, tagsKey)
 			for histogramThreshold, count := range timer.Histogram {
@@ -119,6 +89,37 @@ func preparePayload(metrics *gostatsd.MetricMap, disabled *gostatsd.TimerSubtype
 					bucketTag = "le:" + strconv.FormatFloat(float64(histogramThreshold), 'f', -1, 64)
 				}
 				fmt.Fprintf(buf, "stats.timers.%s.histogram.%s %d %d\n", nk, bucketTag, count, now) // #nosec
+			}
+		} else {
+			if !disabled.Lower {
+				fmt.Fprintf(buf, "stats.timers.%s.lower %f %d\n", nk, timer.Min, now) // #nosec
+			}
+			if !disabled.Upper {
+				fmt.Fprintf(buf, "stats.timers.%s.upper %f %d\n", nk, timer.Max, now) // #nosec
+			}
+			if !disabled.Count {
+				fmt.Fprintf(buf, "stats.timers.%s.count %d %d\n", nk, timer.Count, now) // #nosec
+			}
+			if !disabled.CountPerSecond {
+				fmt.Fprintf(buf, "stats.timers.%s.count_ps %f %d\n", nk, timer.PerSecond, now) // #nosec
+			}
+			if !disabled.Mean {
+				fmt.Fprintf(buf, "stats.timers.%s.mean %f %d\n", nk, timer.Mean, now) // #nosec
+			}
+			if !disabled.Median {
+				fmt.Fprintf(buf, "stats.timers.%s.median %f %d\n", nk, timer.Median, now) // #nosec
+			}
+			if !disabled.StdDev {
+				fmt.Fprintf(buf, "stats.timers.%s.std %f %d\n", nk, timer.StdDev, now) // #nosec
+			}
+			if !disabled.Sum {
+				fmt.Fprintf(buf, "stats.timers.%s.sum %f %d\n", nk, timer.Sum, now) // #nosec
+			}
+			if !disabled.SumSquares {
+				fmt.Fprintf(buf, "stats.timers.%s.sum_squares %f %d\n", nk, timer.SumSquares, now) // #nosec
+			}
+			for _, pct := range timer.Percentiles {
+				fmt.Fprintf(buf, "stats.timers.%s.%s %f %d\n", nk, pct.Str, pct.Float, now) // #nosec
 			}
 		}
 	})

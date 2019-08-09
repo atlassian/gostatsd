@@ -172,36 +172,6 @@ func (d *Client) processMetrics(metrics *gostatsd.MetricMap, cb func(*timeSeries
 	})
 
 	metrics.Timers.Each(func(key, tagsKey string, timer gostatsd.Timer) {
-		if !d.disabledSubtypes.Lower {
-			fl.addMetricf(gauge, timer.Min, timer.Hostname, timer.Tags, "%s.lower", key)
-		}
-		if !d.disabledSubtypes.Upper {
-			fl.addMetricf(gauge, timer.Max, timer.Hostname, timer.Tags, "%s.upper", key)
-		}
-		if !d.disabledSubtypes.Count {
-			fl.addMetricf(gauge, float64(timer.Count), timer.Hostname, timer.Tags, "%s.count", key)
-		}
-		if !d.disabledSubtypes.CountPerSecond {
-			fl.addMetricf(rate, timer.PerSecond, timer.Hostname, timer.Tags, "%s.count_ps", key)
-		}
-		if !d.disabledSubtypes.Mean {
-			fl.addMetricf(gauge, timer.Mean, timer.Hostname, timer.Tags, "%s.mean", key)
-		}
-		if !d.disabledSubtypes.Median {
-			fl.addMetricf(gauge, timer.Median, timer.Hostname, timer.Tags, "%s.median", key)
-		}
-		if !d.disabledSubtypes.StdDev {
-			fl.addMetricf(gauge, timer.StdDev, timer.Hostname, timer.Tags, "%s.std", key)
-		}
-		if !d.disabledSubtypes.Sum {
-			fl.addMetricf(gauge, timer.Sum, timer.Hostname, timer.Tags, "%s.sum", key)
-		}
-		if !d.disabledSubtypes.SumSquares {
-			fl.addMetricf(gauge, timer.SumSquares, timer.Hostname, timer.Tags, "%s.sum_squares", key)
-		}
-		for _, pct := range timer.Percentiles {
-			fl.addMetricf(gauge, pct.Float, timer.Hostname, timer.Tags, "%s.%s", key, pct.Str)
-		}
 		if timer.Histogram != nil {
 			for histogramThreshold, count := range timer.Histogram {
 				bucketTag := "le:+Inf"
@@ -210,6 +180,38 @@ func (d *Client) processMetrics(metrics *gostatsd.MetricMap, cb func(*timeSeries
 				}
 				newTags := timer.Tags.Concat(gostatsd.Tags{bucketTag})
 				fl.addMetricf(counter, float64(count), timer.Hostname, newTags, "%s.histogram", key)
+			}
+		} else {
+
+			if !d.disabledSubtypes.Lower {
+				fl.addMetricf(gauge, timer.Min, timer.Hostname, timer.Tags, "%s.lower", key)
+			}
+			if !d.disabledSubtypes.Upper {
+				fl.addMetricf(gauge, timer.Max, timer.Hostname, timer.Tags, "%s.upper", key)
+			}
+			if !d.disabledSubtypes.Count {
+				fl.addMetricf(gauge, float64(timer.Count), timer.Hostname, timer.Tags, "%s.count", key)
+			}
+			if !d.disabledSubtypes.CountPerSecond {
+				fl.addMetricf(rate, timer.PerSecond, timer.Hostname, timer.Tags, "%s.count_ps", key)
+			}
+			if !d.disabledSubtypes.Mean {
+				fl.addMetricf(gauge, timer.Mean, timer.Hostname, timer.Tags, "%s.mean", key)
+			}
+			if !d.disabledSubtypes.Median {
+				fl.addMetricf(gauge, timer.Median, timer.Hostname, timer.Tags, "%s.median", key)
+			}
+			if !d.disabledSubtypes.StdDev {
+				fl.addMetricf(gauge, timer.StdDev, timer.Hostname, timer.Tags, "%s.std", key)
+			}
+			if !d.disabledSubtypes.Sum {
+				fl.addMetricf(gauge, timer.Sum, timer.Hostname, timer.Tags, "%s.sum", key)
+			}
+			if !d.disabledSubtypes.SumSquares {
+				fl.addMetricf(gauge, timer.SumSquares, timer.Hostname, timer.Tags, "%s.sum_squares", key)
+			}
+			for _, pct := range timer.Percentiles {
+				fl.addMetricf(gauge, pct.Float, timer.Hostname, timer.Tags, "%s.%s", key, pct.Str)
 			}
 		}
 		fl.maybeFlush()

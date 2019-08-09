@@ -115,15 +115,6 @@ func TestPreparePayloadHistogram(t *testing.T) {
 	t.Parallel()
 	metrics := metricsWithHistogram()
 	expected :=
-		"gp.pt.t1.lower.gs 0.000000 1234\n" +
-			"gp.pt.t1.upper.gs 0.000000 1234\n" +
-			"gp.pt.t1.count.gs 0 1234\n" +
-			"gp.pt.t1.count_ps.gs 0.000000 1234\n" +
-			"gp.pt.t1.mean.gs 0.000000 1234\n" +
-			"gp.pt.t1.median.gs 0.000000 1234\n" +
-			"gp.pt.t1.std.gs 0.000000 1234\n" +
-			"gp.pt.t1.sum.gs 0.000000 1234\n" +
-			"gp.pt.t1.sum_squares.gs 0.000000 1234\n" +
 			"gp.pc.t1.histogram.gs;le=20 5 1234\n" +
 			"gp.pc.t1.histogram.gs;le=30 10 1234\n" +
 			"gp.pc.t1.histogram.gs;le=40 10 1234\n" +
