@@ -21,7 +21,7 @@ type Timer struct {
 	Tags         Tags        // The tags for the timer
 
 	// Map bounds to count of measures seen in that bucket.
-	// This map only non-empty if the metric specifies percentile aggregation in its tags.
+	// This map only non-empty if the metric specifies histogram aggregation in its tags.
 	Histogram map[HistogramThreshold]int
 }
 

@@ -78,11 +78,10 @@ func (a *MetricAggregator) Flush(flushInterval time.Duration) {
 	})
 
 	a.metricMap.Timers.Each(func(key, tagsKey string, timer gostatsd.Timer) {
-		if count := len(timer.Values); count > 0 {
-
-			if hasHistogramTag(timer) {
-				timer.Histogram = latencyHistogram(timer, a.histogramLimit)
-			} else {
+		if hasHistogramTag(timer) {
+			timer.Histogram = latencyHistogram(timer, a.histogramLimit)
+		} else {
+			if count := len(timer.Values); count > 0 {
 				sort.Float64s(timer.Values)
 				timer.Min = timer.Values[0]
 				timer.Max = timer.Values[count-1]
@@ -168,13 +167,13 @@ func (a *MetricAggregator) Flush(flushInterval time.Duration) {
 
 				timer.Count = int(round(timer.SampledCount))
 				timer.PerSecond = timer.SampledCount / flushInSeconds
+			} else {
+				timer.Count = 0
+				timer.SampledCount = 0
+				timer.PerSecond = 0
 			}
-			a.metricMap.Timers[key][tagsKey] = timer
-		} else {
-			timer.Count = 0
-			timer.SampledCount = 0
-			timer.PerSecond = 0
 		}
+		a.metricMap.Timers[key][tagsKey] = timer
 	})
 }
 

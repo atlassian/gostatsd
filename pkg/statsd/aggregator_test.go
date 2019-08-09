@@ -63,12 +63,33 @@ func TestLatencyHistograms(t *testing.T) {
 	ma.Flush(10)
 
 	result := ma.metricMap.Timers["testTimer"]["simple"]
+	assrt.Len(result.Histogram, 7)
 	assrt.Equal(1, result.Histogram[gostatsd.HistogramThreshold(-10)])
 	assrt.Equal(2, result.Histogram[gostatsd.HistogramThreshold(0)])
 	assrt.Equal(2, result.Histogram[gostatsd.HistogramThreshold(2.5)])
 	assrt.Equal(5, result.Histogram[gostatsd.HistogramThreshold(50)])
 	assrt.Equal(6, result.Histogram[gostatsd.HistogramThreshold(5000)])
 	assrt.Equal(6, result.Histogram[gostatsd.HistogramThreshold(math.Inf(1))])
+}
+
+func TestLatencyHistogramWithNoValuesOutputHistogramWithZeros(t *testing.T) {
+	t.Parallel()
+	assrt := assert.New(t)
+	ma := newFakeAggregator()
+	ma.metricMap.Timers["testTimer"] = make(map[string]gostatsd.Timer)
+	values := gostatsd.NewTimerValues([]float64{})
+	values.Tags = gostatsd.Tags{HistogramThresholdsTagPrefix + "10_20_50_5000"}
+	ma.metricMap.Timers["testTimer"]["simple"] = values
+
+	ma.Flush(10)
+
+	result := ma.metricMap.Timers["testTimer"]["simple"]
+	assrt.Len(result.Histogram, 5)
+	assrt.Equal(0, result.Histogram[gostatsd.HistogramThreshold(10)])
+	assrt.Equal(0, result.Histogram[gostatsd.HistogramThreshold(20)])
+	assrt.Equal(0, result.Histogram[gostatsd.HistogramThreshold(50)])
+	assrt.Equal(0, result.Histogram[gostatsd.HistogramThreshold(5000)])
+	assrt.Equal(0, result.Histogram[gostatsd.HistogramThreshold(math.Inf(1))])
 }
 
 func TestLatencyHistogramDisablesAggregations(t *testing.T) {
