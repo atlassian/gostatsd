@@ -186,18 +186,35 @@ upper-pct=false
 
 By default (for compatibility), they are all false and the metrics will be emitted.
 
-Timer histograms
+Timer histograms (experimental feature)
 ----------------
 
 Timer histograms inspired by [Promehteus implementaion](https://prometheus.io/docs/concepts/metric_types/#histogram) can be
 enabled on a per time series basis using `gsd_histogram` meta tag with value containing histogram bucketing definition (joined with `_`) 
-e.g. `gsd_histogram:5_10_25_50`.
+e.g. `gsd_histogram:-10_0_2.5_5_10_25_50`.
 
 It will:
-* output additional cumulative counter time series with name `<metric_name>.histogram` and `le` tags specifying histogram buckets.
-* disable default aggregations for timers
+* output additional cumulative counter time series with name `<base>.histogram` and `le` tags specifying histogram buckets.
+* disable default sub-aggregations for timers e.g. `<base>.Count`, `<base>.Mean`, `<base>.Upper`, `<base>.Upper_XX`, etc.
+
+For timer with `gsd_histogram:-10_0_2.5_5_10_25_50` meta tag, following time series will be generated
+* `<base>.histogram` with tag `le:-10`
+* `<base>.histogram` with tag `le:0`
+* `<base>.histogram` with tag `le:2.5`
+* `<base>.histogram` with tag `le:5`
+* `<base>.histogram` with tag `le:10`
+* `<base>.histogram` with tag `le:25`
+* `<base>.histogram` with tag `le:50`
+* `<base>.histogram` with tag `le:+Inf`
+
+Each team series will contain total number of timer data points that had value less or equal `le` value, e.g. cumulative counter `<base>.histogram` with tag `le:5` will contain number of all observations that had value below `5`.
+Cumulative counter `<base>.histogram` with tag `le:+Inf` is equivalent to `<base>.count` and contains total number.
+
+All other timer tags are preserved and added to all the time series.
 
 To limit cardinality, `timer-histogram-limit` option can be specified to limit number of buckets that will be created (default is `math.MaxUint32`).
+
+This is experimental feature and it is possible that it will be removed in future versions.
 
 Sending metrics
 ---------------
