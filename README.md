@@ -189,7 +189,7 @@ By default (for compatibility), they are all false and the metrics will be emitt
 Timer histograms (experimental feature)
 ----------------
 
-Timer histograms inspired by [Promehteus implementaion](https://prometheus.io/docs/concepts/metric_types/#histogram) can be
+Timer histograms inspired by [Prometheus implementaion](https://prometheus.io/docs/concepts/metric_types/#histogram) can be
 enabled on a per time series basis using `gsd_histogram` meta tag with value containing histogram bucketing definition (joined with `_`) 
 e.g. `gsd_histogram:-10_0_2.5_5_10_25_50`.
 
@@ -207,14 +207,14 @@ For timer with `gsd_histogram:-10_0_2.5_5_10_25_50` meta tag, following time ser
 * `<base>.histogram` with tag `le:50`
 * `<base>.histogram` with tag `le:+Inf`
 
-Each team series will contain total number of timer data points that had value less or equal `le` value, e.g. cumulative counter `<base>.histogram` with tag `le:5` will contain number of all observations that had value below `5`.
+Each team series will contain a total number of timer data points that had a value less or equal `le` value, e.g. cumulative counter `<base>.histogram` with the tag `le:5` will contain the number of all observations that had a value below `5`.
 Cumulative counter `<base>.histogram` with tag `le:+Inf` is equivalent to `<base>.count` and contains total number.
 
 All other timer tags are preserved and added to all the time series.
 
-To limit cardinality, `timer-histogram-limit` option can be specified to limit number of buckets that will be created (default is `math.MaxUint32`).
+To limit cardinality, `timer-histogram-limit` option can be specified to limit the number of buckets that will be created (default is `math.MaxUint32`).
 
-This is experimental feature and it is possible that it will be removed in future versions.
+This is an experimental feature and it may be removed in future versions.
 
 Sending metrics
 ---------------
