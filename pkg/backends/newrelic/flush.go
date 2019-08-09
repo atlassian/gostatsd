@@ -1,9 +1,6 @@
 package newrelic
 
 import (
-	"strconv"
-	"strings"
-
 	"github.com/atlassian/gostatsd"
 )
 
@@ -103,20 +100,7 @@ func newMetricSet(n *Client, f *flush, metricName, Type string, Value float64, t
 	metricSet[n.metricType] = Type
 	metricSet[n.metricName] = metricName
 	metricSet[n.metricValue] = Value
-
-	for _, tag := range tags {
-		if strings.Contains(tag, ":") {
-			keyvalpair := strings.SplitN(tag, ":", 2)
-			parsed, err := strconv.ParseFloat(keyvalpair[1], 64)
-			if err != nil || strings.EqualFold(keyvalpair[1], "infinity") {
-				metricSet[n.tagPrefix+keyvalpair[0]] = keyvalpair[1]
-			} else {
-				metricSet[n.tagPrefix+keyvalpair[0]] = parsed
-			}
-		} else {
-			metricSet[n.tagPrefix+tag] = "true"
-		}
-	}
+	n.setTags(tags, metricSet)
 
 	return metricSet
 }

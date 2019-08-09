@@ -1,6 +1,14 @@
+18.0.0
+------
+- Added experimental support for generating latency histograms for timers, more details in [README.md]
+
+17.1.0
+------
+- NewRelic event support added by Kav91
+
 17.0.1
 ------
-- Added support for generating latency histograms for timers, more details in [README.md]
+- Moved noisy log line from info to debug
 
 17.0.0
 ------

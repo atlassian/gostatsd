@@ -30,7 +30,7 @@ const (
 	// BackendName is the name of this backend.
 	BackendName                  = "newrelic"
 	integrationName              = "com.newrelic.gostatsd"
-	integrationVersion           = "2.1.0"
+	integrationVersion           = "2.2.0"
 	protocolVersion              = "2"
 	defaultUserAgent             = "gostatsd"
 	defaultMaxRequestElapsedTime = 15 * time.Second
@@ -209,7 +209,46 @@ func (n *Client) processMetrics(metrics *gostatsd.MetricMap, cb func(*timeSeries
 
 // SendEvent sends an event to New Relic.
 func (n *Client) SendEvent(ctx context.Context, e *gostatsd.Event) error {
-	return nil
+	// Event format depends on flush type
+	data := n.EventFormatter(e)
+	b, err := json.Marshal(data)
+	if err != nil {
+		return err
+	}
+
+	post, err := n.postWrapper(ctx, b)
+	if err != nil {
+		return err
+	}
+
+	return post()
+}
+
+// EventFormatter formats gostatsd events
+func (n *Client) EventFormatter(e *gostatsd.Event) interface{} {
+	event := map[string]interface{}{
+		"name":           "event",
+		"Title":          e.Title,
+		"Text":           e.Text,
+		"DateHappened":   e.DateHappened,
+		"Hostname":       e.Hostname,
+		"AggregationKey": e.AggregationKey,
+		"SourceTypeName": e.SourceTypeName,
+		"Priority":       e.Priority.StringWithEmptyDefault(),
+		"AlertType":      e.AlertType.StringWithEmptyDefault(),
+	}
+	n.setTags(e.Tags, event)
+
+	switch n.flushType {
+	case flushTypeInsights:
+		event["eventType"] = n.eventType
+		return []interface{}{event}
+	default:
+		event["event_type"] = n.eventType
+		return newInfraPayload(map[string]interface{}{
+			"metrics": []interface{}{event},
+		})
+	}
 }
 
 // Name returns the name of the backend.
@@ -253,7 +292,6 @@ func (n *Client) post(ctx context.Context, buffer *bytes.Buffer, data interface{
 }
 
 func (n *Client) constructPost(ctx context.Context, buffer *bytes.Buffer, data interface{}) (func() error /*doPost*/, error) {
-
 	var mJSON []byte
 	var mErr error
 	switch n.flushType {
@@ -269,6 +307,11 @@ func (n *Client) constructPost(ctx context.Context, buffer *bytes.Buffer, data i
 		return nil, fmt.Errorf("[%s] unable to marshal: %v", BackendName, mErr)
 	}
 
+	return n.postWrapper(ctx, mJSON)
+}
+
+// postWrapper compresses JSON for Insights
+func (n *Client) postWrapper(ctx context.Context, json []byte) (func() error, error) {
 	return func() error {
 		headers := map[string]string{
 			"Content-Type": "application/json",
@@ -279,14 +322,22 @@ func (n *Client) constructPost(ctx context.Context, buffer *bytes.Buffer, data i
 		if n.flushType == flushTypeInsights && n.apiKey != "" {
 			headers["X-Insert-Key"] = n.apiKey
 			headers["Content-Encoding"] = "deflate"
-			var b bytes.Buffer
-			w := zlib.NewWriter(&b)
-			w.Write(mJSON) // nolint:errcheck
-			w.Close()
-			mJSON = b.Bytes()
+			// zlib json
+			var buf bytes.Buffer
+			zw := zlib.NewWriter(&buf)
+			_, err := zw.Write([]byte(json))
+			if err != nil {
+				return err
+			}
+
+			// Close to ensure a flush
+			if err := zw.Close(); err != nil {
+				return err
+			}
+			json = buf.Bytes()
 		}
 
-		req, err := http.NewRequest("POST", n.address, bytes.NewBuffer(mJSON))
+		req, err := http.NewRequest("POST", n.address, bytes.NewBuffer(json))
 		if err != nil {
 			return fmt.Errorf("unable to create http.Request: %v", err)
 		}
@@ -495,6 +546,22 @@ func newInfraPayload(data interface{}) NewRelicInfraPayload {
 		Data: []interface{}{
 			data,
 		},
+	}
+}
+
+func (n *Client) setTags(tags gostatsd.Tags, data map[string]interface{}) {
+	for _, tag := range tags {
+		if strings.Contains(tag, ":") {
+			keyvalpair := strings.SplitN(tag, ":", 2)
+			parsed, err := strconv.ParseFloat(keyvalpair[1], 64)
+			if err != nil || strings.EqualFold(keyvalpair[1], "infinity") {
+				data[n.tagPrefix+keyvalpair[0]] = keyvalpair[1]
+			} else {
+				data[n.tagPrefix+keyvalpair[0]] = parsed
+			}
+		} else {
+			data[n.tagPrefix+tag] = "true"
+		}
 	}
 }
 

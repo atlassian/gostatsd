@@ -183,7 +183,7 @@ func (hs *httpServer) logRequest(handler http.Handler) http.Handler {
 		dur := time.Since(start)
 
 		logFields["duration"] = float64(dur) / float64(time.Millisecond)
-		hs.logger.WithFields(logFields).Info("request")
+		hs.logger.WithFields(logFields).Debug("request")
 	})
 }
 
