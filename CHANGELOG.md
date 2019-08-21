@@ -1,4 +1,4 @@
-17.1.x
+17.1.1
 ------
 - Adding support to disable retries within the gostatsd forwarder
 
