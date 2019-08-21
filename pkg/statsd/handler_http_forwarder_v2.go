@@ -31,6 +31,7 @@ const (
 	defaultClientTimeout             = 10 * time.Second
 	defaultCompress                  = true
 	defaultEnableHttp2               = false
+	defaultEnableRetires             = true
 	defaultApiEndpoint               = ""
 	defaultMaxRequestElapsedTime     = 30 * time.Second
 	defaultMaxRequests               = 1000
@@ -55,6 +56,7 @@ type HttpForwarderHandlerV2 struct {
 	consolidatedMetrics   <-chan []*gostatsd.MetricMap
 	eventWg               sync.WaitGroup
 	compress              bool
+	retries               bool
 }
 
 // NewHttpForwarderHandlerV2FromViper returns a new http API client.
@@ -63,6 +65,7 @@ func NewHttpForwarderHandlerV2FromViper(logger logrus.FieldLogger, v *viper.Vipe
 	subViper.SetDefault("client-timeout", defaultClientTimeout)
 	subViper.SetDefault("compress", defaultCompress)
 	subViper.SetDefault("enable-http2", defaultEnableHttp2)
+	subViper.SetDefault("enable-retries", defaultEnableRetires)
 	subViper.SetDefault("api-endpoint", defaultApiEndpoint)
 	subViper.SetDefault("max-requests", defaultMaxRequests)
 	subViper.SetDefault("max-request-elapsed-time", defaultMaxRequestElapsedTime)
@@ -77,6 +80,7 @@ func NewHttpForwarderHandlerV2FromViper(logger logrus.FieldLogger, v *viper.Vipe
 		subViper.GetInt("consolidator-slots"),
 		subViper.GetInt("max-requests"),
 		subViper.GetBool("compress"),
+		subViper.GetBool("enable-retries"),
 		subViper.GetBool("enable-http2"),
 		subViper.GetDuration("client-timeout"),
 		subViper.GetDuration("max-request-elapsed-time"),
@@ -85,7 +89,19 @@ func NewHttpForwarderHandlerV2FromViper(logger logrus.FieldLogger, v *viper.Vipe
 }
 
 // NewHttpForwarderHandlerV2 returns a new handler which dispatches metrics over http to another gostatsd server.
-func NewHttpForwarderHandlerV2(logger logrus.FieldLogger, apiEndpoint, network string, consolidatorSlots, maxRequests int, compress, enableHttp2 bool, clientTimeout, maxRequestElapsedTime time.Duration, flushInterval time.Duration) (*HttpForwarderHandlerV2, error) {
+func NewHttpForwarderHandlerV2(
+	logger logrus.FieldLogger,
+	apiEndpoint,
+	network string,
+	consolidatorSlots,
+	maxRequests int,
+	compress,
+	enableRetires,
+	enableHttp2 bool,
+	clientTimeout,
+	maxRequestElapsedTime time.Duration,
+	flushInterval time.Duration,
+) (*HttpForwarderHandlerV2, error) {
 	if apiEndpoint == "" {
 		return nil, fmt.Errorf("api-endpoint is required")
 	}
@@ -110,6 +126,7 @@ func NewHttpForwarderHandlerV2(logger logrus.FieldLogger, apiEndpoint, network s
 		"client-timeout":           clientTimeout,
 		"compress":                 compress,
 		"enable-http2":             enableHttp2,
+		"enable-retries":           enableRetires,
 		"max-request-elapsed-time": maxRequestElapsedTime,
 		"max-requests":             maxRequests,
 		"consolidator-slots":       consolidatorSlots,
@@ -162,6 +179,7 @@ func NewHttpForwarderHandlerV2(logger logrus.FieldLogger, apiEndpoint, network s
 			Transport: transport,
 			Timeout:   clientTimeout,
 		},
+		retries: enableRetires,
 	}, nil
 }
 
@@ -341,7 +359,7 @@ func (hfh *HttpForwarderHandlerV2) post(ctx context.Context, message proto.Messa
 		}
 
 		next := b.NextBackOff()
-		if next == backoff.Stop {
+		if next == backoff.Stop || !hfh.retries {
 			atomic.AddUint64(&hfh.messagesDropped, 1)
 			logger.WithError(err).Info("failed to send, giving up")
 			return
