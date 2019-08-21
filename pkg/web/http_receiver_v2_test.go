@@ -46,6 +46,7 @@ func TestForwardingEndToEndV2(t *testing.T) {
 		5, // deliberately prime, so the loop below doesn't send the same thing to the same MetricMap every time.
 		10,
 		false,
+		true,
 		false,
 		10*time.Second,
 		10*time.Second,
