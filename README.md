@@ -72,7 +72,7 @@ following configuration options:
 - `enable-http2`: boolean to enable the usage of http2 on the request.  There seems to be some incompatibility with the
   golang http2 implementation and AWS ELB/ALBs.  If you experience strange timeouts and hangs, this should be the first
   thing to disable.  Defaults to `false`
-- `enable-retires`: This will tell the forwarder to attempt to send payloads again in case it failed for the first time, 
+- `enable-retries`: This will tell the forwarder to attempt to send payloads again in case it failed for the first time, 
    with exponential back off. Defaults to `true`
 - `api-endpoint`: configures the endpoint to submit raw metrics to.  This setting should be just a base URL, for example
   `https://statsd-aggregator.private`, with no path.  Required, no default
