@@ -56,7 +56,7 @@ type HttpForwarderHandlerV2 struct {
 	consolidatedMetrics   <-chan []*gostatsd.MetricMap
 	eventWg               sync.WaitGroup
 	compress              bool
-	enableRetries         bool
+	retries               bool
 }
 
 // NewHttpForwarderHandlerV2FromViper returns a new http API client.
@@ -96,7 +96,7 @@ func NewHttpForwarderHandlerV2(
 	consolidatorSlots,
 	maxRequests int,
 	compress,
-	enableRetries,
+	enableRetires,
 	enableHttp2 bool,
 	clientTimeout,
 	maxRequestElapsedTime time.Duration,
@@ -126,7 +126,7 @@ func NewHttpForwarderHandlerV2(
 		"client-timeout":           clientTimeout,
 		"compress":                 compress,
 		"enable-http2":             enableHttp2,
-		"enable-retries":           enableRetries,
+		"enable-retries":           enableRetires,
 		"max-request-elapsed-time": maxRequestElapsedTime,
 		"max-requests":             maxRequests,
 		"consolidator-slots":       consolidatorSlots,
@@ -179,7 +179,7 @@ func NewHttpForwarderHandlerV2(
 			Transport: transport,
 			Timeout:   clientTimeout,
 		},
-		enableRetries: enableRetries,
+		retries: enableRetires,
 	}, nil
 }
 
@@ -359,7 +359,7 @@ func (hfh *HttpForwarderHandlerV2) post(ctx context.Context, message proto.Messa
 		}
 
 		next := b.NextBackOff()
-		if next == backoff.Stop || !hfh.enableRetries {
+		if next == backoff.Stop || !hfh.retries {
 			atomic.AddUint64(&hfh.messagesDropped, 1)
 			logger.WithError(err).Info("failed to send, giving up")
 			return
