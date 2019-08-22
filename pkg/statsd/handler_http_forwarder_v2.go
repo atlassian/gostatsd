@@ -98,7 +98,7 @@ func NewHttpForwarderHandlerV2(logger logrus.FieldLogger, apiEndpoint, network s
 	if clientTimeout <= 0 {
 		return nil, fmt.Errorf("client-timeout must be positive")
 	}
-	if maxRequestElapsedTime <= 0 {
+	if maxRequestElapsedTime <= 0 && maxRequestElapsedTime != -1 {
 		return nil, fmt.Errorf("max-request-elapsed-time must be positive")
 	}
 	if flushInterval <= 0 {
