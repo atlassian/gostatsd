@@ -72,13 +72,11 @@ following configuration options:
 - `enable-http2`: boolean to enable the usage of http2 on the request.  There seems to be some incompatibility with the
   golang http2 implementation and AWS ELB/ALBs.  If you experience strange timeouts and hangs, this should be the first
   thing to disable.  Defaults to `false`
-- `enable-retries`: This will tell the forwarder to attempt to send payloads again in case it failed for the first time, 
-   with exponential back off. Defaults to `true`
 - `api-endpoint`: configures the endpoint to submit raw metrics to.  This setting should be just a base URL, for example
   `https://statsd-aggregator.private`, with no path.  Required, no default
 - `max-requests`: maximum number of requests in flight.  Defaults to `1000` (which is probably too high)
 - `max-request-elapsed-time`: duration for the maximum amount of time to try submitting data before giving up.  This
-  includes retries.  Defaults to `30s` (which is probably too high)
+  includes retries.  Defaults to `30s` (which is probably too high). Setting this value to `-1` will disable retries.
 - `network`: the network type to use, probably `tcp`, `tcp4`, or `tcp6`.  Defaults to `tcp`
 - `consolidator-slots`: number of slots in the metric consolidator.  Memory usage is a function of this.  Lower values
   may cause blocking in the pipeline (back pressure).  A UDP only receiver will never use more than the number of
