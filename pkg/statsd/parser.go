@@ -3,7 +3,9 @@ package statsd
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -14,6 +16,9 @@ import (
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/time/rate"
 )
+
+// Default buffer size for debug channel
+const debugChannelBufferSize = 1000
 
 // DatagramParser receives datagrams and parses them into Metrics/Events
 // For each Metric/Event it calls Handler.HandleMetric/Event()
@@ -34,10 +39,14 @@ type DatagramParser struct {
 	badLineLimiter *rate.Limiter
 
 	in <-chan []*Datagram // Input chan of datagram batches to parse
+
+	debugMode     bool
+	debugInitOnce sync.Once
+	debugChan     chan []*gostatsd.Metric
 }
 
 // NewDatagramParser initialises a new DatagramParser.
-func NewDatagramParser(in <-chan []*Datagram, ns string, ignoreHost bool, estimatedTags int, handler gostatsd.PipelineHandler, badLineRateLimitPerSecond rate.Limit) *DatagramParser {
+func NewDatagramParser(in <-chan []*Datagram, ns string, ignoreHost bool, estimatedTags int, handler gostatsd.PipelineHandler, badLineRateLimitPerSecond rate.Limit, debugMode bool) *DatagramParser {
 	limiter := &rate.Limiter{}
 	if badLineRateLimitPerSecond > 0 {
 		limiter = rate.NewLimiter(badLineRateLimitPerSecond, 1)
@@ -50,6 +59,7 @@ func NewDatagramParser(in <-chan []*Datagram, ns string, ignoreHost bool, estima
 		namespace:      ns,
 		metricPool:     pool.NewMetricPool(estimatedTags + handler.EstimatedTags()),
 		badLineLimiter: limiter,
+		debugMode:      debugMode,
 	}
 }
 
@@ -71,6 +81,8 @@ func (dp *DatagramParser) RunMetrics(ctx context.Context) {
 }
 
 func (dp *DatagramParser) Run(ctx context.Context) {
+	dp.initDebugMode(ctx)
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -89,6 +101,14 @@ func (dp *DatagramParser) Run(ctx context.Context) {
 			}
 			if len(metrics) > 0 {
 				dp.handler.DispatchMetrics(ctx, metrics)
+
+				if dp.debugMode {
+					// Deliver only once, may lose packet on stdout if the channel buffer is full (e.g. slow terminal).
+					select {
+					case dp.debugChan <- metrics:
+					default:
+					}
+				}
 			}
 			atomic.AddUint64(&dp.metricsReceived, uint64(len(metrics)))
 			atomic.AddUint64(&dp.eventsReceived, accumE)
@@ -169,4 +189,23 @@ func (dp *DatagramParser) parseLine(line []byte) (*gostatsd.Metric, *gostatsd.Ev
 		metricPool: dp.metricPool,
 	}
 	return l.run(line, dp.namespace)
+}
+
+func (dp *DatagramParser) initDebugMode(ctx context.Context) {
+	if dp.debugMode {
+		dp.debugInitOnce.Do(func() {
+			dp.debugChan = make(chan []*gostatsd.Metric, debugChannelBufferSize)
+
+			go func() {
+				for {
+					select {
+					case <-ctx.Done():
+						return
+					case metrics := <-dp.debugChan:
+						fmt.Printf("[%s]: %s\n", time.Now().Format("2019-08-22 00:00:00"), metrics)
+					}
+				}
+			}()
+		})
+	}
 }
