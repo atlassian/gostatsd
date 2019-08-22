@@ -13,8 +13,9 @@ import (
 const paramTransportClientTimeout = "client-timeout"
 const paramTransportType = "type"
 
-const defaultTransportClientTimeout = 10 * time.Second
 const transportTypeHttp = "http"
+
+const defaultTransportClientTimeout = 10 * time.Second
 const defaultTransportType = transportTypeHttp
 
 // TransportPool creates http.Clients as required, using the provided viper.Viper for configuration.
@@ -27,7 +28,7 @@ type TransportPool struct {
 }
 
 func NewTransportPool(logger logrus.FieldLogger, config *viper.Viper) *TransportPool {
-	config.SetDefault("transport.default", viper.New())
+	config.SetDefault("transport.default", map[string]interface{}{})
 	return &TransportPool{
 		logger:  logger,
 		clients: map[string]*Client{},
@@ -43,7 +44,7 @@ func (tp *TransportPool) Get(name string) (*Client, error) {
 	}
 
 	hc, err := tp.newClient(name)
-	if err != nil {
+	if err == nil {
 		tp.clients[name] = hc
 	}
 	return hc, err
@@ -63,7 +64,7 @@ func (tp *TransportPool) newClient(name string) (*Client, error) {
 	transportType := sub.Get(paramTransportType)
 
 	if clientTimeout < 0 {
-		return nil, errors.New("client-timeout must not be negative") // 0 = no timeout
+		return nil, errors.New(paramTransportClientTimeout + " must not be negative") // 0 = no timeout
 	}
 
 	var transport *http.Transport
@@ -73,7 +74,7 @@ func (tp *TransportPool) newClient(name string) (*Client, error) {
 	case transportTypeHttp:
 		transport, err = tp.newHttpTransport(name, sub)
 	default:
-		err = errors.New("type must be http")
+		err = errors.New(paramTransportType + " must be http")
 	}
 	if err != nil {
 		return nil, err

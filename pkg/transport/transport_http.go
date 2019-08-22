@@ -49,19 +49,19 @@ func (tp *TransportPool) newHttpTransport(name string, v *viper.Viper) (*http.Tr
 	tlsHandshakeTimeout := v.GetDuration(paramHttpTLSHandshakeTimeout)
 
 	if dialerKeepAlive < 0 {
-		return nil, errors.New("dialer-keep-alive must not be negative") // 0 = keepalives disabled
+		return nil, errors.New(paramHttpDialerKeepAlive + " must not be negative") // 0 = keepalives disabled
 	}
 	if dialerTimeout < 0 {
-		return nil, errors.New("dialer-timeout must not be negative") // 0 = no timeout, but OS may impose a limit
+		return nil, errors.New(paramHttpDialerTimeout + " must not be negative") // 0 = no timeout, but OS may impose a limit
 	}
 	if idleConnectionTimeout < 0 {
-		return nil, errors.New("idle-connection-timeout must not be negative") // 0 = no timeout
+		return nil, errors.New(paramHttpIdleConnectionTimeout + " must not be negative") // 0 = no timeout
 	}
 	if maxIdleConnections < 0 {
-		return nil, errors.New("max-idle-connections must not be negative") // 0 = no limit
+		return nil, errors.New(paramHttpMaxIdleConnections + " must not be negative") // 0 = no limit
 	}
 	if tlsHandshakeTimeout < 0 {
-		return nil, errors.New("tls-handshake-timeout must not be negative") // 0 = no timeout
+		return nil, errors.New(paramHttpTLSHandshakeTimeout + " must not be negative") // 0 = no timeout
 	}
 
 	dialer := &net.Dialer{
