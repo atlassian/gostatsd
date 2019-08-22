@@ -4,11 +4,9 @@ import (
 	"bytes"
 	"compress/zlib"
 	"context"
-	"crypto/tls"
 	"fmt"
 	"io"
 	"io/ioutil"
-	"net"
 	"net/http"
 	"net/url"
 	"runtime"
@@ -33,14 +31,11 @@ const (
 	dogstatsdVersion             = "5.6.3"
 	defaultUserAgent             = "gostatsd"
 	defaultMaxRequestElapsedTime = 15 * time.Second
-	defaultClientTimeout         = 9 * time.Second
 	// defaultMetricsPerBatch is the default number of metrics to send in a single batch.
 	defaultMetricsPerBatch = 1000
 	// maxResponseSize is the maximum response size we are willing to read.
 	maxResponseSize     = 10 * 1024
 	maxConcurrentEvents = 20
-
-	defaultEnableHttp2 = false
 )
 
 var (
@@ -66,7 +61,7 @@ type Client struct {
 	apiEndpoint           string
 	userAgent             string
 	maxRequestElapsedTime time.Duration
-	client                http.Client
+	client                *transport.Client
 	metricsPerBatch       uint
 	metricsBufferSem      chan *bytes.Buffer // Two in one - a semaphore and a buffer pool
 	eventsBufferSem       chan *bytes.Buffer // Two in one - a semaphore and a buffer pool
@@ -324,7 +319,7 @@ func (d *Client) constructPost(ctx context.Context, buffer *bytes.Buffer, path, 
 		for header, v := range headers {
 			req.Header.Set(header, v)
 		}
-		resp, err := d.client.Do(req)
+		resp, err := d.client.Client.Do(req)
 		if err != nil {
 			return fmt.Errorf("error POSTing: %s", strings.Replace(err.Error(), d.apiKey, "*****", -1))
 		}
@@ -353,31 +348,40 @@ func NewClientFromViper(v *viper.Viper, pool *transport.TransportPool) (gostatsd
 	dd.SetDefault("api_endpoint", apiURL)
 	dd.SetDefault("metrics_per_batch", defaultMetricsPerBatch)
 	dd.SetDefault("compress_payload", true)
-	dd.SetDefault("network", "tcp")
-	dd.SetDefault("client_timeout", defaultClientTimeout)
 	dd.SetDefault("max_request_elapsed_time", defaultMaxRequestElapsedTime)
 	dd.SetDefault("max_requests", defaultMaxRequests)
-	dd.SetDefault("enable-http2", defaultEnableHttp2)
 	dd.SetDefault("user-agent", defaultUserAgent)
+	dd.SetDefault("transport", "default")
 
 	return NewClient(
 		dd.GetString("api_endpoint"),
 		dd.GetString("api_key"),
 		dd.GetString("user-agent"),
-		dd.GetString("network"),
+		dd.GetString("transport"),
 		dd.GetInt("metrics_per_batch"),
 		uint(dd.GetInt("max_requests")),
 		dd.GetBool("compress_payload"),
-		dd.GetBool("enable-http2"),
-		dd.GetDuration("client_timeout"),
 		dd.GetDuration("max_request_elapsed_time"),
 		v.GetDuration("flush-interval"), // Main viper, not sub-viper
 		gostatsd.DisabledSubMetrics(v),
+		pool,
 	)
 }
 
 // NewClient returns a new Datadog API client.
-func NewClient(apiEndpoint, apiKey, userAgent, network string, metricsPerBatch int, maxRequests uint, compressPayload, enableHttp2 bool, clientTimeout, maxRequestElapsedTime, flushInterval time.Duration, disabled gostatsd.TimerSubtypes) (*Client, error) {
+func NewClient(
+	apiEndpoint,
+	apiKey,
+	userAgent,
+	transport string,
+	metricsPerBatch int,
+	maxRequests uint,
+	compressPayload bool,
+	maxRequestElapsedTime,
+	flushInterval time.Duration,
+	disabled gostatsd.TimerSubtypes,
+	pool *transport.TransportPool,
+) (*Client, error) {
 	if apiEndpoint == "" {
 		return nil, fmt.Errorf("[%s] apiEndpoint is required", BackendName)
 	}
@@ -390,40 +394,22 @@ func NewClient(apiEndpoint, apiKey, userAgent, network string, metricsPerBatch i
 	if metricsPerBatch <= 0 {
 		return nil, fmt.Errorf("[%s] metricsPerBatch must be positive", BackendName)
 	}
-	if clientTimeout <= 0 {
-		return nil, fmt.Errorf("[%s] clientTimeout must be positive", BackendName)
-	}
 	if maxRequestElapsedTime <= 0 && maxRequestElapsedTime != -1 {
 		return nil, fmt.Errorf("[%s] maxRequestElapsedTime must be positive", BackendName)
 	}
 
-	log.Infof("[%s] maxRequestElapsedTime=%s maxRequests=%d clientTimeout=%s metricsPerBatch=%d compressPayload=%t", BackendName, maxRequestElapsedTime, maxRequests, clientTimeout, metricsPerBatch, compressPayload)
-
-	dialer := &net.Dialer{
-		Timeout:   5 * time.Second,
-		KeepAlive: 30 * time.Second,
+	logger := log.WithField("backend", BackendName)
+	httpClient, err := pool.Get(transport)
+	if err != nil {
+		logger.WithError(err).Error("failed to create http client")
+		return nil, err
 	}
-	transport := &http.Transport{
-		Proxy:               http.ProxyFromEnvironment,
-		TLSHandshakeTimeout: 3 * time.Second,
-		TLSClientConfig: &tls.Config{
-			// Can't use SSLv3 because of POODLE and BEAST
-			// Can't use TLSv1.0 because of POODLE and BEAST using CBC cipher
-			// Can't use TLSv1.1 because of RC4 cipher usage
-			MinVersion: tls.VersionTLS12,
-		},
-		DialContext: func(ctx context.Context, _, address string) (net.Conn, error) {
-			// replace the network with our own
-			return dialer.DialContext(ctx, network, address)
-		},
-		MaxIdleConns:    50,
-		IdleConnTimeout: 1 * time.Minute,
-	}
-	if !enableHttp2 {
-		// A non-nil empty map used in TLSNextProto to disable HTTP/2 support in client.
-		// https://golang.org/doc/go1.6#http2
-		transport.TLSNextProto = map[string](func(string, *tls.Conn) http.RoundTripper){}
-	}
+	logger.WithFields(log.Fields{
+		"max-request-elapsed-time": maxRequestElapsedTime,
+		"max-requests":             maxRequests,
+		"metrics-per-batch":        metricsPerBatch,
+		"compress-payload":         compressPayload,
+	}).Info("created backend")
 
 	metricsBufferSem := make(chan *bytes.Buffer, maxRequests)
 	for i := uint(0); i < maxRequests; i++ {
@@ -438,17 +424,14 @@ func NewClient(apiEndpoint, apiKey, userAgent, network string, metricsPerBatch i
 		apiEndpoint:           apiEndpoint,
 		userAgent:             userAgent,
 		maxRequestElapsedTime: maxRequestElapsedTime,
-		client: http.Client{
-			Transport: transport,
-			Timeout:   clientTimeout,
-		},
-		metricsPerBatch:  uint(metricsPerBatch),
-		metricsBufferSem: metricsBufferSem,
-		eventsBufferSem:  eventsBufferSem,
-		compressPayload:  compressPayload,
-		now:              time.Now,
-		flushInterval:    flushInterval,
-		disabledSubtypes: disabled,
+		client:                httpClient,
+		metricsPerBatch:       uint(metricsPerBatch),
+		metricsBufferSem:      metricsBufferSem,
+		eventsBufferSem:       eventsBufferSem,
+		compressPayload:       compressPayload,
+		now:                   time.Now,
+		flushInterval:         flushInterval,
+		disabledSubtypes:      disabled,
 	}, nil
 }
 
