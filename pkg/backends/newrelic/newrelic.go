@@ -4,12 +4,10 @@ import (
 	"bytes"
 	"compress/zlib"
 	"context"
-	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
-	"net"
 	"net/http"
 	"runtime"
 	"strconv"
@@ -34,15 +32,13 @@ const (
 	protocolVersion              = "2"
 	defaultUserAgent             = "gostatsd"
 	defaultMaxRequestElapsedTime = 15 * time.Second
-	defaultClientTimeout         = 9 * time.Second
 	// defaultMetricsPerBatch is the default number of metrics to send in a single batch.
 	defaultMetricsPerBatch = 1000
 	// maxResponseSize is the maximum response size we are willing to read.
 	maxResponseSize = 10 * 1024
 
-	defaultEnableHttp2 = false
-	flushTypeInsights  = "insights"
-	flushTypeInfra     = "infra"
+	flushTypeInsights = "insights"
+	flushTypeInfra    = "infra"
 )
 
 var (
@@ -82,7 +78,7 @@ type Client struct {
 
 	userAgent             string
 	maxRequestElapsedTime time.Duration
-	client                http.Client
+	client                *transport.Client
 	metricsPerBatch       uint
 	metricsBufferSem      chan *bytes.Buffer // Two in one - a semaphore and a buffer pool
 	now                   func() time.Time   // Returns current time. Useful for testing.
@@ -335,7 +331,7 @@ func (n *Client) postWrapper(ctx context.Context, json []byte) (func() error, er
 		for header, v := range headers {
 			req.Header.Set(header, v)
 		}
-		resp, err := n.client.Do(req)
+		resp, err := n.client.Client.Do(req)
 		if err != nil {
 			return fmt.Errorf("error POSTing: %s", err.Error())
 		}
@@ -358,6 +354,7 @@ func (n *Client) postWrapper(ctx context.Context, json []byte) (func() error, er
 // NewClientFromViper returns a new New Relic client.
 func NewClientFromViper(v *viper.Viper, pool *transport.TransportPool) (gostatsd.Backend, error) {
 	nr := getSubViper(v, "newrelic")
+	nr.SetDefault("transport", "default")
 	nr.SetDefault("address", "http://localhost:8001/v1/data")
 	nr.SetDefault("event-type", "GoStatsD")
 	if strings.Contains(nr.GetString("address"), "insights-collector.newrelic.com") {
@@ -381,11 +378,8 @@ func NewClientFromViper(v *viper.Viper, pool *transport.TransportPool) (gostatsd
 	nr.SetDefault("timer-sumsquare", "sum_squares")
 
 	nr.SetDefault("metrics-per-batch", defaultMetricsPerBatch)
-	nr.SetDefault("network", "tcp")
-	nr.SetDefault("client-timeout", defaultClientTimeout)
 	nr.SetDefault("max-request-elapsed-time", defaultMaxRequestElapsedTime)
 	nr.SetDefault("max-requests", defaultMaxRequests)
-	nr.SetDefault("enable-http2", defaultEnableHttp2)
 	nr.SetDefault("user-agent", defaultUserAgent)
 
 	// New Relic Config Defaults & Recommendations
@@ -396,6 +390,7 @@ func NewClientFromViper(v *viper.Viper, pool *transport.TransportPool) (gostatsd
 	}
 
 	return NewClient(
+		nr.GetString("transport"),
 		nr.GetString("address"),
 		nr.GetString("event-type"),
 		nr.GetString("flush-type"),
@@ -414,29 +409,27 @@ func NewClientFromViper(v *viper.Viper, pool *transport.TransportPool) (gostatsd
 		nr.GetString("timer-sum"),
 		nr.GetString("timer-sumsquare"),
 		nr.GetString("user-agent"),
-		nr.GetString("network"),
 		nr.GetInt("metrics-per-batch"),
 		uint(nr.GetInt("max-requests")),
-		nr.GetBool("enable-http2"),
-		nr.GetDuration("client-timeout"),
 		nr.GetDuration("max-request-elapsed-time"),
 		v.GetDuration("flush-interval"), // Main viper, not sub-viper
 		gostatsd.DisabledSubMetrics(v),
+		pool,
 	)
 }
 
 // NewClient returns a new New Relic client.
-func NewClient(address, eventType, flushType, apiKey, tagPrefix,
+func NewClient(transport, address, eventType, flushType, apiKey, tagPrefix,
 	metricName, metricType, metricPerSecond, metricValue,
 	timerMin, timerMax, timerCount, timerMean, timerMedian, timerStdDev, timerSum, timerSumSquares,
-	userAgent, network string, metricsPerBatch int, maxRequests uint, enableHttp2 bool,
-	clientTimeout, maxRequestElapsedTime, flushInterval time.Duration, disabled gostatsd.TimerSubtypes) (*Client, error) {
+	userAgent string, metricsPerBatch int, maxRequests uint,
+	maxRequestElapsedTime, flushInterval time.Duration,
+	disabled gostatsd.TimerSubtypes, pool *transport.TransportPool) (*Client, error) {
+
+	logger := log.WithField("backend", BackendName)
 
 	if metricsPerBatch <= 0 {
 		return nil, fmt.Errorf("[%s] metricsPerBatch must be positive", BackendName)
-	}
-	if clientTimeout <= 0 {
-		return nil, fmt.Errorf("[%s] clientTimeout must be positive", BackendName)
 	}
 	if maxRequestElapsedTime <= 0 && maxRequestElapsedTime != -1 {
 		return nil, fmt.Errorf("[%s] maxRequestElapsedTime must be positive", BackendName)
@@ -448,41 +441,25 @@ func NewClient(address, eventType, flushType, apiKey, tagPrefix,
 		return nil, fmt.Errorf("[%s] api-key is required to flush to insights", BackendName)
 	}
 	if flushType != flushTypeInsights && apiKey != "" {
-		log.Warnf("[%s] api-key is not required", BackendName)
+		logger.Warnf("api-key is not required when not using insights")
 	}
 	if flushInterval.Seconds() < 10 {
-		log.Warnf("[%s] flushInterval (%s) is recommended to be >= 10s", BackendName, flushInterval)
+		logger.Warnf("flushInterval (%s) is recommended to be >= 10s", flushInterval)
 	} else {
-		log.Infof("[%s] flushInterval default (%s)", BackendName, flushInterval)
+		logger.Infof("flushInterval default (%s)", flushInterval)
 	}
 
-	log.Infof("[%s] maxRequestElapsedTime=%s maxRequests=%d clientTimeout=%s metricsPerBatch=%d", BackendName, maxRequestElapsedTime, maxRequests, clientTimeout, metricsPerBatch)
-
-	dialer := &net.Dialer{
-		Timeout:   5 * time.Second,
-		KeepAlive: 30 * time.Second,
+	httpClient, err := pool.Get(transport)
+	if err != nil {
+		logger.WithError(err).Error("failed to create http client")
+		return nil, err
 	}
-	transport := &http.Transport{
-		Proxy:               http.ProxyFromEnvironment,
-		TLSHandshakeTimeout: 3 * time.Second,
-		TLSClientConfig: &tls.Config{
-			// Can't use SSLv3 because of POODLE and BEAST
-			// Can't use TLSv1.0 because of POODLE and BEAST using CBC cipher
-			// Can't use TLSv1.1 because of RC4 cipher usage
-			MinVersion: tls.VersionTLS12,
-		},
-		DialContext: func(ctx context.Context, _, address string) (net.Conn, error) {
-			// replace the network with our own
-			return dialer.DialContext(ctx, network, address)
-		},
-		MaxIdleConns:    50,
-		IdleConnTimeout: 1 * time.Minute,
-	}
-	if !enableHttp2 {
-		// A non-nil empty map used in TLSNextProto to disable HTTP/2 support in client.
-		// https://golang.org/doc/go1.6#http2
-		transport.TLSNextProto = map[string](func(string, *tls.Conn) http.RoundTripper){}
-	}
+	logger.WithFields(log.Fields{
+		"max-request-elapsed-time": maxRequestElapsedTime,
+		"max-requests":             maxRequests,
+		"metrics-per-batch":        metricsPerBatch,
+		"flush-interval":           flushInterval,
+	}).Info("created backend")
 
 	metricsBufferSem := make(chan *bytes.Buffer, maxRequests)
 	for i := uint(0); i < maxRequests; i++ {
@@ -508,15 +485,12 @@ func NewClient(address, eventType, flushType, apiKey, tagPrefix,
 		timerSumSquares:       timerSumSquares,
 		userAgent:             userAgent,
 		maxRequestElapsedTime: maxRequestElapsedTime,
-		client: http.Client{
-			Transport: transport,
-			Timeout:   clientTimeout,
-		},
-		metricsPerBatch:  uint(metricsPerBatch),
-		metricsBufferSem: metricsBufferSem,
-		now:              time.Now,
-		flushInterval:    flushInterval,
-		disabledSubtypes: disabled,
+		client:                httpClient,
+		metricsPerBatch:       uint(metricsPerBatch),
+		metricsBufferSem:      metricsBufferSem,
+		now:                   time.Now,
+		flushInterval:         flushInterval,
+		disabledSubtypes:      disabled,
 	}, nil
 }
 
