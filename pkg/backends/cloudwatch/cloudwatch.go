@@ -10,6 +10,7 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/cloudwatch"
 	"github.com/aws/aws-sdk-go/service/cloudwatch/cloudwatchiface"
@@ -35,16 +36,25 @@ type Client struct {
 func NewClientFromViper(v *viper.Viper, pool *transport.TransportPool) (gostatsd.Backend, error) {
 	g := getSubViper(v, "cloudwatch")
 	g.SetDefault("namespace", "StatsD")
+	g.SetDefault("transport", "default")
 
 	return NewClient(
 		g.GetString("namespace"),
+		g.GetString("transport"),
 		gostatsd.DisabledSubMetrics(v),
+		pool,
 	)
 }
 
 // NewClient constructs a AWS Cloudwatch backend.
-func NewClient(namespace string, disabled gostatsd.TimerSubtypes) (*Client, error) {
-	sess, err := session.NewSession()
+func NewClient(namespace, transport string, disabled gostatsd.TimerSubtypes, pool *transport.TransportPool) (*Client, error) {
+	httpClient, err := pool.Get(transport)
+	if err != nil {
+		return nil, err
+	}
+	sess, err := session.NewSession(&aws.Config{
+		HTTPClient: httpClient.Client,
+	})
 	if err != nil {
 		return nil, err
 	}
