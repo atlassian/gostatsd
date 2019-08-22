@@ -1,3 +1,8 @@
+17.1.2
+------
+- Remove support for disabling retries in the forwarder
+- Document how to disable retries using timeout values
+
 17.1.1
 ------
 - Adding support to disable retries within the gostatsd forwarder
