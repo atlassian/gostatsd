@@ -1,3 +1,8 @@
+18.0.0
+------
+- BREAKING: Refactor how http clients are configured.  See [TRANSPORT.md] for details.  Some
+  configuration options are in a new location, however defaults are generally unchanged.
+
 17.1.2
 ------
 - Remove support for disabling retries in the forwarder

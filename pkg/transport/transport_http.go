@@ -48,8 +48,8 @@ func (tp *TransportPool) newHttpTransport(name string, v *viper.Viper) (*http.Tr
 	network := v.GetString(paramHttpNetwork)
 	tlsHandshakeTimeout := v.GetDuration(paramHttpTLSHandshakeTimeout)
 
-	if dialerKeepAlive < 0 {
-		return nil, errors.New(paramHttpDialerKeepAlive + " must not be negative") // 0 = keepalives disabled
+	if dialerKeepAlive < -1 {
+		return nil, errors.New(paramHttpDialerKeepAlive + " must be -1, 0, or positive") // -1 = disabled, 0 = keepalives enabled, not configured, >0 = keepalive interval
 	}
 	if dialerTimeout < 0 {
 		return nil, errors.New(paramHttpDialerTimeout + " must not be negative") // 0 = no timeout, but OS may impose a limit
