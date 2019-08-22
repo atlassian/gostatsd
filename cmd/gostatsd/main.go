@@ -18,6 +18,7 @@ import (
 	"github.com/atlassian/gostatsd/pkg/backends"
 	"github.com/atlassian/gostatsd/pkg/cloudproviders"
 	"github.com/atlassian/gostatsd/pkg/statsd"
+	"github.com/atlassian/gostatsd/pkg/transport"
 
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
@@ -87,6 +88,9 @@ func constructServer(v *viper.Viper) (*statsd.Server, error) {
 	// Logger
 	logger := logrus.StandardLogger()
 
+	// HTTP client pool
+	pool := transport.NewTransportPool(logger, v)
+
 	// Cloud provider
 	cloud, err := cloudproviders.Init(v.GetString(statsd.ParamCloudProvider), v, logger)
 	if err != nil {
@@ -96,7 +100,7 @@ func constructServer(v *viper.Viper) (*statsd.Server, error) {
 	backendNames := v.GetStringSlice(statsd.ParamBackends)
 	backendsList := make([]gostatsd.Backend, len(backendNames))
 	for i, backendName := range backendNames {
-		backend, errBackend := backends.InitBackend(backendName, v)
+		backend, errBackend := backends.InitBackend(backendName, v, pool)
 		if errBackend != nil {
 			return nil, errBackend
 		}

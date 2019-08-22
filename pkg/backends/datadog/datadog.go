@@ -18,6 +18,7 @@ import (
 
 	"github.com/atlassian/gostatsd"
 	"github.com/atlassian/gostatsd/pkg/stats"
+	"github.com/atlassian/gostatsd/pkg/transport"
 
 	"github.com/cenkalti/backoff"
 	jsoniter "github.com/json-iterator/go"
@@ -347,7 +348,7 @@ func (d *Client) authenticatedURL(path string) string {
 }
 
 // NewClientFromViper returns a new Datadog API client.
-func NewClientFromViper(v *viper.Viper) (gostatsd.Backend, error) {
+func NewClientFromViper(v *viper.Viper, pool *transport.TransportPool) (gostatsd.Backend, error) {
 	dd := getSubViper(v, "datadog")
 	dd.SetDefault("api_endpoint", apiURL)
 	dd.SetDefault("metrics_per_batch", defaultMetricsPerBatch)

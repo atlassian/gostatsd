@@ -6,6 +6,8 @@ import (
 	"time"
 
 	"github.com/atlassian/gostatsd"
+	"github.com/atlassian/gostatsd/pkg/transport"
+
 	log "github.com/sirupsen/logrus"
 
 	"github.com/aws/aws-sdk-go/aws/session"
@@ -30,7 +32,7 @@ type Client struct {
 }
 
 // NewClientFromViper constructs a Cloudwatch backend.
-func NewClientFromViper(v *viper.Viper) (gostatsd.Backend, error) {
+func NewClientFromViper(v *viper.Viper, pool *transport.TransportPool) (gostatsd.Backend, error) {
 	g := getSubViper(v, "cloudwatch")
 	g.SetDefault("namespace", "StatsD")
 

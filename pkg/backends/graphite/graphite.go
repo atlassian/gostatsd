@@ -12,6 +12,7 @@ import (
 
 	"github.com/atlassian/gostatsd"
 	"github.com/atlassian/gostatsd/pkg/backends/sender"
+	"github.com/atlassian/gostatsd/pkg/transport"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
@@ -208,7 +209,7 @@ func (client *Client) Name() string {
 }
 
 // NewClientFromViper constructs a Client object using configuration provided by Viper
-func NewClientFromViper(v *viper.Viper) (gostatsd.Backend, error) {
+func NewClientFromViper(v *viper.Viper, pool *transport.TransportPool) (gostatsd.Backend, error) {
 	g := getSubViper(v, "graphite")
 	g.SetDefault("address", DefaultAddress)
 	g.SetDefault("dial_timeout", DefaultDialTimeout)
