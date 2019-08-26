@@ -76,7 +76,7 @@ following configuration options:
   `https://statsd-aggregator.private`, with no path.  Required, no default
 - `max-requests`: maximum number of requests in flight.  Defaults to `1000` (which is probably too high)
 - `max-request-elapsed-time`: duration for the maximum amount of time to try submitting data before giving up.  This
-  includes retries.  Defaults to `30s` (which is probably too high)
+  includes retries.  Defaults to `30s` (which is probably too high). Setting this value to `-1` will disable retries.
 - `network`: the network type to use, probably `tcp`, `tcp4`, or `tcp6`.  Defaults to `tcp`
 - `consolidator-slots`: number of slots in the metric consolidator.  Memory usage is a function of this.  Lower values
   may cause blocking in the pipeline (back pressure).  A UDP only receiver will never use more than the number of
