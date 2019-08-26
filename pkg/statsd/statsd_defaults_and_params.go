@@ -84,8 +84,8 @@ const (
 	DefaultBadLinesPerMinute = 0
 	// DefaultServerMode is the default mode to run as, standalone|forwarder
 	DefaultServerMode = "standalone"
-	// TODO
-	DefaultDebugMode = false
+	// DefineLogRawMetric is the default value for debug-mode flag
+	DefineLogRawMetric = false
 )
 
 const (
@@ -149,8 +149,8 @@ const (
 	ParamServerMode = "server-mode"
 	// ParamHostname allows hostname overrides
 	ParamHostname = "hostname"
-	// TODO
-	ParamDebugMode = "debug-mode"
+	// ParamLogRawMetric enables custom metrics to be printed to stdout
+	ParamLogRawMetric = "log-raw-metric"
 )
 
 // AddFlags adds flags to the specified FlagSet.
@@ -184,7 +184,7 @@ func AddFlags(fs *pflag.FlagSet) {
 	fs.Bool(ParamConnPerReader, DefaultConnPerReader, "Create a separate connection per reader (requires system support for reusing addresses)")
 	fs.String(ParamServerMode, DefaultServerMode, "The server mode to run in")
 	fs.String(ParamHostname, getHost(), "overrides the hostname of the server")
-	fs.Bool(ParamDebugMode, DefaultDebugMode, "Print metrics received from network to stdout")
+	fs.Bool(ParamLogRawMetric, DefineLogRawMetric, "Print metrics received from network to stdout in JSON format")
 }
 
 func minInt(a, b int) int {

@@ -1,3 +1,7 @@
+17.2.0
+------
+- Support `log-raw-metric` configuration
+
 17.1.0
 ------
 - NewRelic event support added by Kav91
