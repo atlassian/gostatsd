@@ -61,7 +61,7 @@ type Client struct {
 	apiEndpoint           string
 	userAgent             string
 	maxRequestElapsedTime time.Duration
-	client                *transport.Client
+	client                *http.Client
 	metricsPerBatch       uint
 	metricsBufferSem      chan *bytes.Buffer // Two in one - a semaphore and a buffer pool
 	eventsBufferSem       chan *bytes.Buffer // Two in one - a semaphore and a buffer pool
@@ -319,7 +319,7 @@ func (d *Client) constructPost(ctx context.Context, buffer *bytes.Buffer, path, 
 		for header, v := range headers {
 			req.Header.Set(header, v)
 		}
-		resp, err := d.client.Client.Do(req)
+		resp, err := d.client.Do(req)
 		if err != nil {
 			return fmt.Errorf("error POSTing: %s", strings.Replace(err.Error(), d.apiKey, "*****", -1))
 		}
@@ -424,7 +424,7 @@ func NewClient(
 		apiEndpoint:           apiEndpoint,
 		userAgent:             userAgent,
 		maxRequestElapsedTime: maxRequestElapsedTime,
-		client:                httpClient,
+		client:                httpClient.Client,
 		metricsPerBatch:       uint(metricsPerBatch),
 		metricsBufferSem:      metricsBufferSem,
 		eventsBufferSem:       eventsBufferSem,

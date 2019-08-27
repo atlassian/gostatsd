@@ -1,7 +1,7 @@
 Configurable transports
 -----------------------
 Almost all the http clients (AWS Cloud Provider is currently excluded) used throughout the service are configurable
-in a uniform matter.  Various components will take a `transport` setting to select which named client to use.  Each
+in a uniform manner.  Various components will take a `transport` setting to select which named client to use.  Each
 client is configured in the following manner:
 
 ```

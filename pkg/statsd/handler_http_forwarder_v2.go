@@ -47,7 +47,7 @@ type HttpForwarderHandlerV2 struct {
 	apiEndpoint           string
 	maxRequestElapsedTime time.Duration
 	metricsSem            chan struct{}
-	client                *transport.Client
+	client                *http.Client
 	consolidator          *gostatsd.MetricConsolidator
 	consolidatedMetrics   <-chan []*gostatsd.MetricMap
 	eventWg               sync.WaitGroup
@@ -136,7 +136,7 @@ func NewHttpForwarderHandlerV2(
 		compress:              compress,
 		consolidator:          gostatsd.NewMetricConsolidator(consolidatorSlots, flushInterval, ch),
 		consolidatedMetrics:   ch,
-		client:                httpClient,
+		client:                httpClient.Client,
 	}, nil
 }
 
@@ -407,7 +407,7 @@ func (hfh *HttpForwarderHandlerV2) constructPost(ctx context.Context, logger log
 		for header, v := range headers {
 			req.Header.Set(header, v)
 		}
-		resp, err := hfh.client.Client.Do(req)
+		resp, err := hfh.client.Do(req)
 		if err != nil {
 			return fmt.Errorf("error POSTing: %v", err)
 		}

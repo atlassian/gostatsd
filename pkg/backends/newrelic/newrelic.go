@@ -78,7 +78,7 @@ type Client struct {
 
 	userAgent             string
 	maxRequestElapsedTime time.Duration
-	client                *transport.Client
+	client                *http.Client
 	metricsPerBatch       uint
 	metricsBufferSem      chan *bytes.Buffer // Two in one - a semaphore and a buffer pool
 	now                   func() time.Time   // Returns current time. Useful for testing.
@@ -331,7 +331,7 @@ func (n *Client) postWrapper(ctx context.Context, json []byte) (func() error, er
 		for header, v := range headers {
 			req.Header.Set(header, v)
 		}
-		resp, err := n.client.Client.Do(req)
+		resp, err := n.client.Do(req)
 		if err != nil {
 			return fmt.Errorf("error POSTing: %s", err.Error())
 		}
@@ -485,7 +485,7 @@ func NewClient(transport, address, eventType, flushType, apiKey, tagPrefix,
 		timerSumSquares:       timerSumSquares,
 		userAgent:             userAgent,
 		maxRequestElapsedTime: maxRequestElapsedTime,
-		client:                httpClient,
+		client:                httpClient.Client,
 		metricsPerBatch:       uint(metricsPerBatch),
 		metricsBufferSem:      metricsBufferSem,
 		now:                   time.Now,
