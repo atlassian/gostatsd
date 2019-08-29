@@ -84,7 +84,7 @@ const (
 	DefaultBadLinesPerMinute = 0
 	// DefaultServerMode is the default mode to run as, standalone|forwarder
 	DefaultServerMode = "standalone"
-	// DefaultLogRawMetric is the default value for log-raw-metric flag
+	// DefaultLogRawMetric is the default value for whether to log the metrics received from network
 	DefaultLogRawMetric = false
 )
 

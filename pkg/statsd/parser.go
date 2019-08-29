@@ -41,7 +41,7 @@ type DatagramParser struct {
 
 	logRawMetric         bool
 	logRawMetricInitOnce sync.Once
-	logRawMetricChann    chan []*gostatsd.Metric
+	logRawMetricChan     chan []*gostatsd.Metric
 }
 
 // NewDatagramParser initialises a new DatagramParser.
@@ -187,7 +187,7 @@ func (dp *DatagramParser) parseLine(line []byte) (*gostatsd.Metric, *gostatsd.Ev
 func (dp *DatagramParser) initLogRawMetric(ctx context.Context) {
 	if dp.logRawMetric {
 		dp.logRawMetricInitOnce.Do(func() {
-			dp.logRawMetricChann = make(chan []*gostatsd.Metric, logRawMetricChannelBufferSize)
+			dp.logRawMetricChan = make(chan []*gostatsd.Metric, logRawMetricChannelBufferSize)
 
 			go func() {
 				// The `StandardLogger` returns the singleton log instance which is used elsewhere in the application.
@@ -198,7 +198,7 @@ func (dp *DatagramParser) initLogRawMetric(ctx context.Context) {
 					select {
 					case <-ctx.Done():
 						return
-					case metrics := <-dp.logRawMetricChann:
+					case metrics := <-dp.logRawMetricChan:
 						lg.Info(metrics)
 					}
 				}
@@ -212,7 +212,7 @@ func (dp *DatagramParser) doLogRawMetric(metrics []*gostatsd.Metric) {
 		// Deliver only once, we don't want the whole pipeline being blocked due to a slow terminal.
 		// So may lose packet if the channel buffer is full.
 		select {
-		case dp.logRawMetricChann <- metrics:
+		case dp.logRawMetricChan <- metrics:
 		default:
 		}
 	}
