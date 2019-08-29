@@ -1,3 +1,7 @@
+17.2.0
+------
+- Support `log-raw-metric` configuration
+
 17.1.2
 ------
 - Remove support for disabling retries in the forwarder

@@ -51,6 +51,7 @@ type Server struct {
 	BadLineRateLimitPerSecond rate.Limit
 	ServerMode                string
 	Hostname                  string
+	LogRawMetric              bool
 	CacheOptions
 	Viper *viper.Viper
 }
@@ -168,7 +169,7 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 	datagrams := make(chan []*Datagram)
 
 	// Create the Parser
-	parser := NewDatagramParser(datagrams, s.Namespace, s.IgnoreHost, s.EstimatedTags, handler, s.BadLineRateLimitPerSecond)
+	parser := NewDatagramParser(datagrams, s.Namespace, s.IgnoreHost, s.EstimatedTags, handler, s.BadLineRateLimitPerSecond, s.LogRawMetric)
 	runnables = append(runnables, parser.RunMetrics)
 	for i := 0; i < s.MaxParsers; i++ {
 		runnables = append(runnables, parser.Run)
