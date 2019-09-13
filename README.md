@@ -215,7 +215,7 @@ All other timer tags are preserved and added to all the time series.
 
 To limit cardinality, `timer-histogram-limit` option can be specified to limit the number of buckets that will be created (default is `math.MaxUint32`).
 
-This is an experimental feature and it may be removed in future versions.
+This is an experimental feature and it may be removed or changed in future versions.
 
 Sending metrics
 ---------------
