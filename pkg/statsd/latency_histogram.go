@@ -30,7 +30,6 @@ func latencyHistogram(timer gostatsd.Timer, bucketLimit uint32) map[gostatsd.His
 	for _, histogramThreshold := range thresholds {
 		result[histogramThreshold] = 0
 	}
-	result[infiniteThreshold] = 0
 
 	for _, value := range timer.Values {
 		for _, latencyBucket := range thresholds {
@@ -39,7 +38,7 @@ func latencyHistogram(timer gostatsd.Timer, bucketLimit uint32) map[gostatsd.His
 			}
 		}
 	}
-	result[infiniteThreshold] += len(timer.Values)
+	result[infiniteThreshold] = len(timer.Values)
 
 	return result
 }
