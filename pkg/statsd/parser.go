@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -14,6 +15,9 @@ import (
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/time/rate"
 )
+
+// Default buffer size for debug channel
+const logRawMetricChannelBufferSize = 1000
 
 // DatagramParser receives datagrams and parses them into Metrics/Events
 // For each Metric/Event it calls Handler.HandleMetric/Event()
@@ -34,10 +38,14 @@ type DatagramParser struct {
 	badLineLimiter *rate.Limiter
 
 	in <-chan []*Datagram // Input chan of datagram batches to parse
+
+	logRawMetric         bool
+	logRawMetricInitOnce sync.Once
+	logRawMetricChan     chan []*gostatsd.Metric
 }
 
 // NewDatagramParser initialises a new DatagramParser.
-func NewDatagramParser(in <-chan []*Datagram, ns string, ignoreHost bool, estimatedTags int, handler gostatsd.PipelineHandler, badLineRateLimitPerSecond rate.Limit) *DatagramParser {
+func NewDatagramParser(in <-chan []*Datagram, ns string, ignoreHost bool, estimatedTags int, handler gostatsd.PipelineHandler, badLineRateLimitPerSecond rate.Limit, logRawMetric bool) *DatagramParser {
 	limiter := &rate.Limiter{}
 	if badLineRateLimitPerSecond > 0 {
 		limiter = rate.NewLimiter(badLineRateLimitPerSecond, 1)
@@ -50,6 +58,7 @@ func NewDatagramParser(in <-chan []*Datagram, ns string, ignoreHost bool, estima
 		namespace:      ns,
 		metricPool:     pool.NewMetricPool(estimatedTags + handler.EstimatedTags()),
 		badLineLimiter: limiter,
+		logRawMetric:   logRawMetric,
 	}
 }
 
@@ -71,6 +80,8 @@ func (dp *DatagramParser) RunMetrics(ctx context.Context) {
 }
 
 func (dp *DatagramParser) Run(ctx context.Context) {
+	dp.initLogRawMetric(ctx)
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -89,6 +100,8 @@ func (dp *DatagramParser) Run(ctx context.Context) {
 			}
 			if len(metrics) > 0 {
 				dp.handler.DispatchMetrics(ctx, metrics)
+
+				dp.doLogRawMetric(metrics)
 			}
 			atomic.AddUint64(&dp.metricsReceived, uint64(len(metrics)))
 			atomic.AddUint64(&dp.eventsReceived, accumE)
@@ -169,4 +182,38 @@ func (dp *DatagramParser) parseLine(line []byte) (*gostatsd.Metric, *gostatsd.Ev
 		metricPool: dp.metricPool,
 	}
 	return l.run(line, dp.namespace)
+}
+
+func (dp *DatagramParser) initLogRawMetric(ctx context.Context) {
+	if dp.logRawMetric {
+		dp.logRawMetricInitOnce.Do(func() {
+			dp.logRawMetricChan = make(chan []*gostatsd.Metric, logRawMetricChannelBufferSize)
+
+			go func() {
+				// The `StandardLogger` returns the singleton log instance which is used elsewhere in the application.
+				// And the `log` package makes sure that the logging interface are thread-safe so that we wouldn't
+				// mess up the contents of stdout/stderr.
+				lg := log.StandardLogger()
+				for {
+					select {
+					case <-ctx.Done():
+						return
+					case metrics := <-dp.logRawMetricChan:
+						lg.Info(metrics)
+					}
+				}
+			}()
+		})
+	}
+}
+
+func (dp *DatagramParser) doLogRawMetric(metrics []*gostatsd.Metric) {
+	if dp.logRawMetric {
+		// Deliver only once, we don't want the whole pipeline being blocked due to a slow terminal.
+		// So may lose packet if the channel buffer is full.
+		select {
+		case dp.logRawMetricChan <- metrics:
+		default:
+		}
+	}
 }

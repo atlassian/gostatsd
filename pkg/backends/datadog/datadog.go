@@ -406,7 +406,7 @@ func NewClient(apiEndpoint, apiKey, userAgent, network string, metricsPerBatch i
 	if clientTimeout <= 0 {
 		return nil, fmt.Errorf("[%s] clientTimeout must be positive", BackendName)
 	}
-	if maxRequestElapsedTime <= 0 {
+	if maxRequestElapsedTime <= 0 && maxRequestElapsedTime != -1 {
 		return nil, fmt.Errorf("[%s] maxRequestElapsedTime must be positive", BackendName)
 	}
 

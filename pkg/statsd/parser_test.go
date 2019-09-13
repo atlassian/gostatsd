@@ -20,7 +20,7 @@ const fakeIP = gostatsd.IP("127.0.0.1")
 
 func newTestParser(ignoreHost bool) (*DatagramParser, *countingHandler) {
 	ch := &countingHandler{}
-	return NewDatagramParser(nil, "", ignoreHost, 0, ch, rate.Limit(0)), ch
+	return NewDatagramParser(nil, "", ignoreHost, 0, ch, rate.Limit(0), false), ch
 }
 
 func TestParseEmptyDatagram(t *testing.T) {

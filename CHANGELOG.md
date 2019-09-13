@@ -2,6 +2,19 @@
 ------
 - Added experimental support for generating latency histograms for timers, more details in [README.md]
 
+17.2.0
+------
+- Support `log-raw-metric` configuration
+
+17.1.2
+------
+- Remove support for disabling retries in the forwarder
+- Document how to disable retries using timeout values
+
+17.1.1
+------
+- Adding support to disable retries within the gostatsd forwarder
+
 17.1.0
 ------
 - NewRelic event support added by Kav91

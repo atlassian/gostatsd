@@ -87,6 +87,8 @@ const (
 	DefaultServerMode = "standalone"
 	// DefaultTimerHistogramLimit default upper limit for timer histograms (effectively unlimited)
 	DefaultTimerHistogramLimit = math.MaxUint32
+	// DefaultLogRawMetric is the default value for whether to log the metrics received from network
+	DefaultLogRawMetric = false
 )
 
 const (
@@ -152,6 +154,8 @@ const (
 	ParamHostname = "hostname"
 	// ParamTimerHistogramLimit upper limit of timer histogram buckets that can be specified
 	ParamTimerHistogramLimit = "timer-histogram-limit"
+	// ParamLogRawMetric enables custom metrics to be printed to stdout
+	ParamLogRawMetric = "log-raw-metric"
 )
 
 // AddFlags adds flags to the specified FlagSet.
@@ -186,6 +190,7 @@ func AddFlags(fs *pflag.FlagSet) {
 	fs.String(ParamServerMode, DefaultServerMode, "The server mode to run in")
 	fs.String(ParamHostname, getHost(), "overrides the hostname of the server")
 	fs.Uint32(ParamTimerHistogramLimit, DefaultTimerHistogramLimit, "upper limit of timer histogram buckets (MaxUint32 by default)")
+	fs.Bool(ParamLogRawMetric, DefaultLogRawMetric, "Print metrics received from network to stdout in JSON format")
 }
 
 func minInt(a, b int) int {
