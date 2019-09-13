@@ -220,6 +220,7 @@ func TestSendHistogram(t *testing.T) {
 			assert.Equal(t, *findMetricDatum(input, "stats.timers.t1.histogram", "le", "50").Value, float64(10))
 			assert.Equal(t, *findMetricDatum(input, "stats.timers.t1.histogram", "le", "60").Value, float64(19))
 			assert.Equal(t, *findMetricDatum(input, "stats.timers.t1.histogram", "le", "+Inf").Value, float64(19))
+			assert.Len(t, input.MetricData, 6)
 			return nil, nil
 		},
 	}

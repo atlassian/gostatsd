@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"compress/zlib"
 	"context"
+	"index/suffixarray"
 	"io/ioutil"
 	"math"
 	"net/http"
@@ -226,6 +227,7 @@ func TestSendHistogram(t *testing.T) {
 		for _, e := range expected {
 			assert.Contains(t, string(data), e)
 		}
+		assert.Equal(t, 6, countMatches(string(data), "metric"))
 	})
 	ts := httptest.NewServer(mux)
 	defer ts.Close()
@@ -266,4 +268,9 @@ func metricsWithHistogram() *gostatsd.MetricMap {
 			},
 		},
 	}
+}
+
+func countMatches(s string, m string) int {
+	index := suffixarray.New([]byte(s))
+	return len(index.Lookup([]byte(m), -1))
 }

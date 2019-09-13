@@ -132,18 +132,16 @@ func TestSendMetricsWithHistogram(t *testing.T) {
 		if !assert.NoError(t, err) {
 			return
 		}
-		expected := []string{
-			`{"event_type":"GoStatsD","integration_version":"2.2.0","interval":1,"le":20,"metric_name":"t1.histogram","metric_per_second":0,"metric_type":"counter","metric_value":5,"timestamp":0}`,
-			`{"event_type":"GoStatsD","integration_version":"2.2.0","interval":1,"le":30,"metric_name":"t1.histogram","metric_per_second":0,"metric_type":"counter","metric_value":10,"timestamp":0}`,
-			`{"event_type":"GoStatsD","integration_version":"2.2.0","interval":1,"le":40,"metric_name":"t1.histogram","metric_per_second":0,"metric_type":"counter","metric_value":10,"timestamp":0}`,
-			`{"event_type":"GoStatsD","integration_version":"2.2.0","interval":1,"le":50,"metric_name":"t1.histogram","metric_per_second":0,"metric_type":"counter","metric_value":10,"timestamp":0}`,
-			`{"event_type":"GoStatsD","integration_version":"2.2.0","interval":1,"le":60,"metric_name":"t1.histogram","metric_per_second":0,"metric_type":"counter","metric_value":19,"timestamp":0}`,
-			`{"event_type":"GoStatsD","integration_version":"2.2.0","interval":1,"le":"infinity","metric_name":"t1.histogram","metric_per_second":0,"metric_type":"counter","metric_value":19,"timestamp":0}`,
-		}
+		expected := `{"name":"com.newrelic.gostatsd","protocol_version":"2","integration_version":"2.2.0","data":[{"metrics":[` +
+			`{"event_type":"GoStatsD","integration_version":"2.2.0","interval":1,"le":20,"metric_name":"t1.histogram","metric_per_second":0,"metric_type":"counter","metric_value":5,"timestamp":0},` +
+			`{"event_type":"GoStatsD","integration_version":"2.2.0","interval":1,"le":30,"metric_name":"t1.histogram","metric_per_second":0,"metric_type":"counter","metric_value":10,"timestamp":0},` +
+			`{"event_type":"GoStatsD","integration_version":"2.2.0","interval":1,"le":40,"metric_name":"t1.histogram","metric_per_second":0,"metric_type":"counter","metric_value":10,"timestamp":0},` +
+			`{"event_type":"GoStatsD","integration_version":"2.2.0","interval":1,"le":50,"metric_name":"t1.histogram","metric_per_second":0,"metric_type":"counter","metric_value":10,"timestamp":0},` +
+			`{"event_type":"GoStatsD","integration_version":"2.2.0","interval":1,"le":60,"metric_name":"t1.histogram","metric_per_second":0,"metric_type":"counter","metric_value":19,"timestamp":0},` +
+			`{"event_type":"GoStatsD","integration_version":"2.2.0","interval":1,"le":"infinity","metric_name":"t1.histogram","metric_per_second":0,"metric_type":"counter","metric_value":19,"timestamp":0}` +
+			`]}]}`
 
-		for _, e := range expected {
-			assert.Contains(t, string(data), e)
-		}
+		assert.Equal(t, expected, string(data))
 	})
 	ts := httptest.NewServer(mux)
 	defer ts.Close()
