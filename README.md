@@ -190,7 +190,7 @@ By default (for compatibility), they are all false and the metrics will be emitt
 Timer histograms (experimental feature)
 ----------------
 
-Timer histograms inspired by [Prometheus implementaion](https://prometheus.io/docs/concepts/metric_types/#histogram) can be
+Timer histograms inspired by [Prometheus implementation](https://prometheus.io/docs/concepts/metric_types/#histogram) can be
 enabled on a per time series basis using `gsd_histogram` meta tag with value containing histogram bucketing definition (joined with `_`) 
 e.g. `gsd_histogram:-10_0_2.5_5_10_25_50`.
 

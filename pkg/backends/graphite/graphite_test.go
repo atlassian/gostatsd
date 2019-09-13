@@ -115,7 +115,7 @@ func TestPreparePayloadHistogram(t *testing.T) {
 	t.Parallel()
 	metrics := metricsWithHistogram()
 	expected :=
-			"gp.pc.t1.histogram.gs;le=20 5 1234\n" +
+		"gp.pc.t1.histogram.gs;le=20 5 1234\n" +
 			"gp.pc.t1.histogram.gs;le=30 10 1234\n" +
 			"gp.pc.t1.histogram.gs;le=40 10 1234\n" +
 			"gp.pc.t1.histogram.gs;le=50 10 1234\n" +
