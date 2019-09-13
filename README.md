@@ -78,8 +78,9 @@ following configuration options:
   configured parsers (`--max-parsers` option).  Defaults to the value of `--max-parsers`, but may require tuning for
   HTTP based servers.
 - `flush-interval`: duration for how long to batch metrics before flushing. Should be an order of magnitude less than
-  the upstream flush interval. Defaults to `1s`
-- `transport`: see [TRANSPORT.md] for how to configure the transport
+  the upstream flush interval. Defaults to `1s`.
+- `transport`: see [TRANSPORT.md] for how to configure the transport.
+- `log-raw-metric`: logs raw metrics received from the network.  Defaults to `false`.
 
 Configuring HTTP servers
 ------------------------

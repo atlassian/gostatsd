@@ -137,6 +137,7 @@ func constructServer(v *viper.Viper) (*statsd.Server, error) {
 		ReceiveBatchSize:    v.GetInt(statsd.ParamReceiveBatchSize),
 		ConnPerReader:       v.GetBool(statsd.ParamConnPerReader),
 		ServerMode:          v.GetString(statsd.ParamServerMode),
+		LogRawMetric:        v.GetBool(statsd.ParamLogRawMetric),
 		CacheOptions: statsd.CacheOptions{
 			CacheRefreshPeriod:        v.GetDuration(statsd.ParamCacheRefreshPeriod),
 			CacheEvictAfterIdlePeriod: v.GetDuration(statsd.ParamCacheEvictAfterIdlePeriod),
