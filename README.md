@@ -195,7 +195,7 @@ enabled on a per time series basis using `gsd_histogram` meta tag with value con
 e.g. `gsd_histogram:-10_0_2.5_5_10_25_50`.
 
 It will:
-* output additional cumulative counter time series with name `<base>.histogram` and `le` tags specifying histogram buckets.
+* output additional counter time series with name `<base>.histogram` and `le` tags specifying histogram buckets.
 * disable default sub-aggregations for timers e.g. `<base>.Count`, `<base>.Mean`, `<base>.Upper`, `<base>.Upper_XX`, etc.
 
 For timer with `gsd_histogram:-10_0_2.5_5_10_25_50` meta tag, following time series will be generated
@@ -208,8 +208,8 @@ For timer with `gsd_histogram:-10_0_2.5_5_10_25_50` meta tag, following time ser
 * `<base>.histogram` with tag `le:50`
 * `<base>.histogram` with tag `le:+Inf`
 
-Each team series will contain a total number of timer data points that had a value less or equal `le` value, e.g. cumulative counter `<base>.histogram` with the tag `le:5` will contain the number of all observations that had a value below `5`.
-Cumulative counter `<base>.histogram` with tag `le:+Inf` is equivalent to `<base>.count` and contains total number.
+Each team series will contain a total number of timer data points that had a value less or equal `le` value, e.g. counter `<base>.histogram` with the tag `le:5` will contain the number of all observations that had a value below `5`.
+Counter `<base>.histogram` with tag `le:+Inf` is equivalent to `<base>.count` and contains total number.
 
 All other timer tags are preserved and added to all the time series.
 
