@@ -10,7 +10,6 @@ import (
 	"io/ioutil"
 	"net"
 	"net/http"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -129,10 +128,8 @@ func NewHttpForwarderHandlerV2(logger logrus.FieldLogger, apiEndpoint, network s
 	}
 
 	// Adding extra headers to the default block of headers to emit.
-	// Convert the header to uppercase to ensure known mapping when
-	// inspected by proxies or load balancers
 	for k, v := range xheaders {
-		k = strings.ToUpper(k)
+		k = http.CanonicalHeaderKey(k)
 		headers[k] = v
 	}
 
