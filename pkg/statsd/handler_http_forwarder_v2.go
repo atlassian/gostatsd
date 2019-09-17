@@ -376,6 +376,18 @@ func (hfh *HttpForwarderHandlerV2) post(ctx context.Context, message proto.Messa
 	}
 }
 
+// debug rendering
+/*
+func (hh *HttpForwarderHandlerV2) serializeText(message proto.Message) ([]byte, error) {
+       buf := &bytes.Buffer{}
+       err := proto.MarshalText(buf, message)
+       if err != nil {
+               return nil, err
+       }
+       return buf.Bytes(), nil
+}
+*/
+
 func (hfh *HttpForwarderHandlerV2) serialize(message proto.Message) ([]byte, error) {
 	buf, err := proto.Marshal(message)
 	if err != nil {

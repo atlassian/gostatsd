@@ -1,4 +1,4 @@
-17.2.1
+18.0.0
 ------
 - Support for `custom-headers` for http_forwarder_v2
 
