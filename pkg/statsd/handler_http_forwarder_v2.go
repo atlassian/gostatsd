@@ -10,6 +10,7 @@ import (
 	"io/ioutil"
 	"net"
 	"net/http"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -55,6 +56,7 @@ type HttpForwarderHandlerV2 struct {
 	consolidatedMetrics   <-chan []*gostatsd.MetricMap
 	eventWg               sync.WaitGroup
 	compress              bool
+	headers               map[string]string
 }
 
 // NewHttpForwarderHandlerV2FromViper returns a new http API client.
@@ -81,11 +83,12 @@ func NewHttpForwarderHandlerV2FromViper(logger logrus.FieldLogger, v *viper.Vipe
 		subViper.GetDuration("client-timeout"),
 		subViper.GetDuration("max-request-elapsed-time"),
 		subViper.GetDuration("flush-interval"),
+		subViper.GetStringMapString("custom-headers"),
 	)
 }
 
 // NewHttpForwarderHandlerV2 returns a new handler which dispatches metrics over http to another gostatsd server.
-func NewHttpForwarderHandlerV2(logger logrus.FieldLogger, apiEndpoint, network string, consolidatorSlots, maxRequests int, compress, enableHttp2 bool, clientTimeout, maxRequestElapsedTime time.Duration, flushInterval time.Duration) (*HttpForwarderHandlerV2, error) {
+func NewHttpForwarderHandlerV2(logger logrus.FieldLogger, apiEndpoint, network string, consolidatorSlots, maxRequests int, compress, enableHttp2 bool, clientTimeout, maxRequestElapsedTime time.Duration, flushInterval time.Duration, xheaders map[string]string) (*HttpForwarderHandlerV2, error) {
 	if apiEndpoint == "" {
 		return nil, fmt.Errorf("api-endpoint is required")
 	}
@@ -116,6 +119,22 @@ func NewHttpForwarderHandlerV2(logger logrus.FieldLogger, apiEndpoint, network s
 		"network":                  network,
 		"flush-interval":           flushInterval,
 	}).Info("created HttpForwarderHandler")
+
+	// Default set of headers used for the forwarder
+	// Once these values are set, modifying the map is illadvised
+	// due to the fact that map is just a reference to memory.
+	headers := map[string]string{
+		"Content-Type": "application/x-protobuf",
+		"User-Agent":   "gostatsd (http forwarder)",
+	}
+
+	// Adding extra headers to the default block of headers to emit.
+	// Convert the header to uppercase to ensure known mapping when
+	// inspected by proxies or load balancers
+	for k, v := range xheaders {
+		k = strings.ToUpper(k)
+		headers[k] = v
+	}
 
 	dialer := &net.Dialer{
 		Timeout:   5 * time.Second,
@@ -162,6 +181,7 @@ func NewHttpForwarderHandlerV2(logger logrus.FieldLogger, apiEndpoint, network s
 			Transport: transport,
 			Timeout:   clientTimeout,
 		},
+		headers: headers,
 	}, nil
 }
 
@@ -368,18 +388,6 @@ func (hfh *HttpForwarderHandlerV2) serialize(message proto.Message) ([]byte, err
 	return buf, nil
 }
 
-// debug rendering
-/*
-func (hh *HttpForwarderHandlerV2) serializeText(message proto.Message) ([]byte, error) {
-	buf := &bytes.Buffer{}
-	err := proto.MarshalText(buf, message)
-	if err != nil {
-		return nil, err
-	}
-	return buf.Bytes(), nil
-}
-*/
-
 func (hfh *HttpForwarderHandlerV2) serializeAndCompress(message proto.Message) ([]byte, error) {
 	raw, err := hfh.serialize(message)
 	if err != nil {
@@ -419,19 +427,15 @@ func (hfh *HttpForwarderHandlerV2) constructPost(ctx context.Context, logger log
 	}
 
 	return func() error {
-		headers := map[string]string{
-			"Content-Type":     "application/x-protobuf",
-			"Content-Encoding": encoding,
-			"User-Agent":       "gostatsd (http forwarder)",
-		}
 		req, err := http.NewRequest("POST", path, bytes.NewReader(body))
 		if err != nil {
 			return fmt.Errorf("unable to create http.Request: %v", err)
 		}
 		req = req.WithContext(ctx)
-		for header, v := range headers {
+		for header, v := range hfh.headers {
 			req.Header.Set(header, v)
 		}
+		req.Header.Set("Content-Encoding", encoding)
 		resp, err := hfh.client.Do(req)
 		if err != nil {
 			return fmt.Errorf("error POSTing: %v", err)

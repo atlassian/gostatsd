@@ -85,6 +85,8 @@ following configuration options:
 - `flush-interval`: duration for how long to batch metrics before flushing. Should be an order of magnitude less than
   the upstream flush interval. Defaults to `1s`.
 - `log-raw-metric`: print metrics received from network to stdout in JSON format.
+- `custom-headers` : a map of strings that are added to each request sent to allow for additional network routing / request inspection . 
+  Not required, default is empty.
 
 Configuring HTTP servers
 ------------------------

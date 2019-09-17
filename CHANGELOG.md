@@ -1,3 +1,7 @@
+17.2.1
+------
+- Support for `custom-headers` for http_forwarder_v2
+
 17.2.0
 ------
 - Support `log-raw-metric` configuration
