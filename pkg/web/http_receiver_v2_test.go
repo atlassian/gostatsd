@@ -50,6 +50,7 @@ func TestForwardingEndToEndV2(t *testing.T) {
 		10*time.Second,
 		10*time.Second,
 		10*time.Millisecond,
+		nil,
 	)
 	require.NoError(t, err)
 
