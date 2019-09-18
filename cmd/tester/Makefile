@@ -12,8 +12,8 @@ ARCH ?= darwin
 MAIN_PKG := github.com/atlassian/gostatsd/cmd/tester
 
 setup:
-	go get -u github.com/githubnemo/CompileDaemon
-	go get -u github.com/alecthomas/gometalinter
+	go get github.com/githubnemo/CompileDaemon
+	go get github.com/alecthomas/gometalinter
 	gometalinter --install --update
 
 build: fmt
