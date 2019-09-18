@@ -1,3 +1,4 @@
+GO111MODULE := on
 VERSION_VAR := main.Version
 GIT_VAR := main.GitCommit
 BUILD_DATE_VAR := main.BuildDate
@@ -14,7 +15,6 @@ setup:
 	go get -u github.com/githubnemo/CompileDaemon
 	go get -u github.com/alecthomas/gometalinter
 	gometalinter --install --update
-	glide install
 
 build: fmt
 	go build -o $(BINARY_NAME) $(GOBUILD_VERSION_ARGS) $(MAIN_PKG)

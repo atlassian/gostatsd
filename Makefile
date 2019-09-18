@@ -1,3 +1,4 @@
+GO111MODULE := on
 VERSION_VAR := main.Version
 GIT_VAR := main.GitCommit
 BUILD_DATE_VAR := main.BuildDate
@@ -26,9 +27,7 @@ tools/bin/protoc:
 	rm protoc-$(PROTOBUF_VERSION)-linux-x86_64.zip
 
 setup-ci: tools/bin/protoc
-	go get -u github.com/Masterminds/glide
 	go get -u github.com/golangci/golangci-lint/cmd/golangci-lint
-	glide install --strip-vendor
 
 build-cluster: fmt
 	go build -i -v -o build/bin/$(ARCH)/cluster $(GOBUILD_VERSION_ARGS) $(CLUSTER_PKG)
@@ -45,7 +44,7 @@ build-race: fmt
 	go build -i -v -race -o build/bin/$(ARCH)/$(BINARY_NAME) $(GOBUILD_VERSION_ARGS) $(MAIN_PKG)
 
 build-all: pb/gostatsd.pb.go
-	go install -v $$(glide nv)
+	go install -v ./...
 
 test-all: fmt test test-race bench bench-race check cover
 
@@ -54,16 +53,16 @@ fmt:
 	goimports -w=true -d $$(find . -type f -name '*.go' -not -path "./vendor/*")
 
 test: pb/gostatsd.pb.go
-	go test $$(glide nv)
+	go test ./...
 
 test-race: pb/gostatsd.pb.go
-	go test -race $$(glide nv)
+	go test -race ./...
 
 bench: pb/gostatsd.pb.go
-	go test -bench=. -run=XXX $$(glide nv)
+	go test -bench=. -run=XXX ./...
 
 bench-race: pb/gostatsd.pb.go
-	go test -race -bench=. -run=XXX $$(glide nv)
+	go test -race -bench=. -run=XXX ./...
 
 cover: pb/gostatsd.pb.go
 	./cover.sh
@@ -75,7 +74,7 @@ coveralls: pb/gostatsd.pb.go
 	goveralls -coverprofile=coverage.out -service=travis-ci
 
 junit-test: build
-	go test -v $$(glide nv) | go-junit-report > test-report.xml
+	go test -v ./... | go-junit-report > test-report.xml
 
 check: pb/gostatsd.pb.go
 	go install ./cmd/gostatsd
