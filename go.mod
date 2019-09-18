@@ -10,10 +10,10 @@ require (
 	github.com/cenkalti/backoff v2.1.1+incompatible
 	github.com/coreos/bbolt v1.3.3 // indirect
 	github.com/coreos/etcd v3.3.15+incompatible // indirect
-	github.com/coreos/go-etcd v2.0.0+incompatible // indirect
 	github.com/coreos/go-semver v0.3.0 // indirect
 	github.com/coreos/go-systemd v0.0.0-20190719114852-fd7a80b32e1f // indirect
 	github.com/fatih/color v1.7.0 // indirect
+	github.com/githubnemo/CompileDaemon v1.0.0 // indirect
 	github.com/go-ole/go-ole v1.2.4 // indirect
 	github.com/go-redis/redis v6.15.2+incompatible
 	github.com/go-toolsmith/astinfo v1.0.0 // indirect
@@ -30,6 +30,7 @@ require (
 	github.com/grpc-ecosystem/go-grpc-middleware v1.1.0 // indirect
 	github.com/grpc-ecosystem/grpc-gateway v1.11.1 // indirect
 	github.com/hashicorp/golang-lru v0.5.3 // indirect
+	github.com/howeyc/fsnotify v0.9.0 // indirect
 	github.com/json-iterator/go v1.1.7
 	github.com/klauspost/compress v1.8.4 // indirect
 	github.com/konsorten/go-windows-terminal-sequences v1.0.2 // indirect
@@ -59,7 +60,7 @@ require (
 	github.com/spf13/afero v1.2.2 // indirect
 	github.com/spf13/cobra v0.0.5 // indirect
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
-	github.com/spf13/pflag v1.0.4
+	github.com/spf13/pflag v1.0.3
 	github.com/spf13/viper v1.4.0
 	github.com/stretchr/objx v0.2.0 // indirect
 	github.com/stretchr/testify v1.4.0
