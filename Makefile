@@ -10,7 +10,7 @@ GOBUILD_VERSION_ARGS_WITH_SYMS := -ldflags "-X $(VERSION_VAR)=$(REPO_VERSION) -X
 BINARY_NAME := gostatsd
 IMAGE_NAME := atlassianlabs/$(BINARY_NAME)
 ARCH ?= $$(uname -s | tr A-Z a-z)
-GOVERSION := 1.13.0  # Keep in sync with .travis.yml
+GOVERSION := 1.13  # Keep in sync with .travis.yml
 GP := /gopath
 MAIN_PKG := github.com/atlassian/gostatsd/cmd/gostatsd
 CLUSTER_PKG := github.com/atlassian/gostatsd/cmd/cluster
