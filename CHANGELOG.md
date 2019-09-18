@@ -1,3 +1,8 @@
+18.1.0
+------
+- Build with Go 1.13.0
+- Base docker images on alpine 3.10 and ubuntu 18.04
+
 18.0.0
 ------
 - Support for `custom-headers` for http_forwarder_v2
