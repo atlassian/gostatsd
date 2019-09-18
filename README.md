@@ -81,6 +81,8 @@ following configuration options:
   the upstream flush interval. Defaults to `1s`.
 - `transport`: see [TRANSPORT.md] for how to configure the transport.
 - `log-raw-metric`: logs raw metrics received from the network.  Defaults to `false`.
+- `custom-headers` : a map of strings that are added to each request sent to allow for additional network routing / request inspection. 
+  Not required, default is empty. Example: `--custom-headers='{"region" : "us-east-1", "service" : "event-producer"}'`
 
 Configuring HTTP servers
 ------------------------

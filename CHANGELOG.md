@@ -1,7 +1,11 @@
-18.0.0
+19.0.0
 ------
 - BREAKING: Refactor how http clients are configured.  See [TRANSPORT.md] for details.  Some
   configuration options are in a new location, however defaults are generally unchanged.
+
+18.0.0
+------
+- Support for `custom-headers` for http_forwarder_v2
 
 17.2.0
 ------
