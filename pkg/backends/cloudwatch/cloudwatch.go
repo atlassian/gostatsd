@@ -7,6 +7,7 @@ import (
 
 	"github.com/atlassian/gostatsd"
 	"github.com/atlassian/gostatsd/pkg/transport"
+	"github.com/atlassian/gostatsd/pkg/util"
 
 	log "github.com/sirupsen/logrus"
 
@@ -34,7 +35,7 @@ type Client struct {
 
 // NewClientFromViper constructs a Cloudwatch backend.
 func NewClientFromViper(v *viper.Viper, pool *transport.TransportPool) (gostatsd.Backend, error) {
-	g := getSubViper(v, "cloudwatch")
+	g := util.GetSubViper(v, "cloudwatch")
 	g.SetDefault("namespace", "StatsD")
 	g.SetDefault("transport", "default")
 
@@ -223,12 +224,4 @@ func (client Client) SendEvent(ctx context.Context, e *gostatsd.Event) (retErr e
 // Name returns the name of the backend.
 func (Client) Name() string {
 	return BackendName
-}
-
-func getSubViper(v *viper.Viper, key string) *viper.Viper {
-	n := v.Sub(key)
-	if n == nil {
-		n = viper.New()
-	}
-	return n
 }

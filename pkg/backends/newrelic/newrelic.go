@@ -18,6 +18,7 @@ import (
 	"github.com/atlassian/gostatsd"
 	"github.com/atlassian/gostatsd/pkg/stats"
 	"github.com/atlassian/gostatsd/pkg/transport"
+	"github.com/atlassian/gostatsd/pkg/util"
 
 	"github.com/cenkalti/backoff"
 	log "github.com/sirupsen/logrus"
@@ -353,7 +354,7 @@ func (n *Client) postWrapper(ctx context.Context, json []byte) (func() error, er
 
 // NewClientFromViper returns a new New Relic client.
 func NewClientFromViper(v *viper.Viper, pool *transport.TransportPool) (gostatsd.Backend, error) {
-	nr := getSubViper(v, "newrelic")
+	nr := util.GetSubViper(v, "newrelic")
 	nr.SetDefault("transport", "default")
 	nr.SetDefault("address", "http://localhost:8001/v1/data")
 	nr.SetDefault("event-type", "GoStatsD")
@@ -492,14 +493,6 @@ func NewClient(transport, address, eventType, flushType, apiKey, tagPrefix,
 		flushInterval:         flushInterval,
 		disabledSubtypes:      disabled,
 	}, nil
-}
-
-func getSubViper(v *viper.Viper, key string) *viper.Viper {
-	n := v.Sub(key)
-	if n == nil {
-		n = viper.New()
-	}
-	return n
 }
 
 func newInfraPayload(data interface{}) NewRelicInfraPayload {
