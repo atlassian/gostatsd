@@ -259,6 +259,27 @@ func TestReset(t *testing.T) {
 	assrt.Equal(expected.metricMap.Timers, actual.metricMap.Timers)
 
 	actual = newFakeAggregator()
+	actual.metricMap.Timers["histogram"] = map[string]gostatsd.Timer{
+		HistogramThresholdsTagPrefix+"10_20_30": gostatsd.NewTimer(nowNano, []float64{}, host, gostatsd.Tags{HistogramThresholdsTagPrefix + "10_20_30"}),
+	}
+
+	expected = newFakeAggregator()
+	expectedTimer := gostatsd.NewTimer(nowNano, []float64{}, host, gostatsd.Tags{HistogramThresholdsTagPrefix + "10_20_30"})
+	expectedTimer.Histogram = map[gostatsd.HistogramThreshold]int{
+		gostatsd.HistogramThreshold(10): 0,
+		gostatsd.HistogramThreshold(20): 0,
+		gostatsd.HistogramThreshold(30): 0,
+		gostatsd.HistogramThreshold(math.Inf(1)): 0,
+	}
+	expected.metricMap.Timers["histogram"] = map[string]gostatsd.Timer{
+		HistogramThresholdsTagPrefix+"10_20_30": expectedTimer,
+	}
+	expected.now = nowFn
+
+	actual.Reset()
+	assrt.Equal(expected.metricMap.Timers, actual.metricMap.Timers)
+
+	actual = newFakeAggregator()
 	actual.metricMap.Gauges["some"] = map[string]gostatsd.Gauge{
 		"thing":       gostatsd.NewGauge(nowNano, 50, host, nil),
 		"other:thing": gostatsd.NewGauge(nowNano, 90, host, nil),

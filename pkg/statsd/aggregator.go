@@ -217,11 +217,21 @@ func (a *MetricAggregator) Reset() {
 		if a.isExpired(nowNano, timer.Timestamp) {
 			deleteMetric(key, tagsKey, a.metricMap.Timers)
 		} else {
-			a.metricMap.Timers[key][tagsKey] = gostatsd.Timer{
-				Timestamp: timer.Timestamp,
-				Hostname:  timer.Hostname,
-				Tags:      timer.Tags,
-				Values:    timer.Values[:0],
+			if hasHistogramTag(timer) {
+				a.metricMap.Timers[key][tagsKey] = gostatsd.Timer{
+					Timestamp: timer.Timestamp,
+					Hostname:  timer.Hostname,
+					Tags:      timer.Tags,
+					Values:    timer.Values[:0],
+					Histogram: emptyHistogram(timer, a.histogramLimit),
+				}
+			} else {
+				a.metricMap.Timers[key][tagsKey] = gostatsd.Timer{
+					Timestamp: timer.Timestamp,
+					Hostname:  timer.Hostname,
+					Tags:      timer.Tags,
+					Values:    timer.Values[:0],
+				}
 			}
 		}
 	})

@@ -43,6 +43,29 @@ func latencyHistogram(timer gostatsd.Timer, bucketLimit uint32) map[gostatsd.His
 	return result
 }
 
+func emptyHistogram(timer gostatsd.Timer, bucketLimit uint32) map[gostatsd.HistogramThreshold]int {
+	result := make(map[gostatsd.HistogramThreshold]int)
+
+	if bucketLimit == 0 {
+		return result
+	}
+
+	thresholds := retrieveThresholds(timer, bucketLimit)
+
+	if thresholds == nil {
+		return nil
+	}
+	infiniteThreshold := gostatsd.HistogramThreshold(math.Inf(1))
+
+	for _, histogramThreshold := range thresholds {
+		result[histogramThreshold] = 0
+	}
+
+	result[infiniteThreshold] = 0
+
+	return result
+}
+
 func retrieveThresholds(timer gostatsd.Timer, bucketlimit uint32) []gostatsd.HistogramThreshold {
 	tag, found := findTag(timer.Tags, HistogramThresholdsTagPrefix)
 	if found {
