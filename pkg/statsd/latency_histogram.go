@@ -14,25 +14,16 @@ const (
 )
 
 func latencyHistogram(timer gostatsd.Timer, bucketLimit uint32) map[gostatsd.HistogramThreshold]int {
-	result := make(map[gostatsd.HistogramThreshold]int)
+	result := emptyHistogram(timer, bucketLimit)
 
-	if bucketLimit == 0 {
+	if len(result) == 0 {
 		return result
 	}
 
-	thresholds := retrieveThresholds(timer, bucketLimit)
-
-	if thresholds == nil {
-		return nil
-	}
 	infiniteThreshold := gostatsd.HistogramThreshold(math.Inf(1))
 
-	for _, histogramThreshold := range thresholds {
-		result[histogramThreshold] = 0
-	}
-
 	for _, value := range timer.Values {
-		for _, latencyBucket := range thresholds {
+		for latencyBucket := range result {
 			if value <= float64(latencyBucket) {
 				result[latencyBucket] += 1
 			}
