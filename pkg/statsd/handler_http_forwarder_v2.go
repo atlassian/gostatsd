@@ -4,11 +4,9 @@ import (
 	"bytes"
 	"compress/zlib"
 	"context"
-	"crypto/tls"
 	"fmt"
 	"io"
 	"io/ioutil"
-	"net"
 	"net/http"
 	"sync"
 	"sync/atomic"
@@ -17,6 +15,7 @@ import (
 	"github.com/atlassian/gostatsd"
 	"github.com/atlassian/gostatsd/pb"
 	"github.com/atlassian/gostatsd/pkg/stats"
+	"github.com/atlassian/gostatsd/pkg/transport"
 
 	"github.com/ash2k/stager/wait"
 	"github.com/cenkalti/backoff"
@@ -28,13 +27,11 @@ import (
 
 const (
 	defaultConsolidatorFlushInterval = 1 * time.Second
-	defaultClientTimeout             = 10 * time.Second
 	defaultCompress                  = true
-	defaultEnableHttp2               = false
 	defaultApiEndpoint               = ""
 	defaultMaxRequestElapsedTime     = 30 * time.Second
 	defaultMaxRequests               = 1000
-	defaultNetwork                   = "tcp"
+	defaultTransport                 = "default"
 )
 
 // HttpForwarderHandlerV2 is a PipelineHandler which sends metrics to another gostatsd instance
@@ -50,7 +47,7 @@ type HttpForwarderHandlerV2 struct {
 	apiEndpoint           string
 	maxRequestElapsedTime time.Duration
 	metricsSem            chan struct{}
-	client                http.Client
+	client                *http.Client
 	consolidator          *gostatsd.MetricConsolidator
 	consolidatedMetrics   <-chan []*gostatsd.MetricMap
 	eventWg               sync.WaitGroup
@@ -59,35 +56,43 @@ type HttpForwarderHandlerV2 struct {
 }
 
 // NewHttpForwarderHandlerV2FromViper returns a new http API client.
-func NewHttpForwarderHandlerV2FromViper(logger logrus.FieldLogger, v *viper.Viper) (*HttpForwarderHandlerV2, error) {
+func NewHttpForwarderHandlerV2FromViper(logger logrus.FieldLogger, v *viper.Viper, pool *transport.TransportPool) (*HttpForwarderHandlerV2, error) {
 	subViper := getSubViper(v, "http-transport")
-	subViper.SetDefault("client-timeout", defaultClientTimeout)
+	subViper.SetDefault("transport", defaultTransport)
 	subViper.SetDefault("compress", defaultCompress)
-	subViper.SetDefault("enable-http2", defaultEnableHttp2)
 	subViper.SetDefault("api-endpoint", defaultApiEndpoint)
 	subViper.SetDefault("max-requests", defaultMaxRequests)
 	subViper.SetDefault("max-request-elapsed-time", defaultMaxRequestElapsedTime)
 	subViper.SetDefault("consolidator-slots", v.GetInt(ParamMaxParsers))
 	subViper.SetDefault("flush-interval", defaultConsolidatorFlushInterval)
-	subViper.SetDefault("network", defaultNetwork)
 
 	return NewHttpForwarderHandlerV2(
 		logger,
+		subViper.GetString("transport"),
 		subViper.GetString("api-endpoint"),
-		subViper.GetString("network"),
 		subViper.GetInt("consolidator-slots"),
 		subViper.GetInt("max-requests"),
 		subViper.GetBool("compress"),
-		subViper.GetBool("enable-http2"),
-		subViper.GetDuration("client-timeout"),
 		subViper.GetDuration("max-request-elapsed-time"),
 		subViper.GetDuration("flush-interval"),
 		subViper.GetStringMapString("custom-headers"),
+		pool,
 	)
 }
 
 // NewHttpForwarderHandlerV2 returns a new handler which dispatches metrics over http to another gostatsd server.
-func NewHttpForwarderHandlerV2(logger logrus.FieldLogger, apiEndpoint, network string, consolidatorSlots, maxRequests int, compress, enableHttp2 bool, clientTimeout, maxRequestElapsedTime time.Duration, flushInterval time.Duration, xheaders map[string]string) (*HttpForwarderHandlerV2, error) {
+func NewHttpForwarderHandlerV2(
+	logger logrus.FieldLogger,
+	transport,
+	apiEndpoint string,
+	consolidatorSlots,
+	maxRequests int,
+	compress bool,
+	maxRequestElapsedTime time.Duration,
+	flushInterval time.Duration,
+	xheaders map[string]string,
+	pool *transport.TransportPool,
+) (*HttpForwarderHandlerV2, error) {
 	if apiEndpoint == "" {
 		return nil, fmt.Errorf("api-endpoint is required")
 	}
@@ -97,9 +102,6 @@ func NewHttpForwarderHandlerV2(logger logrus.FieldLogger, apiEndpoint, network s
 	if maxRequests <= 0 {
 		return nil, fmt.Errorf("max-requests must be positive")
 	}
-	if clientTimeout <= 0 {
-		return nil, fmt.Errorf("client-timeout must be positive")
-	}
 	if maxRequestElapsedTime <= 0 && maxRequestElapsedTime != -1 {
 		return nil, fmt.Errorf("max-request-elapsed-time must be positive")
 	}
@@ -107,15 +109,18 @@ func NewHttpForwarderHandlerV2(logger logrus.FieldLogger, apiEndpoint, network s
 		return nil, fmt.Errorf("flush-interval must be positive")
 	}
 
+	httpClient, err := pool.Get(transport)
+	if err != nil {
+		logger.WithError(err).Error("failed to create http client")
+		return nil, err
+	}
+
 	logger.WithFields(logrus.Fields{
 		"api-endpoint":             apiEndpoint,
-		"client-timeout":           clientTimeout,
 		"compress":                 compress,
-		"enable-http2":             enableHttp2,
 		"max-request-elapsed-time": maxRequestElapsedTime,
 		"max-requests":             maxRequests,
 		"consolidator-slots":       consolidatorSlots,
-		"network":                  network,
 		"flush-interval":           flushInterval,
 	}).Info("created HttpForwarderHandler")
 
@@ -133,32 +138,6 @@ func NewHttpForwarderHandlerV2(logger logrus.FieldLogger, apiEndpoint, network s
 		headers[k] = v
 	}
 
-	dialer := &net.Dialer{
-		Timeout:   5 * time.Second,
-		KeepAlive: 30 * time.Second,
-	}
-	transport := &http.Transport{
-		Proxy:               http.ProxyFromEnvironment,
-		TLSHandshakeTimeout: 3 * time.Second,
-		TLSClientConfig: &tls.Config{
-			// Can't use SSLv3 because of POODLE and BEAST
-			// Can't use TLSv1.0 because of POODLE and BEAST using CBC cipher
-			// Can't use TLSv1.1 because of RC4 cipher usage
-			MinVersion: tls.VersionTLS12,
-		},
-		DialContext: func(ctx context.Context, _, address string) (net.Conn, error) {
-			// replace the network with our own
-			return dialer.DialContext(ctx, network, address)
-		},
-		MaxIdleConns:    50,
-		IdleConnTimeout: 1 * time.Minute,
-	}
-	if !enableHttp2 {
-		// A non-nil empty map used in TLSNextProto to disable HTTP/2 support in client.
-		// https://golang.org/doc/go1.6#http2
-		transport.TLSNextProto = map[string](func(string, *tls.Conn) http.RoundTripper){}
-	}
-
 	metricsSem := make(chan struct{}, maxRequests)
 	for i := 0; i < maxRequests; i++ {
 		metricsSem <- struct{}{}
@@ -174,11 +153,8 @@ func NewHttpForwarderHandlerV2(logger logrus.FieldLogger, apiEndpoint, network s
 		compress:              compress,
 		consolidator:          gostatsd.NewMetricConsolidator(consolidatorSlots, flushInterval, ch),
 		consolidatedMetrics:   ch,
-		client: http.Client{
-			Transport: transport,
-			Timeout:   clientTimeout,
-		},
-		headers: headers,
+		client:                httpClient.Client,
+		headers:               headers,
 	}, nil
 }
 

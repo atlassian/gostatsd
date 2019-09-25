@@ -1,3 +1,8 @@
+19.0.0
+------
+- BREAKING: Refactor how http clients are configured.  See [TRANSPORT.md] for details.  Some
+  configuration options are in a new location, however defaults are generally unchanged.
+
 18.1.0
 ------
 - Build with Go 1.13.0

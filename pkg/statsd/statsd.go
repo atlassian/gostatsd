@@ -11,6 +11,7 @@ import (
 
 	"github.com/atlassian/gostatsd"
 	"github.com/atlassian/gostatsd/pkg/stats"
+	"github.com/atlassian/gostatsd/pkg/transport"
 	"github.com/atlassian/gostatsd/pkg/web"
 
 	"github.com/ash2k/stager"
@@ -53,7 +54,8 @@ type Server struct {
 	Hostname                  string
 	LogRawMetric              bool
 	CacheOptions
-	Viper *viper.Viper
+	Viper         *viper.Viper
+	TransportPool *transport.TransportPool
 }
 
 // Run runs the server until context signals done.
@@ -114,6 +116,7 @@ func (s *Server) createForwarderSink() (gostatsd.PipelineHandler, []gostatsd.Run
 	forwarderHandler, err := NewHttpForwarderHandlerV2FromViper(
 		log.StandardLogger(),
 		s.Viper,
+		s.TransportPool,
 	)
 	if err != nil {
 		return nil, nil, err

@@ -76,9 +76,12 @@ To use this method, create an Insert API Key from here: https://insights.newreli
 #Example configuration
 
 [newrelic]
+    transport = "default"
     address = "https://insights-collector.newrelic.com/v1/accounts/YOUR_ACCOUNT_ID/events"
     api-key = "yourEventAPIInsertKey"
 ```
+
+See [TRANSPORT.md] for information about `transport`.
 
 ### [New Relic Infrastructure Agent](https://newrelic.com/products/infrastructure)
 Sending via the Infrastructure Agent's inbuilt HTTP server provides additional features, such as automatically applying additional metadata to the event the host may have such as AWS tags, instance type, host information, labels etc.

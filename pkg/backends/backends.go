@@ -11,6 +11,7 @@ import (
 	"github.com/atlassian/gostatsd/pkg/backends/null"
 	"github.com/atlassian/gostatsd/pkg/backends/statsdaemon"
 	"github.com/atlassian/gostatsd/pkg/backends/stdout"
+	"github.com/atlassian/gostatsd/pkg/transport"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
@@ -30,22 +31,22 @@ var backends = map[string]gostatsd.BackendFactory{
 // GetBackend creates an instance of the named backend, or nil if
 // the name is not known. The error return is only used if the named backend
 // was known but failed to initialize.
-func GetBackend(name string, v *viper.Viper) (gostatsd.Backend, error) {
+func GetBackend(name string, v *viper.Viper, pool *transport.TransportPool) (gostatsd.Backend, error) {
 	f, found := backends[name]
 	if !found {
 		return nil, nil
 	}
-	return f(v)
+	return f(v, pool)
 }
 
 // InitBackend creates an instance of the named backend.
-func InitBackend(name string, v *viper.Viper) (gostatsd.Backend, error) {
+func InitBackend(name string, v *viper.Viper, pool *transport.TransportPool) (gostatsd.Backend, error) {
 	if name == "" {
 		log.Info("No backend specified")
 		return nil, nil
 	}
 
-	backend, err := GetBackend(name, v)
+	backend, err := GetBackend(name, v, pool)
 	if err != nil {
 		return nil, fmt.Errorf("could not init backend %q: %v", name, err)
 	}

@@ -7,12 +7,15 @@ import (
 	"time"
 
 	"github.com/ash2k/stager/wait"
-	"github.com/atlassian/gostatsd"
-	"github.com/atlassian/gostatsd/pkg/statsd"
-	"github.com/atlassian/gostatsd/pkg/web"
 	"github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
 	"github.com/stretchr/testify/require"
 	"github.com/tilinna/clock"
+
+	"github.com/atlassian/gostatsd"
+	"github.com/atlassian/gostatsd/pkg/statsd"
+	"github.com/atlassian/gostatsd/pkg/transport"
+	"github.com/atlassian/gostatsd/pkg/web"
 )
 
 func TestForwardingEndToEndV2(t *testing.T) {
@@ -39,18 +42,18 @@ func TestForwardingEndToEndV2(t *testing.T) {
 	c := httptest.NewServer(hs.Router)
 	defer c.Close()
 
+	p := transport.NewTransportPool(logrus.New(), viper.New())
 	hfh, err := statsd.NewHttpForwarderHandlerV2(
 		logrus.StandardLogger(),
+		"default",
 		c.URL,
-		"tcp4",
 		5, // deliberately prime, so the loop below doesn't send the same thing to the same MetricMap every time.
 		10,
 		false,
-		false,
-		10*time.Second,
 		10*time.Second,
 		10*time.Millisecond,
 		nil,
+		p,
 	)
 	require.NoError(t, err)
 

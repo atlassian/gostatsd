@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/atlassian/gostatsd"
+	"github.com/atlassian/gostatsd/pkg/transport"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
@@ -22,7 +23,7 @@ type Client struct {
 }
 
 // NewClientFromViper constructs a stdout backend.
-func NewClientFromViper(v *viper.Viper) (gostatsd.Backend, error) {
+func NewClientFromViper(v *viper.Viper, pool *transport.TransportPool) (gostatsd.Backend, error) {
 	return NewClient(
 		gostatsd.DisabledSubMetrics(v),
 	)
