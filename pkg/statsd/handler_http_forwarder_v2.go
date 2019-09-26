@@ -116,7 +116,7 @@ func NewHttpForwarderHandlerV2(
 
 	httpClient, err := pool.Get(transport)
 	if err != nil {
-		logger.WithError(err).Error("failed to create http client")
+		logger.WithError(err).Error("failed to create transport")
 		return nil, err
 	}
 

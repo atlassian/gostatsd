@@ -15,23 +15,24 @@ import (
 // There are other options on http.Transport, but these are the
 // ones which have been configured in gostatsd historically.
 
-const paramHttpDialerKeepAlive = "dialer-keep-alive"
-const paramHttpDialerTimeout = "dialer-timeout"
-const paramHttpEnableHttp2 = "enable-http2"
-const paramHttpIdleConnectionTimeout = "idle-connection-timeout"
-const paramHttpMaxIdleConnections = "max-idle-connections"
-const paramHttpNetwork = "network"
-const paramHttpTLSHandshakeTimeout = "tls-handshake-timeout"
-const paramHttpResponseHeaderTimeout = "response-header-timeout"
+const (
+	paramHttpDialerKeepAlive       = "dialer-keep-alive"
+	paramHttpDialerTimeout         = "dialer-timeout"
+	paramHttpEnableHttp2           = "enable-http2"
+	paramHttpIdleConnectionTimeout = "idle-connection-timeout"
+	paramHttpMaxIdleConnections    = "max-idle-connections"
+	paramHttpNetwork               = "network"
+	paramHttpTLSHandshakeTimeout   = "tls-handshake-timeout"
+	paramHttpResponseHeaderTimeout = "response-header-timeout"
 
-const defaultHttpDialerKeepAlive = 30 * time.Second
-const defaultHttpDialerTimeout = 5 * time.Second
-const defaultHttpEnableHttp2 = false
-const defaultHttpIdleConnectionTimeout = 1 * time.Minute
-const defaultHttpMaxIdleConnections = 50
-const defaultHttpNetwork = "tcp"
-const defaultHttpTLSHandshakeTimeout = 3 * time.Second
-const defaultHttpResponseHeaderTimeout = time.Duration(0)
+	defaultHttpDialerKeepAlive       = 30 * time.Second
+	defaultHttpDialerTimeout         = 5 * time.Second
+	defaultHttpEnableHttp2           = false
+	defaultHttpIdleConnectionTimeout = 1 * time.Minute
+	defaultHttpMaxIdleConnections    = 50
+	defaultHttpNetwork               = "tcp"
+	defaultHttpTLSHandshakeTimeout   = 3 * time.Second
+)
 
 func (tp *TransportPool) newHttpTransport(name string, v *viper.Viper) (*http.Transport, error) {
 	v.SetDefault(paramHttpDialerKeepAlive, defaultHttpDialerKeepAlive)

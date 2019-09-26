@@ -422,7 +422,7 @@ func NewClient(
 	logger := log.WithField("backend", BackendName)
 	httpClient, err := pool.Get(transport)
 	if err != nil {
-		logger.WithError(err).Error("failed to create http client")
+		logger.WithError(err).Error("failed to create transport")
 		return nil, err
 	}
 	logger.WithFields(log.Fields{
