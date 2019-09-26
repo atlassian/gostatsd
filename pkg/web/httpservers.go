@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/atlassian/gostatsd"
+	"github.com/atlassian/gostatsd/pkg/util"
 
 	"github.com/ash2k/stager/wait"
 	"github.com/gorilla/mux"
@@ -51,7 +52,7 @@ func newHttpServerFromViper(
 	serverName string,
 	handler gostatsd.PipelineHandler,
 ) (*httpServer, error) {
-	vSub := getSubViper(vMain, "http."+serverName)
+	vSub := util.GetSubViper(vMain, "http."+serverName)
 	vSub.SetDefault("address", "127.0.0.1:8080")
 	vSub.SetDefault("enable-prof", false)
 	vSub.SetDefault("enable-expvar", false)
@@ -234,13 +235,4 @@ func (hs *httpServer) waitAndStop(ctx context.Context, server *http.Server, chSt
 		hs.logger.WithError(err).Warn("failed to stop web server")
 	}
 	chStopped <- done
-}
-
-// TODO: Dedupe this
-func getSubViper(v *viper.Viper, key string) *viper.Viper {
-	n := v.Sub(key)
-	if n == nil {
-		n = viper.New()
-	}
-	return n
 }

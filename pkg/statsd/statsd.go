@@ -287,11 +287,3 @@ func toStringSlice(fs []float64) []string {
 	}
 	return s
 }
-
-func getSubViper(v *viper.Viper, key string) *viper.Viper {
-	n := v.Sub(key)
-	if n == nil {
-		n = viper.New()
-	}
-	return n
-}

@@ -16,6 +16,7 @@ import (
 	"github.com/atlassian/gostatsd/pb"
 	"github.com/atlassian/gostatsd/pkg/stats"
 	"github.com/atlassian/gostatsd/pkg/transport"
+	"github.com/atlassian/gostatsd/pkg/util"
 
 	"github.com/ash2k/stager/wait"
 	"github.com/cenkalti/backoff"
@@ -57,7 +58,7 @@ type HttpForwarderHandlerV2 struct {
 
 // NewHttpForwarderHandlerV2FromViper returns a new http API client.
 func NewHttpForwarderHandlerV2FromViper(logger logrus.FieldLogger, v *viper.Viper, pool *transport.TransportPool) (*HttpForwarderHandlerV2, error) {
-	subViper := getSubViper(v, "http-transport")
+	subViper := util.GetSubViper(v, "http-transport")
 	subViper.SetDefault("transport", defaultTransport)
 	subViper.SetDefault("compress", defaultCompress)
 	subViper.SetDefault("api-endpoint", defaultApiEndpoint)
