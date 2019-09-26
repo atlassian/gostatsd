@@ -8,6 +8,8 @@ client is configured in the following manner:
 [transport.<name>]
 client-timeout = '10s'
 type = 'http'
+
+retry-* = ... see section on retries below ...
 ```
 
 - `client-timeout`: The maximum time for the roundtrip to execute. Set to `0` to disable timeout.
@@ -17,6 +19,45 @@ type = 'http'
 
 If a transport is not configured, it will fallback to the transport named `default` (ie, `transport.default`) and
 emit a warning message.
+
+Retry configuration
+-------------------
+All the retry options are listed below, not all options apply to all policies.
+- `retry-policy`: the retry policy to apply, one of `exponential` (default), `constant`, and `disabled`.
+- `retry-interval`: the interval between retries, applies only to the `constant` policy.  Default value is `1s`, must
+  be positive.
+- `retry-max-count`: the maximum number of retries to apply.  Applies to `exponential` and `constant` policies.  A
+  value of `0` means unlimited.  Must be zero or positive.  Default value is `0` (unlimited)
+- `retry-max-time`: the maximum amount of time to try applying retries.  Applies to `exponential` and `constant`
+  policies.  Must be positive.  Default value is `15s`.
+
+The actual delay between individual retries will be +/- 0.5 * interval, where the interval depends on the policy.
+
+Retry examples
+--------------
+```
+# No retries
+[transport.no-retries]
+retry-policy = 'disabled'
+
+# Retry "forever" with a 10 second retry interval
+[transport.retry-forever-constant]
+retry-policy = 'constant'
+retry-interval = '10s'
+retry-max-time = '1y'  # there's no actual "forever"
+
+# Retry forever with an exponential backoff
+[transport.retry-forever-exponential]
+retry-policy = 'exponential'
+retry-max-time = '1y'  # there's no actual "forever"
+
+# Retry a maximum of 5 times (6 actual attempts)
+[transport.retry-max-count]
+retry-policy = 'constant'
+retry-interval = '1s'
+retry-duration = '1m'  # Will not be reached, retry-max-count will take priority
+retry-max-count = 5
+```
 
 HTTP transport configuration
 ----------------------------
