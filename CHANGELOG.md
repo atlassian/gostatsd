@@ -1,3 +1,7 @@
+19.0.1
+------
+- Internal refactor to de-dupe 8 getSubVipers
+
 19.0.0
 ------
 - BREAKING: Refactor how http clients are configured.  See [TRANSPORT.md] for details.  Some

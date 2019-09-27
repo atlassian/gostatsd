@@ -17,6 +17,7 @@ import (
 	"github.com/atlassian/gostatsd"
 	"github.com/atlassian/gostatsd/pkg/stats"
 	"github.com/atlassian/gostatsd/pkg/transport"
+	"github.com/atlassian/gostatsd/pkg/util"
 
 	"github.com/cenkalti/backoff"
 	jsoniter "github.com/json-iterator/go"
@@ -344,7 +345,7 @@ func (d *Client) authenticatedURL(path string) string {
 
 // NewClientFromViper returns a new Datadog API client.
 func NewClientFromViper(v *viper.Viper, pool *transport.TransportPool) (gostatsd.Backend, error) {
-	dd := getSubViper(v, "datadog")
+	dd := util.GetSubViper(v, "datadog")
 	dd.SetDefault("api_endpoint", apiURL)
 	dd.SetDefault("metrics_per_batch", defaultMetricsPerBatch)
 	dd.SetDefault("compress_payload", true)
@@ -433,14 +434,6 @@ func NewClient(
 		flushInterval:         flushInterval,
 		disabledSubtypes:      disabled,
 	}, nil
-}
-
-func getSubViper(v *viper.Viper, key string) *viper.Viper {
-	n := v.Sub(key)
-	if n == nil {
-		n = viper.New()
-	}
-	return n
 }
 
 func deflate(w io.Writer, f func(io.Writer) error) error {

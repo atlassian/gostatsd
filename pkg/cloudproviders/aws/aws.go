@@ -12,6 +12,7 @@ import (
 
 	"github.com/atlassian/gostatsd"
 	"github.com/atlassian/gostatsd/pkg/stats"
+	"github.com/atlassian/gostatsd/pkg/util"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
@@ -204,7 +205,7 @@ func azToRegion(az string) (string, error) {
 
 // NewProviderFromViper returns a new aws provider.
 func NewProviderFromViper(v *viper.Viper, logger logrus.FieldLogger) (gostatsd.CloudProvider, error) {
-	a := getSubViper(v, "aws")
+	a := util.GetSubViper(v, "aws")
 	a.SetDefault("max_retries", 3)
 	a.SetDefault("client_timeout", defaultClientTimeout)
 	a.SetDefault("max_instances_batch", defaultMaxInstancesBatch)
@@ -264,12 +265,4 @@ func NewProviderFromViper(v *viper.Viper, logger logrus.FieldLogger) (gostatsd.C
 		MaxInstances: maxInstances,
 		logger:       logger,
 	}, nil
-}
-
-func getSubViper(v *viper.Viper, key string) *viper.Viper {
-	n := v.Sub(key)
-	if n == nil {
-		n = viper.New()
-	}
-	return n
 }
