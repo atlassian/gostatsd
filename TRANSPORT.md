@@ -7,15 +7,22 @@ client is configured in the following manner:
 ```
 [transport.<name>]
 client-timeout = '10s'
+custom-headers = {}
+max-parallel-requests = 1000
 type = 'http'
+user-agent = "gostatsd"
 
 retry-* = ... see section on retries below ...
 ```
 
-- `client-timeout`: The maximum time for the roundtrip to execute. Set to `0` to disable timeout.
-  Corresponds to `http.Client.Timeout`.
+- `client-timeout`: The maximum time for a roundtrip to execute. Set to `0` to disable timeout.  Retries will
+  allow the total time to run for longer than this value.  Corresponds to `http.Client.Timeout`.
+- `custom-headers`: Allows for custom headers to be set.  See `HTTP Headers` section below for further information.
+- `max-parallel-requests`: The maximum number of requests in flight on this transport.  This is network only, and
+  doesn't include CPU bound work (serialization and compression).
 - `type`: There is currently only a type of `http`, however others are planned (Kinesis, Kafka, etc).  Each type
   has additional configuration which is included in the `transport.<name>` stanza.
+- `user-agent`: A user-agent header to attach to all requests.
 
 If a transport is not configured, it will fallback to the transport named `default` (ie, `transport.default`) and
 emit a warning message.
@@ -57,6 +64,26 @@ retry-policy = 'constant'
 retry-interval = '1s'
 retry-duration = '1m'  # Will not be reached, retry-max-count will take priority
 retry-max-count = 5
+```
+
+HTTP headers
+------------
+There are 3 layers of headers which are on every request.  They are processed in the following order:
+1. Base headers.  This is the `user-agent`, `encoding`, and `content-type`.
+2. Backend specific headers.  This covers headers for API keys, such as `X-Insert-Key` for NewRelic.
+3. User headers.  These always take precedence, and setting a value of `""` allows for a header set at an earlier
+   layer to be removed.
+
+Custom headers can be specified as:
+```
+custom-headers={"header1"="value1", "header2"="value2"}
+```
+
+or
+
+```
+custom-headers.header1="value1"
+custom-headers.header2="value2"
 ```
 
 HTTP transport configuration

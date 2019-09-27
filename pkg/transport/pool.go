@@ -8,15 +8,24 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
+
+	"github.com/atlassian/gostatsd/pkg/util"
 )
 
-const paramTransportClientTimeout = "client-timeout"
-const paramTransportType = "type"
+const (
+	paramTransportClientTimeout       = "client-timeout"
+	paramTransportCustomHeaders       = "custom-headers"
+	paramTransportMaxParallelRequests = "max-parallel-requests"
+	paramTransportType                = "type"
+	paramTransportUserAgent           = "user-agent"
 
-const transportTypeHttp = "http"
+	defaultTransportClientTimeout       = 10 * time.Second
+	defaultTransportMaxParallelRequests = 1000
+	defaultTransportType                = transportTypeHttp
+	defaultTransportUserAgent           = "gostatsd"
 
-const defaultTransportClientTimeout = 10 * time.Second
-const defaultTransportType = transportTypeHttp
+	transportTypeHttp = "http"
+)
 
 // TransportPool creates http.Clients as required, using the provided viper.Viper for configuration.
 type TransportPool struct {
@@ -58,17 +67,28 @@ func (tp *TransportPool) newClient(name string) (*Client, error) {
 	}
 
 	sub.SetDefault(paramTransportClientTimeout, defaultTransportClientTimeout)
+	sub.SetDefault(paramTransportCustomHeaders, nil) // No good way to express this as a const that I can find.
+	sub.SetDefault(paramTransportMaxParallelRequests, defaultTransportMaxParallelRequests)
 	sub.SetDefault(paramTransportType, defaultTransportType)
+	sub.SetDefault(paramTransportUserAgent, defaultTransportUserAgent)
 
 	clientTimeout := sub.GetDuration(paramTransportClientTimeout)
-	transportType := sub.Get(paramTransportType)
+	customHeaders := sub.GetStringMapString(paramTransportCustomHeaders)
+	maxParallelRequests := sub.GetInt(paramTransportMaxParallelRequests)
+	transportType := sub.GetString(paramTransportType)
+	userAgent := sub.GetString(paramTransportUserAgent)
 
 	if clientTimeout < 0 {
 		return nil, errors.New(paramTransportClientTimeout + " must not be negative") // 0 = no timeout
 	}
 
+	backoff, err := util.GetRetryFromViper(sub)
+	if err != nil {
+		tp.logger.WithField("name", name).WithError(err).Error("failed to load retry policy")
+		return nil, err
+	}
+
 	var transport *http.Transport
-	var err error
 
 	switch transportType {
 	case transportTypeHttp:
@@ -80,16 +100,31 @@ func (tp *TransportPool) newClient(name string) (*Client, error) {
 		return nil, err
 	}
 
+	headers := map[string]string{}
+	headerKeys := []string{}
+	for key, value := range customHeaders {
+		headers[http.CanonicalHeaderKey(key)] = value
+		headerKeys = append(headerKeys, key)
+	}
+
 	tp.logger.WithFields(logrus.Fields{
-		"name":                      name,
-		paramTransportType:          transportType,
-		paramTransportClientTimeout: clientTimeout,
-	}).Info("created client")
+		"name":                            name,
+		paramTransportClientTimeout:       clientTimeout,
+		paramTransportCustomHeaders:       headerKeys, // Only log keys in case there's secrets
+		paramTransportMaxParallelRequests: maxParallelRequests,
+		paramTransportType:                transportType,
+		paramTransportUserAgent:           userAgent,
+	}).Info("created transport")
 
 	return &Client{
 		Client: &http.Client{
 			Transport: transport,
 			Timeout:   clientTimeout,
 		},
+		logger:        tp.logger.WithField("transport", name),
+		backoff:       backoff,
+		customHeaders: customHeaders,
+		requestSem:    util.NewSemaphore(maxParallelRequests),
+		userAgent:     userAgent,
 	}, nil
 }
