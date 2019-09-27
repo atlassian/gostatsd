@@ -20,8 +20,7 @@ Etsy's version, but also provides a library for developing customized servers.
 Backends are pluggable and only need to support the [backend interface](backend.go).
 
 Being written in Go, it is able to use all cores which makes it easy to scale up the
-server based on load. The server can also be run HA and be scaled out, see
-[Load balancing and scaling out](https://github.com/atlassian/gostatsd#load-balancing-and-scaling-out).
+server based on load.
 
 Building the server
 -------------------
