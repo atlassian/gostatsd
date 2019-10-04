@@ -13,7 +13,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
+
 	"github.com/atlassian/gostatsd"
+	"github.com/atlassian/gostatsd/pkg/transport"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -38,7 +42,10 @@ func TestRetries(t *testing.T) {
 	ts := httptest.NewServer(mux)
 	defer ts.Close()
 
-	client, err := NewClient(ts.URL, "apiKey123", "agent", "tcp", defaultMetricsPerBatch, defaultMaxRequests, true, false, 1*time.Second, 2*time.Second, 1*time.Second, gostatsd.TimerSubtypes{})
+	v := viper.New()
+	v.Set("transport.default.client-timeout", 1*time.Second)
+	p := transport.NewTransportPool(logrus.New(), v)
+	client, err := NewClient(ts.URL, "apiKey123", "agent", "default", defaultMetricsPerBatch, defaultMaxRequests, true, 2*time.Second, 1*time.Second, gostatsd.TimerSubtypes{}, p)
 	require.NoError(t, err)
 	res := make(chan []error, 1)
 	client.SendMetricsAsync(context.Background(), twoCounters(), func(errs []error) {
@@ -67,7 +74,10 @@ func TestSendMetricsInMultipleBatches(t *testing.T) {
 	ts := httptest.NewServer(mux)
 	defer ts.Close()
 
-	client, err := NewClient(ts.URL, "apiKey123", "agent", "tcp", 1, defaultMaxRequests, true, false, 1*time.Second, 2*time.Second, 1*time.Second, gostatsd.TimerSubtypes{})
+	v := viper.New()
+	v.Set("transport.default.client-timeout", 1*time.Second)
+	p := transport.NewTransportPool(logrus.New(), v)
+	client, err := NewClient(ts.URL, "apiKey123", "agent", "default", 1, defaultMaxRequests, true, 2*time.Second, 1*time.Second, gostatsd.TimerSubtypes{}, p)
 	require.NoError(t, err)
 	res := make(chan []error, 1)
 	client.SendMetricsAsync(context.Background(), twoCounters(), func(errs []error) {
@@ -117,7 +127,10 @@ func TestSendMetrics(t *testing.T) {
 	ts := httptest.NewServer(mux)
 	defer ts.Close()
 
-	cli, err := NewClient(ts.URL, "apiKey123", "agent", "tcp", 1000, defaultMaxRequests, true, false, 1*time.Second, 2*time.Second, 1100*time.Millisecond, gostatsd.TimerSubtypes{})
+	v := viper.New()
+	v.Set("transport.default.client-timeout", 1*time.Second)
+	p := transport.NewTransportPool(logrus.New(), v)
+	cli, err := NewClient(ts.URL, "apiKey123", "agent", "default", 1000, defaultMaxRequests, true, 2*time.Second, 1100*time.Millisecond, gostatsd.TimerSubtypes{}, p)
 	require.NoError(t, err)
 	cli.now = func() time.Time {
 		return time.Unix(100, 0)
@@ -232,7 +245,10 @@ func TestSendHistogram(t *testing.T) {
 	ts := httptest.NewServer(mux)
 	defer ts.Close()
 
-	client, err := NewClient(ts.URL, "apiKey123", "agent", "tcp", 1000, defaultMaxRequests, true, false, 1*time.Second, 2*time.Second, 1100*time.Millisecond, gostatsd.TimerSubtypes{})
+	v := viper.New()
+	v.Set("transport.default.client-timeout", 1*time.Second)
+	p := transport.NewTransportPool(logrus.New(), v)
+	client, err := NewClient(ts.URL, "apiKey123", "agent", "default", 1000, defaultMaxRequests, true, 2*time.Second, 1100*time.Millisecond, gostatsd.TimerSubtypes{}, p)
 	require.NoError(t, err)
 	client.now = func() time.Time {
 		return time.Unix(100, 0)

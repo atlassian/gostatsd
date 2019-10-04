@@ -27,7 +27,10 @@ tools/bin/protoc:
 	rm protoc-$(PROTOBUF_VERSION)-linux-x86_64.zip
 
 setup-ci: tools/bin/protoc
-	go get github.com/golangci/golangci-lint/cmd/golangci-lint
+	# Unpin this when gitea 1.10 is released
+	# https://github.com/go-gitea/gitea/issues/8126
+	# https://github.com/atlassian/gostatsd/issues/266
+	go get github.com/golangci/golangci-lint/cmd/golangci-lint@v1.18.0
 
 build-cluster: fmt
 	go build -i -v -o build/bin/$(ARCH)/cluster $(GOBUILD_VERSION_ARGS) $(CLUSTER_PKG)
@@ -49,8 +52,8 @@ build-all: pb/gostatsd.pb.go
 test-all: fmt test test-race bench bench-race check cover
 
 fmt:
-	gofmt -w=true -s $$(find . -type f -name '*.go' -not -path "./vendor/*")
-	goimports -w=true -d $$(find . -type f -name '*.go' -not -path "./vendor/*")
+	gofmt -w=true -s $$(find . -type f -name '*.go' -not -path "./vendor/*" -not -path "./pb/*")
+	goimports -w=true -d $$(find . -type f -name '*.go' -not -path "./vendor/*" -not -path "./pb/*")
 
 test: pb/gostatsd.pb.go
 	go test ./...

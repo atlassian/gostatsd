@@ -1,6 +1,15 @@
-19.0.0
+20.0.0
 ------
 - Added experimental support for generating latency histograms for timers, more details in [README.md]
+
+19.0.1
+------
+- Internal refactor to de-dupe 8 getSubVipers
+
+19.0.0
+------
+- BREAKING: Refactor how http clients are configured.  See [TRANSPORT.md] for details.  Some
+  configuration options are in a new location, however defaults are generally unchanged.
 
 18.1.0
 ------

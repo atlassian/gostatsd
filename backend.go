@@ -4,10 +4,12 @@ import (
 	"context"
 
 	"github.com/spf13/viper"
+
+	"github.com/atlassian/gostatsd/pkg/transport"
 )
 
 // BackendFactory is a function that returns a Backend.
-type BackendFactory func(*viper.Viper) (Backend, error)
+type BackendFactory func(config *viper.Viper, pool *transport.TransportPool) (Backend, error)
 
 // SendCallback is called by Backend.SendMetricsAsync() to notify about the result of operation.
 // A list of errors is passed to the callback. It may be empty or contain nil values. Every non-nil value is an error

@@ -3,6 +3,7 @@ package newrelic
 import (
 	"context"
 	"encoding/json"
+	"index/suffixarray"
 	"io/ioutil"
 	"math"
 	"net/http"
@@ -11,7 +12,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
+
 	"github.com/atlassian/gostatsd"
+	"github.com/atlassian/gostatsd/pkg/transport"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -37,10 +42,14 @@ func TestRetries(t *testing.T) {
 	ts := httptest.NewServer(mux)
 	defer ts.Close()
 
-	client, err := NewClient(ts.URL+"/v1/data", "GoStatsD", "", "", "", "metric_name", "metric_type",
+	v := viper.New()
+	v.SetDefault("transport.default.client-timeout", 1*time.Second)
+	p := transport.NewTransportPool(logrus.New(), v)
+
+	client, err := NewClient("default", ts.URL+"/v1/data", "GoStatsD", "", "", "", "metric_name", "metric_type",
 		"metric_per_second", "metric_value", "samples_min", "samples_max", "samples_count",
-		"samples_mean", "samples_median", "samples_std_dev", "samples_sum", "samples_sum_squares", "agent", "tcp",
-		defaultMetricsPerBatch, defaultMaxRequests, false, 1*time.Second, 2*time.Second, 1*time.Second, gostatsd.TimerSubtypes{})
+		"samples_mean", "samples_median", "samples_std_dev", "samples_sum", "samples_sum_squares", "agent",
+		defaultMetricsPerBatch, defaultMaxRequests, 2*time.Second, 1*time.Second, gostatsd.TimerSubtypes{}, p)
 
 	require.NoError(t, err)
 	res := make(chan []error, 1)
@@ -70,10 +79,14 @@ func TestSendMetricsInMultipleBatches(t *testing.T) {
 	ts := httptest.NewServer(mux)
 	defer ts.Close()
 
-	client, err := NewClient(ts.URL+"/v1/data", "GoStatsD", "", "", "", "metric_name", "metric_type",
+	v := viper.New()
+	v.SetDefault("transport.default.client-timeout", 1*time.Second)
+	p := transport.NewTransportPool(logrus.New(), v)
+
+	client, err := NewClient("default", ts.URL+"/v1/data", "GoStatsD", "", "", "", "metric_name", "metric_type",
 		"metric_per_second", "metric_value", "samples_min", "samples_max", "samples_count",
-		"samples_mean", "samples_median", "samples_std_dev", "samples_sum", "samples_sum_squares", "agent", "tcp",
-		1, defaultMaxRequests, false, 1*time.Second, 2*time.Second, 1*time.Second, gostatsd.TimerSubtypes{})
+		"samples_mean", "samples_median", "samples_std_dev", "samples_sum", "samples_sum_squares", "agent",
+		1, defaultMaxRequests, 2*time.Second, 1*time.Second, gostatsd.TimerSubtypes{}, p)
 	require.NoError(t, err)
 	res := make(chan []error, 1)
 	client.SendMetricsAsync(context.Background(), twoCounters(), func(errs []error) {
@@ -105,10 +118,14 @@ func TestSendMetrics(t *testing.T) {
 	ts := httptest.NewServer(mux)
 	defer ts.Close()
 
-	client, err := NewClient(ts.URL+"/v1/data", "GoStatsD", "", "", "", "metric_name", "metric_type",
+	v := viper.New()
+	v.SetDefault("transport.default.client-timeout", 1*time.Second)
+	p := transport.NewTransportPool(logrus.New(), v)
+
+	client, err := NewClient("default", ts.URL+"/v1/data", "GoStatsD", "", "", "", "metric_name", "metric_type",
 		"metric_per_second", "metric_value", "samples_min", "samples_max", "samples_count",
-		"samples_mean", "samples_median", "samples_std_dev", "samples_sum", "samples_sum_squares", "agent", "tcp",
-		defaultMetricsPerBatch, defaultMaxRequests, false, 1*time.Second, 2*time.Second, 1*time.Second, gostatsd.TimerSubtypes{})
+		"samples_mean", "samples_median", "samples_std_dev", "samples_sum", "samples_sum_squares", "agent",
+		defaultMetricsPerBatch, defaultMaxRequests, 2*time.Second, 1*time.Second, gostatsd.TimerSubtypes{}, p)
 
 	require.NoError(t, err)
 	client.now = func() time.Time {
@@ -132,24 +149,31 @@ func TestSendMetricsWithHistogram(t *testing.T) {
 		if !assert.NoError(t, err) {
 			return
 		}
-		expected := `{"name":"com.newrelic.gostatsd","protocol_version":"2","integration_version":"2.2.0","data":[{"metrics":[` +
-			`{"event_type":"GoStatsD","integration_version":"2.2.0","interval":1,"le":20,"metric_name":"t1.histogram","metric_per_second":0,"metric_type":"counter","metric_value":5,"timestamp":0},` +
-			`{"event_type":"GoStatsD","integration_version":"2.2.0","interval":1,"le":30,"metric_name":"t1.histogram","metric_per_second":0,"metric_type":"counter","metric_value":10,"timestamp":0},` +
-			`{"event_type":"GoStatsD","integration_version":"2.2.0","interval":1,"le":40,"metric_name":"t1.histogram","metric_per_second":0,"metric_type":"counter","metric_value":10,"timestamp":0},` +
-			`{"event_type":"GoStatsD","integration_version":"2.2.0","interval":1,"le":50,"metric_name":"t1.histogram","metric_per_second":0,"metric_type":"counter","metric_value":10,"timestamp":0},` +
-			`{"event_type":"GoStatsD","integration_version":"2.2.0","interval":1,"le":60,"metric_name":"t1.histogram","metric_per_second":0,"metric_type":"counter","metric_value":19,"timestamp":0},` +
-			`{"event_type":"GoStatsD","integration_version":"2.2.0","interval":1,"le":"infinity","metric_name":"t1.histogram","metric_per_second":0,"metric_type":"counter","metric_value":19,"timestamp":0}` +
-			`]}]}`
 
-		assert.Equal(t, expected, string(data))
+		expected := []string{
+			`{"event_type":"GoStatsD","integration_version":"2.2.0","interval":1,"le":20,"metric_name":"t1.histogram","metric_per_second":0,"metric_type":"counter","metric_value":5,"timestamp":0}`,
+			`{"event_type":"GoStatsD","integration_version":"2.2.0","interval":1,"le":30,"metric_name":"t1.histogram","metric_per_second":0,"metric_type":"counter","metric_value":10,"timestamp":0}`,
+			`{"event_type":"GoStatsD","integration_version":"2.2.0","interval":1,"le":40,"metric_name":"t1.histogram","metric_per_second":0,"metric_type":"counter","metric_value":10,"timestamp":0}`,
+			`{"event_type":"GoStatsD","integration_version":"2.2.0","interval":1,"le":50,"metric_name":"t1.histogram","metric_per_second":0,"metric_type":"counter","metric_value":10,"timestamp":0}`,
+			`{"event_type":"GoStatsD","integration_version":"2.2.0","interval":1,"le":60,"metric_name":"t1.histogram","metric_per_second":0,"metric_type":"counter","metric_value":19,"timestamp":0}`,
+			`{"event_type":"GoStatsD","integration_version":"2.2.0","interval":1,"le":"infinity","metric_name":"t1.histogram","metric_per_second":0,"metric_type":"counter","metric_value":19,"timestamp":0}`,
+		}
+
+		for _, e := range expected {
+			assert.Contains(t, string(data), e)
+		}
+		assert.Equal(t, 6, countMatches(string(data), "metric_name"))
 	})
 	ts := httptest.NewServer(mux)
 	defer ts.Close()
 
-	client, err := NewClient(ts.URL+"/v1/data", "GoStatsD", "", "", "", "metric_name", "metric_type",
+	v := viper.New()
+	v.SetDefault("transport.default.client-timeout", 1*time.Second)
+	p := transport.NewTransportPool(logrus.New(), v)
+	client, err := NewClient("default", ts.URL+"/v1/data", "GoStatsD", "", "", "", "metric_name", "metric_type",
 		"metric_per_second", "metric_value", "samples_min", "samples_max", "samples_count",
-		"samples_mean", "samples_median", "samples_std_dev", "samples_sum", "samples_sum_squares", "agent", "tcp",
-		defaultMetricsPerBatch, defaultMaxRequests, false, 1*time.Second, 2*time.Second, 1*time.Second, gostatsd.TimerSubtypes{})
+		"samples_mean", "samples_median", "samples_std_dev", "samples_sum", "samples_sum_squares", "agent",
+		defaultMetricsPerBatch, defaultMaxRequests, 2*time.Second, 1*time.Second, gostatsd.TimerSubtypes{}, p)
 
 	require.NoError(t, err)
 	client.now = func() time.Time {
@@ -250,10 +274,14 @@ func metricsWithHistogram() *gostatsd.MetricMap {
 func TestEventFormatter(t *testing.T) {
 	t.Parallel()
 
-	client, err := NewClient("v1/data", "GoStatsD", "", "", "", "metric_name", "metric_type",
+	v := viper.New()
+	v.SetDefault("transport.default.client-timeout", 1*time.Second)
+	p := transport.NewTransportPool(logrus.New(), v)
+
+	client, err := NewClient("default", "v1/data", "GoStatsD", "", "", "", "metric_name", "metric_type",
 		"metric_per_second", "metric_value", "samples_min", "samples_max", "samples_count",
-		"samples_mean", "samples_median", "samples_std_dev", "samples_sum", "samples_sum_squares", "agent", "tcp",
-		defaultMetricsPerBatch, defaultMaxRequests, false, 1*time.Second, 2*time.Second, 1*time.Second, gostatsd.TimerSubtypes{})
+		"samples_mean", "samples_median", "samples_std_dev", "samples_sum", "samples_sum_squares", "agent",
+		defaultMetricsPerBatch, defaultMaxRequests, 2*time.Second, 1*time.Second, gostatsd.TimerSubtypes{}, p)
 	require.NoError(t, err)
 
 	gostatsdEvent := gostatsd.Event{Title: "EventTitle", Text: "hi", Hostname: "blah", Priority: 1}
@@ -265,4 +293,9 @@ func TestEventFormatter(t *testing.T) {
 		`[{"metrics":[{"AggregationKey":"","AlertType":"","DateHappened":0,"Hostname":"blah","Priority":"low","SourceTypeName":"","Text":"hi","Title":"EventTitle","event_type":"GoStatsD","name":"event"}]}]}`
 
 	require.Equal(t, expected, string(fevent))
+}
+
+func countMatches(s string, m string) int {
+	index := suffixarray.New([]byte(s))
+	return len(index.Lookup([]byte(m), -1))
 }

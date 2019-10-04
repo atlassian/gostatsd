@@ -13,6 +13,8 @@ import (
 
 	"github.com/atlassian/gostatsd"
 	"github.com/atlassian/gostatsd/pkg/backends/sender"
+	"github.com/atlassian/gostatsd/pkg/transport"
+	"github.com/atlassian/gostatsd/pkg/util"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
@@ -250,8 +252,8 @@ func NewClient(address string, dialTimeout, writeTimeout time.Duration, disableT
 }
 
 // NewClientFromViper constructs a statsd client by connecting to an address.
-func NewClientFromViper(v *viper.Viper) (gostatsd.Backend, error) {
-	g := getSubViper(v, "statsdaemon")
+func NewClientFromViper(v *viper.Viper, pool *transport.TransportPool) (gostatsd.Backend, error) {
+	g := util.GetSubViper(v, "statsdaemon")
 	g.SetDefault("dial_timeout", DefaultDialTimeout)
 	g.SetDefault("write_timeout", DefaultWriteTimeout)
 	g.SetDefault("disable_tags", false)
@@ -278,12 +280,4 @@ func NewClientFromViper(v *viper.Viper) (gostatsd.Backend, error) {
 // Name returns the name of the backend.
 func (client *Client) Name() string {
 	return BackendName
-}
-
-func getSubViper(v *viper.Viper, key string) *viper.Viper {
-	n := v.Sub(key)
-	if n == nil {
-		n = viper.New()
-	}
-	return n
 }

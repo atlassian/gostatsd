@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/atlassian/gostatsd"
+	"github.com/atlassian/gostatsd/pkg/transport"
 
 	"github.com/spf13/viper"
 )
@@ -15,7 +16,7 @@ const BackendName = "null"
 type Client struct{}
 
 // NewClientFromViper constructs a GraphiteClient object by connecting to an address.
-func NewClientFromViper(v *viper.Viper) (gostatsd.Backend, error) {
+func NewClientFromViper(v *viper.Viper, pool *transport.TransportPool) (gostatsd.Backend, error) {
 	return NewClient()
 }
 

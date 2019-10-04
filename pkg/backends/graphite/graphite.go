@@ -14,6 +14,8 @@ import (
 
 	"github.com/atlassian/gostatsd"
 	"github.com/atlassian/gostatsd/pkg/backends/sender"
+	"github.com/atlassian/gostatsd/pkg/transport"
+	"github.com/atlassian/gostatsd/pkg/util"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
@@ -221,8 +223,8 @@ func (client *Client) Name() string {
 }
 
 // NewClientFromViper constructs a Client object using configuration provided by Viper
-func NewClientFromViper(v *viper.Viper) (gostatsd.Backend, error) {
-	g := getSubViper(v, "graphite")
+func NewClientFromViper(v *viper.Viper, pool *transport.TransportPool) (gostatsd.Backend, error) {
+	g := util.GetSubViper(v, "graphite")
 	g.SetDefault("address", DefaultAddress)
 	g.SetDefault("dial_timeout", DefaultDialTimeout)
 	g.SetDefault("write_timeout", DefaultWriteTimeout)
@@ -358,12 +360,4 @@ func combine(prefix, suffix string) string {
 		return prefix
 	}
 	return suffix
-}
-
-func getSubViper(v *viper.Viper, key string) *viper.Viper {
-	n := v.Sub(key)
-	if n == nil {
-		n = viper.New()
-	}
-	return n
 }
