@@ -85,6 +85,8 @@ following configuration options:
 - `flush-interval`: duration for how long to batch metrics before flushing. Should be an order of magnitude less than
   the upstream flush interval. Defaults to `1s`.
 - `log-raw-metric`: print metrics received from network to stdout in JSON format.
+- `custom-headers` : a map of strings that are added to each request sent to allow for additional network routing / request inspection. 
+  Not required, default is empty. Example: `--custom-headers='{"region" : "us-east-1", "service" : "event-producer"}'`
 
 Configuring HTTP servers
 ------------------------
@@ -281,6 +283,8 @@ Using the library
 In your source code:
 
     import "github.com/atlassian/gostatsd/pkg/statsd"
+
+Note that this project uses go modules for dependency management.
 
 Documentation can be found via `go doc github.com/atlassian/gostatsd/pkg/statsd` or at
 https://godoc.org/github.com/atlassian/gostatsd/pkg/statsd

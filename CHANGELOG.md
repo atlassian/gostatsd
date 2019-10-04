@@ -1,6 +1,15 @@
-18.0.0
+19.0.0
 ------
 - Added experimental support for generating latency histograms for timers, more details in [README.md]
+
+18.1.0
+------
+- Build with Go 1.13.0
+- Base docker images on alpine 3.10 and ubuntu 18.04
+
+18.0.0
+------
+- Support for `custom-headers` for http_forwarder_v2
 
 17.2.0
 ------
