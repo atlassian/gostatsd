@@ -205,12 +205,13 @@ For timer with `gsd_histogram:-10_0_2.5_5_10_25_50` meta tag, following time ser
 * `<base>.histogram` with tag `le:50`
 * `<base>.histogram` with tag `le:+Inf`
 
-Each team series will contain a total number of timer data points that had a value less or equal `le` value, e.g. counter `<base>.histogram` with the tag `le:5` will contain the number of all observations that had a value below `5`.
-Counter `<base>.histogram` with tag `le:+Inf` is equivalent to `<base>.count` and contains total number.
+Each time series will contain a total number of timer data points that had a value less or equal `le` value, e.g. counter `<base>.histogram` with the tag `le:5` will contain the number of all observations that had a value not bigger than `5`.
+Counter `<base>.histogram` with tag `le:+Inf` is equivalent to `<base>.count` and contains the total number.
 
-All other timer tags are preserved and added to all the time series.
+All original timer tags are preserved and added to all the time series.
 
-To limit cardinality, `timer-histogram-limit` option can be specified to limit the number of buckets that will be created (default is `math.MaxUint32`).
+To limit cardinality, `timer-histogram-limit` option can be specified to limit the number of buckets that will be created (default is `math.MaxUint32`). 
+Value of `0` won't disable the feature, it will result in only one time series `le:+Inf` being emitted.
 
 Incorrect meta tag values will be handled in best effort manner, i.e.
 * `gsd_histogram:10__20_50` & `gsd_histogram:10_incorrect_20_50` will generate `le:10`, `le:20`, `le:50` and `le:+Inf` buckets
