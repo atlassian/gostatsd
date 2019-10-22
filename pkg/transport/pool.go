@@ -14,12 +14,16 @@ import (
 
 const (
 	paramTransportClientTimeout       = "client-timeout"
+	paramTransportCompress            = "compress"
 	paramTransportCustomHeaders       = "custom-headers"
+	paramTransportDebugBody           = "debug-body"
 	paramTransportMaxParallelRequests = "max-parallel-requests"
 	paramTransportType                = "type"
 	paramTransportUserAgent           = "user-agent"
 
 	defaultTransportClientTimeout       = 10 * time.Second
+	defaultTransportCompress            = true
+	defaultTransportDebugBody           = false
 	defaultTransportMaxParallelRequests = 1000
 	defaultTransportType                = transportTypeHttp
 	defaultTransportUserAgent           = "gostatsd"
@@ -67,13 +71,17 @@ func (tp *TransportPool) newClient(name string) (*Client, error) {
 	}
 
 	sub.SetDefault(paramTransportClientTimeout, defaultTransportClientTimeout)
+	sub.SetDefault(paramTransportCompress, defaultTransportCompress)
 	sub.SetDefault(paramTransportCustomHeaders, nil) // No good way to express this as a const that I can find.
+	sub.SetDefault(paramTransportDebugBody, defaultTransportDebugBody)
 	sub.SetDefault(paramTransportMaxParallelRequests, defaultTransportMaxParallelRequests)
 	sub.SetDefault(paramTransportType, defaultTransportType)
 	sub.SetDefault(paramTransportUserAgent, defaultTransportUserAgent)
 
 	clientTimeout := sub.GetDuration(paramTransportClientTimeout)
+	compress := sub.GetBool(paramTransportCompress)
 	customHeaders := sub.GetStringMapString(paramTransportCustomHeaders)
+	debugBody := sub.GetBool(paramTransportDebugBody)
 	maxParallelRequests := sub.GetInt(paramTransportMaxParallelRequests)
 	transportType := sub.GetString(paramTransportType)
 	userAgent := sub.GetString(paramTransportUserAgent)
@@ -110,11 +118,13 @@ func (tp *TransportPool) newClient(name string) (*Client, error) {
 	tp.logger.WithFields(logrus.Fields{
 		"name":                            name,
 		paramTransportClientTimeout:       clientTimeout,
+		paramTransportCompress:            compress,
 		paramTransportCustomHeaders:       headerKeys, // Only log keys in case there's secrets
+		paramTransportDebugBody:           debugBody,
 		paramTransportMaxParallelRequests: maxParallelRequests,
 		paramTransportType:                transportType,
 		paramTransportUserAgent:           userAgent,
-	}).Info("created transport")
+	}).Info("created client")
 
 	return &Client{
 		Client: &http.Client{
@@ -123,7 +133,9 @@ func (tp *TransportPool) newClient(name string) (*Client, error) {
 		},
 		logger:        tp.logger.WithField("transport", name),
 		backoff:       backoff,
+		compress:      compress,
 		customHeaders: customHeaders,
+		debugBody:     debugBody,
 		requestSem:    util.NewSemaphore(maxParallelRequests),
 		userAgent:     userAgent,
 	}, nil

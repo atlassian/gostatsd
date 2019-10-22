@@ -16,13 +16,17 @@ import (
 )
 
 type Client struct {
-	messagesSent     uint64 // atomic - messages successfully sent
-	messagesRetried  uint64 // atomic - retries (first attempt is not a retry, final failure is not a retry)
-	messagesDropped  uint64 // atomic - final failure, does not include semaphore timeout
-	messagesTimedOut uint64 // atomic - messages timed out waiting for a semaphore slot
+	messagesFailMarshal  uint64 // atomic - messages which failed to be marshalled
+	messagesFailCompress uint64 // atomic - messages which failed to be compressed
+	messagesSent         uint64 // atomic - messages successfully sent
+	messagesRetried      uint64 // atomic - retries (first attempt is not a retry, final failure is not a retry)
+	messagesDropped      uint64 // atomic - final failure, does not include semaphore timeout
+	messagesTimedOut     uint64 // atomic - messages timed out waiting for a semaphore slot
 
 	logger        logrus.FieldLogger
+	compress      bool
 	customHeaders map[string]string
+	debugBody     bool
 	requestSem    util.Semaphore
 	userAgent     string
 	backoff       util.BackoffFactory

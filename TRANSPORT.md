@@ -7,7 +7,9 @@ client is configured in the following manner:
 ```
 [transport.<name>]
 client-timeout = '10s'
+compress = true
 custom-headers = {}
+debug-body = false
 max-parallel-requests = 1000
 type = 'http'
 user-agent = "gostatsd"
@@ -15,9 +17,13 @@ user-agent = "gostatsd"
 retry-* = ... see section on retries below ...
 ```
 
-- `client-timeout`: The maximum time for a roundtrip to execute. Set to `0` to disable timeout.  Retries will
-  allow the total time to run for longer than this value.  Corresponds to `http.Client.Timeout`.
+- `client-timeout`: The maximum time for a single roundtrip to execute. Set to `0` to disable timeout.  Retries
+  will allow the total time to run for longer than this value.  Corresponds to `http.Client.Timeout`.
+- `compress`: Indicates if data should be compressed if possible (some backends don't support compression)
 - `custom-headers`: Allows for custom headers to be set.  See `HTTP Headers` section below for further information.
+- `debug-body`: Attempts to serialize a request in a more human friendly format.  For protobuf this means text, and
+  for JSON this means with new lines and indentation.  Disables compression.  Warning: Text encoded protobuf will not
+  typically be accepted by servers.
 - `max-parallel-requests`: The maximum number of requests in flight on this transport.  This is network only, and
   doesn't include CPU bound work (serialization and compression).
 - `type`: There is currently only a type of `http`, however others are planned (Kinesis, Kafka, etc).  Each type
