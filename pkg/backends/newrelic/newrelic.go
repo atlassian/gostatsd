@@ -2,7 +2,7 @@ package newrelic
 
 import (
 	"bytes"
-	"compress/zlib"
+	"compress/gzip"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -29,7 +29,7 @@ const (
 	// BackendName is the name of this backend.
 	BackendName                  = "newrelic"
 	integrationName              = "com.newrelic.gostatsd"
-	integrationVersion           = "2.2.0"
+	integrationVersion           = "2.3.0"
 	protocolVersion              = "2"
 	defaultUserAgent             = "gostatsd"
 	defaultMaxRequestElapsedTime = 15 * time.Second
@@ -40,11 +40,12 @@ const (
 
 	flushTypeInsights = "insights"
 	flushTypeInfra    = "infra"
+	flushTypeMetrics  = "metrics"
 )
 
 var (
 	// Available flushTypes
-	flushTypes = []string{flushTypeInsights, flushTypeInfra}
+	flushTypes = []string{flushTypeInsights, flushTypeInfra, flushTypeMetrics}
 
 	// defaultMaxRequests is the number of parallel outgoing requests to New Relic.  As this mixes both
 	// CPU (JSON encoding, TLS) and network bound operations, balancing may require some experimentation.
@@ -53,11 +54,12 @@ var (
 
 // Client represents a New Relic client.
 type Client struct {
-	address   string
-	eventType string
-	flushType string
-	apiKey    string
-	tagPrefix string
+	address        string
+	addressMetrics string
+	eventType      string
+	flushType      string
+	apiKey         string
+	tagPrefix      string
 	// Options to define your own field names to support other StatsD implementations
 	metricName      string
 	metricType      string
@@ -88,12 +90,20 @@ type Client struct {
 	flushInterval    time.Duration
 }
 
-// NewRelicInfraPayload struct
-type NewRelicInfraPayload struct {
+// NRInfraPayload represents New Relic Infrastructure Payload format
+// https://github.com/newrelic/infra-integrations-sdk/blob/master/docs/v2tov3.md#v2-json-full-sample
+type NRInfraPayload struct {
 	Name               string        `json:"name"`
 	ProtocolVersion    string        `json:"protocol_version"`
 	IntegrationVersion string        `json:"integration_version"`
 	Data               []interface{} `json:"data"`
+}
+
+// NRMetricsPayload represents New Relic Metrics Payload format
+// https://docs.newrelic.com/docs/data-ingest-apis/get-data-new-relic/metric-api/report-metrics-metric-api#new-relic-guidelines
+type NRMetricsPayload struct {
+	Common  map[string]interface{} `json:"common"`
+	Metrics []interface{}          `json:"metrics"`
 }
 
 // SendMetricsAsync flushes the metrics to New Relic, preparing payload synchronously but doing the send asynchronously.
@@ -141,6 +151,7 @@ func (n *Client) SendMetricsAsync(ctx context.Context, metrics *gostatsd.MetricM
 	}()
 }
 
+// RunMetrics run metrics
 func (n *Client) RunMetrics(ctx context.Context, statser stats.Statser) {
 	statser = statser.WithTags(gostatsd.Tags{"backend:newrelic"})
 
@@ -196,19 +207,22 @@ func (n *Client) processMetrics(metrics *gostatsd.MetricMap, cb func(*timeSeries
 
 // SendEvent sends an event to New Relic.
 func (n *Client) SendEvent(ctx context.Context, e *gostatsd.Event) error {
-	// Event format depends on flush type
-	data := n.EventFormatter(e)
-	b, err := json.Marshal(data)
-	if err != nil {
-		return err
-	}
+	if n.address != "" {
+		// Event format depends on flush type
+		data := n.EventFormatter(e)
+		b, err := json.Marshal(data)
+		if err != nil {
+			return err
+		}
 
-	post, err := n.postWrapper(ctx, b)
-	if err != nil {
-		return err
-	}
+		post, err := n.postWrapper(ctx, b, "events")
+		if err != nil {
+			return err
+		}
 
-	return post()
+		return post()
+	}
+	return nil
 }
 
 // EventFormatter formats gostatsd events
@@ -227,7 +241,7 @@ func (n *Client) EventFormatter(e *gostatsd.Event) interface{} {
 	n.setTags(e.Tags, event)
 
 	switch n.flushType {
-	case flushTypeInsights:
+	case flushTypeInsights, flushTypeMetrics:
 		event["eventType"] = n.eventType
 		return []interface{}{event}
 	default:
@@ -285,6 +299,9 @@ func (n *Client) constructPost(ctx context.Context, buffer *bytes.Buffer, data i
 	case flushTypeInsights:
 		NRPayload := data.(*timeSeries).Metrics
 		mJSON, mErr = json.Marshal(NRPayload)
+	case flushTypeMetrics:
+		NRPayload := n.newMetricsPayload(data.(*timeSeries).Metrics)
+		mJSON, mErr = json.Marshal([]interface{}{NRPayload})
 	default:
 		NRPayload := newInfraPayload(data)
 		mJSON, mErr = json.Marshal(NRPayload)
@@ -294,11 +311,11 @@ func (n *Client) constructPost(ctx context.Context, buffer *bytes.Buffer, data i
 		return nil, fmt.Errorf("[%s] unable to marshal: %v", BackendName, mErr)
 	}
 
-	return n.postWrapper(ctx, mJSON)
+	return n.postWrapper(ctx, mJSON, "metrics")
 }
 
 // postWrapper compresses JSON for Insights
-func (n *Client) postWrapper(ctx context.Context, json []byte) (func() error, error) {
+func (n *Client) postWrapper(ctx context.Context, json []byte, dataType string) (func() error, error) {
 	return func() error {
 		headers := map[string]string{
 			"Content-Type": "application/json",
@@ -306,12 +323,17 @@ func (n *Client) postWrapper(ctx context.Context, json []byte) (func() error, er
 		}
 
 		// Insights Event API requires gzip or deflate compression
-		if n.flushType == flushTypeInsights && n.apiKey != "" {
+		// https://docs.newrelic.com/docs/insights/insights-data-sources/custom-data/introduction-event-api#h2-basic-workflow
+		// Metrics API requires gzip or identity
+		// https://docs.newrelic.com/docs/data-ingest-apis/get-data-new-relic/metric-api/report-metrics-metric-api#headers-query-parameters
+		// Use GZIP as standard across both
+		if (n.flushType == flushTypeInsights || n.flushType == flushTypeMetrics) && n.apiKey != "" {
 			headers["X-Insert-Key"] = n.apiKey
-			headers["Content-Encoding"] = "deflate"
-			// zlib json
+			headers["Content-Encoding"] = "gzip"
+
+			// compress json
 			var buf bytes.Buffer
-			zw := zlib.NewWriter(&buf)
+			zw := gzip.NewWriter(&buf)
 			_, err := zw.Write([]byte(json))
 			if err != nil {
 				return err
@@ -324,7 +346,12 @@ func (n *Client) postWrapper(ctx context.Context, json []byte) (func() error, er
 			json = buf.Bytes()
 		}
 
-		req, err := http.NewRequest("POST", n.address, bytes.NewBuffer(json))
+		address := n.address
+		if n.flushType == flushTypeMetrics && dataType == "metrics" {
+			address = n.addressMetrics
+		}
+
+		req, err := http.NewRequest("POST", address, bytes.NewBuffer(json))
 		if err != nil {
 			return fmt.Errorf("unable to create http.Request: %v", err)
 		}
@@ -358,11 +385,15 @@ func NewClientFromViper(v *viper.Viper, pool *transport.TransportPool) (gostatsd
 	nr.SetDefault("transport", "default")
 	nr.SetDefault("address", "http://localhost:8001/v1/data")
 	nr.SetDefault("event-type", "GoStatsD")
-	if strings.Contains(nr.GetString("address"), "insights-collector.newrelic.com") {
+
+	if strings.Contains(nr.GetString("address-metrics"), "metric-api.newrelic.com") {
+		nr.SetDefault("flush-type", flushTypeMetrics)
+	} else if strings.Contains(nr.GetString("address"), "insights-collector.newrelic.com") {
 		nr.SetDefault("flush-type", flushTypeInsights)
 	} else {
 		nr.SetDefault("flush-type", flushTypeInfra)
 	}
+
 	nr.SetDefault("api-key", "")
 	nr.SetDefault("tag-prefix", "")
 	nr.SetDefault("metric-name", "name")
@@ -393,6 +424,7 @@ func NewClientFromViper(v *viper.Viper, pool *transport.TransportPool) (gostatsd
 	return NewClient(
 		nr.GetString("transport"),
 		nr.GetString("address"),
+		nr.GetString("address-metrics"),
 		nr.GetString("event-type"),
 		nr.GetString("flush-type"),
 		nr.GetString("api-key"),
@@ -420,7 +452,7 @@ func NewClientFromViper(v *viper.Viper, pool *transport.TransportPool) (gostatsd
 }
 
 // NewClient returns a new New Relic client.
-func NewClient(transport, address, eventType, flushType, apiKey, tagPrefix,
+func NewClient(transport, address, addressMetrics, eventType, flushType, apiKey, tagPrefix,
 	metricName, metricType, metricPerSecond, metricValue,
 	timerMin, timerMax, timerCount, timerMean, timerMedian, timerStdDev, timerSum, timerSumSquares,
 	userAgent string, metricsPerBatch int, maxRequests uint,
@@ -438,11 +470,11 @@ func NewClient(transport, address, eventType, flushType, apiKey, tagPrefix,
 	if !contains(flushTypes, flushType) && flushType != "" {
 		return nil, fmt.Errorf("[%s] flushType (%s) is not supported", BackendName, flushType)
 	}
-	if flushType == flushTypeInsights && apiKey == "" {
-		return nil, fmt.Errorf("[%s] api-key is required to flush to insights", BackendName)
+	if (flushType == flushTypeInsights || flushType == flushTypeMetrics) && apiKey == "" {
+		return nil, fmt.Errorf("[%s] api-key is required to flush to insights & metrics backends", BackendName)
 	}
-	if flushType != flushTypeInsights && apiKey != "" {
-		logger.Warnf("api-key is not required when not using insights")
+	if flushType != flushTypeInsights && flushType != flushTypeMetrics && apiKey != "" {
+		logger.Warnf("api-key is not required when not using insights or metrics")
 	}
 	if flushInterval.Seconds() < 10 {
 		logger.Warnf("flushInterval (%s) is recommended to be >= 10s", flushInterval)
@@ -468,6 +500,7 @@ func NewClient(transport, address, eventType, flushType, apiKey, tagPrefix,
 	}
 	return &Client{
 		address:               address,
+		addressMetrics:        addressMetrics,
 		eventType:             eventType,
 		flushType:             flushType,
 		apiKey:                apiKey,
@@ -495,14 +528,27 @@ func NewClient(transport, address, eventType, flushType, apiKey, tagPrefix,
 	}, nil
 }
 
-func newInfraPayload(data interface{}) NewRelicInfraPayload {
-	return NewRelicInfraPayload{
+func newInfraPayload(data interface{}) NRInfraPayload {
+	return NRInfraPayload{
 		Name:               integrationName,
 		ProtocolVersion:    protocolVersion,
 		IntegrationVersion: integrationVersion,
 		Data: []interface{}{
 			data,
 		},
+	}
+}
+
+func (n *Client) newMetricsPayload(data []interface{}) NRMetricsPayload {
+	return NRMetricsPayload{
+		Common: map[string]interface{}{
+			"attributes": map[string]interface{}{
+				"integration.version": integrationVersion,
+				"integration.name":    "GoStatsD",
+			},
+			"interval.ms": n.flushInterval.Seconds() * 1000,
+		},
+		Metrics: data,
 	}
 }
 

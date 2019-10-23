@@ -44,7 +44,7 @@ func TestRetries(t *testing.T) {
 	v.SetDefault("transport.default.client-timeout", 1*time.Second)
 	p := transport.NewTransportPool(logrus.New(), v)
 
-	client, err := NewClient("default", ts.URL+"/v1/data", "GoStatsD", "", "", "", "metric_name", "metric_type",
+	client, err := NewClient("default", ts.URL+"/v1/data", "", "GoStatsD", "", "", "", "metric_name", "metric_type",
 		"metric_per_second", "metric_value", "samples_min", "samples_max", "samples_count",
 		"samples_mean", "samples_median", "samples_std_dev", "samples_sum", "samples_sum_squares", "agent",
 		defaultMetricsPerBatch, defaultMaxRequests, 2*time.Second, 1*time.Second, gostatsd.TimerSubtypes{}, p)
@@ -81,7 +81,7 @@ func TestSendMetricsInMultipleBatches(t *testing.T) {
 	v.SetDefault("transport.default.client-timeout", 1*time.Second)
 	p := transport.NewTransportPool(logrus.New(), v)
 
-	client, err := NewClient("default", ts.URL+"/v1/data", "GoStatsD", "", "", "", "metric_name", "metric_type",
+	client, err := NewClient("default", ts.URL+"/v1/data", "", "GoStatsD", "", "", "", "metric_name", "metric_type",
 		"metric_per_second", "metric_value", "samples_min", "samples_max", "samples_count",
 		"samples_mean", "samples_median", "samples_std_dev", "samples_sum", "samples_sum_squares", "agent",
 		1, defaultMaxRequests, 2*time.Second, 1*time.Second, gostatsd.TimerSubtypes{}, p)
@@ -105,11 +105,11 @@ func TestSendMetrics(t *testing.T) {
 		if !assert.NoError(t, err) {
 			return
 		}
-		expected := `{"name":"com.newrelic.gostatsd","protocol_version":"2","integration_version":"2.2.0","data":[{"metrics":` +
-			`[{"event_type":"GoStatsD","integration_version":"2.2.0","interval":1,"metric_name":"g1","metric_type":"gauge","metric_value":3,"tag3":"true","timestamp":0},` +
-			`{"event_type":"GoStatsD","integration_version":"2.2.0","interval":1,"metric_name":"c1","metric_per_second":1.1,"metric_type":"counter","metric_value":5,"tag1":"true","timestamp":0},` +
-			`{"event_type":"GoStatsD","integration_version":"2.2.0","interval":1,"metric_name":"users","metric_type":"set","metric_value":3,"tag4":"true","timestamp":0},` +
-			`{"count_90":0.1,"event_type":"GoStatsD","integration_version":"2.2.0","interval":1,"metric_name":"t1","metric_per_second":1.1,"metric_type":"timer","metric_value":1,` +
+		expected := `{"name":"com.newrelic.gostatsd","protocol_version":"2","integration_version":"2.3.0","data":[{"metrics":` +
+			`[{"event_type":"GoStatsD","integration_version":"2.3.0","interval":1,"metric_name":"g1","metric_type":"gauge","metric_value":3,"tag3":"true","timestamp":0},` +
+			`{"event_type":"GoStatsD","integration_version":"2.3.0","interval":1,"metric_name":"c1","metric_per_second":1.1,"metric_type":"counter","metric_value":5,"tag1":"true","timestamp":0},` +
+			`{"event_type":"GoStatsD","integration_version":"2.3.0","interval":1,"metric_name":"users","metric_type":"set","metric_value":3,"tag4":"true","timestamp":0},` +
+			`{"count_90":0.1,"event_type":"GoStatsD","integration_version":"2.3.0","interval":1,"metric_name":"t1","metric_per_second":1.1,"metric_type":"timer","metric_value":1,` +
 			`"samples_count":1,"samples_max":1,"samples_mean":0.5,"samples_median":0.5,"samples_min":0,"samples_std_dev":0.1,"samples_sum":1,"samples_sum_squares":1,"tag2":"true","timestamp":0}]}]}`
 		assert.Equal(t, expected, string(data))
 	})
@@ -120,7 +120,7 @@ func TestSendMetrics(t *testing.T) {
 	v.SetDefault("transport.default.client-timeout", 1*time.Second)
 	p := transport.NewTransportPool(logrus.New(), v)
 
-	client, err := NewClient("default", ts.URL+"/v1/data", "GoStatsD", "", "", "", "metric_name", "metric_type",
+	client, err := NewClient("default", ts.URL+"/v1/data", "", "GoStatsD", "", "", "", "metric_name", "metric_type",
 		"metric_per_second", "metric_value", "samples_min", "samples_max", "samples_count",
 		"samples_mean", "samples_median", "samples_std_dev", "samples_sum", "samples_sum_squares", "agent",
 		defaultMetricsPerBatch, defaultMaxRequests, 2*time.Second, 1*time.Second, gostatsd.TimerSubtypes{}, p)
@@ -211,7 +211,7 @@ func TestEventFormatter(t *testing.T) {
 	v.SetDefault("transport.default.client-timeout", 1*time.Second)
 	p := transport.NewTransportPool(logrus.New(), v)
 
-	client, err := NewClient("default", "v1/data", "GoStatsD", "", "", "", "metric_name", "metric_type",
+	client, err := NewClient("default", "v1/data", "", "GoStatsD", "", "", "", "metric_name", "metric_type",
 		"metric_per_second", "metric_value", "samples_min", "samples_max", "samples_count",
 		"samples_mean", "samples_median", "samples_std_dev", "samples_sum", "samples_sum_squares", "agent",
 		defaultMetricsPerBatch, defaultMaxRequests, 2*time.Second, 1*time.Second, gostatsd.TimerSubtypes{}, p)
@@ -222,7 +222,7 @@ func TestEventFormatter(t *testing.T) {
 	fevent, err := json.Marshal(formattedEvent)
 	require.NoError(t, err)
 
-	expected := `{"name":"com.newrelic.gostatsd","protocol_version":"2","integration_version":"2.2.0","data":` +
+	expected := `{"name":"com.newrelic.gostatsd","protocol_version":"2","integration_version":"2.3.0","data":` +
 		`[{"metrics":[{"AggregationKey":"","AlertType":"","DateHappened":0,"Hostname":"blah","Priority":"low","SourceTypeName":"","Text":"hi","Title":"EventTitle","event_type":"GoStatsD","name":"event"}]}]}`
 
 	require.Equal(t, expected, string(fevent))
