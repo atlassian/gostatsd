@@ -136,7 +136,7 @@ func testExpireAndRefresh(t *testing.T, expectedIp gostatsd.IP, f func(*CloudHan
 		T+55: refresh loop, nothing to do
 		T+60: cache entry passes expiry time
 		T+64: cache entry passes refresh time
-		T+65: refresh loop, entry is expired
+		T+66: refresh loop, entry is expired
 		T+70: sleep completes
 	*/
 	ch := NewCloudHandler(fp, counting, logrus.StandardLogger(), rate.NewLimiter(100, 120), &CacheOptions{
