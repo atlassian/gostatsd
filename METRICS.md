@@ -63,6 +63,9 @@ Metrics:
 | http.forwarder.dropped                      | counter             |                              | The number of batches dropped due to inability to forward upstream
 | http.incoming                               | counter             | server-name, result, failure | The number of batches forwarded to the server, and the results of processing them
 | http.incoming.metrics                       | counter             | server-name                  | The number of metrics received over http
+| transport.fail                              | gauge (cumulative)  | transport, failure           | The number of hard failures to send a message over this transport
+| transport.retried                           | gauge (cumulative)  | transport                    | The number of retries sending a message over this transport
+| transport.sent                              | gauge (cumulative)  | transport                    | The number of messages successfully sent over this transport
 
 | Tag           | Description
 | ------------- | -----------
@@ -75,6 +78,7 @@ Metrics:
 | result        | Success to indicate a batch of metrics was successfully processed, failure to indicate a batch of metrics was not processed, with additional failure tag for why)
 | failure       | The reason a batch of metrics was not processed
 | server-name   | The name of an http-server as specified in the config file
+| transport     | A named transport
 
 A number of channels are tracked internally, they emit metrics under the channel.* space.  They will all have a
 channel tag, and may have additional tags specified below.  Channels are sampled at a regular interval. After a

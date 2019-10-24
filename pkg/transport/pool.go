@@ -1,6 +1,7 @@
 package transport
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"sync"
@@ -9,6 +10,8 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 
+	"github.com/atlassian/gostatsd"
+	"github.com/atlassian/gostatsd/pkg/stats"
 	"github.com/atlassian/gostatsd/pkg/util"
 )
 
@@ -17,6 +20,7 @@ const (
 	paramTransportCompress            = "compress"
 	paramTransportCustomHeaders       = "custom-headers"
 	paramTransportDebugBody           = "debug-body"
+	paramTransportEnableMetrics       = "enable-metrics"
 	paramTransportMaxParallelRequests = "max-parallel-requests"
 	paramTransportType                = "type"
 	paramTransportUserAgent           = "user-agent"
@@ -24,6 +28,7 @@ const (
 	defaultTransportClientTimeout       = 10 * time.Second
 	defaultTransportCompress            = true
 	defaultTransportDebugBody           = false
+	defaultTransportEnableMetrics       = false
 	defaultTransportMaxParallelRequests = 1000
 	defaultTransportType                = transportTypeHttp
 	defaultTransportUserAgent           = "gostatsd"
@@ -46,6 +51,30 @@ func NewTransportPool(logger logrus.FieldLogger, config *viper.Viper) *Transport
 		logger:  logger,
 		clients: map[string]*Client{},
 		config:  config,
+	}
+}
+
+func (tp *TransportPool) RunMetrics(ctx context.Context) {
+	statser := stats.FromContext(ctx)
+	notify, cancel := statser.RegisterFlush()
+	defer cancel()
+
+	for {
+		select {
+		case <-notify:
+			tp.emitMetrics(statser)
+		case <-ctx.Done():
+			return
+		}
+	}
+}
+
+func (tp *TransportPool) emitMetrics(statser stats.Statser) {
+	// After initialization, there should be nothing accessing tp.clients, so the lock is uncontested.
+	tp.mu.Lock()
+	defer tp.mu.Unlock()
+	for transportName, client := range tp.clients {
+		client.emitMetrics(statser.WithTags(gostatsd.Tags{"transport:" + transportName}))
 	}
 }
 
@@ -74,6 +103,7 @@ func (tp *TransportPool) newClient(name string) (*Client, error) {
 	sub.SetDefault(paramTransportCompress, defaultTransportCompress)
 	sub.SetDefault(paramTransportCustomHeaders, nil) // No good way to express this as a const that I can find.
 	sub.SetDefault(paramTransportDebugBody, defaultTransportDebugBody)
+	sub.SetDefault(paramTransportEnableMetrics, defaultTransportEnableMetrics)
 	sub.SetDefault(paramTransportMaxParallelRequests, defaultTransportMaxParallelRequests)
 	sub.SetDefault(paramTransportType, defaultTransportType)
 	sub.SetDefault(paramTransportUserAgent, defaultTransportUserAgent)
@@ -82,6 +112,7 @@ func (tp *TransportPool) newClient(name string) (*Client, error) {
 	compress := sub.GetBool(paramTransportCompress)
 	customHeaders := sub.GetStringMapString(paramTransportCustomHeaders)
 	debugBody := sub.GetBool(paramTransportDebugBody)
+	enableMetrics := sub.GetBool(paramTransportEnableMetrics)
 	maxParallelRequests := sub.GetInt(paramTransportMaxParallelRequests)
 	transportType := sub.GetString(paramTransportType)
 	userAgent := sub.GetString(paramTransportUserAgent)
@@ -121,6 +152,7 @@ func (tp *TransportPool) newClient(name string) (*Client, error) {
 		paramTransportCompress:            compress,
 		paramTransportCustomHeaders:       headerKeys, // Only log keys in case there's secrets
 		paramTransportDebugBody:           debugBody,
+		paramTransportEnableMetrics:       enableMetrics,
 		paramTransportMaxParallelRequests: maxParallelRequests,
 		paramTransportType:                transportType,
 		paramTransportUserAgent:           userAgent,
@@ -136,6 +168,7 @@ func (tp *TransportPool) newClient(name string) (*Client, error) {
 		compress:      compress,
 		customHeaders: customHeaders,
 		debugBody:     debugBody,
+		enableMetrics: enableMetrics,
 		requestSem:    util.NewSemaphore(maxParallelRequests),
 		userAgent:     userAgent,
 	}, nil

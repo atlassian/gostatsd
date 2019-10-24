@@ -24,6 +24,7 @@ retry-* = ... see section on retries below ...
 - `debug-body`: Attempts to serialize a request in a more human friendly format.  For protobuf this means text, and
   for JSON this means with new lines and indentation.  Disables compression.  Warning: Text encoded protobuf will not
   typically be accepted by servers.
+- `enable-metrics`: Enables or disables sending of metrics for this transport.  Defaults to `false`.
 - `max-parallel-requests`: The maximum number of requests in flight on this transport.  This is network only, and
   doesn't include CPU bound work (serialization and compression).
 - `type`: There is currently only a type of `http`, however others are planned (Kinesis, Kafka, etc).  Each type

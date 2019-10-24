@@ -17,8 +17,11 @@ import (
 	"github.com/spf13/viper"
 )
 
+// BackendFactory is a function that returns a Backend.
+type BackendFactory func(config *viper.Viper, pool *transport.TransportPool) (gostatsd.Backend, error)
+
 // All known backends.
-var backends = map[string]gostatsd.BackendFactory{
+var backends = map[string]BackendFactory{
 	datadog.BackendName:     datadog.NewClientFromViper,
 	graphite.BackendName:    graphite.NewClientFromViper,
 	null.BackendName:        null.NewClientFromViper,
