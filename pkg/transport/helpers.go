@@ -69,11 +69,11 @@ func marshalJson(data interface{}, debug bool) ([]byte, error) {
 		json = jsonConfig
 	}
 	stream := json.BorrowStream(buf)
+	defer json.ReturnStream(stream)
 	stream.WriteVal(data)
 	err := stream.Flush()
 	if err != nil {
 		return nil, err
 	}
-	json.ReturnStream(stream)
 	return buf.Bytes(), nil
 }

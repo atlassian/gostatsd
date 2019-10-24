@@ -75,7 +75,7 @@ func (hc *Client) emitMetrics(statser stats.Statser) {
 
 // PostRaw will start a goroutine (semaphore allowing) which attempts to POST the provided data
 // to the provided URL.  It is fire-and-forget by design.
-func (hc *Client) PostRaw(ctx context.Context, url, contentType, encoding string, headers map[string]string, body []byte) {
+func (hc *Client) PostRaw(ctx context.Context, url string, contentType ContentType, encoding Encoding, headers map[string]string, body []byte) {
 	if !hc.requestSem.Acquire(ctx) {
 		atomic.AddUint64(&hc.messagesTimedOut.cur, 1)
 		return
@@ -87,7 +87,7 @@ func (hc *Client) PostRaw(ctx context.Context, url, contentType, encoding string
 	}()
 }
 
-func (hc *Client) do(ctx context.Context, url, contentType, encoding string, body []byte, headers map[string]string) {
+func (hc *Client) do(ctx context.Context, url string, contentType ContentType, encoding Encoding, body []byte, headers map[string]string) {
 	var err error
 
 	bo := hc.backoff()
@@ -117,7 +117,7 @@ func (hc *Client) do(ctx context.Context, url, contentType, encoding string, bod
 	hc.logger.WithError(err).Info("failed to send, giving up")
 }
 
-func (hc *Client) constructPost(ctx context.Context, body []byte, url, contentType, encoding string, headers map[string]string) func() error {
+func (hc *Client) constructPost(ctx context.Context, body []byte, url string, contentType ContentType, encoding Encoding, headers map[string]string) func() error {
 	return func() error {
 		req, err := http.NewRequest("POST", url, bytes.NewReader(body))
 		if err != nil {
@@ -127,8 +127,8 @@ func (hc *Client) constructPost(ctx context.Context, body []byte, url, contentTy
 		req = req.WithContext(ctx)
 
 		// Base headers
-		req.Header.Set("Content-Type", contentType)
-		req.Header.Set("Content-Encoding", encoding)
+		req.Header.Set("Content-Type", string(contentType))
+		req.Header.Set("Content-Encoding", string(encoding))
 		req.Header.Set("User-Agent", hc.userAgent)
 
 		// Caller headers

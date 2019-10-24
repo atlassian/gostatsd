@@ -32,6 +32,7 @@ const (
 	defaultHttpMaxIdleConnections    = 50
 	defaultHttpNetwork               = "tcp"
 	defaultHttpTLSHandshakeTimeout   = 3 * time.Second
+	defaultHttpResponseHeaderTimeout = 0
 )
 
 func (tp *TransportPool) newHttpTransport(name string, v *viper.Viper) (*http.Transport, error) {

@@ -16,6 +16,18 @@ type TransportOptions struct {
 	Headers map[string]string
 }
 
+type Encoding string
+type ContentType string
+
+const (
+	ContentTypeJson           ContentType = "application/json"
+	ContentTypeProtobufBinary ContentType = "application/x-protobuf"
+	ContentTypeProtobufText   ContentType = "text/x-protobuf" // FIXME: I'm not sure what the text version of protobuf is meant to be.
+	ContentTypeTextPlain      ContentType = "text/plain"
+	EncodingIdentity          Encoding    = "identity"
+	EncodingDeflate           Encoding    = "deflate"
+)
+
 // PostMessage will post a protobuf or json message to the provided URL.
 func (hc *Client) PostMessage(ctx context.Context, url string, message interface{}, options *TransportOptions) {
 	var headers map[string]string
@@ -46,17 +58,17 @@ func (hc *Client) postProtobuf(ctx context.Context, url string, headers map[stri
 		return
 	}
 
-	encoding := "identity"
+	encoding := EncodingIdentity
 	if hc.compress && !disableCompression {
 		body, err = compress(body)
-		encoding = "deflate"
+		encoding = EncodingDeflate
 		if err != nil {
 			atomic.AddUint64(&hc.messagesFailCompress.cur, 1)
 			return
 		}
 	}
 
-	hc.PostRaw(ctx, url, "application/x-protobuf", encoding, nil, body)
+	hc.PostRaw(ctx, url, ContentTypeProtobufBinary, encoding, nil, body)
 }
 
 // postProtobufText will serialize a proto.Message in text form and post it.  This is intended for debugging purposes
@@ -67,9 +79,7 @@ func (hc *Client) postProtobufText(ctx context.Context, url string, headers map[
 		atomic.AddUint64(&hc.messagesFailMarshal.cur, 1)
 		return
 	}
-	contentType := "text/x-protobuf" // FIXME: I'm not sure what the text version of protobuf is meant to be.
-	encoding := "identity"           // No compression for the debug rendering
-	hc.PostRaw(ctx, url, contentType, encoding, nil, []byte(body))
+	hc.PostRaw(ctx, url, ContentTypeProtobufText, EncodingIdentity, nil, []byte(body))
 }
 
 func (hc *Client) postJson(ctx context.Context, url string, headers map[string]string, disableCompression bool, data interface{}) {
@@ -79,15 +89,15 @@ func (hc *Client) postJson(ctx context.Context, url string, headers map[string]s
 		return
 	}
 
-	encoding := "identity"
+	encoding := EncodingIdentity
 	if hc.compress && !disableCompression {
 		body, err = compress(body)
-		encoding = "deflate"
+		encoding = EncodingDeflate
 		if err != nil {
 			atomic.AddUint64(&hc.messagesFailCompress.cur, 1)
 			return
 		}
 	}
 
-	hc.PostRaw(ctx, url, "application/json", encoding, nil, body)
+	hc.PostRaw(ctx, url, ContentTypeJson, encoding, nil, body)
 }

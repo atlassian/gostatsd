@@ -19,7 +19,7 @@ require (
 	github.com/jstemmer/go-junit-report v0.9.1
 	github.com/libp2p/go-reuseport v0.0.1
 	github.com/magiconair/properties v1.8.1
-	github.com/mozilla/tls-observatory v0.0.0-20190404164649-a3c1b6cfecfd
+	github.com/mozilla/tls-observatory v0.0.0-20190404164649-a3c1b6cfecfd // indirect
 	github.com/sirupsen/logrus v1.4.2
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.6.2
@@ -34,5 +34,3 @@ require (
 	k8s.io/client-go v0.17.3
 	k8s.io/utils v0.0.0-20200124190032-861946025e34 // indirect
 )
-
-go 1.13

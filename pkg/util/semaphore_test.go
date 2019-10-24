@@ -10,6 +10,7 @@ import (
 )
 
 func TestSemaphoreUnlimited(t *testing.T) {
+	t.Parallel()
 	s := NewSemaphore(0)
 	for i := 0; i < 10; i++ {
 		s.Acquire(context.Background())

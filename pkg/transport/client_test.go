@@ -54,7 +54,7 @@ func TestClientBasicPost(t *testing.T) {
 	p := poolFromConfig(t, "")
 	c, err := p.Get("default")
 	require.NoError(t, err)
-	c.PostRaw(context.Background(), ts.URL+"/test", "text/plain", "identity", nil, []byte("body"))
+	c.PostRaw(context.Background(), ts.URL+"/test", ContentTypeTextPlain,  EncodingIdentity, nil, []byte("body"))
 	wg.Wait()
 }
 
@@ -89,7 +89,7 @@ func TestClientCallerHeaders(t *testing.T) {
 		"key":        "value",
 		"user-agent": "custom",
 	}
-	c.PostRaw(context.Background(), ts.URL+"/test", "text/plain", "identity", headers, nil)
+	c.PostRaw(context.Background(), ts.URL+"/test", ContentTypeTextPlain, EncodingIdentity, headers, nil)
 	wg.Wait()
 }
 
@@ -121,7 +121,7 @@ func TestClientUserAddHeaders(t *testing.T) {
 
 	p := poolFromConfig(t, `
 [transport.default]
-custom-headers = {"foo"="bar", "key1"=""}
+custom-headers = {foo="bar", key1=""}
 `)
 	c, err := p.Get("default")
 	require.NoError(t, err)
@@ -130,7 +130,7 @@ custom-headers = {"foo"="bar", "key1"=""}
 		"key2":       "value2",
 		"user-agent": "custom",
 	}
-	c.PostRaw(context.Background(), ts.URL+"/test", "text/plain", "identity", headers, nil)
+	c.PostRaw(context.Background(), ts.URL+"/test", ContentTypeTextPlain, EncodingIdentity, headers, nil)
 	wg.Wait()
 }
 
@@ -159,6 +159,6 @@ retry-interval='1ns'
 `)
 	c, err := p.Get("default")
 	require.NoError(t, err)
-	c.PostRaw(context.Background(), ts.URL+"/test", "text/plain", "identity", nil, nil)
+	c.PostRaw(context.Background(), ts.URL+"/test", ContentTypeTextPlain, EncodingIdentity, nil, nil)
 	wg.Wait()
 }

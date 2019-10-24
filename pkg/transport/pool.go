@@ -139,8 +139,8 @@ func (tp *TransportPool) newClient(name string) (*Client, error) {
 		return nil, err
 	}
 
-	headers := map[string]string{}
-	headerKeys := []string{}
+	headers := make(map[string]string, len(customHeaders))
+	headerKeys := make([]string, 0, len(customHeaders))
 	for key, value := range customHeaders {
 		headers[http.CanonicalHeaderKey(key)] = value
 		headerKeys = append(headerKeys, key)

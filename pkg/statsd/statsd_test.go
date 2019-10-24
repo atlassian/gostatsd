@@ -16,6 +16,7 @@ import (
 	"github.com/atlassian/gostatsd"
 	"github.com/atlassian/gostatsd/pkg/cachedinstances/cloudprovider"
 	"github.com/atlassian/gostatsd/pkg/fakesocket"
+	"github.com/atlassian/gostatsd/pkg/transport"
 )
 
 // TestStatsdThroughput emulates statsd work using fake network socket and null backend to
@@ -60,6 +61,7 @@ func TestStatsdThroughput(t *testing.T) {
 		ReceiveBatchSize:      gostatsd.DefaultReceiveBatchSize,
 		MaxConcurrentEvents:   2,
 		ServerMode:            "standalone",
+		TransportPool:         transport.NewTransportPool(logrus.StandardLogger(), viper.New()),
 		Viper:                 viper.New(),
 	}
 	ctxCached, cancelCached := context.WithCancel(context.Background())
