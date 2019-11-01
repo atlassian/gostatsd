@@ -12,7 +12,7 @@ import (
 func timer(histogramThresholds string, values ...float64) gostatsd.Timer {
 	return gostatsd.Timer{
 		Values:    values,
-		Tags:      []string{HistogramThresholdsTagPrefix + histogramThresholds},
+		Tags:      []string{histogramThresholdsTagPrefix + histogramThresholds},
 		Histogram: map[gostatsd.HistogramThreshold]int{},
 	}
 }

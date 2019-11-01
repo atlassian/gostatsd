@@ -9,8 +9,8 @@ import (
 )
 
 const (
-	HistogramThresholdsTagPrefix = "gsd_histogram:"
-	HistogramThresholdsSeparator = "_"
+	histogramThresholdsTagPrefix = "gsd_histogram:"
+	histogramThresholdsSeparator = "_"
 )
 
 func latencyHistogram(timer gostatsd.Timer, bucketLimit uint32) map[gostatsd.HistogramThreshold]int {
@@ -58,10 +58,10 @@ func emptyHistogram(timer gostatsd.Timer, bucketLimit uint32) map[gostatsd.Histo
 }
 
 func retrieveThresholds(timer gostatsd.Timer, bucketlimit uint32) []gostatsd.HistogramThreshold {
-	tag, found := findTag(timer.Tags, HistogramThresholdsTagPrefix)
+	tag, found := findTag(timer.Tags, histogramThresholdsTagPrefix)
 	if found {
-		bucketsTagValue := tag[len(HistogramThresholdsTagPrefix):]
-		stringThresholds := strings.Split(bucketsTagValue, HistogramThresholdsSeparator)
+		bucketsTagValue := tag[len(histogramThresholdsTagPrefix):]
+		stringThresholds := strings.Split(bucketsTagValue, histogramThresholdsSeparator)
 		floatThresholds := mapToThresholds(stringThresholds)
 		floatThresholds = floatThresholds[:(min(uint32(len(floatThresholds)), bucketlimit))]
 		if floatThresholds == nil {
@@ -84,7 +84,7 @@ func mapToThresholds(vs []string) []gostatsd.HistogramThreshold {
 }
 
 func hasHistogramTag(timer gostatsd.Timer) bool {
-	_, found := findTag(timer.Tags, HistogramThresholdsTagPrefix)
+	_, found := findTag(timer.Tags, histogramThresholdsTagPrefix)
 	return found
 }
 

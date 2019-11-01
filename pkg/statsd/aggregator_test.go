@@ -57,7 +57,7 @@ func TestLatencyHistograms(t *testing.T) {
 	ma := newFakeAggregator()
 	ma.metricMap.Timers["testTimer"] = make(map[string]gostatsd.Timer)
 	values := gostatsd.NewTimerValues([]float64{10.0, 20.0, 29.9, 2000.0, -38.0, -5.0})
-	values.Tags = gostatsd.Tags{HistogramThresholdsTagPrefix + "-10_0_2.5_20_50_5000"}
+	values.Tags = gostatsd.Tags{histogramThresholdsTagPrefix + "-10_0_2.5_20_50_5000"}
 	ma.metricMap.Timers["testTimer"]["simple"] = values
 
 	ma.Flush(10)
@@ -78,7 +78,7 @@ func TestLatencyHistogramWithNoValuesOutputHistogramWithZeros(t *testing.T) {
 	ma := newFakeAggregator()
 	ma.metricMap.Timers["testTimer"] = make(map[string]gostatsd.Timer)
 	values := gostatsd.NewTimerValues([]float64{})
-	values.Tags = gostatsd.Tags{HistogramThresholdsTagPrefix + "10_20_50_5000"}
+	values.Tags = gostatsd.Tags{histogramThresholdsTagPrefix + "10_20_50_5000"}
 	ma.metricMap.Timers["testTimer"]["simple"] = values
 
 	ma.Flush(10)
@@ -98,7 +98,7 @@ func TestLatencyHistogramDisablesAggregations(t *testing.T) {
 	ma := newFakeAggregator()
 	ma.metricMap.Timers["testTimer"] = make(map[string]gostatsd.Timer)
 	values := gostatsd.NewTimerValues([]float64{10.0, 20.0, 29.9, 2000.0})
-	values.Tags = gostatsd.Tags{HistogramThresholdsTagPrefix + "20_50_5000"}
+	values.Tags = gostatsd.Tags{histogramThresholdsTagPrefix + "20_50_5000"}
 	ma.metricMap.Timers["testTimer"]["simple"] = values
 
 	ma.Flush(10)
@@ -260,11 +260,11 @@ func TestReset(t *testing.T) {
 
 	actual = newFakeAggregator()
 	actual.metricMap.Timers["histogram"] = map[string]gostatsd.Timer{
-		HistogramThresholdsTagPrefix + "10_20_30": gostatsd.NewTimer(nowNano, []float64{}, host, gostatsd.Tags{HistogramThresholdsTagPrefix + "10_20_30"}),
+		histogramThresholdsTagPrefix + "10_20_30": gostatsd.NewTimer(nowNano, []float64{}, host, gostatsd.Tags{histogramThresholdsTagPrefix + "10_20_30"}),
 	}
 
 	expected = newFakeAggregator()
-	expectedTimer := gostatsd.NewTimer(nowNano, []float64{}, host, gostatsd.Tags{HistogramThresholdsTagPrefix + "10_20_30"})
+	expectedTimer := gostatsd.NewTimer(nowNano, []float64{}, host, gostatsd.Tags{histogramThresholdsTagPrefix + "10_20_30"})
 	expectedTimer.Histogram = map[gostatsd.HistogramThreshold]int{
 		gostatsd.HistogramThreshold(10):          0,
 		gostatsd.HistogramThreshold(20):          0,
@@ -272,7 +272,7 @@ func TestReset(t *testing.T) {
 		gostatsd.HistogramThreshold(math.Inf(1)): 0,
 	}
 	expected.metricMap.Timers["histogram"] = map[string]gostatsd.Timer{
-		HistogramThresholdsTagPrefix + "10_20_30": expectedTimer,
+		histogramThresholdsTagPrefix + "10_20_30": expectedTimer,
 	}
 	expected.now = nowFn
 
