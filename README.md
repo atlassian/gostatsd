@@ -188,7 +188,7 @@ Timer histograms (experimental feature)
 ----------------
 
 Timer histograms inspired by [Prometheus implementation](https://prometheus.io/docs/concepts/metric_types/#histogram) can be
-enabled on a per time series basis using `gsd_histogram` meta tag with value containing histogram bucketing definition (joined with `_`) 
+enabled on a per time series basis using `gsd_histogram` meta tag with value containing histogram bucketing definition (joined with `_`)
 e.g. `gsd_histogram:-10_0_2.5_5_10_25_50`.
 
 It will:
@@ -210,7 +210,7 @@ Counter `<base>.histogram` with tag `le:+Inf` is equivalent to `<base>.count` an
 
 All original timer tags are preserved and added to all the time series.
 
-To limit cardinality, `timer-histogram-limit` option can be specified to limit the number of buckets that will be created (default is `math.MaxUint32`). 
+To limit cardinality, `timer-histogram-limit` option can be specified to limit the number of buckets that will be created (default is `math.MaxUint32`).
 Value of `0` won't disable the feature, `0` buckets will be emitted which effectively drops metrics with `gsd_hostogram` tags.
 
 Incorrect meta tag values will be handled in best effort manner, i.e.
