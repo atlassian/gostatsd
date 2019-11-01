@@ -188,7 +188,7 @@ Timer histograms (experimental feature)
 ----------------
 
 Timer histograms inspired by [Prometheus implementation](https://prometheus.io/docs/concepts/metric_types/#histogram) can be
-enabled on a per time series basis using `gsd_histogram` meta tag with value containing histogram bucketing definition (joined with `_`) 
+enabled on a per time series basis using `gsd_histogram` meta tag with value containing histogram bucketing definition (joined with `_`)
 e.g. `gsd_histogram:-10_0_2.5_5_10_25_50`.
 
 It will:
