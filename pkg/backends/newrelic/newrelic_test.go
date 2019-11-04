@@ -1,6 +1,7 @@
 package newrelic
 
 import (
+	"compress/gzip"
 	"context"
 	"encoding/json"
 	"io/ioutil"
@@ -98,45 +99,94 @@ func TestSendMetricsInMultipleBatches(t *testing.T) {
 }
 
 func TestSendMetrics(t *testing.T) {
-	t.Parallel()
-	mux := http.NewServeMux()
-	mux.HandleFunc("/v1/data", func(w http.ResponseWriter, r *http.Request) {
-		data, err := ioutil.ReadAll(r.Body)
-		if !assert.NoError(t, err) {
-			return
-		}
-		expected := `{"name":"com.newrelic.gostatsd","protocol_version":"2","integration_version":"2.3.0","data":[{"metrics":` +
-			`[{"event_type":"GoStatsD","integration_version":"2.3.0","interval":1,"metric_name":"g1","metric_type":"gauge","metric_value":3,"tag3":"true","timestamp":0},` +
-			`{"event_type":"GoStatsD","integration_version":"2.3.0","interval":1,"metric_name":"c1","metric_per_second":1.1,"metric_type":"counter","metric_value":5,"tag1":"true","timestamp":0},` +
-			`{"event_type":"GoStatsD","integration_version":"2.3.0","interval":1,"metric_name":"users","metric_type":"set","metric_value":3,"tag4":"true","timestamp":0},` +
-			`{"count_90":0.1,"event_type":"GoStatsD","integration_version":"2.3.0","interval":1,"metric_name":"t1","metric_per_second":1.1,"metric_type":"timer","metric_value":1,` +
-			`"samples_count":1,"samples_max":1,"samples_mean":0.5,"samples_median":0.5,"samples_min":0,"samples_std_dev":0.1,"samples_sum":1,"samples_sum_squares":1,"tag2":"true","timestamp":0}]}]}`
-		assert.Equal(t, expected, string(data))
-	})
-	ts := httptest.NewServer(mux)
-	defer ts.Close()
-
-	v := viper.New()
-	v.SetDefault("transport.default.client-timeout", 1*time.Second)
-	p := transport.NewTransportPool(logrus.New(), v)
-
-	client, err := NewClient("default", ts.URL+"/v1/data", "", "GoStatsD", "", "", "", "metric_name", "metric_type",
-		"metric_per_second", "metric_value", "samples_min", "samples_max", "samples_count",
-		"samples_mean", "samples_median", "samples_std_dev", "samples_sum", "samples_sum_squares", "agent",
-		defaultMetricsPerBatch, defaultMaxRequests, 2*time.Second, 1*time.Second, gostatsd.TimerSubtypes{}, p)
-
-	require.NoError(t, err)
-	client.now = func() time.Time {
-		return time.Unix(100, 0)
+	tests := []struct {
+		name      string
+		expected  string
+		flushType string
+		apiKey    string
+	}{
+		{
+			name:      "infra",
+			flushType: "infra",
+			apiKey:    "",
+			expected: `{"name":"com.newrelic.gostatsd","protocol_version":"2","integration_version":"2.3.0","data":[{"metrics":` +
+				`[{"event_type":"GoStatsD","integration_version":"2.3.0","interval":1,"metric_name":"g1","metric_type":"gauge","metric_value":3,"tag3":"true","timestamp":0},` +
+				`{"event_type":"GoStatsD","integration_version":"2.3.0","interval":1,"metric_name":"c1","metric_per_second":1.1,"metric_type":"counter","metric_value":5,"tag1":"true","timestamp":0},` +
+				`{"event_type":"GoStatsD","integration_version":"2.3.0","interval":1,"metric_name":"users","metric_type":"set","metric_value":3,"tag4":"true","timestamp":0},` +
+				`{"count_90":0.1,"event_type":"GoStatsD","integration_version":"2.3.0","interval":1,"metric_name":"t1","metric_per_second":1.1,"metric_type":"timer","metric_value":1,` +
+				`"samples_count":1,"samples_max":1,"samples_mean":0.5,"samples_median":0.5,"samples_min":0,"samples_std_dev":0.1,"samples_sum":1,"samples_sum_squares":1,"tag2":"true","timestamp":0}]}]}`,
+		},
+		{
+			name:      "metrics",
+			flushType: "metrics",
+			apiKey:    "some-api-key",
+			expected: `[{"common":{"attributes":{"integration.name":"GoStatsD","integration.version":"2.3.0"},"interval.ms":1000},` +
+				`"metrics":[{"attributes":{"statsdType":"gauge","tag3":"true"},"name":"g1","timestamp":0,"type":"gauge","value":3},{"attributes":{"statsdType":"gauge","tag1":"true"},"name":"c1.per_second","timestamp":0,"type":"gauge","value":1.1},` +
+				`{"attributes":{"statsdType":"counter","tag1":"true"},"name":"c1","timestamp":0,"type":"count","value":5},{"attributes":{"statsdType":"set","tag4":"true"},"name":"users","timestamp":0},` +
+				`{"attributes":{"statsdType":"gauge","tag2":"true"},"name":"t1.per_second","timestamp":0,"type":"gauge","value":1.1},{"attributes":{"statsdType":"gauge","tag2":"true"},"name":"t1.mean","timestamp":0,"type":"gauge","value":0.5},` +
+				`{"attributes":{"statsdType":"gauge","tag2":"true"},"name":"t1.median","timestamp":0,"type":"gauge","value":0.5},{"attributes":{"statsdType":"gauge","tag2":"true"},"name":"t1.std_dev","timestamp":0,"type":"gauge","value":0.1},` +
+				`{"attributes":{"statsdType":"gauge","tag2":"true"},"name":"t1.sum_squares","timestamp":0,"type":"gauge","value":1},{"attributes":{"percentile":90,"statsdType":"gauge","tag2":"true"},"name":"t1.count.percentiles","timestamp":0,"type":"gauge","value":0.1},` +
+				`{"attributes":{"statsdType":"timer","tag2":"true"},"name":"t1.summary","timestamp":0,"type":"summary","value":{"count":1,"max":1,"min":0,"sum":1}}]}]`,
+		},
 	}
-	res := make(chan []error, 1)
-	client.SendMetricsAsync(context.Background(), metricsOneOfEach(), func(errs []error) {
-		res <- errs
-	})
-	errs := <-res
-	for _, err := range errs {
-		assert.NoError(t, err)
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+
+			mux := http.NewServeMux()
+			path := "/v1/data"
+			if tt.flushType == "metrics" {
+				path = "/metric/v1"
+			}
+			mux.HandleFunc(path, func(w http.ResponseWriter, r *http.Request) {
+				enc := r.Header.Get("Content-Encoding")
+				var body string
+				if enc == "gzip" {
+					gr, err := gzip.NewReader(r.Body)
+					if !assert.NoError(t, err) {
+						return
+					}
+					data, err := ioutil.ReadAll(gr)
+					if !assert.NoError(t, err) {
+						return
+					}
+					body = string(data)
+				} else {
+					data, err := ioutil.ReadAll(r.Body)
+					if !assert.NoError(t, err) {
+						return
+					}
+					body = string(data)
+				}
+				assert.Equal(t, tt.expected, body)
+			})
+			ts := httptest.NewServer(mux)
+			defer ts.Close()
+
+			v := viper.New()
+			v.SetDefault("transport.default.client-timeout", 1*time.Second)
+			p := transport.NewTransportPool(logrus.New(), v)
+
+			client, err := NewClient("default", ts.URL+"/v1/data", ts.URL+"/metric/v1", "GoStatsD", tt.flushType, tt.apiKey, "", "metric_name", "metric_type",
+				"metric_per_second", "metric_value", "samples_min", "samples_max", "samples_count",
+				"samples_mean", "samples_median", "samples_std_dev", "samples_sum", "samples_sum_squares", "agent",
+				defaultMetricsPerBatch, defaultMaxRequests, 2*time.Second, 1*time.Second, gostatsd.TimerSubtypes{}, p)
+
+			require.NoError(t, err)
+			client.now = func() time.Time {
+				return time.Unix(100, 0)
+			}
+			res := make(chan []error, 1)
+			client.SendMetricsAsync(context.Background(), metricsOneOfEach(), func(errs []error) {
+				res <- errs
+			})
+			errs := <-res
+			for _, err := range errs {
+				assert.NoError(t, err)
+			}
+		})
 	}
+
 }
 
 // twoCounters returns two counters.
