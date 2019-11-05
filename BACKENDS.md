@@ -85,7 +85,7 @@ More information on registering an Insert API Key can be found [here](https://do
     api-key = "yourEventAPIInsertKey"
 ```
 
-See [TRANSPORT.md] for information about `transport`.
+See [TRANSPORT.md](TRANSPORT.md) for information about `transport`.
 
 > Make sure that `address` is set to `https://insights-collector.eu01.nr-data.net/v1/accounts/YOUR_ACCOUNT_ID/events` if your account hosts data in the EU data center.
 
