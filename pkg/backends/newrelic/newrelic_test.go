@@ -152,7 +152,7 @@ func TestSendMetrics(t *testing.T) {
 			mux.HandleFunc(path, func(w http.ResponseWriter, r *http.Request) {
 				enc := r.Header.Get("Content-Encoding")
 				var body string
-				body, done := decodeBody(enc, r, t, body)
+				body, done := decodeBody(enc, r, t)
 				if done {
 					return
 				}
@@ -188,7 +188,8 @@ func TestSendMetrics(t *testing.T) {
 
 }
 
-func decodeBody(enc string, r *http.Request, t *testing.T, body string) (string, bool) {
+func decodeBody(enc string, r *http.Request, t *testing.T) (string, bool) {
+	body := ""
 	if enc == "gzip" {
 		gr, err := gzip.NewReader(r.Body)
 		if !assert.NoError(t, err) {
