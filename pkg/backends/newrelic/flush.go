@@ -27,10 +27,10 @@ func (f *flush) addMetric(n *Client, metricType string, value float64, persecond
 	if n.flushType == flushTypeMetrics {
 		metricName := name
 		if metricType == "counter" {
-			perSecondMetric := newMetricSet(n, f, metricName+".per_second", "gauge", persecond, tags, timestamp)
+			perSecondMetric := newDimensionalMetricSet(n, f, metricName+".per_second", "gauge", persecond, tags, timestamp)
 			f.ts.Metrics = append(f.ts.Metrics, perSecondMetric)
 		}
-		standardMetric := newMetricSet(n, f, name, metricType, value, tags, timestamp)
+		standardMetric := newDimensionalMetricSet(n, f, name, metricType, value, tags, timestamp)
 		f.ts.Metrics = append(f.ts.Metrics, standardMetric)
 	} else {
 		standardMetric := newMetricSet(n, f, name, metricType, value, tags, timestamp)
@@ -43,10 +43,10 @@ func (f *flush) addMetric(n *Client, metricType string, value float64, persecond
 
 // addMetric adds a timer metric to the series.
 func (f *flush) addTimerMetric(n *Client, metricType string, timer gostatsd.Timer, tagsKey, name string) {
-	timerMetric := newMetricSet(n, f, name, metricType, float64(timer.Count), timer.Tags, timer.Timestamp)
+	if n.flushType == flushTypeMetrics {
+		timerMetric := newDimensionalMetricSet(n, f, name, metricType, float64(timer.Count), timer.Tags, timer.Timestamp)
 
-	if n.flushType == "metrics" {
-		timerMetric["value"] = map[string]float64{
+		timerMetric.Value = map[string]float64{
 			"count": float64(timer.Count),
 			"sum":   timer.Sum,
 			"min":   timer.Min,
@@ -54,23 +54,23 @@ func (f *flush) addTimerMetric(n *Client, metricType string, timer gostatsd.Time
 		}
 
 		if !n.disabledSubtypes.CountPerSecond {
-			gaugeMetric := newMetricSet(n, f, name+".per_second", "gauge", timer.PerSecond, timer.Tags, timer.Timestamp)
+			gaugeMetric := newDimensionalMetricSet(n, f, name+".per_second", "gauge", timer.PerSecond, timer.Tags, timer.Timestamp)
 			f.ts.Metrics = append(f.ts.Metrics, gaugeMetric)
 		}
 		if !n.disabledSubtypes.Mean {
-			gaugeMetric := newMetricSet(n, f, name+".mean", "gauge", timer.Mean, timer.Tags, timer.Timestamp)
+			gaugeMetric := newDimensionalMetricSet(n, f, name+".mean", "gauge", timer.Mean, timer.Tags, timer.Timestamp)
 			f.ts.Metrics = append(f.ts.Metrics, gaugeMetric)
 		}
 		if !n.disabledSubtypes.Median {
-			gaugeMetric := newMetricSet(n, f, name+".median", "gauge", timer.Median, timer.Tags, timer.Timestamp)
+			gaugeMetric := newDimensionalMetricSet(n, f, name+".median", "gauge", timer.Median, timer.Tags, timer.Timestamp)
 			f.ts.Metrics = append(f.ts.Metrics, gaugeMetric)
 		}
 		if !n.disabledSubtypes.StdDev {
-			gaugeMetric := newMetricSet(n, f, name+".std_dev", "gauge", timer.StdDev, timer.Tags, timer.Timestamp)
+			gaugeMetric := newDimensionalMetricSet(n, f, name+".std_dev", "gauge", timer.StdDev, timer.Tags, timer.Timestamp)
 			f.ts.Metrics = append(f.ts.Metrics, gaugeMetric)
 		}
 		if !n.disabledSubtypes.SumSquares {
-			gaugeMetric := newMetricSet(n, f, name+".sum_squares", "gauge", timer.SumSquares, timer.Tags, timer.Timestamp)
+			gaugeMetric := newDimensionalMetricSet(n, f, name+".sum_squares", "gauge", timer.SumSquares, timer.Tags, timer.Timestamp)
 			f.ts.Metrics = append(f.ts.Metrics, gaugeMetric)
 		}
 
@@ -82,14 +82,17 @@ func (f *flush) addTimerMetric(n *Client, metricType string, timer gostatsd.Time
 		// Each metric name MUST have a ".percentiles" suffix.
 		for _, pct := range timer.Percentiles {
 			lastUnderscore := strings.LastIndex(pct.Str, "_")
-			gaugeMetric := newMetricSet(n, f, fmt.Sprintf("%v.%v.percentiles", name, pct.Str[:lastUnderscore]), "gauge", pct.Float, timer.Tags, timer.Timestamp)
+			gaugeMetric := newDimensionalMetricSet(n, f, fmt.Sprintf("%v.%v.percentiles", name, pct.Str[:lastUnderscore]), "gauge", pct.Float, timer.Tags, timer.Timestamp)
 			percentileResult, err := strconv.ParseFloat(pct.Str[lastUnderscore+1:], 64) // eg. for sum_squares_90 will return 90
 			if err == nil {
-				gaugeMetric["attributes"].(map[string]interface{})["percentile"] = percentileResult
+				gaugeMetric.Attributes["percentile"] = percentileResult
 				f.ts.Metrics = append(f.ts.Metrics, gaugeMetric)
 			}
 		}
+		f.ts.Metrics = append(f.ts.Metrics, timerMetric)
 	} else {
+		timerMetric := newMetricSet(n, f, name, metricType, float64(timer.Count), timer.Tags, timer.Timestamp)
+
 		if !n.disabledSubtypes.Lower {
 			timerMetric[n.timerMin] = timer.Min
 		}
@@ -120,8 +123,8 @@ func (f *flush) addTimerMetric(n *Client, metricType string, timer gostatsd.Time
 		for _, pct := range timer.Percentiles {
 			timerMetric[pct.Str] = pct.Float
 		}
+		f.ts.Metrics = append(f.ts.Metrics, timerMetric)
 	}
-	f.ts.Metrics = append(f.ts.Metrics, timerMetric)
 }
 
 func (f *flush) maybeFlush() {
@@ -145,43 +148,50 @@ func newMetricSet(n *Client, f *flush, metricName, Type string, Value float64, t
 	// GoStatsD provides the timestamp in Nanotime, New Relic requires seconds or milliseconds, see under "Limits and restricted characters"
 	// https://docs.newrelic.com/docs/insights/insights-data-sources/custom-data/send-custom-events-event-api#instrument
 	metricSet["timestamp"] = timestamp / 1e9
+	metricSet["interval"] = f.flushIntervalSec
+	metricSet["integration_version"] = integrationVersion
 
-	if n.flushType == flushTypeMetrics {
-		metricSet["name"] = metricName
-		if metricSet["attributes"] == nil {
-			metricSet["attributes"] = map[string]interface{}{}
-		}
-		metricSet["attributes"].(map[string]interface{})["statsdType"] = Type
-		n.setTags(tags, metricSet["attributes"].(map[string]interface{}))
-		switch Type {
-		case "timer":
-			metricSet["type"] = "summary"
-			metricSet["name"] = metricSet["name"].(string) + ".summary"
-		case "counter":
-			metricSet["type"] = "count"
-			metricSet["value"] = Value
-		case "gauge":
-			metricSet["type"] = Type
-			metricSet["value"] = Value
-		}
-	} else {
-		metricSet["interval"] = f.flushIntervalSec
-		metricSet["integration_version"] = integrationVersion
+	// New Relic Insights Event API, expects the "Event Type" to be in camel case format as opposed to an underscore with the Infrastructure Payload
+	// https://docs.newrelic.com/docs/insights/insights-data-sources/custom-data/send-custom-events-event-api#instrument
+	// https://github.com/newrelic/infra-integrations-sdk/blob/master/docs/v2tov3.md#v2-json-full-sample
 
-		// New Relic Insights Event API, expects the "Event Type" to be in camel case format as opposed to an underscore with the Infrastructure Payload
-		// https://docs.newrelic.com/docs/insights/insights-data-sources/custom-data/send-custom-events-event-api#instrument
-		// https://github.com/newrelic/infra-integrations-sdk/blob/master/docs/v2tov3.md#v2-json-full-sample
+	switch n.flushType {
+	case flushTypeInsights:
+		metricSet["eventType"] = n.eventType
+	default:
+		metricSet["event_type"] = n.eventType
+	}
+	metricSet[n.metricType] = Type
+	metricSet[n.metricName] = metricName
+	metricSet[n.metricValue] = Value
+	n.setTags(tags, metricSet)
 
-		switch n.flushType {
-		case flushTypeInsights:
-			metricSet["eventType"] = n.eventType
-		default:
-			metricSet["event_type"] = n.eventType
-		}
-		metricSet[n.metricType] = Type
-		metricSet[n.metricName] = metricName
-		metricSet[n.metricValue] = Value
-		n.setTags(tags, metricSet)
+	return metricSet
+}
+
+// create a new metric set for the dimensional metrics api
+func newDimensionalMetricSet(n *Client, f *flush, metricName, Type string, Value float64, tags gostatsd.Tags, timestamp gostatsd.Nanotime) NRMetric {
+	// GoStatsD provides the timestamp in Nanotime, New Relic requires seconds or milliseconds, see under "Limits and restricted characters"
+	// https://docs.newrelic.com/docs/insights/insights-data-sources/custom-data/send-custom-events-event-api#instrument
+	metricSet := NRMetric{
+		Timestamp: timestamp / 1e9,
+	}
+
+	metricSet.Name = metricName
+	metricSet.Attributes = map[string]interface{}{
+		"statsdType": Type,
+	}
+	n.setTags(tags, metricSet.Attributes)
+	switch Type {
+	case "timer":
+		metricSet.Type = "summary"
+		metricSet.Name = metricSet.Name + ".summary"
+	case "counter":
+		metricSet.Type = "count"
+		metricSet.Value = Value
+	case "gauge":
+		metricSet.Type = Type
+		metricSet.Value = Value
 	}
 
 	return metricSet

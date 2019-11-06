@@ -132,12 +132,16 @@ func TestSendMetrics(t *testing.T) {
 			flushType: "metrics",
 			apiKey:    "some-api-key",
 			expected: `[{"common":{"attributes":{"integration.name":"GoStatsD","integration.version":"2.3.0"},"interval.ms":1000},` +
-				`"metrics":[{"attributes":{"statsdType":"gauge","tag3":"true"},"name":"g1","timestamp":0,"type":"gauge","value":3},{"attributes":{"statsdType":"gauge","tag1":"true"},"name":"c1.per_second","timestamp":0,"type":"gauge","value":1.1},` +
-				`{"attributes":{"statsdType":"counter","tag1":"true"},"name":"c1","timestamp":0,"type":"count","value":5},{"attributes":{"statsdType":"set","tag4":"true"},"name":"users","timestamp":0},` +
-				`{"attributes":{"statsdType":"gauge","tag2":"true"},"name":"t1.per_second","timestamp":0,"type":"gauge","value":1.1},{"attributes":{"statsdType":"gauge","tag2":"true"},"name":"t1.mean","timestamp":0,"type":"gauge","value":0.5},` +
-				`{"attributes":{"statsdType":"gauge","tag2":"true"},"name":"t1.median","timestamp":0,"type":"gauge","value":0.5},{"attributes":{"statsdType":"gauge","tag2":"true"},"name":"t1.std_dev","timestamp":0,"type":"gauge","value":0.1},` +
-				`{"attributes":{"statsdType":"gauge","tag2":"true"},"name":"t1.sum_squares","timestamp":0,"type":"gauge","value":1},{"attributes":{"percentile":90,"statsdType":"gauge","tag2":"true"},"name":"t1.count.percentiles","timestamp":0,"type":"gauge","value":0.1},` +
-				`{"attributes":{"statsdType":"timer","tag2":"true"},"name":"t1.summary","timestamp":0,"type":"summary","value":{"count":1,"max":1,"min":0,"sum":1}}]}]`,
+				`"metrics":[{"name":"g1","value":3,"type":"gauge","attributes":{"statsdType":"gauge","tag3":"true"}},` +
+				`{"name":"c1.per_second","value":1.1,"type":"gauge","attributes":{"statsdType":"gauge","tag1":"true"}},` +
+				`{"name":"c1","value":5,"type":"count","attributes":{"statsdType":"counter","tag1":"true"}},` +
+				`{"name":"users","attributes":{"statsdType":"set","tag4":"true"}},{"name":"t1.per_second","value":1.1,"type":"gauge","attributes":{"statsdType":"gauge","tag2":"true"}},` +
+				`{"name":"t1.mean","value":0.5,"type":"gauge","attributes":{"statsdType":"gauge","tag2":"true"}},` +
+				`{"name":"t1.median","value":0.5,"type":"gauge","attributes":{"statsdType":"gauge","tag2":"true"}},` +
+				`{"name":"t1.std_dev","value":0.1,"type":"gauge","attributes":{"statsdType":"gauge","tag2":"true"}},` +
+				`{"name":"t1.sum_squares","value":1,"type":"gauge","attributes":{"statsdType":"gauge","tag2":"true"}},` +
+				`{"name":"t1.count.percentiles","value":0.1,"type":"gauge","attributes":{"percentile":90,"statsdType":"gauge","tag2":"true"}},` +
+				`{"name":"t1.summary","value":{"count":1,"max":1,"min":0,"sum":1},"type":"summary","attributes":{"statsdType":"timer","tag2":"true"}}]}]`,
 		},
 	}
 

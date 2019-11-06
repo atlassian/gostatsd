@@ -112,6 +112,16 @@ type NRMetricsCommon struct {
 	IntervalMs float64                `json:"interval.ms"`
 }
 
+// NRMetric metric for New Relic Metrics Format
+type NRMetric struct {
+	Name       string                 `json:"name"`
+	Value      interface{}            `json:"value,omitempty"`
+	Type       string                 `json:"type,omitempty"`
+	Timestamp  gostatsd.Nanotime      `json:"timestamp,omitempty"`
+	Attributes map[string]interface{} `json:"attributes,omitempty"`
+	IntervalMs float64                `json:"interval.ms,omitempty"`
+}
+
 // SendMetricsAsync flushes the metrics to New Relic, preparing payload synchronously but doing the send asynchronously.
 func (n *Client) SendMetricsAsync(ctx context.Context, metrics *gostatsd.MetricMap, cb gostatsd.SendCallback) {
 
