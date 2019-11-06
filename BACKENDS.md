@@ -107,7 +107,7 @@ To use this method, create an Insert API Key from here: https://insights.newreli
     api-key = "yourEventAPIInsertKey"
 ```
 
-> Make sure that `address-metrics` is set to `https://metric-api.newrelic.com/metric/v1` if your account hosts data in the EU data center.
+> Make sure that `address-metrics` is set to `https://metric-api.eu.newrelic.com/metric/v1` if your account hosts data in the EU data center.
 
 It is also recommended to set up the backend to either use the [Insight Collector](#new-relic-insights-event-api) or the
 [Infrastructure Agent](#new-relic-infrastructure-agent) to send none metric events back to New Relic.
