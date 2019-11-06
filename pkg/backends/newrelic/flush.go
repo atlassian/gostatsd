@@ -174,13 +174,13 @@ func newDimensionalMetricSet(n *Client, f *flush, metricName, Type string, Value
 	// GoStatsD provides the timestamp in Nanotime, New Relic requires seconds or milliseconds, see under "Limits and restricted characters"
 	// https://docs.newrelic.com/docs/insights/insights-data-sources/custom-data/send-custom-events-event-api#instrument
 	metricSet := NRMetric{
+		Name:      metricName,
 		Timestamp: timestamp / 1e9,
+		Attributes: map[string]interface{}{
+			"statsdType": Type,
+		},
 	}
 
-	metricSet.Name = metricName
-	metricSet.Attributes = map[string]interface{}{
-		"statsdType": Type,
-	}
 	n.setTags(tags, metricSet.Attributes)
 	switch Type {
 	case "timer":
