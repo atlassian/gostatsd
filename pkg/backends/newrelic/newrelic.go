@@ -102,8 +102,14 @@ type NRInfraPayload struct {
 // NRMetricsPayload represents New Relic Metrics Payload format
 // https://docs.newrelic.com/docs/data-ingest-apis/get-data-new-relic/metric-api/report-metrics-metric-api#new-relic-guidelines
 type NRMetricsPayload struct {
-	Common  map[string]interface{} `json:"common"`
-	Metrics []interface{}          `json:"metrics"`
+	Common  NRMetricsCommon `json:"common"`
+	Metrics []interface{}   `json:"metrics"`
+}
+
+// NRMetricsCommon common attributes to apply for New Relic Metrics Format
+type NRMetricsCommon struct {
+	Attributes map[string]interface{} `json:"attributes"`
+	IntervalMs float64                `json:"interval.ms"`
 }
 
 // SendMetricsAsync flushes the metrics to New Relic, preparing payload synchronously but doing the send asynchronously.
@@ -541,12 +547,12 @@ func newInfraPayload(data interface{}) NRInfraPayload {
 
 func (n *Client) newMetricsPayload(data []interface{}) NRMetricsPayload {
 	return NRMetricsPayload{
-		Common: map[string]interface{}{
-			"attributes": map[string]interface{}{
+		Common: NRMetricsCommon{
+			Attributes: map[string]interface{}{
 				"integration.version": integrationVersion,
 				"integration.name":    "GoStatsD",
 			},
-			"interval.ms": n.flushInterval.Seconds() * 1000,
+			IntervalMs: n.flushInterval.Seconds() * 1000,
 		},
 		Metrics: data,
 	}
