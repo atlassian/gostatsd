@@ -117,7 +117,7 @@ type NRMetric struct {
 	Name       string                 `json:"name"`
 	Value      interface{}            `json:"value,omitempty"`
 	Type       string                 `json:"type,omitempty"`
-	Timestamp  gostatsd.Nanotime      `json:"timestamp,omitempty"`
+	Timestamp  int64                  `json:"timestamp,omitempty"`
 	Attributes map[string]interface{} `json:"attributes,omitempty"`
 	IntervalMs float64                `json:"interval.ms,omitempty"`
 }

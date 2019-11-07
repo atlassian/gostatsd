@@ -175,7 +175,7 @@ func newDimensionalMetricSet(n *Client, f *flush, metricName, Type string, Value
 	// https://docs.newrelic.com/docs/insights/insights-data-sources/custom-data/send-custom-events-event-api#instrument
 	metricSet := NRMetric{
 		Name:      metricName,
-		Timestamp: timestamp / 1e9,
+		Timestamp: int64(timestamp) / 1e9,
 		Attributes: map[string]interface{}{
 			"statsdType": Type,
 		},

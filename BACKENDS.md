@@ -63,10 +63,12 @@ When `mode` is `legacy`, the graphite backend will emit metrics with the followi
 
 New Relic Backend
 -----------------
-Supports three routes for flushing metrics to New Relic.
-- Directly to the Insights Collector - [Insights Event API](https://docs.newrelic.com/docs/insights/insights-data-sources/custom-data/send-custom-events-event-api)
-- Via the Infrastructure Agent's inbuilt HTTP Server
-- Directly to the Metric API - [Metric Event API](https://docs.newrelic.com/docs/data-ingest-apis/get-data-new-relic/metric-api/introduction-metric-api)
+Supports three flush-types for sending metrics to New Relic:
+- `infra` Via the Infrastructure Agent's inbuilt HTTP Server (default)
+- `insights` Directly to the Insights Collector - [Insights Event API](https://docs.newrelic.com/docs/insights/insights-data-sources/custom-data/send-custom-events-event-api)
+- `metrics` Directly to the Metric API - [Metric Event API](https://docs.newrelic.com/docs/data-ingest-apis/get-data-new-relic/metric-api/introduction-metric-api)
+
+An attempt will be made to automatically set the `flush-type` based on the address you have configured, [manual configuration](#manual-flush-type-configuration) is also available.
 
 ### [New Relic Insights Event API](https://docs.newrelic.com/docs/insights/insights-data-sources/custom-data/send-custom-events-event-api)
 Sending directly to the Event API alleviates the requirement of needing to have the New Relic Infrastructure Agent.
@@ -135,6 +137,20 @@ http_server_enabled: true
 http_server_host: 127.0.0.1 #(default host)
 http_server_port: 8001 #(default port)
 ```
+
+### Manual Flush Type Configuration
+The `flush-type` attribute can be configured with the following available  options - `insights`, `metrics` or `infra`.
+
+```
+[newrelic]
+    transport = "default"
+	flush-type = "insights" # <-- 
+    address = "https://another-collector.newrelic.com/v1/accounts/YOUR_ACCOUNT_ID/events"
+    api-key = "yourEventAPIInsertKey"
+```
+
+### Renaming Attributes
+This option is only available for `insights` and `infra` flush-types.
 
 Additional options are available to rename attributes if required.
 ```
