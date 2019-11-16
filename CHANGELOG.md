@@ -1,3 +1,8 @@
+19.1.0
+------
+- Adds support for New Relics new dimensional metrics pipeline.  See [BACKENDS.md].
+- Test fixes
+
 19.0.1
 ------
 - Internal refactor to de-dupe 8 getSubVipers
