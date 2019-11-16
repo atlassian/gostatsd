@@ -120,7 +120,8 @@ func TestDispatchMetricsShouldDistributeMetrics(t *testing.T) {
 	r := rand.New(rand.NewSource(time.Now().UnixNano()))
 	n := r.Intn(5) + 1
 	factory := newTestFactory()
-	h := NewBackendHandler(nil, 0, n, 10, factory)
+	// use a sync channel (perWorkerBufferSize = 0) to force the workers to process events before the context is cancelled
+	h := NewBackendHandler(nil, 0, n, 0, factory)
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	defer cancelFunc()
 	var wgFinish wait.Group
@@ -160,7 +161,7 @@ func TestDispatchMetricMapShouldDistributeMetrics(t *testing.T) {
 	r := rand.New(rand.NewSource(time.Now().UnixNano()))
 	numAggregators := r.Intn(5) + 1
 	factory := newTestFactory()
-	// use a sync channel to force the workers to process events before the context is cancelled
+	// use a sync channel (perWorkerBufferSize = 0) to force the workers to process events before the context is cancelled
 	h := NewBackendHandler(nil, 0, numAggregators, 0, factory)
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	defer cancelFunc()
