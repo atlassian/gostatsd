@@ -49,7 +49,7 @@ type Client struct {
 	batchDuration time.Duration
 
 	queue      []*QueueItem
-	queueMutex sync.RWMutex
+	queueMutex sync.Mutex
 
 	timer      *time.Timer
 	timerMutex sync.Mutex
@@ -304,12 +304,12 @@ func (client *Client) SendMetricsAsync(ctx context.Context, metrics *gostatsd.Me
 	// Protect queue
 	// We don't want to be inserting into an old queue instance
 	// The queue instance is replaced by Client.flush()
-	client.queueMutex.RLock()
+	client.queueMutex.Lock()
 	client.queue = append(client.queue, &QueueItem{
 		metrics:  metricData,
 		callback: cb,
 	})
-	client.queueMutex.RUnlock()
+	client.queueMutex.Unlock()
 
 	go client.flush()
 }
