@@ -1,9 +1,9 @@
 package cloudwatch
 
 import (
-	"time"
 	"context"
 	"testing"
+	"time"
 
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
@@ -17,6 +17,22 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+// testContext returns a context that will timeout and fail the test if not canceled.  Used to
+// enforce a timeout on tests.  Copied from fixtures_test.go.
+func testContext(t *testing.T) (context.Context, func()) {
+	ctxTest, completeTest := context.WithTimeout(context.Background(), 1100*time.Millisecond)
+	go func() {
+		after := time.NewTimer(1 * time.Second)
+		select {
+		case <-ctxTest.Done():
+			after.Stop()
+		case <-after.C:
+			require.Fail(t, "test timed out")
+		}
+	}()
+	return ctxTest, completeTest
+}
 
 type mockedCloudwatch struct {
 	cloudwatchiface.CloudWatchAPI
@@ -190,5 +206,34 @@ func metricsOneOfEach() *gostatsd.MetricMap {
 				},
 			},
 		},
+	}
+}
+
+func TestSendMetricsAsyncRace(t *testing.T) {
+	t.Parallel()
+
+	// This test exercises a race condition in SendMetricsAsync.  A timeout means that not all
+	// callbacks occurred.
+	duration, _ := time.ParseDuration("50ms")
+	p := transport.NewTransportPool(logrus.New(), viper.New())
+	cli, err := NewClient("ns", "default", duration, gostatsd.TimerSubtypes{}, p)
+	require.NoError(t, err)
+
+	ctx, done := testContext(t)
+	defer done()
+
+	ch := make(chan struct{}, 200)
+	for i := 0; i < 200; i++ {
+		go func() {
+			cli.SendMetricsAsync(ctx, metricsOneOfEach(), func(errs []error) {
+				ch <- struct{}{}
+			})
+		}()
+	}
+	for i := 0; i < 200; i++ {
+		select {
+		case <-ctx.Done():
+		case <-ch:
+		}
 	}
 }
