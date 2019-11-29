@@ -19,6 +19,17 @@ import (
 	"github.com/spf13/viper"
 )
 
+const (
+	paramBatchDuration = "batch-duration"
+	paramNamespace     = "namespace"
+	paramTransport     = "transport"
+
+	defaultBatchDuration = "50ms"
+	defaultNamespace     = "StatsD"
+	defaultTransport     = "default"
+)
+
+
 // Maximum number of dimensions per metric
 // https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/cloudwatch_limits.html
 const MAX_DIMENSIONS = 10
@@ -50,13 +61,13 @@ type Client struct {
 // NewClientFromViper constructs a Cloudwatch backend.
 func NewClientFromViper(v *viper.Viper, pool *transport.TransportPool) (gostatsd.Backend, error) {
 	g := util.GetSubViper(v, "cloudwatch")
-	g.SetDefault("namespace", "StatsD")
-	g.SetDefault("batchDuration", "50ms")
-	g.SetDefault("transport", "default")
+	g.SetDefault(paramNamespace, defaultNamespace)
+	g.SetDefault(paramBatchDuration, defaultBatchDuration)
+	g.SetDefault(paramTransport, defaultTransport)
 	return NewClient(
-		g.GetString("namespace"),
-		g.GetString("transport"),
-		g.GetDuration("batchDuration"),
+		g.GetString(paramNamespace),
+		g.GetString(paramTransport),
+		g.GetDuration(paramBatchDuration),
 		gostatsd.DisabledSubMetrics(v),
 		pool,
 	)
