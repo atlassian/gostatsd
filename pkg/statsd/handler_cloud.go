@@ -63,10 +63,9 @@ type CloudHandler struct {
 
 	cacheOpts       CacheOptions
 	cloud           gostatsd.CloudProvider // Cloud provider interface
-	metrics         MetricHandler
-	events          EventHandler
+	handler         gostatsd.PipelineHandler
 	limiter         *rate.Limiter
-	metricSource    chan *gostatsd.Metric
+	metricSource    chan []*gostatsd.Metric
 	eventSource     chan *gostatsd.Event
 	awaitingEvents  map[gostatsd.IP][]*gostatsd.Event
 	awaitingMetrics map[gostatsd.IP][]*gostatsd.Metric
@@ -82,20 +81,19 @@ type CloudHandler struct {
 }
 
 // NewCloudHandler initialises a new cloud handler.
-func NewCloudHandler(cloud gostatsd.CloudProvider, metrics MetricHandler, events EventHandler, logger logrus.FieldLogger, limiter *rate.Limiter, cacheOptions *CacheOptions) *CloudHandler {
+func NewCloudHandler(cloud gostatsd.CloudProvider, handler gostatsd.PipelineHandler, logger logrus.FieldLogger, limiter *rate.Limiter, cacheOptions *CacheOptions) *CloudHandler {
 	return &CloudHandler{
 		cacheOpts:       *cacheOptions,
 		cloud:           cloud,
-		metrics:         metrics,
-		events:          events,
+		handler:         handler,
 		limiter:         limiter,
-		metricSource:    make(chan *gostatsd.Metric),
+		metricSource:    make(chan []*gostatsd.Metric),
 		eventSource:     make(chan *gostatsd.Event),
 		emitChan:        make(chan stats.Statser),
 		awaitingEvents:  make(map[gostatsd.IP][]*gostatsd.Event),
 		awaitingMetrics: make(map[gostatsd.IP][]*gostatsd.Metric),
 		cache:           make(map[gostatsd.IP]*instanceHolder),
-		estimatedTags:   metrics.EstimatedTags() + cloud.EstimatedTags(),
+		estimatedTags:   handler.EstimatedTags() + cloud.EstimatedTags(),
 		logger:          logger,
 	}
 }
@@ -105,23 +103,42 @@ func (ch *CloudHandler) EstimatedTags() int {
 	return ch.estimatedTags
 }
 
-func (ch *CloudHandler) DispatchMetric(ctx context.Context, m *gostatsd.Metric) {
-	if ch.updateTagsAndHostname(m.SourceIP, &m.Tags, &m.Hostname) {
-		atomic.AddUint64(&ch.statsCacheHit, 1)
-		ch.metrics.DispatchMetric(ctx, m)
-		return
+func (ch *CloudHandler) DispatchMetrics(ctx context.Context, metrics []*gostatsd.Metric) {
+	var toDispatch []*gostatsd.Metric
+	var toHandle []*gostatsd.Metric
+	for _, m := range metrics {
+		if ch.updateTagsAndHostname(m.SourceIP, &m.Tags, &m.Hostname) {
+			atomic.AddUint64(&ch.statsCacheHit, 1)
+			toDispatch = append(toDispatch, m)
+		} else {
+			toHandle = append(toHandle, m)
+		}
 	}
 
-	select {
-	case <-ctx.Done():
-	case ch.metricSource <- m:
+	if len(toDispatch) > 0 {
+		ch.handler.DispatchMetrics(ctx, toDispatch)
 	}
+
+	if len(toHandle) > 0 {
+		select {
+		case <-ctx.Done():
+		case ch.metricSource <- toHandle:
+		}
+	}
+}
+
+// DispatchMetricMap re-dispatches a metric map through CloudHandler.DispatchMetrics
+// TODO: This is inefficient, and should be handled first class, however that is a major re-factor of
+//  the CloudHandler.  It is also recommended to not use a CloudHandler in an http receiver based
+//  service, as the IP is not propagated.
+func (ch *CloudHandler) DispatchMetricMap(ctx context.Context, mm *gostatsd.MetricMap) {
+	mm.DispatchMetrics(ctx, ch)
 }
 
 func (ch *CloudHandler) DispatchEvent(ctx context.Context, e *gostatsd.Event) {
 	if ch.updateTagsAndHostname(e.SourceIP, &e.Tags, &e.Hostname) {
 		atomic.AddUint64(&ch.statsCacheHit, 1)
-		ch.events.DispatchEvent(ctx, e)
+		ch.handler.DispatchEvent(ctx, e)
 		return
 	}
 	ch.wg.Add(1) // Increment before sending to the channel
@@ -135,7 +152,7 @@ func (ch *CloudHandler) DispatchEvent(ctx context.Context, e *gostatsd.Event) {
 // WaitForEvents waits for all event-dispatching goroutines to finish.
 func (ch *CloudHandler) WaitForEvents() {
 	ch.wg.Wait()
-	ch.events.WaitForEvents()
+	ch.handler.WaitForEvents()
 }
 
 func (ch *CloudHandler) RunMetrics(ctx context.Context, statser stats.Statser) {
@@ -234,8 +251,8 @@ func (ch *CloudHandler) Run(ctx context.Context) {
 			ch.handleLookupResult(ctx, lr)
 		case t := <-refreshTicker.C:
 			ch.doRefresh(ctx, t)
-		case m := <-ch.metricSource:
-			ch.handleMetric(ctx, m)
+		case metrics := <-ch.metricSource:
+			ch.handleMetrics(ctx, metrics)
 		case e := <-ch.eventSource:
 			ch.handleEvent(ctx, e)
 		case statser := <-ch.emitChan:
@@ -327,43 +344,51 @@ func (ch *CloudHandler) handleLookupResult(ctx context.Context, lr *lookupResult
 		delete(ch.awaitingMetrics, lr.ip)
 		ch.statsMetricItemsQueued -= uint64(len(metrics))
 		ch.statsMetricHostsQueued--
-		go ch.updateAndDispatchMetrics(ctx, lr.instance, metrics...)
+		go ch.updateAndDispatchMetrics(ctx, lr.instance, metrics)
 	}
 	events := ch.awaitingEvents[lr.ip]
 	if events != nil {
 		delete(ch.awaitingEvents, lr.ip)
 		ch.statsEventItemsQueued -= uint64(len(events))
 		ch.statsEventHostsQueued--
-		go ch.updateAndDispatchEvents(ctx, lr.instance, events...)
+		go ch.updateAndDispatchEvents(ctx, lr.instance, events)
 	}
 }
 
-func (ch *CloudHandler) handleMetric(ctx context.Context, m *gostatsd.Metric) {
-	holder, ok := ch.cache[m.SourceIP]
-	if ok {
-		// While metric was in the queue the cache was primed. Use the value.
-		holder.updateAccess()
-		ch.statsCacheLateHit++
-		go ch.updateAndDispatchMetrics(ctx, holder.instance, m)
-	} else {
-		// Still nothing in the cache.
-		queue := ch.awaitingMetrics[m.SourceIP]
-		ch.awaitingMetrics[m.SourceIP] = append(queue, m)
-		if len(queue) == 0 {
-			// This is the first metric in the queue
-			ch.toLookupIPs = append(ch.toLookupIPs, m.SourceIP)
-			ch.statsMetricHostsQueued++
+func (ch *CloudHandler) handleMetrics(ctx context.Context, metrics []*gostatsd.Metric) {
+	var toDispatch []*gostatsd.Metric
+	for _, m := range metrics {
+		holder, ok := ch.cache[m.SourceIP]
+		if ok {
+			// While metric was in the queue the cache was primed. Use the value.
+			ch.statsCacheLateHit++
+			holder.updateAccess()
+			updateInplace(&m.Tags, &m.Hostname, holder.instance)
+			toDispatch = append(toDispatch, m)
+		} else {
+			// Still nothing in the cache.
+			queue := ch.awaitingMetrics[m.SourceIP]
+			ch.awaitingMetrics[m.SourceIP] = append(queue, m)
+			if len(queue) == 0 {
+				// This is the first metric in the queue
+				ch.toLookupIPs = append(ch.toLookupIPs, m.SourceIP)
+				ch.statsMetricHostsQueued++
+			}
+			ch.statsMetricItemsQueued++
+			ch.statsCacheMiss++
 		}
-		ch.statsMetricItemsQueued++
-		ch.statsCacheMiss++
+	}
+
+	if len(toDispatch) > 0 {
+		go ch.handler.DispatchMetrics(ctx, toDispatch)
 	}
 }
 
-func (ch *CloudHandler) updateAndDispatchMetrics(ctx context.Context, instance *gostatsd.Instance, metrics ...*gostatsd.Metric) {
+func (ch *CloudHandler) updateAndDispatchMetrics(ctx context.Context, instance *gostatsd.Instance, metrics []*gostatsd.Metric) {
 	for _, m := range metrics {
 		updateInplace(&m.Tags, &m.Hostname, instance)
-		ch.metrics.DispatchMetric(ctx, m)
 	}
+	ch.handler.DispatchMetrics(ctx, metrics)
 }
 
 func (ch *CloudHandler) handleEvent(ctx context.Context, e *gostatsd.Event) {
@@ -372,7 +397,7 @@ func (ch *CloudHandler) handleEvent(ctx context.Context, e *gostatsd.Event) {
 		// While event was in the queue the cache was primed. Use the value.
 		holder.updateAccess()
 		ch.statsCacheLateHit++
-		go ch.updateAndDispatchEvents(ctx, holder.instance, e)
+		go ch.updateAndDispatchEvents(ctx, holder.instance, []*gostatsd.Event{e})
 	} else {
 		// Still nothing in the cache.
 		queue := ch.awaitingEvents[e.SourceIP]
@@ -387,7 +412,7 @@ func (ch *CloudHandler) handleEvent(ctx context.Context, e *gostatsd.Event) {
 	}
 }
 
-func (ch *CloudHandler) updateAndDispatchEvents(ctx context.Context, instance *gostatsd.Instance, events ...*gostatsd.Event) {
+func (ch *CloudHandler) updateAndDispatchEvents(ctx context.Context, instance *gostatsd.Instance, events []*gostatsd.Event) {
 	var dispatched int
 	defer func() {
 		ch.wg.Add(-dispatched)
@@ -395,7 +420,7 @@ func (ch *CloudHandler) updateAndDispatchEvents(ctx context.Context, instance *g
 	for _, e := range events {
 		updateInplace(&e.Tags, &e.Hostname, instance)
 		dispatched++
-		ch.events.DispatchEvent(ctx, e)
+		ch.handler.DispatchEvent(ctx, e)
 	}
 }
 

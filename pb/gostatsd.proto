@@ -1,0 +1,76 @@
+syntax = "proto3";
+
+package pb;
+
+/////////////////// Version 2
+
+message RawMessageV2 {
+    map<string, CounterTagV2> Counters = 1;
+    map<string, GaugeTagV2> Gauges = 2;
+    map<string, SetTagV2> Sets = 3;
+    map<string, TimerTagV2> Timers = 4;
+}
+
+message CounterTagV2 {
+    map<string, RawCounterV2> TagMap = 1;
+}
+
+message GaugeTagV2 {
+    map<string, RawGaugeV2> TagMap = 1;
+}
+
+message SetTagV2 {
+    map<string, RawSetV2> TagMap = 1;
+}
+
+message TimerTagV2 {
+    map<string, RawTimerV2> TagMap = 1;
+}
+
+message RawCounterV2 {
+    repeated string Tags = 1;
+    string Hostname = 2;
+    int64 Value = 3; // the count of counters is multiplied out before forwarding, rate is not required
+}
+
+message RawGaugeV2 {
+    repeated string Tags = 1;
+    string Hostname = 2;
+    double Value = 3;
+}
+
+message RawSetV2 {
+    repeated string Tags = 1;
+    string Hostname = 2;
+    repeated string Values = 3;
+}
+
+message RawTimerV2 {
+    repeated string Tags = 1;
+    string Hostname = 2;
+    double SampleCount = 3;
+    repeated double Values = 4;
+}
+
+message EventV2 {
+    string Title = 1;
+    string Text = 2;
+    int64 DateHappened = 3;
+    string Hostname = 4;
+    string AggregationKey = 5;
+    string SourceTypeName = 6;
+    repeated string Tags = 7;
+    string SourceIP = 8;
+    enum EventPriority {
+        Normal = 0;
+        Low = 1;
+    };
+    EventPriority Priority = 9;
+    enum AlertType {
+        Info = 0;
+        Warning = 1;
+        Error = 2;
+        Success = 3;
+    }
+    AlertType Type = 10;
+}

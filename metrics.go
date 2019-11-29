@@ -1,7 +1,6 @@
 package gostatsd
 
 import (
-	"bytes"
 	"fmt"
 	"hash/adler32"
 )
@@ -41,10 +40,11 @@ type Metric struct {
 	Value       float64    // The numeric value of the metric
 	Rate        float64    // The sampling rate of the metric
 	Tags        Tags       // The tags for the metric
-	TagsKey     string     // The tags rendered as a string to uniquely identify the tagset in a map
+	TagsKey     string     // The tags rendered as a string to uniquely identify the tagset in a map.  Sort of a cache.  Will be removed at some point.
 	StringValue string     // The string value for some metrics e.g. Set
 	Hostname    string     // Hostname of the source of the metric
 	SourceIP    IP         // IP of the source of the metric
+	Timestamp   Nanotime   // Most accurate known timestamp of this metric
 	Type        MetricType // The type of metric
 	DoneFunc    func()     // Returns the metric to the pool. May be nil. Call Metric.Done(), not this.
 }
@@ -59,16 +59,20 @@ func (m *Metric) Reset() {
 	m.StringValue = ""
 	m.Hostname = ""
 	m.SourceIP = ""
+	m.Timestamp = 0
 	m.Type = 0
 }
 
 // Bucket will pick a distribution bucket for this metric to land in.  max is exclusive.
 func (m *Metric) Bucket(max int) int {
-	bucket := adler32.Checksum([]byte(m.Name))
-	bucket += adler32.Checksum([]byte(m.Hostname))
+	return Bucket(m.Name, m.Hostname, max)
+}
+
+func Bucket(metricName, hostname string, max int) int {
 	// Consider hashing the tags here too
-	bucket %= uint32(max)
-	return int(bucket)
+	bucket := adler32.Checksum([]byte(metricName))
+	bucket += adler32.Checksum([]byte(hostname))
+	return int(bucket % uint32(max))
 }
 
 func (m *Metric) String() string {
@@ -82,38 +86,25 @@ func (m *Metric) Done() {
 	}
 }
 
+func (m *Metric) FormatTagsKey() string {
+	if m.TagsKey == "" {
+		m.TagsKey = FormatTagsKey(m.Hostname, m.Tags)
+	}
+	return m.TagsKey
+}
+
+func FormatTagsKey(hostname string, tags Tags) string {
+	t := tags.SortedString()
+	if hostname == "" {
+		return t
+	}
+	return t + "," + StatsdSourceID + ":" + hostname
+}
+
 // AggregatedMetrics is an interface for aggregated metrics.
 type AggregatedMetrics interface {
 	MetricsName() string
 	Delete(string)
 	DeleteChild(string, string)
 	HasChildren(string) bool
-}
-
-// MetricMap is used for storing aggregated Metric values.
-// The keys of each map are metric names.
-type MetricMap struct {
-	Counters Counters
-	Timers   Timers
-	Gauges   Gauges
-	Sets     Sets
-}
-
-func (m *MetricMap) String() string {
-	buf := new(bytes.Buffer)
-	m.Counters.Each(func(k, tags string, counter Counter) {
-		fmt.Fprintf(buf, "stats.counter.%s: %d tags=%s\n", k, counter.Value, tags)
-	})
-	m.Timers.Each(func(k, tags string, timer Timer) {
-		for _, value := range timer.Values {
-			fmt.Fprintf(buf, "stats.timer.%s: %f tags=%s\n", k, value, tags)
-		}
-	})
-	m.Gauges.Each(func(k, tags string, gauge Gauge) {
-		fmt.Fprintf(buf, "stats.gauge.%s: %f tags=%s\n", k, gauge.Value, tags)
-	})
-	m.Sets.Each(func(k, tags string, set Set) {
-		fmt.Fprintf(buf, "stats.set.%s: %d tags=%s\n", k, len(set.Values), tags)
-	})
-	return buf.String()
 }

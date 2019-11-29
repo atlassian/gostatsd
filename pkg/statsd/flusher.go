@@ -24,23 +24,21 @@ type MetricFlusher struct {
 	flushInterval      time.Duration // How often to flush metrics to the sender
 	aggregateProcesser AggregateProcesser
 	backends           []gostatsd.Backend
-	hostname           string
-	statser            stats.Statser
 }
 
 // NewMetricFlusher creates a new MetricFlusher with provided configuration.
-func NewMetricFlusher(flushInterval time.Duration, aggregateProcesser AggregateProcesser, backends []gostatsd.Backend, hostname string, statser stats.Statser) *MetricFlusher {
+func NewMetricFlusher(flushInterval time.Duration, aggregateProcesser AggregateProcesser, backends []gostatsd.Backend) *MetricFlusher {
 	return &MetricFlusher{
 		flushInterval:      flushInterval,
 		aggregateProcesser: aggregateProcesser,
 		backends:           backends,
-		hostname:           hostname,
-		statser:            statser,
 	}
 }
 
 // Run runs the MetricFlusher.
 func (f *MetricFlusher) Run(ctx context.Context) {
+	statser := stats.FromContext(ctx)
+
 	flushTicker := time.NewTicker(f.flushInterval)
 	defer flushTicker.Stop()
 
@@ -51,31 +49,33 @@ func (f *MetricFlusher) Run(ctx context.Context) {
 			return
 		case thisFlush := <-flushTicker.C: // Time to flush to the backends
 			flushDelta := thisFlush.Sub(lastFlush)
-			f.flushData(ctx, flushDelta)
-			f.statser.NotifyFlush(flushDelta)
+			if f.aggregateProcesser != AggregateProcesser(nil) {
+				f.flushData(ctx, flushDelta, statser)
+			}
+			statser.NotifyFlush(flushDelta)
 			lastFlush = thisFlush
 		}
 	}
 }
 
-func (f *MetricFlusher) flushData(ctx context.Context, flushInterval time.Duration) {
+func (f *MetricFlusher) flushData(ctx context.Context, flushInterval time.Duration, statser stats.Statser) {
 	var sendWg sync.WaitGroup
-	timerTotal := f.statser.NewTimer("flusher.total_time", nil)
+	timerTotal := statser.NewTimer("flusher.total_time", nil)
 	processWait := f.aggregateProcesser.Process(ctx, func(workerId int, aggr Aggregator) {
 		// This is in the flusher, but it's an aggregator action, so put it in that space.
 		tags := gostatsd.Tags{fmt.Sprintf("aggregator_id:%d", workerId)}
 
-		timerFlush := f.statser.NewTimer("aggregator.aggregation_time", tags)
+		timerFlush := statser.NewTimer("aggregator.aggregation_time", tags)
 		aggr.Flush(flushInterval)
 		timerFlush.SendGauge()
 
-		timerProcess := f.statser.NewTimer("aggregator.process_time", tags)
+		timerProcess := statser.NewTimer("aggregator.process_time", tags)
 		aggr.Process(func(m *gostatsd.MetricMap) {
 			f.sendMetricsAsync(ctx, &sendWg, m)
 		})
 		timerProcess.SendGauge()
 
-		timerReset := f.statser.NewTimer("aggregator.reset_time", tags)
+		timerReset := statser.NewTimer("aggregator.reset_time", tags)
 		aggr.Reset()
 		timerReset.SendGauge()
 	})

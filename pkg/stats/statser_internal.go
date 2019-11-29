@@ -8,18 +8,6 @@ import (
 	"github.com/atlassian/gostatsd"
 )
 
-// InternalMetricHandler is an interface to dispatch metrics to.  Exists
-// to break circular dependencies.
-type InternalMetricHandler interface {
-	DispatchMetric(ctx context.Context, m *gostatsd.Metric)
-}
-
-// InternalEventHandler is an interface to dispatch metrics to.  Exists
-// to break circular dependencies.
-type InternalEventHandler interface {
-	DispatchEvent(context.Context, *gostatsd.Event)
-}
-
 // InternalStatser is a Statser which sends metrics to a handler on a best
 // effort basis.  If all buffers are full, metrics will be dropped.  Dropped
 // metrics will be accumulated and emitted as a gauge (not counter).  Metrics
@@ -36,21 +24,21 @@ type InternalStatser struct {
 	tags      gostatsd.Tags
 	namespace string
 	hostname  string
-	metrics   InternalMetricHandler
-	events    InternalEventHandler
+	handler   gostatsd.PipelineHandler
 	dropped   uint64
 }
 
+const bufferSize = 1000 // estimating this is difficult and tends to cause problems if too small
+
 // NewInternalStatser creates a new Statser which sends metrics to the
 // supplied InternalHandler.
-func NewInternalStatser(bufferSize int, tags gostatsd.Tags, namespace, hostname string, metrics InternalMetricHandler, events InternalEventHandler) *InternalStatser {
+func NewInternalStatser(tags gostatsd.Tags, namespace, hostname string, handler gostatsd.PipelineHandler) *InternalStatser {
 	return &InternalStatser{
 		buffer:    make(chan *gostatsd.Metric, bufferSize),
 		tags:      tags,
 		namespace: namespace,
 		hostname:  hostname,
-		metrics:   metrics,
-		events:    events,
+		handler:   handler,
 	}
 }
 
@@ -79,6 +67,7 @@ func (is *InternalStatser) Gauge(name string, value float64, tags gostatsd.Tags)
 		Value:    value,
 		Tags:     tags,
 		Hostname: is.hostname,
+		Rate:     1,
 		Type:     gostatsd.GAUGE,
 	}
 	is.dispatchInternal(g)
@@ -91,6 +80,7 @@ func (is *InternalStatser) Count(name string, amount float64, tags gostatsd.Tags
 		Value:    amount,
 		Tags:     tags,
 		Hostname: is.hostname,
+		Rate:     1,
 		Type:     gostatsd.COUNTER,
 	}
 	is.dispatchInternal(c)
@@ -108,6 +98,7 @@ func (is *InternalStatser) TimingMS(name string, ms float64, tags gostatsd.Tags)
 		Value:    ms,
 		Tags:     tags,
 		Hostname: is.hostname,
+		Rate:     1,
 		Type:     gostatsd.TIMER,
 	}
 	is.dispatchInternal(c)
@@ -131,6 +122,8 @@ func (is *InternalStatser) WithTags(tags gostatsd.Tags) Statser {
 // Attempts to dispatch a metric via the internal buffer.  Non-blocking.
 // Failure to send will be tracked, but not propagated to the caller.
 func (is *InternalStatser) dispatchInternal(metric *gostatsd.Metric) {
+	metric.Timestamp = gostatsd.NanoNow()
+
 	select {
 	case is.buffer <- metric:
 		// great success
@@ -146,5 +139,5 @@ func (is *InternalStatser) dispatchMetric(ctx context.Context, metric *gostatsd.
 		metric.Name = is.namespace + "." + metric.Name
 	}
 	metric.Tags = metric.Tags.Concat(is.tags)
-	is.metrics.DispatchMetric(ctx, metric)
+	is.handler.DispatchMetrics(ctx, []*gostatsd.Metric{metric})
 }

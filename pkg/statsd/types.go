@@ -8,22 +8,6 @@ import (
 	"github.com/atlassian/gostatsd/pkg/stats"
 )
 
-// MetricHandler can be used to handle metrics
-type MetricHandler interface {
-	// EstimatedTags returns a guess for how many tags to pre-allocate
-	EstimatedTags() int
-	// DispatchMetric dispatches a metric to the next step in a pipeline.
-	DispatchMetric(ctx context.Context, m *gostatsd.Metric)
-}
-
-// EventHandler can be used to handle events
-type EventHandler interface {
-	// DispatchEvent dispatches event to the next step in a pipeline.
-	DispatchEvent(ctx context.Context, e *gostatsd.Event)
-	// WaitForEvents waits for all event-dispatching goroutines to finish.
-	WaitForEvents()
-}
-
 // DispatcherProcessFunc is a function that gets executed by Dispatcher for each Aggregator, passing it into the function.
 type DispatcherProcessFunc func(int, Aggregator)
 
@@ -41,7 +25,8 @@ type ProcessFunc func(*gostatsd.MetricMap)
 //
 // Incoming metrics should be passed via Receive function.
 type Aggregator interface {
-	Receive(*gostatsd.Metric, time.Time)
+	Receive(metrics ...*gostatsd.Metric)
+	ReceiveMap(mm *gostatsd.MetricMap)
 	Flush(interval time.Duration)
 	Process(ProcessFunc)
 	Reset()
@@ -49,9 +34,10 @@ type Aggregator interface {
 
 // Datagram is a received UDP datagram that has not been parsed into Metric/Event(s)
 type Datagram struct {
-	IP       gostatsd.IP
-	Msg      []byte
-	DoneFunc func() // to be called once the datagram has been parsed and msg can be freed
+	IP        gostatsd.IP
+	Msg       []byte
+	Timestamp gostatsd.Nanotime
+	DoneFunc  func() // to be called once the datagram has been parsed and msg can be freed
 }
 
 // MetricEmitter is an object that emits metrics.  Used to pass a Statser to the object

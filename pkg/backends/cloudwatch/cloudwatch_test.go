@@ -5,7 +5,11 @@ import (
 	"context"
 	"testing"
 
+	"github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
+
 	"github.com/atlassian/gostatsd"
+	"github.com/atlassian/gostatsd/pkg/transport"
 
 	"github.com/aws/aws-sdk-go/service/cloudwatch"
 	"github.com/aws/aws-sdk-go/service/cloudwatch/cloudwatchiface"
@@ -28,7 +32,8 @@ func TestSendMetrics(t *testing.T) {
 	t.Parallel()
 
 	duration, _ := time.ParseDuration("50ms")
-	cli, err := NewClient("ns", duration, gostatsd.TimerSubtypes{})
+	p := transport.NewTransportPool(logrus.New(), viper.New())
+	cli, err := NewClient("ns", "default", duration, gostatsd.TimerSubtypes{}, p)
 	require.NoError(t, err)
 
 	expected := []struct {
@@ -85,7 +90,8 @@ func TestSendMetricDimensions(t *testing.T) {
 	t.Parallel()
 
 	duration, _ := time.ParseDuration("50ms")
-	cli, err := NewClient("ns", duration, gostatsd.TimerSubtypes{})
+	p := transport.NewTransportPool(logrus.New(), viper.New())
+	cli, err := NewClient("ns", "default", duration, gostatsd.TimerSubtypes{}, p)
 	require.NoError(t, err)
 
 	metricMap := &gostatsd.MetricMap{
@@ -135,6 +141,7 @@ func TestSendMetricDimensions(t *testing.T) {
 
 }
 
+// nolint:dupl
 func metricsOneOfEach() *gostatsd.MetricMap {
 	return &gostatsd.MetricMap{
 		Counters: gostatsd.Counters{

@@ -1,6 +1,120 @@
+19.1.0
+------
+- Adds support for New Relics new dimensional metrics pipeline.  See [BACKENDS.md].
+- Test fixes
+
+19.0.1
+------
+- Internal refactor to de-dupe 8 getSubVipers
+
+19.0.0
+------
+- BREAKING: Refactor how http clients are configured.  See [TRANSPORT.md] for details.  Some
+  configuration options are in a new location, however defaults are generally unchanged.
+
+18.1.0
+------
+- Build with Go 1.13.0
+- Base docker images on alpine 3.10 and ubuntu 18.04
+
+18.0.0
+------
+- Support for `custom-headers` for http_forwarder_v2
+
+17.2.0
+------
+- Support `log-raw-metric` configuration
+
+17.1.2
+------
+- Remove support for disabling retries in the forwarder
+- Document how to disable retries using timeout values
+
+17.1.1
+------
+- Adding support to disable retries within the gostatsd forwarder
+
+17.1.0
+------
+- NewRelic event support added by Kav91
+
+17.0.1
+------
+- Moved noisy log line from info to debug
+
+17.0.0
+------
+- BREAKING: Added support for [Graphite 1.1 style tags](https://grafana.com/blog/2018/01/11/graphite-1.1-teaching-an-old-dog-new-tricks/),
+  details can be found in [BACKENDS.md].
+- Moved backend documentation from [README.md] to [BACKENDS.md], still lacking documentation for most backends.
+
+16.0.0
+------
+- Build with Go 1.12.3 for real.
+
+15.0.2
+------
+- Fixed events in HTTP style
+
+15.0.1
+------
+- Update to Alpine 3.9
+
+15.0.0
+------
+- Build with Go 1.12.3
+- Changed linter to golangci-lint
+
+14.1.0
+------
+- Fixes internal metrics for the `dispatch_aggregator` channel stats, and `aggregator.*` metrics.
+
+14.0.0
+------
+- More internal pipeline refactoring, to optimize the http ingestion path.
+
+13.0.1
+------
+- Adjust log level about forwarding failures and stop logging retries.
+
+13.0.0
+------
+- Removed v1 ingestion
+- Refactor internal pipeline
+- Added `hostname` flag to support override for internal metrics.  Defaults to system hostname.
+  Use this flag when running within docker to make host identification easier.
+
+12.0.2
+------
+- Fix bug with metrics going through the consolidator not having tags applied properly
+
+12.0.1
+------
+- Emit v2 ingestion http metrics.
+
+12.0.0
+------
+- Add metric consolidation in the HTTP path.  Minor configuration changes, specifically `metrics-per-batch` is replaced
+  with `consolidator-slots`.  Defaults to the number of parsers.
+- Introduces v2 ingestion.  Production use should be ok.
+
+11.0.0
+------
+- Add http forwarding and ingestion.  See `Configuring the server mode` and `Configuring HTTP servers` in [README.md]
+  for details.  Not recommended for production use at this time.  Healthcheck is ok to use
+- Introduces v1 ingestion
+
+10.0.1
+------
+- Fix linter failures
+
+10.0.0
+------
+- New Relic backend supports submitting directly to Insights Collector, refer to README.md for details.
+
 9.1.0
 -----
-- NewRelic backend added by Kav91, see README.md for options and details
+- New Relic backend added by Kav91, see README.md for options and details
 
 9.0.0
 -----

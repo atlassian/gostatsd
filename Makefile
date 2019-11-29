@@ -1,87 +1,98 @@
+GO111MODULE := on
 VERSION_VAR := main.Version
 GIT_VAR := main.GitCommit
 BUILD_DATE_VAR := main.BuildDate
-REPO_VERSION := $$(git describe --abbrev=0 --tags)
 BUILD_DATE := $$(date +%Y-%m-%d-%H:%M)
-GIT_HASH := $$(git rev-parse --short HEAD)
+REPO_VERSION ?= $$(git describe --abbrev=0 --tags)
+GIT_HASH ?= $$(git rev-parse --short HEAD)
 GOBUILD_VERSION_ARGS := -ldflags "-s -X $(VERSION_VAR)=$(REPO_VERSION) -X $(GIT_VAR)=$(GIT_HASH) -X $(BUILD_DATE_VAR)=$(BUILD_DATE)"
 GOBUILD_VERSION_ARGS_WITH_SYMS := -ldflags "-X $(VERSION_VAR)=$(REPO_VERSION) -X $(GIT_VAR)=$(GIT_HASH) -X $(BUILD_DATE_VAR)=$(BUILD_DATE)"
 BINARY_NAME := gostatsd
 IMAGE_NAME := atlassianlabs/$(BINARY_NAME)
 ARCH ?= $$(uname -s | tr A-Z a-z)
-METALINTER_CONCURRENCY ?= 4
-GOVERSION := 1.10.2
+GOVERSION := 1.13  # Keep in sync with .travis.yml
 GP := /gopath
 MAIN_PKG := github.com/atlassian/gostatsd/cmd/gostatsd
 CLUSTER_PKG := github.com/atlassian/gostatsd/cmd/cluster
+PROTOBUF_VERSION ?= 3.6.1
 
 setup: setup-ci
-	go get -u github.com/githubnemo/CompileDaemon
-	go get -u github.com/jstemmer/go-junit-report
-	go get -u golang.org/x/tools/cmd/goimports
+	go get github.com/githubnemo/CompileDaemon
+	go get github.com/jstemmer/go-junit-report
+	go get golang.org/x/tools/cmd/goimports
 
-setup-ci:
-	go get -u github.com/Masterminds/glide
-	go get -u github.com/alecthomas/gometalinter
-	gometalinter --install
-	glide install --strip-vendor
+tools/bin/protoc:
+	curl -L -O https://github.com/protocolbuffers/protobuf/releases/download/v$(PROTOBUF_VERSION)/protoc-$(PROTOBUF_VERSION)-linux-x86_64.zip
+	unzip -d tools/ protoc-$(PROTOBUF_VERSION)-linux-x86_64.zip
+	rm protoc-$(PROTOBUF_VERSION)-linux-x86_64.zip
+
+setup-ci: tools/bin/protoc
+	# Unpin this when gitea 1.10 is released
+	# https://github.com/go-gitea/gitea/issues/8126
+	# https://github.com/atlassian/gostatsd/issues/266
+	go get github.com/golangci/golangci-lint/cmd/golangci-lint@v1.18.0
 
 build-cluster: fmt
 	go build -i -v -o build/bin/$(ARCH)/cluster $(GOBUILD_VERSION_ARGS) $(CLUSTER_PKG)
 
-build: fmt
+pb/gostatsd.pb.go: pb/gostatsd.proto
+	go build -o protoc-gen-go github.com/golang/protobuf/protoc-gen-go/ && \
+	    tools/bin/protoc --go_out=. $< && \
+	    rm protoc-gen-go
+
+build: pb/gostatsd.pb.go fmt
 	go build -i -v -o build/bin/$(ARCH)/$(BINARY_NAME) $(GOBUILD_VERSION_ARGS) $(MAIN_PKG)
 
 build-race: fmt
 	go build -i -v -race -o build/bin/$(ARCH)/$(BINARY_NAME) $(GOBUILD_VERSION_ARGS) $(MAIN_PKG)
 
-build-all:
-	go install -v $$(glide nv)
+build-all: pb/gostatsd.pb.go
+	go install -v ./...
+
+test-all: fmt test test-race bench bench-race check cover
 
 fmt:
-	gofmt -w=true -s $$(find . -type f -name '*.go' -not -path "./vendor/*")
-	goimports -w=true -d $$(find . -type f -name '*.go' -not -path "./vendor/*")
+	gofmt -w=true -s $$(find . -type f -name '*.go' -not -path "./vendor/*" -not -path "./pb/*")
+	goimports -w=true -d $$(find . -type f -name '*.go' -not -path "./vendor/*" -not -path "./pb/*")
 
-test:
-	go test $$(glide nv)
+test: pb/gostatsd.pb.go
+	go test ./...
 
-test-race:
-	go test -race $$(glide nv)
+test-race: pb/gostatsd.pb.go
+	go test -race ./...
 
-bench:
-	go test -bench=. -run=XXX $$(glide nv)
+bench: pb/gostatsd.pb.go
+	go test -bench=. -run=XXX ./...
 
-bench-race:
-	go test -race -bench=. -run=XXX $$(glide nv)
+bench-race: pb/gostatsd.pb.go
+	go test -race -bench=. -run=XXX ./...
 
-cover:
+cover: pb/gostatsd.pb.go
 	./cover.sh
 	go tool cover -func=coverage.out
 	go tool cover -html=coverage.out
 
-coveralls:
+coveralls: pb/gostatsd.pb.go
 	./cover.sh
 	goveralls -coverprofile=coverage.out -service=travis-ci
 
 junit-test: build
-	go test -v $$(glide nv) | go-junit-report > test-report.xml
+	go test -v ./... | go-junit-report > test-report.xml
 
-check:
+check: pb/gostatsd.pb.go
 	go install ./cmd/gostatsd
 	go install ./cmd/tester
-	gometalinter --concurrency=$(METALINTER_CONCURRENCY) --deadline=600s ./... --vendor \
-		--linter='errcheck:errcheck:-ignore=net:Close' --cyclo-over=20 \
-		--disable=interfacer --disable=golint --disable=gosec --dupl-threshold=200
+	golangci-lint run --deadline=600s --enable=gocyclo --enable=dupl \
+		--disable=interfacer --disable=golint
 
-check-all:
+check-all: pb/gostatsd.pb.go
 	go install ./cmd/gostatsd
 	go install ./cmd/tester
-	gometalinter --concurrency=$(METALINTER_CONCURRENCY) --deadline=600s ./... --vendor --cyclo-over=20 \
-		--dupl-threshold=65
+	golangci-lint run --deadline=600s --enable=gocyclo --enable=dupl
 
 fuzz-setup:
-	go get -v -u github.com/dvyukov/go-fuzz/go-fuzz
-	go get -v -u github.com/dvyukov/go-fuzz/go-fuzz-build
+	go get -v github.com/dvyukov/go-fuzz/go-fuzz
+	go get -v github.com/dvyukov/go-fuzz/go-fuzz-build
 
 fuzz:
 	go-fuzz-build github.com/atlassian/gostatsd/pkg/statsd
@@ -94,7 +105,7 @@ git-hook:
 	cp dev/push-hook.sh .git/hooks/pre-push
 
 # Compile a static binary. Cannot be used with -race
-docker:
+docker: pb/gostatsd.pb.go
 	docker pull golang:$(GOVERSION)
 	docker run \
 		--rm \
@@ -107,7 +118,7 @@ docker:
 	docker build --pull -t $(IMAGE_NAME):$(GIT_HASH) build
 
 # Compile a binary with -race. Needs to be run on a glibc-based system.
-docker-race:
+docker-race: pb/gostatsd.pb.go
 	docker pull golang:$(GOVERSION)
 	docker run \
 		--rm \
@@ -119,7 +130,7 @@ docker-race:
 	docker build --pull -t $(IMAGE_NAME):$(GIT_HASH)-race -f build/Dockerfile-glibc build
 
 # Compile a static binary with symbols. Cannot be used with -race
-docker-symbols:
+docker-symbols: pb/gostatsd.pb.go
 	docker pull golang:$(GOVERSION)
 	docker run \
 		--rm \

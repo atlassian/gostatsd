@@ -18,6 +18,7 @@ import (
 	"github.com/atlassian/gostatsd/pkg/backends"
 	"github.com/atlassian/gostatsd/pkg/cloudproviders"
 	"github.com/atlassian/gostatsd/pkg/statsd"
+	"github.com/atlassian/gostatsd/pkg/transport"
 
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
@@ -87,6 +88,9 @@ func constructServer(v *viper.Viper) (*statsd.Server, error) {
 	// Logger
 	logger := logrus.StandardLogger()
 
+	// HTTP client pool
+	pool := transport.NewTransportPool(logger, v)
+
 	// Cloud provider
 	cloud, err := cloudproviders.Init(v.GetString(statsd.ParamCloudProvider), v, logger)
 	if err != nil {
@@ -96,7 +100,7 @@ func constructServer(v *viper.Viper) (*statsd.Server, error) {
 	backendNames := v.GetStringSlice(statsd.ParamBackends)
 	backendsList := make([]gostatsd.Backend, len(backendNames))
 	for i, backendName := range backendNames {
-		backend, errBackend := backends.InitBackend(backendName, v)
+		backend, errBackend := backends.InitBackend(backendName, v, pool)
 		if errBackend != nil {
 			return nil, errBackend
 		}
@@ -115,6 +119,7 @@ func constructServer(v *viper.Viper) (*statsd.Server, error) {
 		InternalTags:        v.GetStringSlice(statsd.ParamInternalTags),
 		InternalNamespace:   v.GetString(statsd.ParamInternalNamespace),
 		DefaultTags:         v.GetStringSlice(statsd.ParamDefaultTags),
+		Hostname:            v.GetString(statsd.ParamHostname),
 		ExpiryInterval:      v.GetDuration(statsd.ParamExpiryInterval),
 		FlushInterval:       v.GetDuration(statsd.ParamFlushInterval),
 		IgnoreHost:          v.GetBool(statsd.ParamIgnoreHost),
@@ -131,6 +136,8 @@ func constructServer(v *viper.Viper) (*statsd.Server, error) {
 		HeartbeatEnabled:    v.GetBool(statsd.ParamHeartbeatEnabled),
 		ReceiveBatchSize:    v.GetInt(statsd.ParamReceiveBatchSize),
 		ConnPerReader:       v.GetBool(statsd.ParamConnPerReader),
+		ServerMode:          v.GetString(statsd.ParamServerMode),
+		LogRawMetric:        v.GetBool(statsd.ParamLogRawMetric),
 		CacheOptions: statsd.CacheOptions{
 			CacheRefreshPeriod:        v.GetDuration(statsd.ParamCacheRefreshPeriod),
 			CacheEvictAfterIdlePeriod: v.GetDuration(statsd.ParamCacheEvictAfterIdlePeriod),
@@ -143,7 +150,8 @@ func constructServer(v *viper.Viper) (*statsd.Server, error) {
 		},
 		DisabledSubTypes:          gostatsd.DisabledSubMetrics(v),
 		BadLineRateLimitPerSecond: rate.Limit(v.GetFloat64(statsd.ParamBadLinesPerMinute) / 60.0),
-		Viper: v,
+		Viper:                     v,
+		TransportPool:             pool,
 	}, nil
 }
 

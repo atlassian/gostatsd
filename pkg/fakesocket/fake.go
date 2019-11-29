@@ -20,8 +20,8 @@ var FakeAddr = &net.UDPAddr{
 	Port: 8181,
 }
 
-var ErrClosedConnection = errors.New("Connection is closed")
-var ErrAlreadyClosedConnection = errors.New("Connection is already closed")
+var ErrClosedConnection = errors.New("connection is closed")
+var ErrAlreadyClosedConnection = errors.New("connection is already closed")
 
 // FakePacketConn is a fake net.PacketConn (and net.Conn) providing FakeMetric when read from.
 type FakePacketConn struct {

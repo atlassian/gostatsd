@@ -4,8 +4,6 @@ import (
 	"errors"
 	"strconv"
 	"testing"
-
-	"github.com/atlassian/gostatsd/pkg/stats"
 )
 
 func TestFlusherHandleSendResultNoErrors(t *testing.T) {
@@ -19,7 +17,7 @@ func TestFlusherHandleSendResultNoErrors(t *testing.T) {
 		errs := errs
 		t.Run(strconv.Itoa(pos), func(t *testing.T) {
 			t.Parallel()
-			fl := NewMetricFlusher(0, nil, nil, "host", stats.NewNullStatser())
+			fl := NewMetricFlusher(0, nil, nil)
 			fl.handleSendResult(errs)
 
 			if fl.lastFlush == 0 || fl.lastFlushError != 0 {
@@ -41,7 +39,7 @@ func TestFlusherHandleSendResultError(t *testing.T) {
 		errs := errs
 		t.Run(strconv.Itoa(pos), func(t *testing.T) {
 			t.Parallel()
-			fl := NewMetricFlusher(0, nil, nil, "host", stats.NewNullStatser())
+			fl := NewMetricFlusher(0, nil, nil)
 			fl.handleSendResult(errs)
 
 			if fl.lastFlushError == 0 || fl.lastFlush != 0 {

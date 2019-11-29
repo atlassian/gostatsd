@@ -43,6 +43,7 @@ func TestStatsdThroughput(t *testing.T) {
 		HeartbeatEnabled:    DefaultHeartbeatEnabled,
 		ReceiveBatchSize:    DefaultReceiveBatchSize,
 		MaxConcurrentEvents: 2,
+		ServerMode:          "standalone",
 		CacheOptions: CacheOptions{
 			CacheRefreshPeriod:        DefaultCacheRefreshPeriod,
 			CacheEvictAfterIdlePeriod: DefaultCacheEvictAfterIdlePeriod,
