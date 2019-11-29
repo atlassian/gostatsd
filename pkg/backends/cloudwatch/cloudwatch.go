@@ -39,7 +39,7 @@ const BackendName = "cloudwatch"
 
 type QueueItem struct {
 	metrics  []*cloudwatch.MetricDatum
-	callback *gostatsd.SendCallback
+	callback gostatsd.SendCallback
 }
 
 // Client is an object that is used to send messages to AWS CloudWatch.
@@ -272,7 +272,7 @@ func (client *Client) flush() {
 	log.Infof("[%s] Pushed %d metrics in %d requests", BackendName, length, requests)
 
 	for _, q := range queue {
-		go (*q.callback)(errors)
+		go q.callback(errors)
 	}
 }
 
@@ -294,7 +294,7 @@ func (client *Client) SendMetricsAsync(ctx context.Context, metrics *gostatsd.Me
 	client.queueMutex.RLock()
 	client.queue = append(client.queue, &QueueItem{
 		metrics:  metricData,
-		callback: &cb,
+		callback: cb,
 	})
 	client.queueMutex.RUnlock()
 
