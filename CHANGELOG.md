@@ -1,3 +1,7 @@
+19.2.0
+------
+- Batch metrics sent to CloudWatch to optimize costs.  Contributed by JorgenEvens.
+
 19.1.0
 ------
 - Adds support for New Relics new dimensional metrics pipeline.  See [BACKENDS.md].

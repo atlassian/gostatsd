@@ -3,10 +3,59 @@ Configuring backends
 Backends must be configured through the usage of a configuration file (toml, yaml and json are supported), pass via
 `--config-path`.
 
-Documentation is currently provided for `graphite` and `newrelic` backends.  For `datadog`, `statsdaemon`, `stdout`,
-and `cloudwatch` please refer to the source code.
+Documentation is currently provided for `cloudwatch`, `graphite` and `newrelic` backends.  For `datadog`,
+`statsdaemon`, and `stdout`, please refer to the source code.
 
 All configuration is in a stanza named after the backend, and takes simple key value pairs.
+
+CloudWatch
+----------
+The CloudWatch backend was contributed by JorgenEvens.
+
+This backend submits metrics to AWS CloudWatch.  The namespace is configurable, and metrics are submitted with the
+below types.
+
+#### Metric types
+Counter:
+- `stats.counter.<name>.count`: Count
+- `stats.counter.<name>.per_second`: Count/Second
+
+Timer:
+- `stats.timers.<name>.lower`: Milliseconds
+- `stats.timers.<name>.upper`: Milliseconds
+- `stats.timers.<name>.count`: Count
+- `stats.timers.<name>.count_ps`: Count/Second
+- `stats.timers.<name>.mean`: Milliseconds
+- `stats.timers.<name>.median`: Milliseconds
+- `stats.timers.<name>.std`: Milliseconds
+- `stats.timers.<name>.sum`: Milliseconds
+- `stats.timers.<name>.sum_squares`: Milliseconds
+- `stats.timers.<name>.*_XX`: Milliseconds (for percentiles, as configured)
+
+Note: as gostatsd has no knowledge of the actual type, milliseconds is assumed.  If the metric is actually something
+else (such as nanoseconds or content-length), care must be taken when setting up the CloudWatch graphs.
+
+Gauge:
+- `stats.gauge.<name>`: None
+
+Set:
+- `status.set.<name>`: None
+
+#### Example with defaults
+```
+[cloudwatch]
+batch-duration='50ms'
+namespace='StatsD'
+transport='default'
+```
+
+The configuration settings are as follows:
+- `batch-duration`: to minimize calls to the CloudWatch API, metrics are batched before sending.  This option configures the timeout on the batching.
+- `namespace`: configures the CloudWatch namespace to send to
+- `transport`: see [TRANSPORT.md] for the transport settings
+
+#### Internal metrics
+There are currently no internal metrics for this backend.
 
 Graphite
 --------
