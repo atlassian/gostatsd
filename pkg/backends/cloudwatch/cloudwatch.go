@@ -29,7 +29,6 @@ const (
 	defaultTransport     = "default"
 )
 
-
 // Maximum number of dimensions per metric
 // https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/cloudwatch_limits.html
 const MAX_DIMENSIONS = 10
@@ -283,7 +282,7 @@ func (client *Client) flush() {
 		errors = append(errors, err)
 	}
 
-	log.Infof("[%s] Pushed %d metrics in %d requests", BackendName, length, requests)
+	// TODO: Metrics about how many metrics were sent, and how many requests were required.  Maybe others.
 
 	for _, q := range queue {
 		go q.callback(errors)
