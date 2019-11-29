@@ -199,27 +199,41 @@ func (client *Client) buildMetricData(metrics *gostatsd.MetricMap) (metricData [
 	return metricData
 }
 
-func (client *Client) flush() {
+// setupFlushTimer will either increase the timeout on the flush timer, or create the flush timer if it doesn't
+// exist yet.  It returns true or false to indicate whether or not the caller is responsible for servicing the
+// timer when it actually expires (true if it should).  Thread safe.
+func (client *Client) setupFlushTimer() bool {
 	client.timerMutex.Lock()
-
-	// If there already is a timer, we already have a function waiting to execute
+	defer client.timerMutex.Unlock()
 	if client.timer != nil {
 		client.timer.Reset(client.batchDuration)
-		client.timerMutex.Unlock()
-		return
+		return false
+	} else {
+		client.timer = time.NewTimer(client.batchDuration)
+		return true
 	}
+}
 
-	client.timer = time.NewTimer(client.batchDuration)
-	client.timerMutex.Unlock()
-
-	timer := client.timer
-
-	// Wait until timer expires
-	<-timer.C
-
+// clearFlushTimer will stop the flush timer.  Thread safe.
+func (client *Client) clearFlushTimer() {
 	client.timerMutex.Lock()
 	client.timer = nil // Stop current timer
 	client.timerMutex.Unlock()
+}
+
+func (client *Client) flush() {
+	if !client.setupFlushTimer() {
+		return
+	}
+
+	// This is safe to read outside the timerMutex, as only the
+	// goroutine that created the initial timer can ever be here
+	<-client.timer.C
+
+	// After this another goroutine could potentially run, start a
+	// timer, have that timer expire, and collect the data we were
+	// going to send - but that's ok.
+	client.clearFlushTimer()
 
 	// Copy pending metric items and create new queue instance
 	// client.queue is protected by a Read-Write Lock such
