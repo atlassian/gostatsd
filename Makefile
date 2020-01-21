@@ -17,9 +17,9 @@ CLUSTER_PKG := github.com/atlassian/gostatsd/cmd/cluster
 PROTOBUF_VERSION ?= 3.6.1
 
 setup: setup-ci
-	go get github.com/githubnemo/CompileDaemon
-	go get github.com/jstemmer/go-junit-report
-	go get golang.org/x/tools/cmd/goimports
+	go install github.com/githubnemo/CompileDaemon \
+		github.com/jstemmer/go-junit-report \
+		golang.org/x/tools/cmd/goimports
 
 tools/bin/protoc:
 	curl -L -O https://github.com/protocolbuffers/protobuf/releases/download/v$(PROTOBUF_VERSION)/protoc-$(PROTOBUF_VERSION)-linux-x86_64.zip
@@ -27,10 +27,7 @@ tools/bin/protoc:
 	rm protoc-$(PROTOBUF_VERSION)-linux-x86_64.zip
 
 setup-ci: tools/bin/protoc
-	# Unpin this when gitea 1.10 is released
-	# https://github.com/go-gitea/gitea/issues/8126
-	# https://github.com/atlassian/gostatsd/issues/266
-	go get github.com/golangci/golangci-lint/cmd/golangci-lint@v1.18.0
+	go install github.com/golangci/golangci-lint/cmd/golangci-lint
 
 build-cluster: fmt
 	go build -i -v -o build/bin/$(ARCH)/cluster $(GOBUILD_VERSION_ARGS) $(CLUSTER_PKG)
@@ -91,8 +88,7 @@ check-all: pb/gostatsd.pb.go
 	golangci-lint run --deadline=600s --enable=gocyclo --enable=dupl
 
 fuzz-setup:
-	go get -v github.com/dvyukov/go-fuzz/go-fuzz
-	go get -v github.com/dvyukov/go-fuzz/go-fuzz-build
+	go install github.com/dvyukov/go-fuzz/go-fuzz github.com/dvyukov/go-fuzz/go-fuzz-build
 
 fuzz:
 	go-fuzz-build github.com/atlassian/gostatsd/pkg/statsd
