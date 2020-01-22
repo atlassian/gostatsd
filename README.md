@@ -24,7 +24,7 @@ server based on load.
 
 Building the server
 -------------------
-Gostatsd currently targets Go 1.12.3.  If you are compiling from source, please ensure you are running this version.
+Gostatsd currently targets Go 1.13.6.  If you are compiling from source, please ensure you are running this version.
 
 From the `gostatsd` directory run `make build`. The binary will be built in `build/bin/<arch>/gostatsd`.
 
@@ -33,7 +33,7 @@ and again if the dependencies change.  A [protobuf](https://github.com/protocolb
 directory.  Managing this in a platform agnostic way is difficult, but PRs are welcome. Hopefully it will be sufficient to use the generated protobuf
 files in the majority of cases.
 
-If you are unable to build `gostatsd` please check your go version, and try running `make setup` again before reporting a bug.
+If you are unable to build `gostatsd` please check your Go version, and try running `make setup` again before reporting a bug.
 
 Running the server
 ------------------
@@ -80,7 +80,7 @@ following configuration options:
   the upstream flush interval. Defaults to `1s`.
 - `transport`: see [TRANSPORT.md] for how to configure the transport.
 - `log-raw-metric`: logs raw metrics received from the network.  Defaults to `false`.
-- `custom-headers` : a map of strings that are added to each request sent to allow for additional network routing / request inspection. 
+- `custom-headers` : a map of strings that are added to each request sent to allow for additional network routing / request inspection.
   Not required, default is empty. Example: `--custom-headers='{"region" : "us-east-1", "service" : "event-producer"}'`
 
 Configuring HTTP servers
@@ -247,7 +247,7 @@ In your source code:
 
     import "github.com/atlassian/gostatsd/pkg/statsd"
 
-Note that this project uses go modules for dependency management.
+Note that this project uses Go modules for dependency management.
 
 Documentation can be found via `go doc github.com/atlassian/gostatsd/pkg/statsd` or at
 https://godoc.org/github.com/atlassian/gostatsd/pkg/statsd
@@ -276,7 +276,7 @@ License
 -------
 
 Copyright (c) 2012 Kamil Kisiel.
-Copyright @ 2016-2017 Atlassian Pty Ltd and others.
+Copyright @ 2016-2020 Atlassian Pty Ltd and others.
 
 Licensed under the MIT license. See LICENSE file.
 

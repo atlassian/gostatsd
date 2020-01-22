@@ -6,7 +6,7 @@ services:
   - docker
 
 go:
-  - "1.13"  # Keep in sync with Makefile
+  - "1.13.6"  # Keep in sync with Makefile and README.md
 
 os:
   - linux
