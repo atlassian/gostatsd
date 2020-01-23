@@ -1,6 +1,8 @@
 package statsd
 
 import (
+	"github.com/atlassian/gostatsd/pkg/cloudproviders/aws"
+	"github.com/atlassian/gostatsd/pkg/cloudproviders/k8s"
 	"runtime"
 	"time"
 
@@ -31,6 +33,43 @@ var DefaultTags = gostatsd.Tags{}
 
 // DefaultInternalTags is the default list of additional tags on internal metrics
 var DefaultInternalTags = gostatsd.Tags{}
+
+// DefaultCloudProviderCacheValues contains the default cache values for each cloud provider.
+var DefaultCloudProviderCacheValues = map[string]CacheOptions{
+	k8s.ProviderName: {
+		// Basically the CacheRefreshPeriod is the granularity at which we care about batching data.
+		// If 5 requests come in inside 50 milliseconds, and this is set to 50 milliseconds, we only need to look
+		// up the informer once, and do the regexes once. This saves us resources at the cost of data precision.
+		CacheRefreshPeriod:        50 * time.Millisecond,
+		CacheEvictAfterIdlePeriod: 1 * time.Millisecond,
+		CacheTTL:                  1 * time.Millisecond,
+		CacheNegativeTTL:          1 * time.Millisecond,
+	},
+	aws.ProviderName: {
+		CacheRefreshPeriod:        DefaultCacheRefreshPeriod,
+		CacheEvictAfterIdlePeriod: DefaultCacheEvictAfterIdlePeriod,
+		CacheTTL:                  DefaultCacheTTL,
+		CacheNegativeTTL:          DefaultCacheNegativeTTL,
+	},
+}
+
+type LimiterValues struct {
+	MaxCloudRequests   int
+	BurstCloudRequests int
+}
+
+// DefaultCloudProviderLimiterValues contains the default limiter values for each cloud provider.
+var DefaultCloudProviderLimiterValues = map[string]LimiterValues{
+	k8s.ProviderName: {
+		// High limit for k8s since we don't make network requests for each data request
+		MaxCloudRequests:   10000,
+		BurstCloudRequests: 5000,
+	},
+	aws.ProviderName: {
+		MaxCloudRequests:   DefaultMaxCloudRequests,
+		BurstCloudRequests: DefaultBurstCloudRequests,
+	},
+}
 
 const (
 	// StatserInternal is the name used to indicate the use of the internal statser.

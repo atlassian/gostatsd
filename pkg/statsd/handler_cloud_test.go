@@ -3,6 +3,9 @@ package statsd
 import (
 	"context"
 	"errors"
+	"github.com/atlassian/gostatsd/pkg/cloudproviders/aws"
+	"github.com/atlassian/gostatsd/pkg/cloudproviders/k8s"
+	"github.com/spf13/viper"
 	"sort"
 	"sync"
 	"sync/atomic"
@@ -236,6 +239,47 @@ func TestCloudHandlerFailingProvider(t *testing.T) {
 		se2(),
 	}
 	doCheck(t, fp, sm1(), se1(), sm2(), se2(), &fp.ips, expectedIps, expectedMetrics, expectedEvents)
+}
+
+func TestConstructCloudHandlerFactoryFromViper(t *testing.T) {
+	t.Parallel()
+	v := viper.New()
+	logger := logrus.StandardLogger()
+
+	// Test no cloud handler
+	factory, err := ConstructCloudHandlerFactoryFromViper(v, logger, "test")
+	assert.NoError(t, err)
+	assert.Nil(t, factory.CloudProvider)
+
+	// Test unknown cloud handler - unsupported
+	v.Set(ParamCloudProvider, "unknown")
+	factory, err = ConstructCloudHandlerFactoryFromViper(v, logger, "test")
+	assert.Error(t, err)
+
+	// Test known cloud provider defaults
+	cloudProvidersToTest := []string{aws.ProviderName, k8s.ProviderName}
+	for _, cpName := range cloudProvidersToTest {
+		v.Set(ParamCloudProvider, cpName)
+		factory, err = ConstructCloudHandlerFactoryFromViper(v, logger, "test")
+		assert.EqualValues(t, DefaultCloudProviderCacheValues[cpName], *factory.CacheOptions)
+		assert.Equal(t, rate.Limit(DefaultCloudProviderLimiterValues[cpName].MaxCloudRequests), factory.Limiter.Limit())
+		assert.Equal(t, DefaultCloudProviderLimiterValues[cpName].BurstCloudRequests, factory.Limiter.Burst())
+	}
+}
+
+func TestInitCloudHandlerFactory(t *testing.T) {
+	t.Parallel()
+	v := viper.New()
+	logger := logrus.StandardLogger()
+
+	factory, err := ConstructCloudHandlerFactoryFromViper(v, logger, "test")
+	assert.NoError(t, err)
+	assert.Nil(t, factory.CloudProvider)
+
+	err = factory.InitCloudProvider(v)
+	assert.NoError(t, err)
+
+	// We don't test the path for specific cloud providers as they have logic that isn't easily mockable
 }
 
 func doCheck(t *testing.T, cloud gostatsd.CloudProvider, m1 gostatsd.Metric, e1 gostatsd.Event, m2 gostatsd.Metric, e2 gostatsd.Event, ips *[]gostatsd.IP, expectedIps []gostatsd.IP, expectedM []gostatsd.Metric, expectedE gostatsd.Events) {

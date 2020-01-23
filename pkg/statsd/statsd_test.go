@@ -2,6 +2,7 @@ package statsd
 
 import (
 	"context"
+	"github.com/sirupsen/logrus"
 	"math/rand"
 	"runtime"
 	"sync/atomic"
@@ -22,15 +23,29 @@ func TestStatsdThroughput(t *testing.T) {
 	var memStatsStart, memStatsFinish runtime.MemStats
 	runtime.ReadMemStats(&memStatsStart)
 	backend := &countingBackend{}
-	s := Server{
-		Backends: []gostatsd.Backend{backend},
-		CloudProvider: &fakeProvider{
-			instance: &gostatsd.Instance{
-				ID:   "i-13123123",
-				Tags: gostatsd.Tags{"region:us-west-3", "tag1", "tag2:234"},
-			},
+
+	cloudHandlerFactory := constructCloudHandlerFactory(
+		"",
+		logrus.StandardLogger(),
+		CacheOptions{
+			CacheRefreshPeriod:        DefaultCacheRefreshPeriod,
+			CacheEvictAfterIdlePeriod: DefaultCacheEvictAfterIdlePeriod,
+			CacheTTL:                  DefaultCacheTTL,
+			CacheNegativeTTL:          DefaultCacheNegativeTTL,
 		},
-		Limiter:             rate.NewLimiter(DefaultMaxCloudRequests, DefaultBurstCloudRequests),
+		rate.NewLimiter(DefaultMaxCloudRequests, DefaultBurstCloudRequests),
+		"test")
+	// Inject the mock provider
+	cloudHandlerFactory.CloudProvider = &fakeProvider{
+		instance: &gostatsd.Instance{
+			ID:   "i-13123123",
+			Tags: gostatsd.Tags{"region:us-west-3", "tag1", "tag2:234"},
+		},
+	}
+
+	s := Server{
+		Backends:            []gostatsd.Backend{backend},
+		CloudHandlerFactory: cloudHandlerFactory,
 		DefaultTags:         DefaultTags,
 		ExpiryInterval:      DefaultExpiryInterval,
 		FlushInterval:       DefaultFlushInterval,
@@ -44,13 +59,7 @@ func TestStatsdThroughput(t *testing.T) {
 		ReceiveBatchSize:    DefaultReceiveBatchSize,
 		MaxConcurrentEvents: 2,
 		ServerMode:          "standalone",
-		CacheOptions: CacheOptions{
-			CacheRefreshPeriod:        DefaultCacheRefreshPeriod,
-			CacheEvictAfterIdlePeriod: DefaultCacheEvictAfterIdlePeriod,
-			CacheTTL:                  DefaultCacheTTL,
-			CacheNegativeTTL:          DefaultCacheNegativeTTL,
-		},
-		Viper: viper.New(),
+		Viper:               viper.New(),
 	}
 	ctx, cancelFunc := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancelFunc()

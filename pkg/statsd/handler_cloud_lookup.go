@@ -47,7 +47,7 @@ func (ld *lookupDispatcher) run(ctx context.Context) {
 			if err != context.Canceled && err != context.DeadlineExceeded {
 				// This could be an error caused by context signaling done.
 				// Or something nasty but it is very unlikely.
-				ld.logger.Warnf("Error from limiter: %v", err)
+				ld.logger.Warnf("Error from Limiter: %v", err)
 			}
 			return
 		}

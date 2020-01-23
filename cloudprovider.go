@@ -7,8 +7,16 @@ import (
 	"github.com/spf13/viper"
 )
 
+type CloudProviderOptions struct {
+	Viper  *viper.Viper
+	Logger logrus.FieldLogger
+	// k8s specific options, can be unset for other providers
+	Version  string
+	NodeName string
+}
+
 // CloudProviderFactory is a function that returns a CloudProvider.
-type CloudProviderFactory func(v *viper.Viper, logger logrus.FieldLogger) (CloudProvider, error)
+type CloudProviderFactory func(CloudProviderOptions) (CloudProvider, error)
 
 // Instance represents a cloud instance.
 type Instance struct {
@@ -17,6 +25,7 @@ type Instance struct {
 }
 
 // CloudProvider represents a cloud provider.
+// If CloudProvider implements the Runner interface, it's started in a new goroutine at creation.
 type CloudProvider interface {
 	// Name returns the name of the cloud provider.
 	Name() string
