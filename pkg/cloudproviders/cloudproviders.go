@@ -5,14 +5,15 @@ import (
 
 	"github.com/atlassian/gostatsd"
 	"github.com/atlassian/gostatsd/pkg/cloudproviders/aws"
-
+	"github.com/atlassian/gostatsd/pkg/cloudproviders/kubernetes"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 )
 
 // All registered cloud providers.
 var providers = map[string]gostatsd.CloudProviderFactory{
-	aws.ProviderName: aws.NewProviderFromViper,
+	aws.ProviderName:        aws.NewProviderFromViper,
+	kubernetes.ProviderName: kubernetes.NewProviderFromViper,
 }
 
 // Get creates an instance of the named provider, or nil if
