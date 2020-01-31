@@ -151,6 +151,9 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 	// Create the cloud handler
 	ip := gostatsd.UnknownIP
 	if s.CloudProvider != nil {
+		if r, ok := s.CloudProvider.(gostatsd.Runner); ok {
+			runnables = append(runnables, r.Run)
+		}
 		cloudHandler := NewCloudHandler(s.CloudProvider, handler, log.StandardLogger(), s.Limiter, &s.CacheOptions)
 		runnables = append(runnables, cloudHandler.Run)
 		handler = cloudHandler

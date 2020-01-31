@@ -7,8 +7,14 @@ import (
 	"github.com/spf13/viper"
 )
 
+type Options struct {
+	Viper     *viper.Viper
+	Logger    logrus.FieldLogger
+	UserAgent string
+}
+
 // CloudProviderFactory is a function that returns a CloudProvider.
-type CloudProviderFactory func(v *viper.Viper, logger logrus.FieldLogger) (CloudProvider, error)
+type CloudProviderFactory func(Options) (CloudProvider, error)
 
 // Instance represents a cloud instance.
 type Instance struct {
@@ -17,6 +23,9 @@ type Instance struct {
 }
 
 // CloudProvider represents a cloud provider.
+//
+// If CloudProvider implements the Runner interface, it's started in a new goroutine before the Instance()
+// method is used.
 type CloudProvider interface {
 	// Name returns the name of the cloud provider.
 	Name() string

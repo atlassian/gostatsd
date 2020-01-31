@@ -92,7 +92,11 @@ func constructServer(v *viper.Viper) (*statsd.Server, error) {
 	pool := transport.NewTransportPool(logger, v)
 
 	// Cloud provider
-	cloud, err := cloudproviders.Init(v.GetString(statsd.ParamCloudProvider), v, logger)
+	cloud, err := cloudproviders.Init(v.GetString(statsd.ParamCloudProvider), gostatsd.Options{
+		Viper:     v,
+		Logger:    logger,
+		UserAgent: "gostatsd/" + Version,
+	})
 	if err != nil {
 		return nil, err
 	}

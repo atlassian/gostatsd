@@ -20,7 +20,6 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/sirupsen/logrus"
-	"github.com/spf13/viper"
 	"golang.org/x/net/http2"
 )
 
@@ -203,9 +202,9 @@ func azToRegion(az string) (string, error) {
 	return region, nil
 }
 
-// NewProviderFromViper returns a new aws provider.
-func NewProviderFromViper(v *viper.Viper, logger logrus.FieldLogger) (gostatsd.CloudProvider, error) {
-	a := util.GetSubViper(v, "aws")
+// NewProviderFromOptions returns a new aws provider.
+func NewProviderFromOptions(options gostatsd.Options) (gostatsd.CloudProvider, error) {
+	a := util.GetSubViper(options.Viper, "aws")
 	a.SetDefault("max_retries", 3)
 	a.SetDefault("client_timeout", defaultClientTimeout)
 	a.SetDefault("max_instances_batch", defaultMaxInstancesBatch)
@@ -263,6 +262,6 @@ func NewProviderFromViper(v *viper.Viper, logger logrus.FieldLogger) (gostatsd.C
 		Metadata:     metadata,
 		Ec2:          ec2.New(ec2Session),
 		MaxInstances: maxInstances,
-		logger:       logger,
+		logger:       options.Logger,
 	}, nil
 }
