@@ -92,11 +92,7 @@ func constructServer(v *viper.Viper) (*statsd.Server, error) {
 	pool := transport.NewTransportPool(logger, v)
 
 	// Cloud provider
-	cloud, err := cloudproviders.Init(v.GetString(statsd.ParamCloudProvider), gostatsd.Options{
-		Viper:     v,
-		Logger:    logger,
-		UserAgent: "gostatsd/" + Version,
-	})
+	cloudHandlerFactory, err := constructCloudHandlerFactory(v, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -118,8 +114,7 @@ func constructServer(v *viper.Viper) (*statsd.Server, error) {
 	// Create server
 	return &statsd.Server{
 		Backends:            backendsList,
-		CloudProvider:       cloud,
-		Limiter:             rate.NewLimiter(rate.Limit(v.GetInt(statsd.ParamMaxCloudRequests)), v.GetInt(statsd.ParamBurstCloudRequests)),
+		CloudHandlerFactory: cloudHandlerFactory,
 		InternalTags:        v.GetStringSlice(statsd.ParamInternalTags),
 		InternalNamespace:   v.GetString(statsd.ParamInternalNamespace),
 		DefaultTags:         v.GetStringSlice(statsd.ParamDefaultTags),
@@ -137,17 +132,11 @@ func constructServer(v *viper.Viper) (*statsd.Server, error) {
 		Namespace:           v.GetString(statsd.ParamNamespace),
 		StatserType:         v.GetString(statsd.ParamStatserType),
 		PercentThreshold:    pt,
-		HeartbeatEnabled:    v.GetBool(statsd.ParamHeartbeatEnabled),
 		ReceiveBatchSize:    v.GetInt(statsd.ParamReceiveBatchSize),
 		ConnPerReader:       v.GetBool(statsd.ParamConnPerReader),
 		ServerMode:          v.GetString(statsd.ParamServerMode),
 		LogRawMetric:        v.GetBool(statsd.ParamLogRawMetric),
-		CacheOptions: statsd.CacheOptions{
-			CacheRefreshPeriod:        v.GetDuration(statsd.ParamCacheRefreshPeriod),
-			CacheEvictAfterIdlePeriod: v.GetDuration(statsd.ParamCacheEvictAfterIdlePeriod),
-			CacheTTL:                  v.GetDuration(statsd.ParamCacheTTL),
-			CacheNegativeTTL:          v.GetDuration(statsd.ParamCacheNegativeTTL),
-		},
+		HeartbeatEnabled:    v.GetBool(statsd.ParamHeartbeatEnabled),
 		HeartbeatTags: gostatsd.Tags{
 			fmt.Sprintf("version:%s", Version),
 			fmt.Sprintf("commit:%s", GitCommit),
@@ -157,6 +146,39 @@ func constructServer(v *viper.Viper) (*statsd.Server, error) {
 		Viper:                     v,
 		TransportPool:             pool,
 	}, nil
+}
+
+func constructCloudHandlerFactory(v *viper.Viper, logger logrus.FieldLogger) (gostatsd.CloudHandlerFactory, error) {
+	// Cloud provider
+	cloudProviderName := v.GetString(statsd.ParamCloudProvider)
+	switch cloudProviderName {
+	case "":
+		logrus.Info("No cloud provider specified")
+		return nil, nil
+	case "kubernetes":
+
+		return
+	default:
+		cloud, err := cloudproviders.Init(cloudProviderName, gostatsd.Options{
+			Viper:     v,
+			Logger:    logger,
+			UserAgent: "gostatsd/" + Version,
+		})
+		if err != nil {
+			return nil, err
+		}
+		return &statsd.CloudProviderHandlerFactory{
+			CacheOptions: statsd.CacheOptions{
+				CacheRefreshPeriod:        v.GetDuration(statsd.ParamCacheRefreshPeriod),
+				CacheEvictAfterIdlePeriod: v.GetDuration(statsd.ParamCacheEvictAfterIdlePeriod),
+				CacheTTL:                  v.GetDuration(statsd.ParamCacheTTL),
+				CacheNegativeTTL:          v.GetDuration(statsd.ParamCacheNegativeTTL),
+			},
+			CloudProvider: cloud,
+			Limiter:       rate.NewLimiter(rate.Limit(v.GetInt(statsd.ParamMaxCloudRequests)), v.GetInt(statsd.ParamBurstCloudRequests)),
+			Logger:        logger,
+		}, nil
+	}
 }
 
 func getPercentiles(s []string) ([]float64, error) {

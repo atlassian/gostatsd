@@ -40,3 +40,10 @@ type CloudProvider interface {
 	// EstimatedTags returns a guess of how many tags are likely to be added by the CloudProvider
 	EstimatedTags() int
 }
+
+type CloudHandlerFactory interface {
+	New(PipelineHandler) PipelineHandler
+
+	// SelfIP returns host's IPv4 address.
+	SelfIP() (IP, error)
+}

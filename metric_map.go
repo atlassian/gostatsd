@@ -281,7 +281,7 @@ func (mm *MetricMap) String() string {
 	return buf.String()
 }
 
-// DispatchMetrics will synthesize Metrics from the MetricMap and push them to the supplied PipelineHandler
+// DispatchMetrics will synthesize Metrics from the MetricMap and push them to the supplied RawMetricHandler.
 func (mm *MetricMap) DispatchMetrics(ctx context.Context, handler RawMetricHandler) {
 	var metrics []*Metric
 

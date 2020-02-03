@@ -41,6 +41,21 @@ type CacheOptions struct {
 	CacheNegativeTTL          time.Duration
 }
 
+type CloudProviderHandlerFactory struct {
+	CacheOptions  CacheOptions
+	CloudProvider gostatsd.CloudProvider // Cloud provider interface
+	Limiter       *rate.Limiter
+	Logger        logrus.FieldLogger
+}
+
+func (c *CloudProviderHandlerFactory) New(handler gostatsd.PipelineHandler) gostatsd.PipelineHandler {
+	return NewCloudHandler(c.CloudProvider, handler, c.Logger, c.Limiter, &c.CacheOptions)
+}
+
+func (c *CloudProviderHandlerFactory) SelfIP() (gostatsd.IP, error) {
+	return c.CloudProvider.SelfIP()
+}
+
 // CloudHandler enriches metrics and events with additional information fetched from cloud provider.
 type CloudHandler struct {
 	// statsCacheHit is accessed by any go routine, must use atomic ops

@@ -5,23 +5,16 @@ import (
 
 	"github.com/atlassian/gostatsd"
 	"github.com/atlassian/gostatsd/pkg/cloudproviders/aws"
-	"github.com/atlassian/gostatsd/pkg/cloudproviders/kubernetes"
 	"github.com/sirupsen/logrus"
 )
 
 // All registered cloud providers.
 var providers = map[string]gostatsd.CloudProviderFactory{
-	aws.ProviderName:        aws.NewProviderFromOptions,
-	kubernetes.ProviderName: kubernetes.NewProviderFromOptions,
+	aws.ProviderName: aws.NewProviderFromOptions,
 }
 
 // Init creates an instance of the named cloud provider.
 func Init(name string, options gostatsd.Options) (gostatsd.CloudProvider, error) {
-	if name == "" {
-		logrus.Info("No cloud provider specified")
-		return nil, nil
-	}
-
 	factory, found := providers[name]
 	if !found {
 		return nil, fmt.Errorf("unknown cloud provider %q", name)

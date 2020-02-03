@@ -17,6 +17,10 @@ import (
 	"golang.org/x/time/rate"
 )
 
+var (
+	_ gostatsd.CloudHandlerFactory = &CloudProviderHandlerFactory{}
+)
+
 // BenchmarkCloudHandlerDispatchMetric is a benchmark intended to (manually) test
 // the impact of the CloudHandler.statsCacheHit field.
 func BenchmarkCloudHandlerDispatchMetric(b *testing.B) {
