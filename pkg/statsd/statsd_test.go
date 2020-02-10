@@ -2,12 +2,13 @@ package statsd
 
 import (
 	"context"
-	"github.com/sirupsen/logrus"
 	"math/rand"
 	"runtime"
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/sirupsen/logrus"
 
 	"github.com/atlassian/gostatsd"
 	"github.com/atlassian/gostatsd/pkg/fakesocket"

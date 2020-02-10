@@ -3,14 +3,15 @@ package statsd
 import (
 	"context"
 	"errors"
-	"github.com/atlassian/gostatsd/pkg/cloudproviders/aws"
-	"github.com/atlassian/gostatsd/pkg/cloudproviders/k8s"
-	"github.com/spf13/viper"
 	"sort"
 	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/atlassian/gostatsd/pkg/cloudproviders/aws"
+	"github.com/atlassian/gostatsd/pkg/cloudproviders/k8s"
+	"github.com/spf13/viper"
 
 	"github.com/atlassian/gostatsd"
 

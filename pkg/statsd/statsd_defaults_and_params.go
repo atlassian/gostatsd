@@ -1,10 +1,11 @@
 package statsd
 
 import (
-	"github.com/atlassian/gostatsd/pkg/cloudproviders/aws"
-	"github.com/atlassian/gostatsd/pkg/cloudproviders/k8s"
 	"runtime"
 	"time"
+
+	"github.com/atlassian/gostatsd/pkg/cloudproviders/aws"
+	"github.com/atlassian/gostatsd/pkg/cloudproviders/k8s"
 
 	"strings"
 

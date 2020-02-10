@@ -221,7 +221,6 @@ func NewProviderFromOptions(options gostatsd.CloudProviderOptions) (gostatsd.Clo
 	apiQPSBurstFactor := a.GetFloat64(ParamAPIQPSBurstFactor)
 	restConfig.RateLimiter = flowcontrol.NewTokenBucketRateLimiter(float32(apiQPS), int(apiQPS*apiQPSBurstFactor))
 	restConfig.UserAgent = UserAgent + "/" + options.Version
-	options.Logger.Infof("%s", restConfig.UserAgent)
 
 	clientset, err := kubernetes.NewForConfig(restConfig)
 	if err != nil {
@@ -258,6 +257,11 @@ func NewProvider(options gostatsd.CloudProviderOptions, clientset kubernetes.Int
 	watchCluster := a.GetBool(ParamWatchCluster)
 	customWatchOptions := func(*meta_v1.ListOptions) {}
 	if watchCluster != true {
+		if options.NodeName == "" {
+			return nil, errors.New(fmt.Sprintf(
+				"'%s' set to false, and node name could not be found from environment variable '%s'",
+				ParamWatchCluster, NodeNameEnvVar))
+		}
 		customWatchOptions = func(lo *meta_v1.ListOptions) {
 			lo.FieldSelector = fmt.Sprintf("spec.nodeName=%s", options.NodeName)
 		}
@@ -295,15 +299,11 @@ func (p *Provider) Run(ctx context.Context) {
 	<-ctx.Done()
 }
 
-func GetNodeName() (string, error) {
+func GetNodeName() string {
 	// To ensure we get this information in a timely manner this MUST be passed down to the pod via an environment
 	// variable using the downwards API
 	// See: https://kubernetes.io/docs/tasks/inject-data-application/environment-variable-expose-pod-information/
-	nodeName := os.Getenv(NodeNameEnvVar)
-	if nodeName == "" {
-		return nodeName, errors.New(fmt.Sprintf("node name env var '%s' not found", NodeNameEnvVar))
-	}
-	return nodeName, nil
+	return os.Getenv(NodeNameEnvVar)
 }
 
 func tagKeyMatchesWhitelist(tagKey string, whitelist []regexp.Regexp) bool {

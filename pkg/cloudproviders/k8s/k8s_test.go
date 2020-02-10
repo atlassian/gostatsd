@@ -3,10 +3,11 @@ package k8s
 import (
 	"context"
 	"fmt"
-	"github.com/sirupsen/logrus"
-	"github.com/spf13/viper"
 	"testing"
 	"time"
+
+	"github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
 
 	"github.com/atlassian/gostatsd"
 	"github.com/stretchr/testify/assert"
@@ -97,7 +98,7 @@ type testFixtures struct {
 	podsWatch     *watch.FakeWatcher
 }
 
-func setupTest(t *testing.T, test func(*testing.T, *testFixtures), v *viper.Viper) {
+func setupTest(t *testing.T, test func(*testing.T, *testFixtures), v *viper.Viper, nn string) error {
 	fakeClient := mainFake.NewSimpleClientset()
 	podsWatch := watch.NewFake()
 	fakeClient.PrependWatchReactor("pods", kube_testing.DefaultWatchReactor(podsWatch, nil))
@@ -106,12 +107,11 @@ func setupTest(t *testing.T, test func(*testing.T, *testFixtures), v *viper.Vipe
 		Viper:    v,
 		Logger:   logrus.StandardLogger(),
 		Version:  "test",
-		NodeName: nodeName,
+		NodeName: nn,
 	}
 	cloudProvider, err := NewProvider(options, fakeClient)
-	assert.NoError(t, err)
 	if err != nil {
-		return // we use assert and exit so all failing table driven tests will fail in one run
+		return err
 	}
 
 	r, ok := cloudProvider.(gostatsd.Runner)
@@ -127,6 +127,7 @@ func setupTest(t *testing.T, test func(*testing.T, *testFixtures), v *viper.Vipe
 		cloudProvider: cloudProvider,
 		podsWatch:     podsWatch,
 	})
+	return nil
 }
 
 type tagTest struct {
@@ -190,7 +191,7 @@ func TestIPToTags(t *testing.T) {
 
 		// Run tests in their own namespace for clarity
 		t.Run(testCase.name, func(tt *testing.T) {
-			setupTest(tt, func(ttt *testing.T, fixtures *testFixtures) {
+			err := setupTest(tt, func(ttt *testing.T, fixtures *testFixtures) {
 				for _, p := range testCase.pods {
 					fixtures.podsWatch.Add(p)
 				}
@@ -208,13 +209,14 @@ func TestIPToTags(t *testing.T) {
 				for _, expectedTag := range testCase.expectedTagsContains {
 					assert.Contains(ttt, instance.Tags, fmt.Sprintf("%s:%s", expectedTag.expectedKey, expectedTag.value))
 				}
-			}, flags)
+			}, flags, nodeName)
+			require.NoError(tt, err)
 		})
 	}
 }
 
 func TestNoHostNetworkPodsCached(t *testing.T) {
-	setupTest(t, func(t *testing.T, fixtures *testFixtures) {
+	err := setupTest(t, func(t *testing.T, fixtures *testFixtures) {
 		hostNetworkPod := pod()
 		hostNetworkPod.Status.HostIP = ipAddr
 		hostNetworkPod.Spec.HostNetwork = true
@@ -228,14 +230,15 @@ func TestNoHostNetworkPodsCached(t *testing.T) {
 
 		instance := instanceData[ipAddr]
 		assert.Nil(t, instance)
-	}, viper.New())
+	}, viper.New(), nodeName)
+	require.NoError(t, err)
 }
 
 func TestWatchNodeOnly(t *testing.T) {
 	v := viper.New()
-	v.Set(ParamWatchCluster, false)
+	v.Set(ProviderName+"."+ParamWatchCluster, false)
 
-	setupTest(t, func(t *testing.T, fixtures *testFixtures) {
+	err := setupTest(t, func(t *testing.T, fixtures *testFixtures) {
 		expectedKey := "node"
 		nodeAnnotationKey := AnnotationPrefix + expectedKey
 		expectedValue := nodeName
@@ -267,5 +270,14 @@ func TestWatchNodeOnly(t *testing.T) {
 		assert.NotNil(t, instance, "expected pod with IP '%s' to be indexed since it is on our node", ipAddr)
 		assert.Len(t, instance.Tags, 1)
 		assert.Contains(t, instance.Tags, fmt.Sprintf("%s:%s", expectedKey, expectedValue))
-	}, v)
+	}, v, nodeName)
+	require.NoError(t, err)
+}
+
+func TestWatchNodeFailsNoNodeName(t *testing.T) {
+	v := viper.New()
+	v.Set(ProviderName+"."+ParamWatchCluster, false)
+
+	require.Error(t, setupTest(t, func(t *testing.T, fixtures *testFixtures) {}, v, ""),
+		"creating k8s provider to watch node with no node name should fail")
 }

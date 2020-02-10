@@ -4,11 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/atlassian/gostatsd/pkg/cloudproviders/aws"
-	"github.com/atlassian/gostatsd/pkg/cloudproviders/k8s"
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/atlassian/gostatsd/pkg/cloudproviders/aws"
+	"github.com/atlassian/gostatsd/pkg/cloudproviders/k8s"
 
 	"github.com/atlassian/gostatsd/pkg/cloudproviders"
 	"github.com/spf13/viper"
@@ -106,8 +107,6 @@ func ConstructCloudHandlerFactoryFromViper(v *viper.Viper, logger logrus.FieldLo
 		CacheNegativeTTL:          v.GetDuration(ParamCacheNegativeTTL),
 	}
 	limiter := rate.NewLimiter(rate.Limit(v.GetInt(ParamMaxCloudRequests)), v.GetInt(ParamBurstCloudRequests))
-	logger.Infof("limit: %v, burst: %v", limiter.Limit(), limiter.Burst())
-
 	return constructCloudHandlerFactory(cloudProviderName, logger, cacheOptions, limiter, version), nil
 }
 
@@ -121,10 +120,7 @@ func (f *CloudHandlerFactory) InitCloudProvider(v *viper.Viper) error {
 		break
 	case k8s.ProviderName:
 		options.Version = f.version
-		nodeName, err := k8s.GetNodeName()
-		if err != nil {
-			return err
-		}
+		nodeName := k8s.GetNodeName()
 		options.NodeName = nodeName
 		break
 	}
