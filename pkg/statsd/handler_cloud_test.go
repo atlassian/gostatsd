@@ -254,7 +254,7 @@ func TestConstructCloudHandlerFactoryFromViper(t *testing.T) {
 
 	// Test unknown cloud handler - unsupported
 	v.Set(ParamCloudProvider, "unknown")
-	factory, err = ConstructCloudHandlerFactoryFromViper(v, logger, "test")
+	_, err = ConstructCloudHandlerFactoryFromViper(v, logger, "test")
 	assert.Error(t, err)
 
 	// Test known cloud provider defaults
@@ -262,6 +262,7 @@ func TestConstructCloudHandlerFactoryFromViper(t *testing.T) {
 	for _, cpName := range cloudProvidersToTest {
 		v.Set(ParamCloudProvider, cpName)
 		factory, err = ConstructCloudHandlerFactoryFromViper(v, logger, "test")
+		assert.NoError(t, err)
 		assert.EqualValues(t, DefaultCloudProviderCacheValues[cpName], *factory.CacheOptions)
 		assert.Equal(t, rate.Limit(DefaultCloudProviderLimiterValues[cpName].MaxCloudRequests), factory.Limiter.Limit())
 		assert.Equal(t, DefaultCloudProviderLimiterValues[cpName].BurstCloudRequests, factory.Limiter.Burst())

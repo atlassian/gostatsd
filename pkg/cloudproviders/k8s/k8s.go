@@ -2,7 +2,6 @@ package k8s
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net"
 	"os"
@@ -92,7 +91,6 @@ const (
 type Provider struct {
 	logger logrus.FieldLogger
 
-	ClientSet           *kubernetes.Interface
 	PodsInf             cache.SharedIndexInformer
 	annotationWhitelist []regexp.Regexp
 	labelWhitelist      []regexp.Regexp
@@ -256,11 +254,11 @@ func NewProvider(options gostatsd.CloudProviderOptions, clientset kubernetes.Int
 
 	watchCluster := a.GetBool(ParamWatchCluster)
 	customWatchOptions := func(*meta_v1.ListOptions) {}
-	if watchCluster != true {
+	if !watchCluster {
 		if options.NodeName == "" {
-			return nil, errors.New(fmt.Sprintf(
+			return nil, fmt.Errorf(
 				"'%s' set to false, and node name could not be found from environment variable '%s'",
-				ParamWatchCluster, NodeNameEnvVar))
+				ParamWatchCluster, NodeNameEnvVar)
 		}
 		customWatchOptions = func(lo *meta_v1.ListOptions) {
 			lo.FieldSelector = fmt.Sprintf("spec.nodeName=%s", options.NodeName)
@@ -278,7 +276,6 @@ func NewProvider(options gostatsd.CloudProviderOptions, clientset kubernetes.Int
 	// TODO: we should emit events to the k8s API to fit in with the k8s ecosystem
 
 	return &Provider{
-		ClientSet:           &clientset,
 		PodsInf:             podsInf,
 		annotationWhitelist: annotationWhitelist,
 		labelWhitelist:      labelWhitelist,
@@ -356,7 +353,7 @@ func getSelfIPAddress() (gostatsd.IP, error) {
 			return gostatsd.IP(ip.String()), nil
 		}
 	}
-	return "", errors.New("no eth0 interface address found")
+	return "", fmt.Errorf("no eth0 interface address found")
 }
 
 func podByIpIndexFunc(obj interface{}) ([]string, error) {
@@ -366,13 +363,18 @@ func podByIpIndexFunc(obj interface{}) ([]string, error) {
 	// If a pod is a HostNetwork pod then there could be multiple with the same IP sending stats, which breaks this
 	// abstraction
 	if ip == "" ||
-		pod.Status.Phase == core_v1.PodSucceeded ||
-		pod.Status.Phase == core_v1.PodFailed ||
-		pod.DeletionTimestamp != nil ||
-		ip == pod.Status.HostIP ||
-		pod.Spec.HostNetwork {
+		podIsFinishedRunning(pod) ||
+		podIsHostNetwork(pod) {
 		// Do not index irrelevant Pods
 		return nil, nil
 	}
 	return []string{ip}, nil
+}
+
+func podIsHostNetwork(pod *core_v1.Pod) bool {
+	return pod.Spec.HostNetwork || pod.Status.PodIP == pod.Status.HostIP
+}
+
+func podIsFinishedRunning(pod *core_v1.Pod) bool {
+	return pod.Status.Phase == core_v1.PodSucceeded || pod.Status.Phase == core_v1.PodFailed || pod.DeletionTimestamp != nil
 }

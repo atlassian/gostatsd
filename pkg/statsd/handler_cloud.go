@@ -2,7 +2,6 @@ package statsd
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"sync"
 	"sync/atomic"
@@ -84,11 +83,11 @@ func ConstructCloudHandlerFactoryFromViper(v *viper.Viper, logger logrus.FieldLo
 	// Cloud provider defaults
 	cpDefaultCacheOpts, ok := DefaultCloudProviderCacheValues[cloudProviderName]
 	if !ok {
-		return nil, errors.New(fmt.Sprintf("could not find default cache values for cloud provider '%s'", cloudProviderName))
+		return nil, fmt.Errorf("could not find default cache values for cloud provider '%s'", cloudProviderName)
 	}
 	cpDefaultLimiterOpts, ok := DefaultCloudProviderLimiterValues[cloudProviderName]
 	if !ok {
-		return nil, errors.New(fmt.Sprintf("could not find default cache values for cloud provider '%s'", cloudProviderName))
+		return nil, fmt.Errorf("could not find default cache values for cloud provider '%s'", cloudProviderName)
 	}
 
 	// Set the defaults in Viper based on the cloud provider values before we manipulate things
@@ -122,7 +121,6 @@ func (f *CloudHandlerFactory) InitCloudProvider(v *viper.Viper) error {
 		options.Version = f.version
 		nodeName := k8s.GetNodeName()
 		options.NodeName = nodeName
-		break
 	}
 
 	cloudProvider, err := cloudproviders.Init(f.cloudProviderName, options)
