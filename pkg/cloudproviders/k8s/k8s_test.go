@@ -95,13 +95,13 @@ func pod2() *core_v1.Pod {
 	}
 }
 
-type testFixtures struct {
+type testFixture struct {
 	fakeClient    *mainFake.Clientset
 	cloudProvider gostatsd.CloudProvider
 	podsWatch     *watch.FakeWatcher
 }
 
-func setupTest(t *testing.T, test func(*testing.T, *testFixtures), v *viper.Viper, nn string) {
+func setupTest(t *testing.T, test func(*testing.T, *testFixture), v *viper.Viper, nn string) {
 	fakeClient := mainFake.NewSimpleClientset()
 	podsWatch := watch.NewFake()
 	fakeClient.PrependWatchReactor("pods", kube_testing.DefaultWatchReactor(podsWatch, nil))
@@ -116,14 +116,14 @@ func setupTest(t *testing.T, test func(*testing.T, *testFixtures), v *viper.Vipe
 	require.NoError(t, err)
 
 	r, ok := cloudProvider.(gostatsd.Runner)
-	assert.True(t, ok)
+	require.True(t, ok)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	go func() {
 		r.Run(ctx) // fork
 	}()
 
-	test(t, &testFixtures{
+	test(t, &testFixture{
 		fakeClient:    fakeClient,
 		cloudProvider: cloudProvider,
 		podsWatch:     podsWatch,
@@ -203,6 +203,16 @@ var ipTagTests = []tagTest{
 	},
 }
 
+func waitForFullCache(t *testing.T, fixtures *testFixture, numExpectedPods int) {
+	// Wait for the cache to fill up before moving on
+	cp, ok := fixtures.cloudProvider.(*Provider)
+	require.True(t, ok, "fixture must produce a k8s.Provider")
+	for i := 1; i < 100 && len(cp.podsInf.GetIndexer().List()) < numExpectedPods; i++ {
+		time.Sleep(10 * time.Millisecond)
+	}
+	require.Equal(t, numExpectedPods, len(cp.podsInf.GetIndexer().List()))
+}
+
 func TestIPToTags(t *testing.T) {
 	t.Parallel()
 
@@ -214,11 +224,13 @@ func TestIPToTags(t *testing.T) {
 
 		// Run tests in their own namespace for clarity
 		t.Run(testCase.name, func(tt *testing.T) {
-			setupTest(tt, func(ttt *testing.T, fixtures *testFixtures) {
+			setupTest(tt, func(ttt *testing.T, fixtures *testFixture) {
 				for _, p := range testCase.pods {
 					fixtures.podsWatch.Add(p)
 				}
+				waitForFullCache(t, fixtures, len(testCase.pods))
 
+				// Run the test
 				ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 				defer cancel()
 
@@ -238,11 +250,12 @@ func TestIPToTags(t *testing.T) {
 }
 
 func TestNoHostNetworkPodsCached(t *testing.T) {
-	setupTest(t, func(t *testing.T, fixtures *testFixtures) {
+	setupTest(t, func(t *testing.T, fixtures *testFixture) {
 		hostNetworkPod := pod()
 		hostNetworkPod.Status.HostIP = ipAddr
 		hostNetworkPod.Spec.HostNetwork = true
 		fixtures.podsWatch.Add(hostNetworkPod)
+		waitForFullCache(t, fixtures, 1)
 
 		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 		defer cancel()
@@ -251,7 +264,7 @@ func TestNoHostNetworkPodsCached(t *testing.T) {
 		require.NoError(t, err)
 
 		instance := instanceData[ipAddr]
-		assert.Nil(t, instance)
+		require.Nil(t, instance)
 	}, viper.New(), nodeName)
 }
 
@@ -259,7 +272,7 @@ func TestWatchNodeOnly(t *testing.T) {
 	v := viper.New()
 	v.Set(ProviderName+"."+ParamWatchCluster, false)
 
-	setupTest(t, func(t *testing.T, fixtures *testFixtures) {
+	setupTest(t, func(t *testing.T, fixtures *testFixture) {
 		expectedKey := "node"
 		nodeAnnotationKey := AnnotationPrefix + expectedKey
 		expectedValue := nodeName
@@ -271,12 +284,13 @@ func TestWatchNodeOnly(t *testing.T) {
 		p.ObjectMeta.Labels = map[string]string{}
 		fixtures.podsWatch.Add(p)
 
-		p = pod()
+		p = pod2()
 		p.Spec.NodeName = "node2"
-		p.Status.PodIP = ipAddr2
 		p.ObjectMeta.Annotations = map[string]string{nodeAnnotationKey: "node2"}
 		p.ObjectMeta.Labels = map[string]string{}
 		fixtures.podsWatch.Add(p)
+
+		waitForFullCache(t, fixtures, 2)
 
 		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 		defer cancel()
@@ -285,10 +299,10 @@ func TestWatchNodeOnly(t *testing.T) {
 		require.NoError(t, err)
 
 		instance := instanceData[ipAddr2]
-		assert.Nil(t, instance, "expected pod with IP '%s' not to be indexed since it is on a different node to us", ipAddr2)
+		require.Nil(t, instance, "expected pod with IP '%s' not to be indexed since it is on a different node to us", ipAddr2)
 
 		instance = instanceData[ipAddr]
-		assert.NotNil(t, instance, "expected pod with IP '%s' to be indexed since it is on our node", ipAddr)
+		require.NotNil(t, instance, "expected pod with IP '%s' to be indexed since it is on our node", ipAddr)
 		assert.Len(t, instance.Tags, 1)
 		assert.Contains(t, instance.Tags, fmt.Sprintf("%s:%s", expectedKey, expectedValue))
 	}, v, nodeName)

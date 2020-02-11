@@ -113,7 +113,7 @@ func (p *Provider) Instance(ctx context.Context, IP ...gostatsd.IP) (map[gostats
 			continue
 		}
 		if len(objs) < 1 {
-			p.logger.Debugf("Could not find IP in cache, continuing")
+			p.logger.Debug("Could not find IP in cache, continuing")
 			instanceIPs[lookupIP] = nil
 			continue
 		}
@@ -277,15 +277,7 @@ func stringListToRegex(strList []string) (*regexp.Regexp, error) {
 		// This regex should always fail to match anything
 		return regexp.Compile("(k^)")
 	}
-
-	combinedRegexes := "("
-	for i, regexStr := range strList {
-		combinedRegexes = combinedRegexes + regexStr
-		if i < len(strList)-1 {
-			combinedRegexes = combinedRegexes + "|"
-		}
-	}
-	return regexp.Compile(combinedRegexes + ")")
+	return regexp.Compile("(" + strings.Join(strList, "|") + ")")
 }
 
 func podByIpIndexFunc(obj interface{}) ([]string, error) {
