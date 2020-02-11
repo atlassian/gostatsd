@@ -95,8 +95,7 @@ func constructServer(v *viper.Viper) (*statsd.Server, error) {
 	if err != nil {
 		return nil, err
 	}
-	err = cloud.InitCloudProvider(v)
-	if err != nil {
+	if err := cloud.InitCloudProvider(v); err != nil {
 		return nil, err
 	}
 	// Backends

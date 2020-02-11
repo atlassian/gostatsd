@@ -3,13 +3,14 @@ package k8s
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"testing"
 	"time"
 
+	"github.com/atlassian/gostatsd"
+
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
-
-	"github.com/atlassian/gostatsd"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	core_v1 "k8s.io/api/core/v1"
@@ -24,6 +25,7 @@ const (
 	podName1  = "pod1"
 	podName2  = "pod2"
 	nodeName  = "node1"
+	userAgent = "test"
 
 	ipAddr  = "127.0.0.1"
 	ipAddr2 = "10.0.0.1"
@@ -48,6 +50,7 @@ var (
 	}
 	labelTestValues = []tagTestValue{
 		{"app", "app", "testApp"},
+		{"label", "label", "value"},
 	}
 )
 
@@ -98,7 +101,7 @@ type testFixtures struct {
 	podsWatch     *watch.FakeWatcher
 }
 
-func setupTest(t *testing.T, test func(*testing.T, *testFixtures), v *viper.Viper, nn string) error {
+func setupTest(t *testing.T, test func(*testing.T, *testFixtures), v *viper.Viper, nn string) {
 	fakeClient := mainFake.NewSimpleClientset()
 	podsWatch := watch.NewFake()
 	fakeClient.PrependWatchReactor("pods", kube_testing.DefaultWatchReactor(podsWatch, nil))
@@ -106,13 +109,11 @@ func setupTest(t *testing.T, test func(*testing.T, *testFixtures), v *viper.Vipe
 	options := gostatsd.CloudProviderOptions{
 		Viper:    v,
 		Logger:   logrus.StandardLogger(),
-		Version:  "test",
+		Version:  userAgent,
 		NodeName: nn,
 	}
 	cloudProvider, err := NewProvider(options, fakeClient)
-	if err != nil {
-		return err
-	}
+	require.NoError(t, err)
 
 	r, ok := cloudProvider.(gostatsd.Runner)
 	assert.True(t, ok)
@@ -127,7 +128,6 @@ func setupTest(t *testing.T, test func(*testing.T, *testFixtures), v *viper.Vipe
 		cloudProvider: cloudProvider,
 		podsWatch:     podsWatch,
 	})
-	return nil
 }
 
 type tagTest struct {
@@ -140,20 +140,20 @@ type tagTest struct {
 
 var ipTagTests = []tagTest{
 	{
-		name:                 "TestTagsForIPWithDefaultTagWhitelists",
+		name:                 "WithDefaultTagWhitelists",
 		pods:                 []*core_v1.Pod{pod()},
 		expectedNumTags:      1,
 		expectedTagsContains: []tagTestValue{annotationTestValues[0]},
 	},
 	// The same test as above but with two pods to choose from
 	{
-		name:                 "TestTagsForIPWhenMultiplePods",
+		name:                 "WhenMultiplePods",
 		pods:                 []*core_v1.Pod{pod(), pod2()},
 		expectedNumTags:      1,
 		expectedTagsContains: []tagTestValue{annotationTestValues[0]},
 	},
 	{
-		name: "TestTagsForIPWithNoAnnotationTagWhitelist",
+		name: "WithNoAnnotationTagWhitelist",
 		viperParams: map[string]interface{}{
 			FullyQualifiedAnnotationWhitelistParam: []string{},
 		},
@@ -161,22 +161,45 @@ var ipTagTests = []tagTest{
 		expectedNumTags: 0,
 	},
 	{
-		name: "TestTagsForIPWithCustomAnnotationTagWhitelist",
+		name: "WithCustomAnnotationTagWhitelist",
 		viperParams: map[string]interface{}{
-			FullyQualifiedAnnotationWhitelistParam: []string{"^product.company.com/"},
+			FullyQualifiedAnnotationWhitelistParam: []string{
+				"^" + regexp.QuoteMeta("product.company.com/"),
+			},
 		},
 		pods:                 []*core_v1.Pod{pod()},
 		expectedNumTags:      1,
 		expectedTagsContains: []tagTestValue{annotationTestValues[1]},
 	},
 	{
-		name: "TestTagsForIPWithCustomLabelTagWhitelist",
+		name: "WithCustomAnnotationTagWhitelistMultipleRegex",
+		viperParams: map[string]interface{}{
+			FullyQualifiedAnnotationWhitelistParam: []string{
+				"^" + regexp.QuoteMeta("product.company.com/"),
+				"^" + regexp.QuoteMeta(AnnotationPrefix),
+			},
+		},
+		pods:                 []*core_v1.Pod{pod()},
+		expectedNumTags:      2,
+		expectedTagsContains: []tagTestValue{annotationTestValues[0], annotationTestValues[1]},
+	},
+	{
+		name: "WithCustomLabelTagWhitelist",
 		viperParams: map[string]interface{}{
 			FullyQualifiedLabelWhitelistParam: []string{"^app"},
 		},
 		pods:                 []*core_v1.Pod{pod()},
 		expectedNumTags:      2, // we're still using the default annotation whitelist too
 		expectedTagsContains: []tagTestValue{labelTestValues[0], annotationTestValues[0]},
+	},
+	{
+		name: "WithCustomLabelTagWhitelistMultipleRegex",
+		viperParams: map[string]interface{}{
+			FullyQualifiedLabelWhitelistParam: []string{"^app", "^label"},
+		},
+		pods:                 []*core_v1.Pod{pod()},
+		expectedNumTags:      3, // we're still using the default annotation whitelist too
+		expectedTagsContains: []tagTestValue{labelTestValues[0], annotationTestValues[0], labelTestValues[1]},
 	},
 }
 
@@ -191,7 +214,7 @@ func TestIPToTags(t *testing.T) {
 
 		// Run tests in their own namespace for clarity
 		t.Run(testCase.name, func(tt *testing.T) {
-			err := setupTest(tt, func(ttt *testing.T, fixtures *testFixtures) {
+			setupTest(tt, func(ttt *testing.T, fixtures *testFixtures) {
 				for _, p := range testCase.pods {
 					fixtures.podsWatch.Add(p)
 				}
@@ -203,20 +226,19 @@ func TestIPToTags(t *testing.T) {
 				require.NoError(ttt, err)
 
 				instance := instanceData[ipAddr]
-				assert.NotNil(ttt, instance)
+				require.NotNil(ttt, instance)
 				assert.Equal(ttt, instance.ID, fmt.Sprintf("%s/%s", namespace, podName1))
 				assert.Len(ttt, instance.Tags, testCase.expectedNumTags)
 				for _, expectedTag := range testCase.expectedTagsContains {
 					assert.Contains(ttt, instance.Tags, fmt.Sprintf("%s:%s", expectedTag.expectedKey, expectedTag.value))
 				}
 			}, flags, nodeName)
-			require.NoError(tt, err)
 		})
 	}
 }
 
 func TestNoHostNetworkPodsCached(t *testing.T) {
-	err := setupTest(t, func(t *testing.T, fixtures *testFixtures) {
+	setupTest(t, func(t *testing.T, fixtures *testFixtures) {
 		hostNetworkPod := pod()
 		hostNetworkPod.Status.HostIP = ipAddr
 		hostNetworkPod.Spec.HostNetwork = true
@@ -231,14 +253,13 @@ func TestNoHostNetworkPodsCached(t *testing.T) {
 		instance := instanceData[ipAddr]
 		assert.Nil(t, instance)
 	}, viper.New(), nodeName)
-	require.NoError(t, err)
 }
 
 func TestWatchNodeOnly(t *testing.T) {
 	v := viper.New()
 	v.Set(ProviderName+"."+ParamWatchCluster, false)
 
-	err := setupTest(t, func(t *testing.T, fixtures *testFixtures) {
+	setupTest(t, func(t *testing.T, fixtures *testFixtures) {
 		expectedKey := "node"
 		nodeAnnotationKey := AnnotationPrefix + expectedKey
 		expectedValue := nodeName
@@ -271,13 +292,22 @@ func TestWatchNodeOnly(t *testing.T) {
 		assert.Len(t, instance.Tags, 1)
 		assert.Contains(t, instance.Tags, fmt.Sprintf("%s:%s", expectedKey, expectedValue))
 	}, v, nodeName)
-	require.NoError(t, err)
 }
 
 func TestWatchNodeFailsNoNodeName(t *testing.T) {
 	v := viper.New()
 	v.Set(ProviderName+"."+ParamWatchCluster, false)
 
-	require.Error(t, setupTest(t, func(t *testing.T, fixtures *testFixtures) {}, v, ""),
-		"creating k8s provider to watch node with no node name should fail")
+	fakeClient := mainFake.NewSimpleClientset()
+	podsWatch := watch.NewFake()
+	fakeClient.PrependWatchReactor("pods", kube_testing.DefaultWatchReactor(podsWatch, nil))
+
+	options := gostatsd.CloudProviderOptions{
+		Viper:    v,
+		Logger:   logrus.StandardLogger(),
+		Version:  userAgent,
+		NodeName: "",
+	}
+	_, err := NewProvider(options, fakeClient)
+	require.Error(t, err, "creating k8s provider to watch node with no node name should fail")
 }

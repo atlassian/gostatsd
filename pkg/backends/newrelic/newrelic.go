@@ -60,7 +60,7 @@ type Client struct {
 	flushType      string
 	apiKey         string
 	tagPrefix      string
-	// CloudProviderOptions to define your own field names to support other StatsD implementations
+	// Options to define your own field names to support other StatsD implementations
 	metricName      string
 	metricType      string
 	metricPerSecond string

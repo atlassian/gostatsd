@@ -3,23 +3,21 @@ package statsd
 import (
 	"context"
 	"fmt"
+	"os"
 	"sync"
 	"sync/atomic"
 	"time"
 
+	"github.com/atlassian/gostatsd"
+	"github.com/atlassian/gostatsd/pkg/cloudproviders"
 	"github.com/atlassian/gostatsd/pkg/cloudproviders/aws"
 	"github.com/atlassian/gostatsd/pkg/cloudproviders/k8s"
-
-	"github.com/atlassian/gostatsd/pkg/cloudproviders"
-	"github.com/spf13/viper"
-
-	"github.com/ash2k/stager"
-
-	"github.com/atlassian/gostatsd"
 	"github.com/atlassian/gostatsd/pkg/stats"
 
+	"github.com/ash2k/stager"
 	"github.com/ash2k/stager/wait"
 	"github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
 	"golang.org/x/time/rate"
 )
 
@@ -42,7 +40,7 @@ func (ih *instanceHolder) lastAccess() int64 {
 	return atomic.LoadInt64(&ih.lastAccessNano)
 }
 
-// CacheOptions holds cache behaviour configuration.
+// cacheOptions holds cache behaviour configuration.
 type CacheOptions struct {
 	CacheRefreshPeriod        time.Duration
 	CacheEvictAfterIdlePeriod time.Duration
@@ -54,19 +52,19 @@ type CacheOptions struct {
 type CloudHandlerFactory struct {
 	cloudProviderName string
 	version           string
-	CloudProvider     gostatsd.CloudProvider
+	cloudProvider     gostatsd.CloudProvider
 	logger            logrus.FieldLogger
-	Limiter           *rate.Limiter
-	CacheOptions      *CacheOptions
+	limiter           *rate.Limiter
+	cacheOptions      CacheOptions
 }
 
-// constructCloudHandlerFactory initialises a new cloud handler factory
-func constructCloudHandlerFactory(cloudProviderName string, logger logrus.FieldLogger, cacheOptions CacheOptions, limiter *rate.Limiter, version string) *CloudHandlerFactory {
+// newCloudHandlerFactory initialises a new cloud handler factory
+func newCloudHandlerFactory(cloudProviderName string, logger logrus.FieldLogger, cacheOptions CacheOptions, limiter *rate.Limiter, version string) *CloudHandlerFactory {
 	return &CloudHandlerFactory{
-		CacheOptions:      &cacheOptions,
+		cacheOptions:      cacheOptions,
 		logger:            logger,
-		Limiter:           limiter,
-		CloudProvider:     nil,
+		limiter:           limiter,
+		cloudProvider:     nil,
 		cloudProviderName: cloudProviderName,
 		version:           version,
 	}
@@ -77,7 +75,7 @@ func constructCloudHandlerFactory(cloudProviderName string, logger logrus.FieldL
 func ConstructCloudHandlerFactoryFromViper(v *viper.Viper, logger logrus.FieldLogger, version string) (*CloudHandlerFactory, error) {
 	cloudProviderName := v.GetString(ParamCloudProvider)
 	if cloudProviderName == "" {
-		return constructCloudHandlerFactory(cloudProviderName, logger, CacheOptions{}, nil, version), nil
+		return newCloudHandlerFactory(cloudProviderName, logger, CacheOptions{}, nil, version), nil
 	}
 
 	// Cloud provider defaults
@@ -106,7 +104,7 @@ func ConstructCloudHandlerFactoryFromViper(v *viper.Viper, logger logrus.FieldLo
 		CacheNegativeTTL:          v.GetDuration(ParamCacheNegativeTTL),
 	}
 	limiter := rate.NewLimiter(rate.Limit(v.GetInt(ParamMaxCloudRequests)), v.GetInt(ParamBurstCloudRequests))
-	return constructCloudHandlerFactory(cloudProviderName, logger, cacheOptions, limiter, version), nil
+	return newCloudHandlerFactory(cloudProviderName, logger, cacheOptions, limiter, version), nil
 }
 
 // InitCloudProvider initialises the cloud provider given some already parsed defaults.
@@ -116,10 +114,12 @@ func (f *CloudHandlerFactory) InitCloudProvider(v *viper.Viper) error {
 	switch f.cloudProviderName {
 	case aws.ProviderName:
 		// AWS has no special options required
-		break
 	case k8s.ProviderName:
 		options.Version = f.version
-		nodeName := k8s.GetNodeName()
+		// To ensure we get this information in a timely manner this MUST be passed down to the pod via an environment
+		// variable using the downwards API
+		// See: https://kubernetes.io/docs/tasks/inject-data-application/environment-variable-expose-pod-information/
+		nodeName := os.Getenv("GOSTATSD_NODE_NAME")
 		options.NodeName = nodeName
 	}
 
@@ -127,13 +127,13 @@ func (f *CloudHandlerFactory) InitCloudProvider(v *viper.Viper) error {
 	if err != nil {
 		return err
 	}
-	f.CloudProvider = cloudProvider
+	f.cloudProvider = cloudProvider
 	return nil
 }
 
 // NewCloudHandler creates a new Cloud Handler based on the options set in the CloudHandlerFactory.
 func (f *CloudHandlerFactory) NewCloudHandler(handler gostatsd.PipelineHandler) *CloudHandler {
-	return NewCloudHandler(f.CloudProvider, handler, f.logger, f.Limiter, f.CacheOptions)
+	return NewCloudHandler(f.cloudProvider, handler, f.logger, f.limiter, f.cacheOptions)
 }
 
 // CloudHandler enriches metrics and events with additional information fetched from cloud provider.
@@ -176,9 +176,9 @@ type CloudHandler struct {
 }
 
 // NewCloudHandler initialises a new cloud handler.
-func NewCloudHandler(cloud gostatsd.CloudProvider, handler gostatsd.PipelineHandler, logger logrus.FieldLogger, limiter *rate.Limiter, cacheOptions *CacheOptions) *CloudHandler {
+func NewCloudHandler(cloud gostatsd.CloudProvider, handler gostatsd.PipelineHandler, logger logrus.FieldLogger, limiter *rate.Limiter, cacheOptions CacheOptions) *CloudHandler {
 	return &CloudHandler{
-		cacheOpts:       *cacheOptions,
+		cacheOpts:       cacheOptions,
 		cloud:           cloud,
 		handler:         handler,
 		limiter:         limiter,
@@ -324,9 +324,6 @@ func (ch *CloudHandler) Run(ctx context.Context) {
 	// Stager will perform ordered, graceful shutdown. Stage by stage in reverse startup order.
 	stgr := stager.New()
 	defer stgr.Shutdown() // Wait for CloudProvider and lookupDispatcher to stop
-
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel() // Tell everything to stop
 
 	stage := stgr.NextStageWithContext(ctx)
 

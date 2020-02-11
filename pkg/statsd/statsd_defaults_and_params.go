@@ -2,14 +2,12 @@ package statsd
 
 import (
 	"runtime"
+	"strings"
 	"time"
 
+	"github.com/atlassian/gostatsd"
 	"github.com/atlassian/gostatsd/pkg/cloudproviders/aws"
 	"github.com/atlassian/gostatsd/pkg/cloudproviders/k8s"
-
-	"strings"
-
-	"github.com/atlassian/gostatsd"
 
 	"github.com/spf13/pflag"
 )

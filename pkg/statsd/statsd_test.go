@@ -8,11 +8,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sirupsen/logrus"
-
 	"github.com/atlassian/gostatsd"
 	"github.com/atlassian/gostatsd/pkg/fakesocket"
 
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"golang.org/x/time/rate"
 )
@@ -25,7 +24,7 @@ func TestStatsdThroughput(t *testing.T) {
 	runtime.ReadMemStats(&memStatsStart)
 	backend := &countingBackend{}
 
-	cloudHandlerFactory := constructCloudHandlerFactory(
+	cloudHandlerFactory := newCloudHandlerFactory(
 		"",
 		logrus.StandardLogger(),
 		CacheOptions{
@@ -37,7 +36,7 @@ func TestStatsdThroughput(t *testing.T) {
 		rate.NewLimiter(DefaultMaxCloudRequests, DefaultBurstCloudRequests),
 		"test")
 	// Inject the mock provider
-	cloudHandlerFactory.CloudProvider = &fakeProvider{
+	cloudHandlerFactory.cloudProvider = &fakeProvider{
 		instance: &gostatsd.Instance{
 			ID:   "i-13123123",
 			Tags: gostatsd.Tags{"region:us-west-3", "tag1", "tag2:234"},
