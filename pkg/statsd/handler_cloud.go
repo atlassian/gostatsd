@@ -309,14 +309,14 @@ func (ch *CloudHandler) Run(ctx context.Context) {
 	stgr := stager.New()
 	defer stgr.Shutdown() // Wait for CloudProvider and lookupDispatcher to stop
 
-	stage := stgr.NextStageWithContext(ctx)
+	stage := stgr.NextStage()
 
 	// If the cloud provider implements runnable, it has things to do. It must start before anything that
 	// accesses it
 	if ch.cloud != nil {
 		if r, ok := ch.cloud.(gostatsd.Runner); ok {
 			stage.StartWithContext(r.Run)
-			stage = stgr.NextStageWithContext(ctx)
+			stage = stgr.NextStage()
 		}
 	}
 
