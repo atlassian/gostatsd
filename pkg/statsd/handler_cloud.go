@@ -3,15 +3,12 @@ package statsd
 import (
 	"context"
 	"fmt"
-	"os"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/atlassian/gostatsd"
 	"github.com/atlassian/gostatsd/pkg/cloudproviders"
-	"github.com/atlassian/gostatsd/pkg/cloudproviders/aws"
-	"github.com/atlassian/gostatsd/pkg/cloudproviders/k8s"
 	"github.com/atlassian/gostatsd/pkg/stats"
 
 	"github.com/ash2k/stager"
@@ -110,20 +107,7 @@ func ConstructCloudHandlerFactoryFromViper(v *viper.Viper, logger logrus.FieldLo
 // InitCloudProvider initialises the cloud provider given some already parsed defaults.
 // This is mainly split out to enable testing the config parsing separately from the cloud providers.
 func (f *CloudHandlerFactory) InitCloudProvider(v *viper.Viper) error {
-	options := gostatsd.CloudProviderOptions{Viper: v, Logger: f.logger, Version: f.version}
-	switch f.cloudProviderName {
-	case aws.ProviderName:
-		// AWS has no special options required
-	case k8s.ProviderName:
-		options.Version = f.version
-		// To ensure we get this information in a timely manner this MUST be passed down to the pod via an environment
-		// variable using the downwards API
-		// See: https://kubernetes.io/docs/tasks/inject-data-application/environment-variable-expose-pod-information/
-		nodeName := os.Getenv("GOSTATSD_NODE_NAME")
-		options.NodeName = nodeName
-	}
-
-	cloudProvider, err := cloudproviders.Init(f.cloudProviderName, options)
+	cloudProvider, err := cloudproviders.Init(f.cloudProviderName, v, f.logger, f.version)
 	if err != nil {
 		return err
 	}

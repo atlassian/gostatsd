@@ -7,6 +7,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/spf13/viper"
+
 	"github.com/atlassian/gostatsd"
 	"github.com/atlassian/gostatsd/pkg/util"
 
@@ -21,12 +23,16 @@ import (
 	"k8s.io/client-go/util/flowcontrol"
 )
 
+// NeverMatchRegex is a regex string that will never match anything
+const NeverMatchRegex = "k^"
+
 var (
-	// DefaultAnnotationTagWhitelist is the default ParamAnnotationTagWhitelist. Everything beginning with a standard
+	// DefaultAnnotationTagRegex is the default ParamAnnotationTagRegex. Everything beginning with a standard
 	// gostatsd string is included by default.
-	DefaultAnnotationTagWhitelist = []string{"^" + regexp.QuoteMeta(AnnotationPrefix)}
-	// DefaultLabelTagWhitelist is the default ParamLabelTagWhitelist. Every label is ignored by default.
-	DefaultLabelTagWhitelist []string
+	// TODO: add capture groups
+	DefaultAnnotationTagRegex = "^" + regexp.QuoteMeta(AnnotationPrefix)
+	// DefaultLabelTagRegex is the default ParamLabelTagRegex. Every label is ignored by default.
+	DefaultLabelTagRegex = NeverMatchRegex // regex will never match anything
 )
 
 const (
@@ -42,24 +48,32 @@ const (
 	ParamAPIQPS = "kube-api-qps"
 	// ParamAPIQPSBurstFactor is the amount of queries per second we can burst above ParamAPIQPS.
 	ParamAPIQPSBurstFactor = "kube-api-burst"
-	// ParamAnnotationTagWhitelist is a list of regexes to check annotations against. Any pod annotations matching
-	// this pattern will be included as tags on metrics emitted by that pod.
-	ParamAnnotationTagWhitelist = "annotation-tag-whitelist"
-	// ParamLabelTagWhitelist is a list of regexes to check labels against. Any pod labels matching this
+	// ParamAnnotationTagRegex is a regex to check annotations against. Any pod annotations matching
+	// this pattern will be included as tags on metrics emitted by that pod. The tag name for these annotations will
+	// be the capture group named "tag".
+	ParamAnnotationTagRegex = "annotation-tag-regex"
+	// ParamLabelTagRegex is a list of regexes to check labels against. Any pod labels matching this
 	// pattern will be included as tags on metrics emitted by that pod.
-	ParamLabelTagWhitelist = "label-tag-whitelist"
+	ParamLabelTagRegex = "label-tag-regex"
 	// KubeconfigContextis the name of the context to use inside a provided ParamKubeconfigPath. If ParamKubeconfigPath
 	// is unset this has no effect.
 	ParamKubeconfigContext = "kubeconfig-context"
 	// ParamKubeconfigPath is the path to the kubeconfig file to use for auth, or "" if using in-cluster auth.
 	ParamKubeconfigPath = "kubeconfig-path"
+	// ParamNodeName is the Kubernetes node name of the node this is running on. This is only used if ParamWatchCluster
+	// is set to false.
+	ParamNodeName = "node-name"
 	// ParamResyncPeriod is the resync period for the pod cache as a Duration.
 	ParamResyncPeriod = "resync-period"
+	// ParamUserAgent is the user agent used when talking to the k8s API.
+	ParamUserAgent = "user-agent"
+	// TODO: remove below?
+	// ParamVersion is the binary version appended to the user agent when talking to the k8s API.
+	// This should be set by the caller.
+	ParamVersion = "user-agent-version"
 	// ParamWatchCluster is true if we should watch pods in the entire cluster, false if we should watch pods on our
 	// own node.
 	ParamWatchCluster = "watch-cluster"
-	// UserAgent is the base user agent used when talking to the k8s API. A version is appended to this at runtime.
-	UserAgent = "gostatsd"
 
 	// DefaultAPIQPS is the default maximum amount of queries per second we allow to the Kubernetes API server.
 	DefaultAPIQPS = 5
@@ -70,19 +84,33 @@ const (
 	DefaultKubeconfigContext = ""
 	// DefaultKubeconfigPath is the default path to the kubeconfig file. "" means use in-cluster auth.
 	DefaultKubeconfigPath = ""
+	// DefaultNodeName is the default node name to watch pods on when ParamWatchCluster is false. Defaults to unset
+	// as this will fail fast and alert users to set this appropriately.
+	DefaultNodeName = ""
 	// DefaultResyncPeriod is the default resync period for the pod cache.
 	DefaultResyncPeriod = 5 * time.Minute
+	// DefaultUserAgent is the default user agent used when talking to the k8s API.
+	DefaultUserAgent = "gostatsd"
+	// DefaultVersion is the default binary version appended to the user agent when talking to the k8s API.
+	DefaultVersion = "unknown"
 	// DefaultWatchCluster is the default watch mode for pods. By default we watch the entire cluster.
 	DefaultWatchCluster = true
 )
+
+// PodInformerOptions represent options for a pod informer.
+type PodInformerOptions struct {
+	ResyncPeriod time.Duration
+	WatchCluster bool
+	NodeName     string
+}
 
 // Provider represents a k8s provider.
 type Provider struct {
 	logger logrus.FieldLogger
 
-	podsInf             cache.SharedIndexInformer
-	annotationWhitelist *regexp.Regexp
-	labelWhitelist      *regexp.Regexp
+	podsInf         cache.SharedIndexInformer
+	annotationRegex *regexp.Regexp
+	labelRegex      *regexp.Regexp
 }
 
 func (p *Provider) EstimatedTags() int {
@@ -126,12 +154,12 @@ func (p *Provider) Instance(ctx context.Context, IP ...gostatsd.IP) (map[gostats
 		var tags gostatsd.Tags
 		// TODO: deduplicate labels and annotations in their tag format, rather than overwriting
 		for k, v := range pod.ObjectMeta.Labels {
-			if p.labelWhitelist.MatchString(k) {
+			if p.labelRegex.MatchString(k) {
 				tags = append(tags, k+":"+v)
 			}
 		}
 		for k, v := range pod.ObjectMeta.Annotations {
-			if !p.annotationWhitelist.MatchString(k) {
+			if !p.annotationRegex.MatchString(k) {
 				continue
 			}
 			// Annotations are often of the format "purpose.company.com/annotationName" so we want to split off the
@@ -175,17 +203,75 @@ func (p *Provider) SelfIP() (gostatsd.IP, error) {
 	return gostatsd.UnknownIP, nil
 }
 
-// NewProviderFromOptions returns a new k8s provider.
-func NewProviderFromOptions(options gostatsd.CloudProviderOptions) (gostatsd.CloudProvider, error) {
-	a := util.GetSubViper(options.Viper, "k8s")
-	a.SetDefault(ParamKubeconfigContext, DefaultKubeconfigContext)
-	a.SetDefault(ParamKubeconfigPath, DefaultKubeconfigPath)
+// NewProviderFromViper returns a new k8s provider.
+func NewProviderFromViper(v *viper.Viper, logger logrus.FieldLogger, version string) (gostatsd.CloudProvider, error) {
+	k := util.GetSubViper(v, "k8s")
+	setViperDefaults(v, version)
 
 	// Set up the k8s client
+	clientset, err := createKubernetesClient(k.GetString(ParamUserAgent), k.GetString(ParamKubeconfigPath),
+		k.GetString(ParamKubeconfigContext), k.GetFloat64(ParamAPIQPS), k.GetFloat64(ParamAPIQPSBurstFactor))
+	if err != nil {
+		return nil, err
+	}
+
+	return NewProvider(
+		logger,
+		clientset,
+		PodInformerOptions{
+			ResyncPeriod: k.GetDuration(ParamResyncPeriod),
+			WatchCluster: k.GetBool(ParamWatchCluster),
+			NodeName:     k.GetString(ParamNodeName),
+		},
+		k.GetString(ParamAnnotationTagRegex),
+		k.GetString(ParamLabelTagRegex))
+}
+
+// NewProvider returns a new k8s provider.
+func NewProvider(logger logrus.FieldLogger, clientset kubernetes.Interface, podInfOpts PodInformerOptions,
+	annotationRegex, labelRegex string) (gostatsd.CloudProvider, error) {
+
+	// Set up the pod informer which fills an index with the pods we care about
+	indexers := cache.Indexers{
+		PodsByIPIndexName: podByIpIndexFunc,
+	}
+	customWatchOptions := func(*meta_v1.ListOptions) {}
+
+	// If we're not watching the entire cluster we need to limit our watch to pods with our node name
+	if !podInfOpts.WatchCluster {
+		if podInfOpts.NodeName == "" {
+			return nil, fmt.Errorf("watch-cluster set to false, and node name not supplied")
+		}
+		customWatchOptions = func(lo *meta_v1.ListOptions) {
+			lo.FieldSelector = fmt.Sprintf("spec.nodeName=%s", podInfOpts.NodeName)
+		}
+	}
+
+	podsInf := core_v1inf.NewFilteredPodInformer(
+		clientset,
+		meta_v1.NamespaceAll,
+		podInfOpts.ResyncPeriod,
+		indexers,
+		customWatchOptions)
+
+	// TODO: we should emit prometheus metrics to fit in with the k8s ecosystem
+	// TODO: we should emit events to the k8s API to fit in with the k8s ecosystem
+
+	return &Provider{
+		logger:          logger,
+		podsInf:         podsInf,
+		annotationRegex: regexp.MustCompile(annotationRegex),
+		labelRegex:      regexp.MustCompile(labelRegex),
+	}, nil
+}
+
+func (p *Provider) Run(ctx context.Context) {
+	p.podsInf.Run(ctx.Done())
+}
+
+func createKubernetesClient(userAgent, kubeconfigPath, kubeconfigContext string, apiQPS, apiQPSBurstFactor float64) (kubernetes.Interface, error) {
 	var restConfig *rest.Config
 	var err error
-	kubeconfigPath := a.GetString(ParamKubeconfigPath)
-	kubeconfigContext := a.GetString(ParamKubeconfigContext)
 	if kubeconfigPath != "" {
 		configOverrides := &clientcmd.ConfigOverrides{}
 		if kubeconfigContext != "" {
@@ -202,82 +288,14 @@ func NewProviderFromOptions(options gostatsd.CloudProviderOptions) (gostatsd.Clo
 		return nil, err
 	}
 
-	apiQPS := a.GetFloat64(ParamAPIQPS)
-	apiQPSBurstFactor := a.GetFloat64(ParamAPIQPSBurstFactor)
 	restConfig.RateLimiter = flowcontrol.NewTokenBucketRateLimiter(float32(apiQPS), int(apiQPS*apiQPSBurstFactor))
-	restConfig.UserAgent = UserAgent + "/" + options.Version
+	restConfig.UserAgent = userAgent
 
 	clientset, err := kubernetes.NewForConfig(restConfig)
 	if err != nil {
 		return nil, err
 	}
-	return NewProvider(options, clientset)
-}
-
-// NewProvider returns a new k8s provider with the given k8s client configuration.
-func NewProvider(options gostatsd.CloudProviderOptions, clientset kubernetes.Interface) (gostatsd.CloudProvider, error) {
-	a := util.GetSubViper(options.Viper, "k8s")
-	a.SetDefault(ParamAPIQPS, DefaultAPIQPS)
-	a.SetDefault(ParamAPIQPSBurstFactor, DefaultAPIQPSBurstFactor)
-	a.SetDefault(ParamAnnotationTagWhitelist, DefaultAnnotationTagWhitelist)
-	a.SetDefault(ParamLabelTagWhitelist, DefaultLabelTagWhitelist)
-	a.SetDefault(ParamResyncPeriod, DefaultResyncPeriod)
-	a.SetDefault(ParamWatchCluster, DefaultWatchCluster)
-
-	// Create the tag whitelists
-	annotationWhitelist, err := stringListToRegex(a.GetStringSlice(ParamAnnotationTagWhitelist))
-	if err != nil {
-		return nil, err
-	}
-	labelWhitelist, err := stringListToRegex(a.GetStringSlice(ParamLabelTagWhitelist))
-	if err != nil {
-		return nil, err
-	}
-
-	// Set up informers
-	indexers := cache.Indexers{
-		PodsByIPIndexName: podByIpIndexFunc,
-	}
-
-	watchCluster := a.GetBool(ParamWatchCluster)
-	customWatchOptions := func(*meta_v1.ListOptions) {}
-	if !watchCluster {
-		if options.NodeName == "" {
-			return nil, fmt.Errorf("'%s' set to false, and node name not supplied", ParamWatchCluster)
-		}
-		customWatchOptions = func(lo *meta_v1.ListOptions) {
-			lo.FieldSelector = fmt.Sprintf("spec.nodeName=%s", options.NodeName)
-		}
-	}
-
-	podsInf := core_v1inf.NewFilteredPodInformer(
-		clientset,
-		meta_v1.NamespaceAll,
-		a.GetDuration(ParamResyncPeriod),
-		indexers,
-		customWatchOptions)
-
-	// TODO: we should emit prometheus metrics to fit in with the k8s ecosystem
-	// TODO: we should emit events to the k8s API to fit in with the k8s ecosystem
-
-	return &Provider{
-		logger:              options.Logger,
-		podsInf:             podsInf,
-		annotationWhitelist: annotationWhitelist,
-		labelWhitelist:      labelWhitelist,
-	}, nil
-}
-
-func (p *Provider) Run(ctx context.Context) {
-	p.podsInf.Run(ctx.Done())
-}
-
-func stringListToRegex(strList []string) (*regexp.Regexp, error) {
-	if len(strList) == 0 {
-		// This regex should always fail to match anything
-		return regexp.Compile("(k^)")
-	}
-	return regexp.Compile("(" + strings.Join(strList, "|") + ")")
+	return clientset, nil
 }
 
 func podByIpIndexFunc(obj interface{}) ([]string, error) {
@@ -301,4 +319,20 @@ func podIsHostNetwork(pod *core_v1.Pod) bool {
 
 func podIsFinishedRunning(pod *core_v1.Pod) bool {
 	return pod.Status.Phase == core_v1.PodSucceeded || pod.Status.Phase == core_v1.PodFailed || pod.DeletionTimestamp != nil
+}
+
+func setViperDefaults(v *viper.Viper, version string) {
+	v.SetDefault(ParamAPIQPS, DefaultAPIQPS)
+	v.SetDefault(ParamAPIQPSBurstFactor, DefaultAPIQPSBurstFactor)
+	v.SetDefault(ParamAnnotationTagRegex, DefaultAnnotationTagRegex)
+	v.SetDefault(ParamKubeconfigContext, DefaultKubeconfigContext)
+	v.SetDefault(ParamKubeconfigPath, DefaultKubeconfigPath)
+	v.SetDefault(ParamLabelTagRegex, DefaultLabelTagRegex)
+	// This is intended to be taken in primarily as an environment variable when running inside k8s, as that is the
+	// k8s standard way of providing variable information to pods via the downwards API.
+	// See: https://kubernetes.io/docs/tasks/inject-data-application/environment-variable-expose-pod-information/
+	v.SetDefault(ParamNodeName, DefaultNodeName)
+	v.SetDefault(ParamResyncPeriod, DefaultResyncPeriod)
+	v.SetDefault(ParamUserAgent, DefaultUserAgent+"/"+version)
+	v.SetDefault(ParamWatchCluster, DefaultWatchCluster)
 }

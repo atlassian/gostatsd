@@ -25,15 +25,9 @@ const (
 	podName1  = "pod1"
 	podName2  = "pod2"
 	nodeName  = "node1"
-	userAgent = "test"
 
 	ipAddr  = "127.0.0.1"
 	ipAddr2 = "10.0.0.1"
-)
-
-var (
-	FullyQualifiedAnnotationWhitelistParam = ProviderName + "." + ParamAnnotationTagWhitelist
-	FullyQualifiedLabelWhitelistParam      = ProviderName + "." + ParamLabelTagWhitelist
 )
 
 type tagTestValue struct {
@@ -106,13 +100,21 @@ func setupTest(t *testing.T, test func(*testing.T, *testFixture), v *viper.Viper
 	podsWatch := watch.NewFake()
 	fakeClient.PrependWatchReactor("pods", kube_testing.DefaultWatchReactor(podsWatch, nil))
 
-	options := gostatsd.CloudProviderOptions{
-		Viper:    v,
-		Logger:   logrus.StandardLogger(),
-		Version:  userAgent,
-		NodeName: nn,
-	}
-	cloudProvider, err := NewProvider(options, fakeClient)
+	// We have to set these to the defaults manually here as we're sidestepping the Viper creation path
+	// to inject things
+	setViperDefaults(v, "test")
+
+	cloudProvider, err := NewProvider(
+		logrus.StandardLogger(),
+		fakeClient,
+		PodInformerOptions{
+			ResyncPeriod: v.GetDuration(ParamResyncPeriod),
+			WatchCluster: v.GetBool(ParamWatchCluster),
+			NodeName:     nn,
+		},
+		v.GetString(ParamAnnotationTagRegex),
+		v.GetString(ParamLabelTagRegex),
+	)
 	require.NoError(t, err)
 
 	r, ok := cloudProvider.(gostatsd.Runner)
@@ -153,19 +155,9 @@ var ipTagTests = []tagTest{
 		expectedTagsContains: []tagTestValue{annotationTestValues[0]},
 	},
 	{
-		name: "WithNoAnnotationTagWhitelist",
-		viperParams: map[string]interface{}{
-			FullyQualifiedAnnotationWhitelistParam: []string{},
-		},
-		pods:            []*core_v1.Pod{pod()},
-		expectedNumTags: 0,
-	},
-	{
 		name: "WithCustomAnnotationTagWhitelist",
 		viperParams: map[string]interface{}{
-			FullyQualifiedAnnotationWhitelistParam: []string{
-				"^" + regexp.QuoteMeta("product.company.com/"),
-			},
+			ParamAnnotationTagRegex: "^" + regexp.QuoteMeta("product.company.com/"),
 		},
 		pods:                 []*core_v1.Pod{pod()},
 		expectedNumTags:      1,
@@ -174,10 +166,10 @@ var ipTagTests = []tagTest{
 	{
 		name: "WithCustomAnnotationTagWhitelistMultipleRegex",
 		viperParams: map[string]interface{}{
-			FullyQualifiedAnnotationWhitelistParam: []string{
-				"^" + regexp.QuoteMeta("product.company.com/"),
-				"^" + regexp.QuoteMeta(AnnotationPrefix),
-			},
+			ParamAnnotationTagRegex: fmt.Sprintf(
+				"^(%s|%s)",
+				regexp.QuoteMeta("product.company.com/"),
+				regexp.QuoteMeta(AnnotationPrefix)),
 		},
 		pods:                 []*core_v1.Pod{pod()},
 		expectedNumTags:      2,
@@ -186,7 +178,7 @@ var ipTagTests = []tagTest{
 	{
 		name: "WithCustomLabelTagWhitelist",
 		viperParams: map[string]interface{}{
-			FullyQualifiedLabelWhitelistParam: []string{"^app"},
+			ParamLabelTagRegex: "^app",
 		},
 		pods:                 []*core_v1.Pod{pod()},
 		expectedNumTags:      2, // we're still using the default annotation whitelist too
@@ -195,7 +187,7 @@ var ipTagTests = []tagTest{
 	{
 		name: "WithCustomLabelTagWhitelistMultipleRegex",
 		viperParams: map[string]interface{}{
-			FullyQualifiedLabelWhitelistParam: []string{"^app", "^label"},
+			ParamLabelTagRegex: "^(app|label)",
 		},
 		pods:                 []*core_v1.Pod{pod()},
 		expectedNumTags:      3, // we're still using the default annotation whitelist too
@@ -270,7 +262,7 @@ func TestNoHostNetworkPodsCached(t *testing.T) {
 
 func TestWatchNodeOnly(t *testing.T) {
 	v := viper.New()
-	v.Set(ProviderName+"."+ParamWatchCluster, false)
+	v.Set(ParamWatchCluster, false)
 
 	setupTest(t, func(t *testing.T, fixtures *testFixture) {
 		expectedKey := "node"
@@ -309,19 +301,20 @@ func TestWatchNodeOnly(t *testing.T) {
 }
 
 func TestWatchNodeFailsNoNodeName(t *testing.T) {
-	v := viper.New()
-	v.Set(ProviderName+"."+ParamWatchCluster, false)
-
 	fakeClient := mainFake.NewSimpleClientset()
 	podsWatch := watch.NewFake()
 	fakeClient.PrependWatchReactor("pods", kube_testing.DefaultWatchReactor(podsWatch, nil))
 
-	options := gostatsd.CloudProviderOptions{
-		Viper:    v,
-		Logger:   logrus.StandardLogger(),
-		Version:  userAgent,
-		NodeName: "",
-	}
-	_, err := NewProvider(options, fakeClient)
+	_, err := NewProvider(
+		logrus.StandardLogger(),
+		fakeClient,
+		PodInformerOptions{
+			ResyncPeriod: DefaultResyncPeriod,
+			WatchCluster: false, // the important bit
+			NodeName:     "",
+		},
+		DefaultAnnotationTagRegex,
+		DefaultLabelTagRegex,
+	)
 	require.Error(t, err, "creating k8s provider to watch node with no node name should fail")
 }

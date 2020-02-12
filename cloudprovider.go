@@ -7,16 +7,8 @@ import (
 	"github.com/spf13/viper"
 )
 
-type CloudProviderOptions struct {
-	Viper  *viper.Viper
-	Logger logrus.FieldLogger
-	// k8s specific options, can be unset for other providers
-	Version  string
-	NodeName string
-}
-
 // CloudProviderFactory is a function that returns a CloudProvider.
-type CloudProviderFactory func(CloudProviderOptions) (CloudProvider, error)
+type CloudProviderFactory func(v *viper.Viper, logger logrus.FieldLogger, version string) (CloudProvider, error)
 
 // Instance represents a cloud instance.
 type Instance struct {

@@ -10,6 +10,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/spf13/viper"
+
 	"github.com/atlassian/gostatsd"
 	"github.com/atlassian/gostatsd/pkg/stats"
 	"github.com/atlassian/gostatsd/pkg/util"
@@ -202,9 +204,9 @@ func azToRegion(az string) (string, error) {
 	return region, nil
 }
 
-// NewProviderFromOptions returns a new aws provider.
-func NewProviderFromOptions(options gostatsd.CloudProviderOptions) (gostatsd.CloudProvider, error) {
-	a := util.GetSubViper(options.Viper, "aws")
+// NewProviderFromViper returns a new aws provider.
+func NewProviderFromViper(v *viper.Viper, logger logrus.FieldLogger, _ string) (gostatsd.CloudProvider, error) {
+	a := util.GetSubViper(v, "aws")
 	a.SetDefault("max_retries", 3)
 	a.SetDefault("client_timeout", defaultClientTimeout)
 	a.SetDefault("max_instances_batch", defaultMaxInstancesBatch)
@@ -262,6 +264,6 @@ func NewProviderFromOptions(options gostatsd.CloudProviderOptions) (gostatsd.Clo
 		Metadata:     metadata,
 		Ec2:          ec2.New(ec2Session),
 		MaxInstances: maxInstances,
-		logger:       options.Logger,
+		logger:       logger,
 	}, nil
 }

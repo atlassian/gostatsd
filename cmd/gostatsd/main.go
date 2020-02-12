@@ -10,9 +10,10 @@ import (
 	"os"
 	"os/signal"
 	"strconv"
-	"strings"
 	"syscall"
 	"time"
+
+	"github.com/atlassian/gostatsd/pkg/util"
 
 	"github.com/atlassian/gostatsd"
 	"github.com/atlassian/gostatsd/pkg/backends"
@@ -37,9 +38,6 @@ const (
 	// ParamVersion makes program output its version.
 	ParamVersion = "version"
 )
-
-// EnvPrefix is the prefix of the inspected environment variables.
-const EnvPrefix = "GSD" //Go Stats D
 
 func main() {
 	rand.Seed(time.Now().UnixNano())
@@ -178,10 +176,7 @@ func cancelOnInterrupt(ctx context.Context, f context.CancelFunc) {
 func setupConfiguration() (*viper.Viper, bool, error) {
 	v := viper.New()
 	defer setupLogger(v) // Apply logging configuration in case of early exit
-	v.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
-	v.SetEnvPrefix(EnvPrefix)
-	v.SetTypeByDefaultValue(true)
-	v.AutomaticEnv()
+	util.InitViper(v, "")
 
 	var version bool
 
