@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"regexp"
-	"strings"
 	"time"
 
 	"github.com/spf13/viper"
@@ -28,9 +27,9 @@ const NeverMatchRegex = "k^"
 
 var (
 	// DefaultAnnotationTagRegex is the default ParamAnnotationTagRegex. Everything beginning with a standard
-	// gostatsd string is included by default.
-	// TODO: add capture groups
-	DefaultAnnotationTagRegex = "^" + regexp.QuoteMeta(AnnotationPrefix)
+	// gostatsd string is included by default. The default sets the tag name as the part after the "/", for example
+	// gostatsd.atlassian.com/tag1 would return "tag1" as the tag name after matching.
+	DefaultAnnotationTagRegex = "^" + regexp.QuoteMeta(AnnotationPrefix) + DefaultTagCaptureRegex
 	// DefaultLabelTagRegex is the default ParamLabelTagRegex. Every label is ignored by default.
 	DefaultLabelTagRegex = NeverMatchRegex // regex will never match anything
 )
@@ -42,6 +41,8 @@ const (
 	PodsByIPIndexName = "PodByIP"
 	// AnnotationPrefix is the annotation prefix that is turned into tags by default.
 	AnnotationPrefix = "gostatsd.atlassian.com/"
+	// DefaultTagCaptureRegex is a regex subexpression to capture from now until the end of the regex as the tag name.
+	DefaultTagCaptureRegex = "(?P<tag>.*)$"
 
 	// ParamAPIQPS is the maximum amount of queries per second we allow to the Kubernetes API server. This is
 	// so we don't overwhelm the server with requests under load.
@@ -154,22 +155,16 @@ func (p *Provider) Instance(ctx context.Context, IP ...gostatsd.IP) (map[gostats
 		var tags gostatsd.Tags
 		// TODO: deduplicate labels and annotations in their tag format, rather than overwriting
 		for k, v := range pod.ObjectMeta.Labels {
-			if p.labelRegex.MatchString(k) {
-				tags = append(tags, k+":"+v)
+			tagName := getTagNameFromRegex(p.labelRegex, k)
+			if tagName != "" {
+				tags = append(tags, tagName+":"+v)
 			}
 		}
 		for k, v := range pod.ObjectMeta.Annotations {
-			if !p.annotationRegex.MatchString(k) {
-				continue
+			tagName := getTagNameFromRegex(p.annotationRegex, k)
+			if tagName != "" {
+				tags = append(tags, tagName+":"+v)
 			}
-			// Annotations are often of the format "purpose.company.com/annotationName" so we want to split off the
-			// start when processing tag names
-			tagName := k
-			splitTagName := strings.SplitN(k, "/", 2)
-			if len(splitTagName) > 1 {
-				tagName = splitTagName[1]
-			}
-			tags = append(tags, tagName+":"+v)
 		}
 		instanceID := pod.Namespace + "/" + pod.Name
 		instanceIPs[lookupIP] = &gostatsd.Instance{
@@ -335,4 +330,23 @@ func setViperDefaults(v *viper.Viper, version string) {
 	v.SetDefault(ParamResyncPeriod, DefaultResyncPeriod)
 	v.SetDefault(ParamUserAgent, DefaultUserAgent+"/"+version)
 	v.SetDefault(ParamWatchCluster, DefaultWatchCluster)
+}
+
+// getTagNameFromRegex gets a tag name from the regex. This is either the entire input string, or a subset matching
+// the "tag" capture group if it exists and matched. Returns "" if the regex matched nothing.
+func getTagNameFromRegex(re *regexp.Regexp, s string) string {
+	match := re.FindStringSubmatch(s)
+
+	var matches = make(map[string]string, len(match))
+	for i, name := range match {
+		matches[re.SubexpNames()[i]] = name
+	}
+	// If the regex matched outside of a capture group then that is set as the "" key of this map
+	if tagName, ok := matches["tag"]; ok {
+		return tagName
+	}
+	if tagName, ok := matches[""]; ok {
+		return tagName
+	}
+	return ""
 }

@@ -157,7 +157,7 @@ var ipTagTests = []tagTest{
 	{
 		name: "WithCustomAnnotationTagWhitelist",
 		viperParams: map[string]interface{}{
-			ParamAnnotationTagRegex: "^" + regexp.QuoteMeta("product.company.com/"),
+			ParamAnnotationTagRegex: "^" + regexp.QuoteMeta("product.company.com/") + DefaultTagCaptureRegex,
 		},
 		pods:                 []*core_v1.Pod{pod()},
 		expectedNumTags:      1,
@@ -167,9 +167,10 @@ var ipTagTests = []tagTest{
 		name: "WithCustomAnnotationTagWhitelistMultipleRegex",
 		viperParams: map[string]interface{}{
 			ParamAnnotationTagRegex: fmt.Sprintf(
-				"^(%s|%s)",
+				"^(%s|%s)%s",
 				regexp.QuoteMeta("product.company.com/"),
-				regexp.QuoteMeta(AnnotationPrefix)),
+				regexp.QuoteMeta(AnnotationPrefix),
+				DefaultTagCaptureRegex),
 		},
 		pods:                 []*core_v1.Pod{pod()},
 		expectedNumTags:      2,
