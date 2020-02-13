@@ -68,10 +68,6 @@ const (
 	ParamResyncPeriod = "resync-period"
 	// ParamUserAgent is the user agent used when talking to the k8s API.
 	ParamUserAgent = "user-agent"
-	// TODO: remove below?
-	// ParamVersion is the binary version appended to the user agent when talking to the k8s API.
-	// This should be set by the caller.
-	ParamVersion = "user-agent-version"
 	// ParamWatchCluster is true if we should watch pods in the entire cluster, false if we should watch pods on our
 	// own node.
 	ParamWatchCluster = "watch-cluster"
@@ -92,8 +88,6 @@ const (
 	DefaultResyncPeriod = 5 * time.Minute
 	// DefaultUserAgent is the default user agent used when talking to the k8s API.
 	DefaultUserAgent = "gostatsd"
-	// DefaultVersion is the default binary version appended to the user agent when talking to the k8s API.
-	DefaultVersion = "unknown"
 	// DefaultWatchCluster is the default watch mode for pods. By default we watch the entire cluster.
 	DefaultWatchCluster = true
 )
