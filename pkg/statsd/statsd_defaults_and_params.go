@@ -36,13 +36,13 @@ var DefaultInternalTags = gostatsd.Tags{}
 // DefaultCloudProviderCacheValues contains the default cache values for each cloud provider.
 var DefaultCloudProviderCacheValues = map[string]CacheOptions{
 	k8s.ProviderName: {
-		// Basically the CacheRefreshPeriod is the granularity at which we care about batching data.
-		// If 5 requests come in inside 50 milliseconds, and this is set to 50 milliseconds, we only need to look
-		// up the informer once, and do the regexes once. This saves us resources at the cost of data precision.
-		CacheRefreshPeriod:        50 * time.Millisecond,
-		CacheEvictAfterIdlePeriod: 1 * time.Millisecond,
-		CacheTTL:                  1 * time.Millisecond,
-		CacheNegativeTTL:          1 * time.Millisecond,
+		// The refresh period is low for k8s provider since there is no network cost to looking up pods
+		CacheRefreshPeriod:        15 * time.Second,
+		CacheEvictAfterIdlePeriod: DefaultCacheEvictAfterIdlePeriod,
+		// TTLs are low for the k8s provider because there is no network cost to doing a refresh of the data
+		// This means we get fresh data every time the refresh period is up
+		CacheTTL:         1 * time.Millisecond,
+		CacheNegativeTTL: 1 * time.Millisecond,
 	},
 	aws.ProviderName: {
 		CacheRefreshPeriod:        DefaultCacheRefreshPeriod,
