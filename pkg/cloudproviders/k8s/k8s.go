@@ -341,12 +341,14 @@ func getTagNameFromRegex(re *regexp.Regexp, s string) string {
 	for i, name := range match {
 		matches[re.SubexpNames()[i]] = name
 	}
-	// If the regex matched outside of a capture group then that is set as the "" key of this map
+
 	if tagName, ok := matches["tag"]; ok {
 		return tagName
 	}
-	if tagName, ok := matches[""]; ok {
-		return tagName
+	// If the regex matched outside of a capture group then that is set as the "" key of this map
+	// We return the entire string because there was a match but no tag capture group
+	if _, ok := matches[""]; ok {
+		return s
 	}
 	return ""
 }

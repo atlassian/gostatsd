@@ -319,3 +319,23 @@ func TestWatchNodeFailsNoNodeName(t *testing.T) {
 	)
 	require.Error(t, err, "creating k8s provider to watch node with no node name should fail")
 }
+
+func TestGetTagNameFromRegex(t *testing.T) {
+	tests := map[string]struct {
+		str             string
+		re              string
+		expectedTagName string
+	}{
+		"NoMatchNoTagCaptureGroup":   {"donotmatch", "aaa", ""},
+		"NoMatchWithTagCaptureGroup": {"donotmatch", "(?P<tag>aaa)", ""},
+		"MatchNoTagCaptureGroup":     {"matchthis", "match", "matchthis"},
+		"MatchWithTagCaptureGroup":   {"matchthis", "(?P<tag>match)", "match"},
+	}
+
+	for name, testCase := range tests {
+		t.Run(name, func(t *testing.T) {
+			tagName := getTagNameFromRegex(regexp.MustCompile(testCase.re), testCase.str)
+			assert.Equal(t, testCase.expectedTagName, tagName)
+		})
+	}
+}
