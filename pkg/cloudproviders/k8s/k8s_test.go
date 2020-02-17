@@ -112,8 +112,8 @@ func setupTest(t *testing.T, test func(*testing.T, *testFixture), v *viper.Viper
 			WatchCluster: v.GetBool(ParamWatchCluster),
 			NodeName:     nn,
 		},
-		v.GetString(ParamAnnotationTagRegex),
-		v.GetString(ParamLabelTagRegex),
+		regexp.MustCompile(v.GetString(ParamAnnotationTagRegex)),
+		regexp.MustCompile(v.GetString(ParamLabelTagRegex)),
 	)
 	require.NoError(t, err)
 
@@ -121,9 +121,7 @@ func setupTest(t *testing.T, test func(*testing.T, *testFixture), v *viper.Viper
 	require.True(t, ok)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	go func() {
-		r.Run(ctx) // fork
-	}()
+	r.Run(ctx) // run the cloud provider
 
 	test(t, &testFixture{
 		fakeClient:    fakeClient,
@@ -157,7 +155,7 @@ var ipTagTests = []tagTest{
 	{
 		name: "WithCustomAnnotationTagWhitelist",
 		viperParams: map[string]interface{}{
-			ParamAnnotationTagRegex: "^" + regexp.QuoteMeta("product.company.com/") + DefaultTagCaptureRegex,
+			ParamAnnotationTagRegex: fmt.Sprintf("^%s%s$", regexp.QuoteMeta("product.company.com/"), DefaultTagCaptureRegex),
 		},
 		pods:                 []*core_v1.Pod{pod()},
 		expectedNumTags:      1,
@@ -167,7 +165,7 @@ var ipTagTests = []tagTest{
 		name: "WithCustomAnnotationTagWhitelistMultipleRegex",
 		viperParams: map[string]interface{}{
 			ParamAnnotationTagRegex: fmt.Sprintf(
-				"^(%s|%s)%s",
+				"^(%s|%s)%s$",
 				regexp.QuoteMeta("product.company.com/"),
 				regexp.QuoteMeta(AnnotationPrefix),
 				DefaultTagCaptureRegex),
@@ -272,7 +270,6 @@ func TestWatchNodeOnly(t *testing.T) {
 
 		p := pod()
 		p.Spec.NodeName = nodeName
-		p.Status.PodIP = ipAddr
 		p.ObjectMeta.Annotations = map[string]string{nodeAnnotationKey: expectedValue}
 		p.ObjectMeta.Labels = map[string]string{}
 		fixtures.podsWatch.Add(p)
@@ -314,8 +311,8 @@ func TestWatchNodeFailsNoNodeName(t *testing.T) {
 			WatchCluster: false, // the important bit
 			NodeName:     "",
 		},
-		DefaultAnnotationTagRegex,
-		DefaultLabelTagRegex,
+		regexp.MustCompile(DefaultAnnotationTagRegex),
+		regexp.MustCompile(DefaultLabelTagRegex),
 	)
 	require.Error(t, err, "creating k8s provider to watch node with no node name should fail")
 }
@@ -330,6 +327,7 @@ func TestGetTagNameFromRegex(t *testing.T) {
 		"NoMatchWithTagCaptureGroup": {"donotmatch", "(?P<tag>aaa)", ""},
 		"MatchNoTagCaptureGroup":     {"matchthis", "match", "matchthis"},
 		"MatchWithTagCaptureGroup":   {"matchthis", "(?P<tag>match)", "match"},
+		"NoMatchWithEmptyRegex":      {"matchthis", "", ""},
 	}
 
 	for name, testCase := range tests {

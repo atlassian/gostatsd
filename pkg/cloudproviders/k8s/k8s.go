@@ -20,16 +20,13 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 )
 
-// NeverMatchRegex is a regex string that will never match anything
-const NeverMatchRegex = "k^"
-
 var (
 	// DefaultAnnotationTagRegex is the default ParamAnnotationTagRegex. Everything beginning with a standard
 	// gostatsd string is included by default. The default sets the tag name as the part after the "/", for example
 	// gostatsd.atlassian.com/tag1 would return "tag1" as the tag name after matching.
-	DefaultAnnotationTagRegex = "^" + regexp.QuoteMeta(AnnotationPrefix) + DefaultTagCaptureRegex
-	// DefaultLabelTagRegex is the default ParamLabelTagRegex. Every label is ignored by default.
-	DefaultLabelTagRegex = NeverMatchRegex // regex will never match anything
+	DefaultAnnotationTagRegex = fmt.Sprintf("^%s%s$", regexp.QuoteMeta(AnnotationPrefix), DefaultTagCaptureRegex)
+	// DefaultTagCaptureRegex is a regex subexpression to capture from now until the end of the regex as the tag name.
+	DefaultTagCaptureRegex = fmt.Sprintf("(?P<%s>.*)", TagNameRegexSubexp)
 )
 
 const (
@@ -39,8 +36,9 @@ const (
 	PodsByIPIndexName = "PodByIP"
 	// AnnotationPrefix is the annotation prefix that is turned into tags by default.
 	AnnotationPrefix = "gostatsd.atlassian.com/"
-	// DefaultTagCaptureRegex is a regex subexpression to capture from now until the end of the regex as the tag name.
-	DefaultTagCaptureRegex = "(?P<tag>.*)$"
+	// TagNameRegexSubexp is the name of the regex subexpression that is used to parse tag names from label/annotation
+	// names.
+	TagNameRegexSubexp = "tag"
 
 	// ParamAPIQPS is the maximum amount of queries per second we allow to the Kubernetes API server. This is
 	// so we don't overwhelm the server with requests under load.
@@ -49,10 +47,11 @@ const (
 	ParamAPIQPSBurst = "kube-api-burst"
 	// ParamAnnotationTagRegex is a regex to check annotations against. Any pod annotations matching
 	// this pattern will be included as tags on metrics emitted by that pod. The tag name for these annotations will
-	// be the capture group named "tag".
+	// be the capture group named "tag". "" means ignore all annotations.
 	ParamAnnotationTagRegex = "annotation-tag-regex"
 	// ParamLabelTagRegex is a list of regexes to check labels against. Any pod labels matching this
-	// pattern will be included as tags on metrics emitted by that pod.
+	// pattern will be included as tags on metrics emitted by that pod. The tag name for these labels will
+	// be the capture group named "tag". "" means ignore all labels.
 	ParamLabelTagRegex = "label-tag-regex"
 	// KubeconfigContextis the name of the context to use inside a provided ParamKubeconfigPath. If ParamKubeconfigPath
 	// is unset this has no effect.
@@ -79,6 +78,8 @@ const (
 	DefaultKubeconfigContext = ""
 	// DefaultKubeconfigPath is the default path to the kubeconfig file. "" means use in-cluster auth.
 	DefaultKubeconfigPath = ""
+	// DefaultLabelTagRegex is the default ParamLabelTagRegex. Every label is ignored by default.
+	DefaultLabelTagRegex = ""
 	// DefaultNodeName is the default node name to watch pods on when ParamWatchCluster is false. Defaults to unset
 	// as this will fail fast and alert users to set this appropriately.
 	DefaultNodeName = ""
@@ -128,9 +129,6 @@ func (p *Provider) Instance(ctx context.Context, IP ...gostatsd.IP) (map[gostats
 			instanceIPs[lookupIP] = nil
 			continue
 		}
-
-		// TODO: removeme, debugging
-		lookupIP = "10.1.128.35"
 
 		p.logger.WithField("ip", lookupIP).Debug("Looking up pod ip")
 		objs, err := p.podsInf.GetIndexer().ByIndex(PodsByIPIndexName, string(lookupIP))
@@ -216,13 +214,13 @@ func NewProviderFromViper(v *viper.Viper, logger logrus.FieldLogger, version str
 			WatchCluster: k.GetBool(ParamWatchCluster),
 			NodeName:     k.GetString(ParamNodeName),
 		},
-		k.GetString(ParamAnnotationTagRegex),
-		k.GetString(ParamLabelTagRegex))
+		regexp.MustCompile(k.GetString(ParamAnnotationTagRegex)),
+		regexp.MustCompile(k.GetString(ParamLabelTagRegex)))
 }
 
 // NewProvider returns a new k8s provider.
 func NewProvider(logger logrus.FieldLogger, clientset kubernetes.Interface, podInfOpts PodInformerOptions,
-	annotationRegex, labelRegex string) (gostatsd.CloudProvider, error) {
+	annotationRegex, labelRegex *regexp.Regexp) (gostatsd.CloudProvider, error) {
 
 	// This list operation is for debugging purposes and failing fast. If this fails then the cache will likely fail.
 	_, err := clientset.CoreV1().Pods(meta_v1.NamespaceAll).List(meta_v1.ListOptions{})
@@ -254,7 +252,10 @@ func NewProvider(logger logrus.FieldLogger, clientset kubernetes.Interface, podI
 	indexers := cache.Indexers{
 		PodsByIPIndexName: podByIpIndexFunc,
 	}
-	podsInf.AddIndexers(indexers)
+	err = podsInf.AddIndexers(indexers)
+	if err != nil {
+		return nil, err
+	}
 
 	// TODO: we should emit prometheus metrics to fit in with the k8s ecosystem
 	// TODO: we should emit events to the k8s API to fit in with the k8s ecosystem
@@ -263,18 +264,20 @@ func NewProvider(logger logrus.FieldLogger, clientset kubernetes.Interface, podI
 		logger:          logger,
 		podsInf:         podsInf,
 		factory:         factory,
-		annotationRegex: regexp.MustCompile(annotationRegex),
-		labelRegex:      regexp.MustCompile(labelRegex),
+		annotationRegex: annotationRegex,
+		labelRegex:      labelRegex,
 	}, nil
 }
 
 func (p *Provider) Run(ctx context.Context) {
 	go p.factory.Start(ctx.Done()) // fork
 	// wait for the initial synchronization of the local cache.
+	// TODO: why is the error message firing for our tests?
 	if !cache.WaitForCacheSync(ctx.Done(), p.podsInf.HasSynced) {
 		p.logger.Error("Failed to sync k8s cloud provider pod cache")
+	} else {
+		p.logger.Info("Pod cache synced successfully")
 	}
-	p.logger.Info("Pod cache synced successfully")
 }
 
 func createKubernetesClient(userAgent, kubeconfigPath, kubeconfigContext string, apiQPS, apiQPSBurst float64) (kubernetes.Interface, error) {
@@ -349,19 +352,23 @@ func setViperDefaults(v *viper.Viper, version string) {
 // getTagNameFromRegex gets a tag name from the regex. This is either the entire input string, or a subset matching
 // the "tag" capture group if it exists and matched. Returns "" if the regex matched nothing.
 func getTagNameFromRegex(re *regexp.Regexp, s string) string {
+	// Empty regex means ignore
+	if re.String() == "" {
+		return ""
+	}
+
 	match := re.FindStringSubmatch(s)
-
-	var matches = make(map[string]string, len(match))
-	for i, name := range match {
-		matches[re.SubexpNames()[i]] = name
+	if match == nil {
+		return ""
 	}
-
-	if tagName, ok := matches["tag"]; ok {
-		return tagName
+	// The first subexp name is always "" and is the entire regex, so go in reverse to find the tag name subexp first
+	for i, subexpName := range re.SubexpNames() {
+		if subexpName == TagNameRegexSubexp && match[i] != "" {
+			return match[i] // the matching text of the tag name subexp
+		}
 	}
-	// If the regex matched outside of a capture group then that is set as the "" key of this map
-	// We return the entire string because there was a match but no tag capture group
-	if _, ok := matches[""]; ok {
+	// If the regex matched as a whole then match[0] will be the matching text, otherwise ""
+	if match[0] != "" {
 		return s
 	}
 	return ""

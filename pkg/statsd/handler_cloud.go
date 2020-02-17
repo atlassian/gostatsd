@@ -37,7 +37,7 @@ func (ih *instanceHolder) lastAccess() int64 {
 	return atomic.LoadInt64(&ih.lastAccessNano)
 }
 
-// cacheOptions holds cache behaviour configuration.
+// CacheOptions holds cache behaviour configuration.
 type CacheOptions struct {
 	CacheRefreshPeriod        time.Duration
 	CacheEvictAfterIdlePeriod time.Duration
@@ -315,8 +315,7 @@ func (ch *CloudHandler) Run(ctx context.Context) {
 	// accesses it
 	if ch.cloud != nil {
 		if r, ok := ch.cloud.(gostatsd.Runner); ok {
-			stage.StartWithContext(r.Run)
-			stage = stgr.NextStage()
+			r.Run(ctx) // synchronous - must fork inside if necessary
 		}
 	}
 
