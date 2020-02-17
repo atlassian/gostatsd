@@ -6,20 +6,18 @@ import (
 	"regexp"
 	"time"
 
-	"github.com/spf13/viper"
-
 	"github.com/atlassian/gostatsd"
 	"github.com/atlassian/gostatsd/pkg/util"
 
 	"github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
 	core_v1 "k8s.io/api/core/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	core_v1inf "k8s.io/client-go/informers/core/v1"
+	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
-	"k8s.io/client-go/util/flowcontrol"
 )
 
 // NeverMatchRegex is a regex string that will never match anything
@@ -47,8 +45,8 @@ const (
 	// ParamAPIQPS is the maximum amount of queries per second we allow to the Kubernetes API server. This is
 	// so we don't overwhelm the server with requests under load.
 	ParamAPIQPS = "kube-api-qps"
-	// ParamAPIQPSBurstFactor is the amount of queries per second we can burst above ParamAPIQPS.
-	ParamAPIQPSBurstFactor = "kube-api-burst"
+	// ParamAPIQPSBurst is the amount of queries per second we can burst above ParamAPIQPS.
+	ParamAPIQPSBurst = "kube-api-burst"
 	// ParamAnnotationTagRegex is a regex to check annotations against. Any pod annotations matching
 	// this pattern will be included as tags on metrics emitted by that pod. The tag name for these annotations will
 	// be the capture group named "tag".
@@ -74,8 +72,8 @@ const (
 
 	// DefaultAPIQPS is the default maximum amount of queries per second we allow to the Kubernetes API server.
 	DefaultAPIQPS = 5
-	// DefaultAPIQPSBurstFactor is the default amount of queries per second we can burst above the maximum QPS.
-	DefaultAPIQPSBurstFactor = 1.5
+	// DefaultAPIQPSBurst is the default amount of queries per second we can burst above the maximum QPS.
+	DefaultAPIQPSBurst = 10
 	// DefaultKubeconfigContext is the default context to use inside the kubeconfig file. "" means use the current
 	// context without switching.
 	DefaultKubeconfigContext = ""
@@ -104,6 +102,7 @@ type Provider struct {
 	logger logrus.FieldLogger
 
 	podsInf         cache.SharedIndexInformer
+	factory         informers.SharedInformerFactory
 	annotationRegex *regexp.Regexp
 	labelRegex      *regexp.Regexp
 }
@@ -121,12 +120,17 @@ func (p *Provider) Instance(ctx context.Context, IP ...gostatsd.IP) (map[gostats
 	instanceIPs := make(map[gostatsd.IP]*gostatsd.Instance, len(IP))
 	var returnErr error
 
+	p.logger.WithField("cacheKeys", p.podsInf.GetIndexer().ListKeys()).Debug("pods in cache")
+
 	// Lookup via the pod cache
 	for _, lookupIP := range IP {
 		if lookupIP == gostatsd.UnknownIP {
 			instanceIPs[lookupIP] = nil
 			continue
 		}
+
+		// TODO: removeme, debugging
+		lookupIP = "10.1.128.35"
 
 		p.logger.WithField("ip", lookupIP).Debug("Looking up pod ip")
 		objs, err := p.podsInf.GetIndexer().ByIndex(PodsByIPIndexName, string(lookupIP))
@@ -195,11 +199,11 @@ func (p *Provider) SelfIP() (gostatsd.IP, error) {
 // NewProviderFromViper returns a new k8s provider.
 func NewProviderFromViper(v *viper.Viper, logger logrus.FieldLogger, version string) (gostatsd.CloudProvider, error) {
 	k := util.GetSubViper(v, "k8s")
-	setViperDefaults(v, version)
+	setViperDefaults(k, version)
 
 	// Set up the k8s client
 	clientset, err := createKubernetesClient(k.GetString(ParamUserAgent), k.GetString(ParamKubeconfigPath),
-		k.GetString(ParamKubeconfigContext), k.GetFloat64(ParamAPIQPS), k.GetFloat64(ParamAPIQPSBurstFactor))
+		k.GetString(ParamKubeconfigContext), k.GetFloat64(ParamAPIQPS), k.GetFloat64(ParamAPIQPSBurst))
 	if err != nil {
 		return nil, err
 	}
@@ -220,28 +224,37 @@ func NewProviderFromViper(v *viper.Viper, logger logrus.FieldLogger, version str
 func NewProvider(logger logrus.FieldLogger, clientset kubernetes.Interface, podInfOpts PodInformerOptions,
 	annotationRegex, labelRegex string) (gostatsd.CloudProvider, error) {
 
-	// Set up the pod informer which fills an index with the pods we care about
-	indexers := cache.Indexers{
-		PodsByIPIndexName: podByIpIndexFunc,
+	// This list operation is for debugging purposes and failing fast. If this fails then the cache will likely fail.
+	_, err := clientset.CoreV1().Pods(meta_v1.NamespaceAll).List(meta_v1.ListOptions{})
+	if err != nil {
+		return nil, err
 	}
-	customWatchOptions := func(*meta_v1.ListOptions) {}
 
 	// If we're not watching the entire cluster we need to limit our watch to pods with our node name
+	customWatchOptions := func(*meta_v1.ListOptions) {}
 	if !podInfOpts.WatchCluster {
 		if podInfOpts.NodeName == "" {
 			return nil, fmt.Errorf("watch-cluster set to false, and node name not supplied")
 		}
+		fieldSelector := "spec.nodeName=" + podInfOpts.NodeName
+		logger.WithField("fieldSelector", fieldSelector).Debug("set fieldSelector for informers")
 		customWatchOptions = func(lo *meta_v1.ListOptions) {
-			lo.FieldSelector = fmt.Sprintf("spec.nodeName=%s", podInfOpts.NodeName)
+			lo.FieldSelector = fieldSelector
 		}
 	}
 
-	podsInf := core_v1inf.NewFilteredPodInformer(
+	// Create a shared informer factory that watches the correct nodes
+	factory := informers.NewSharedInformerFactoryWithOptions(
 		clientset,
-		meta_v1.NamespaceAll,
 		podInfOpts.ResyncPeriod,
-		indexers,
-		customWatchOptions)
+		informers.WithTweakListOptions(customWatchOptions))
+
+	// Set up the pod informer which fills an index with the pods we care about
+	podsInf := factory.Core().V1().Pods().Informer()
+	indexers := cache.Indexers{
+		PodsByIPIndexName: podByIpIndexFunc,
+	}
+	podsInf.AddIndexers(indexers)
 
 	// TODO: we should emit prometheus metrics to fit in with the k8s ecosystem
 	// TODO: we should emit events to the k8s API to fit in with the k8s ecosystem
@@ -249,16 +262,22 @@ func NewProvider(logger logrus.FieldLogger, clientset kubernetes.Interface, podI
 	return &Provider{
 		logger:          logger,
 		podsInf:         podsInf,
+		factory:         factory,
 		annotationRegex: regexp.MustCompile(annotationRegex),
 		labelRegex:      regexp.MustCompile(labelRegex),
 	}, nil
 }
 
 func (p *Provider) Run(ctx context.Context) {
-	p.podsInf.Run(ctx.Done())
+	go p.factory.Start(ctx.Done()) // fork
+	// wait for the initial synchronization of the local cache.
+	if !cache.WaitForCacheSync(ctx.Done(), p.podsInf.HasSynced) {
+		p.logger.Error("Failed to sync k8s cloud provider pod cache")
+	}
+	p.logger.Info("Pod cache synced successfully")
 }
 
-func createKubernetesClient(userAgent, kubeconfigPath, kubeconfigContext string, apiQPS, apiQPSBurstFactor float64) (kubernetes.Interface, error) {
+func createKubernetesClient(userAgent, kubeconfigPath, kubeconfigContext string, apiQPS, apiQPSBurst float64) (kubernetes.Interface, error) {
 	var restConfig *rest.Config
 	var err error
 	if kubeconfigPath != "" {
@@ -277,7 +296,8 @@ func createKubernetesClient(userAgent, kubeconfigPath, kubeconfigContext string,
 		return nil, err
 	}
 
-	restConfig.RateLimiter = flowcontrol.NewTokenBucketRateLimiter(float32(apiQPS), int(apiQPS*apiQPSBurstFactor))
+	restConfig.QPS = float32(apiQPS)
+	restConfig.Burst = int(apiQPSBurst)
 	restConfig.UserAgent = userAgent
 
 	clientset, err := kubernetes.NewForConfig(restConfig)
@@ -312,7 +332,7 @@ func podIsFinishedRunning(pod *core_v1.Pod) bool {
 
 func setViperDefaults(v *viper.Viper, version string) {
 	v.SetDefault(ParamAPIQPS, DefaultAPIQPS)
-	v.SetDefault(ParamAPIQPSBurstFactor, DefaultAPIQPSBurstFactor)
+	v.SetDefault(ParamAPIQPSBurst, DefaultAPIQPSBurst)
 	v.SetDefault(ParamAnnotationTagRegex, DefaultAnnotationTagRegex)
 	v.SetDefault(ParamKubeconfigContext, DefaultKubeconfigContext)
 	v.SetDefault(ParamKubeconfigPath, DefaultKubeconfigPath)
