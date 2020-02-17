@@ -1,0 +1,81 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: gostatsd-cfg
+  namespace: default
+data:
+  config.toml: |
+    # Example: don't actually do anything with the metrics
+    backends=['null']
+    default-tags=[]
+    internal-tags=['in_cluster:true']
+    statser-type='internal'
+    flush-interval='1s'
+    bad-lines-per-minute=1000
+    metrics-addr=':8125'
+    # ignore-host=true
+
+    [k8s]
+    # Include any annotation beginning with myapp.company.com as a tag, using the part after the / as the tag name
+    annotation-tag-regex = '^myapp.company.com/(?P<tag>.*)$'
+    # Include the 'app' label as a tag
+    label-tag-regex = '^app$'
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: gostatsd
+  namespace: default
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gostatsd
+  namespace: default
+  labels:
+    app: gostatsd
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: gostatsd
+  template:
+    metadata:
+      labels:
+        app: gostatsd
+      annotations:
+        myapp.company.com/imageVersion: "latest"
+    spec:
+      serviceAccountName: gostatsd
+      containers:
+      - name: gostatsd
+        imagePullPolicy: IfNotPresent
+        image: atlassianlabs/gostatsd:latest
+        ports:
+        - containerPort: 8125
+        command: ['/bin/gostatsd', '--cloud-provider', 'k8s', '--config-path', '/etc/gostatsd-cfg/config.toml']
+        volumeMounts:
+        - name: config
+          mountPath: /etc/gostatsd-cfg
+      volumes:
+      - name: config
+        configMap:
+          name: gostatsd-cfg
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: gostatsd
+  name: gostatsd
+  namespace: default
+spec:
+  ports:
+    - name: udp-metrics
+      port: 8125
+      protocol: UDP
+      targetPort: 8125
+  selector:
+    app: gostatsd
+  type: ClusterIP

@@ -119,13 +119,13 @@ under HTTP.md
 
 Configuring backends
 --------------------
-Refer to [BACKENDS.md] for configuration options for the backends
+Refer to [backends](BACKENDS.md) for configuration options for the backends.
 
 Cloud providers
 --------------
-Cloud providers are a way to automatically enrich metrics with metadata from a cloud vendor.  Currently only AWS is
-supported.  If enabled, the AWS cloudprovider will set the `host` to the instance id, collect all the EC2 tags, and
-the region.
+Cloud providers are a way to automatically enrich metrics with metadata from a cloud vendor.
+
+Refer to [cloud providers](CLOUDPROVIDERS.md) for configuration options for the cloud providers.
 
 They should be disabled on the aggregation server when using http forwarding, as the source IP isn't propagated, and
 that information should be collected on the ingestion server.
