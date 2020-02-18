@@ -1,6 +1,6 @@
 Configuring backends
 --------------------
-Backends must be configured through the usage of a configuration file (toml, yaml and json are supported), pass via
+Backends must be configured through the usage of a configuration file (toml, yaml and json are supported), passed via
 `--config-path`.
 
 Documentation is currently provided for `graphite` and `newrelic` backends.  For `datadog`, `statsdaemon`, `stdout`,
