@@ -67,9 +67,9 @@ func newCloudHandlerFactory(cloudProviderName string, logger logrus.FieldLogger,
 	}
 }
 
-// ConstructCloudHandlerFactoryFromViper initialises a new cloud handler factory with defaults based on the name of the cloud
+// NewCloudHandlerFactoryFromViper initialises a new cloud handler factory with defaults based on the name of the cloud
 // provider requested.
-func ConstructCloudHandlerFactoryFromViper(v *viper.Viper, logger logrus.FieldLogger, version string) (*CloudHandlerFactory, error) {
+func NewCloudHandlerFactoryFromViper(v *viper.Viper, logger logrus.FieldLogger, version string) (*CloudHandlerFactory, error) {
 	cloudProviderName := v.GetString(ParamCloudProvider)
 	if cloudProviderName == "" {
 		return newCloudHandlerFactory(cloudProviderName, logger, CacheOptions{}, nil, version), nil

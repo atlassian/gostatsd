@@ -89,7 +89,7 @@ func constructServer(v *viper.Viper) (*statsd.Server, error) {
 	pool := transport.NewTransportPool(logger, v)
 
 	// Cloud handler factory
-	cloud, err := statsd.ConstructCloudHandlerFactoryFromViper(v, logger, Version)
+	cloud, err := statsd.NewCloudHandlerFactoryFromViper(v, logger, Version)
 	if err != nil {
 		return nil, err
 	}

@@ -247,20 +247,20 @@ func TestConstructCloudHandlerFactoryFromViper(t *testing.T) {
 	logger := logrus.StandardLogger()
 
 	// Test no cloud handler
-	factory, err := ConstructCloudHandlerFactoryFromViper(v, logger, "test")
+	factory, err := NewCloudHandlerFactoryFromViper(v, logger, "test")
 	assert.NoError(t, err)
 	assert.Nil(t, factory.cloudProvider)
 
 	// Test unknown cloud handler - unsupported
 	v.Set(ParamCloudProvider, "unknown")
-	_, err = ConstructCloudHandlerFactoryFromViper(v, logger, "test")
+	_, err = NewCloudHandlerFactoryFromViper(v, logger, "test")
 	assert.Error(t, err)
 
 	// Test known cloud provider defaults
 	cloudProvidersToTest := []string{aws.ProviderName, k8s.ProviderName}
 	for _, cpName := range cloudProvidersToTest {
 		v.Set(ParamCloudProvider, cpName)
-		factory, err = ConstructCloudHandlerFactoryFromViper(v, logger, "test")
+		factory, err = NewCloudHandlerFactoryFromViper(v, logger, "test")
 		assert.NoError(t, err)
 		assert.EqualValues(t, DefaultCloudProviderCacheValues[cpName], factory.cacheOptions)
 		assert.Equal(t, rate.Limit(DefaultCloudProviderLimiterValues[cpName].MaxCloudRequests), factory.limiter.Limit())
@@ -273,7 +273,7 @@ func TestInitCloudHandlerFactory(t *testing.T) {
 	v := viper.New()
 	logger := logrus.StandardLogger()
 
-	factory, err := ConstructCloudHandlerFactoryFromViper(v, logger, "test")
+	factory, err := NewCloudHandlerFactoryFromViper(v, logger, "test")
 	assert.NoError(t, err)
 	assert.Nil(t, factory.cloudProvider)
 
