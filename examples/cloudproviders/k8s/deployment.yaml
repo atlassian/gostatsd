@@ -14,13 +14,17 @@ data:
     flush-interval='1s'
     bad-lines-per-minute=1000
     metrics-addr=':8125'
-    # ignore-host=true
+    filters='no-hostname'
 
     [k8s]
     # Include any annotation beginning with myapp.company.com as a tag, using the part after the / as the tag name
     annotation-tag-regex = '^myapp.company.com/(?P<tag>.*)$'
     # Include the 'app' label as a tag
     label-tag-regex = '^app$'
+
+    [filter.no-hostname]
+    # Drop the hostname from metrics because it can be very noisy with pod churn on Kubernetes
+    drop-host=true
 ---
 apiVersion: v1
 kind: ServiceAccount

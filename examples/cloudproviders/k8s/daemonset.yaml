@@ -14,7 +14,7 @@ data:
     flush-interval='1s'
     bad-lines-per-minute=1000
     metrics-addr=':8125'
-    # ignore-host=true
+    filters='no-hostname'
 
     [k8s]
     # Include any annotation beginning with myapp.company.com as a tag, using the part after the / as the tag name
@@ -25,6 +25,10 @@ data:
     watch-cluster = false
     # This MUST be overridden via environment variable GSD_K8S_NODE_NAME. See pod spec for example.
     node-name = ''
+
+    [filter.no-hostname]
+    # Drop the hostname from metrics because it can be very noisy with pod churn on Kubernetes
+    drop-host=true
 ---
 apiVersion: v1
 kind: ServiceAccount

@@ -10,10 +10,10 @@ There are currently two supported cloud providers:
 * `aws` which retrieves tags from AWS instance tags via AWS API calls.
 * `k8s` which retrieves tags from pod labels and annotations.
 
-All supported cloud providers use the metric datagram's sender IP address to identify what sent the metric and what
-needs to be queried for metadata.
-
 All configuration is in a stanza named after the backend, and takes simple key value pairs.
+
+**Cloud providers should be disabled on the aggregation server when using http forwarding, as the source IP isn't
+propagated, and that information should be collected on the ingestion server.**
 
 aws
 ---
@@ -30,6 +30,11 @@ enrichment.
 The list of pods is maintained via a watch API operation on the pod resource. This opens a websocket on which any pod
 handled by the API server is sent to. This means we get updates as they happen and don't do any active requests to
 the API server. This cache is fully resynced every `resync-period` but this is just to ensure total correctness.
+
+#### Important details
+
+`ignore-host` must be set to `false` for the k8s cloud provider to work at all! This is because it works based off the
+source IP address of incoming metrics, and these are dropped if `ignore-host=true`.
 
 #### Example with defaults
 
