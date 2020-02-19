@@ -24,8 +24,7 @@ func NewStringMatch(s string) StringMatch {
 	}
 
 	regex := false
-	var compiledRegex *regexp.Regexp
-	compiledRegex = nil
+	var compiledRegex *regexp.Regexp = nil
 	if strings.HasPrefix(s, "regex:") {
 		regex = true
 		s = s[6:]
