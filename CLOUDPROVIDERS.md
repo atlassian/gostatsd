@@ -60,7 +60,7 @@ watch-cluster = true
 The configuration settings are as follows:
 - `kube-api-qps`: the number of queries per second gostatsd can make to the kubernetes API server before being rate limited
 - `kube-api-burst`: the number of queries per second gostatsd can burst above the limit when necessary
-- `annotation-tag-regex`: a regex that is compared to every pod's annotations. Any matching annotations matching the
+- `annotation-tag-regex`: a regex that is compared to every pod's annotations. Any annotations matching the
 regex have their value used as a metric tag value. The key of the metric is either the entire annotation key, or a subset
 matching a named capture group called `tag`
 - `label-tag-regex`: like `annotation-tag-regex` but applied to pod labels
