@@ -8,7 +8,7 @@ Cloud providers must be configured through the usage of a configuration file (to
 There are currently two supported cloud providers:
 
 * `aws` which retrieves tags from AWS instance tags via AWS API calls.
-* `k8s` which retrieves tags from pod labels and annotations.
+* `k8s` which retrieves tags from kubernetes pod labels and annotations.
 
 All configuration is in a stanza named after the backend, and takes simple key value pairs.
 
