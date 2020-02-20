@@ -8,7 +8,7 @@ Cloud providers must be configured through the usage of a configuration file (to
 There are currently two supported cloud providers:
 
 * `aws` which retrieves tags from AWS instance tags via AWS API calls.
-* `k8s` which retrieves tags from pod labels and annotations.
+* `k8s` which retrieves tags from kubernetes pod labels and annotations.
 
 All configuration is in a stanza named after the backend, and takes simple key value pairs.
 
@@ -66,8 +66,8 @@ watch-cluster = true
 The configuration settings are as follows:
 - `kube-api-qps`: the number of queries per second gostatsd can make to the kubernetes API server before being rate limited
 - `kube-api-burst`: the number of queries per second gostatsd can burst above the limit when necessary
-- `annotation-tag-regex`: a regex that is compared to every pod's annotations. Any matching annotations matching the
-regex have their value used as a metric tag value. The key of the metric is either the entire annotation key, or a subset
+- `annotation-tag-regex`: a regex that is compared to every pod's annotations. Any annotations matching the
+regex have their value used as a metric tag value. The key of the metric tag is either the entire annotation key, or a subset
 matching a named capture group called `tag`
 - `label-tag-regex`: like `annotation-tag-regex` but applied to pod labels
 - `kubeconfig-context`: specify a kubeconfig context to use to auth to the API server. Must exist within the kubeconfig
