@@ -121,8 +121,6 @@ func (p *Provider) Instance(ctx context.Context, IP ...gostatsd.IP) (map[gostats
 	instanceIPs := make(map[gostatsd.IP]*gostatsd.Instance, len(IP))
 	var returnErr error
 
-	p.logger.WithField("cacheKeys", p.podsInf.GetIndexer().ListKeys()).Debug("pods in cache")
-
 	// Lookup via the pod cache
 	for _, lookupIP := range IP {
 		if lookupIP == gostatsd.UnknownIP {
@@ -270,14 +268,8 @@ func NewProvider(logger logrus.FieldLogger, clientset kubernetes.Interface, podI
 }
 
 func (p *Provider) Run(ctx context.Context) {
-	go p.factory.Start(ctx.Done()) // fork
-	// wait for the initial synchronization of the local cache.
-	// TODO: why is the error message firing for our tests?
-	if !cache.WaitForCacheSync(ctx.Done(), p.podsInf.HasSynced) {
-		p.logger.Error("Failed to sync k8s cloud provider pod cache")
-	} else {
-		p.logger.Info("Pod cache synced successfully")
-	}
+	p.logger.Debug("Starting informer cache")
+	p.factory.Start(ctx.Done())
 }
 
 func createKubernetesClient(userAgent, kubeconfigPath, kubeconfigContext string, apiQPS, apiQPSBurst float64) (kubernetes.Interface, error) {

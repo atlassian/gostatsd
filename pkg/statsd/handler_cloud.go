@@ -315,7 +315,7 @@ func (ch *CloudHandler) Run(ctx context.Context) {
 	// accesses it
 	if ch.cloud != nil {
 		if r, ok := ch.cloud.(gostatsd.Runner); ok {
-			r.Run(ctx) // synchronous - must fork inside if necessary
+			go r.Run(ctx) // fork
 		}
 	}
 

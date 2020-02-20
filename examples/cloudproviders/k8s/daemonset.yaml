@@ -18,7 +18,7 @@ data:
 
     [k8s]
     # Include any annotation beginning with myapp.company.com as a tag, using the part after the / as the tag name
-    annotation-tag-regex = '^myapp.company.com/(?P<tag>.*)$'
+    annotation-tag-regex = '^myapp\.company\.com/(?P<tag>.*)$'
     # Include the 'app' label as a tag
     label-tag-regex = '^app$'
     # Only watch pods that are on the node that this gostatsd is running on.

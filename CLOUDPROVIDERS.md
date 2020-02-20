@@ -36,6 +36,12 @@ the API server. This cache is fully resynced every `resync-period` but this is j
 `ignore-host` must be set to `false` for the k8s cloud provider to work at all! This is because it works based off the
 source IP address of incoming metrics, and these are dropped if `ignore-host=true`.
 
+In kubernetes when a new pod is created it gets a new unique identifier. The k8s cloud provider uses these identifiers
+as the hostname for the pods. This means if the k8s cluster has a high pod churn, then there will be a lot of unique
+values for the hostname tag. This is not ideal, and will waste resources unless you really care about those hostnames.
+To fix this it is highly recommended to drop the hostname from incoming metrics. The
+[examples]((examples/cloudproviders/k8s/K8S.md)) contain the configuration for a filter that will do this.
+
 #### Example with defaults
 
 ```$toml
