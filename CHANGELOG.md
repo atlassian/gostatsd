@@ -1,3 +1,9 @@
+20.0.0
+------
+- Build with 1.13.6
+- Refactor dependencies, re-run `make setup` if build failures are encountered
+- Adds support for Kubernetes as a cloud provider for enriching metrics.  See [CLOUDPRIVDERS.md] for details.
+
 19.1.0
 ------
 - Adds support for New Relics new dimensional metrics pipeline.  See [BACKENDS.md].
