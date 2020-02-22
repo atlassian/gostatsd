@@ -35,6 +35,8 @@ Examples:
 - !abc* - matches "xyz" but not "abc" or "abcd"
 - regex:.*abc.* - matches "xyz.abc.123" but not "xyz.123"
 - !regex:.*abc.* - matches "xyz.123" but not "xyz.abc.123"
+- !regex:^abc.* - matches "abc.123" and "abcd.123" but not "xyz.abc.123"
+- !regex:.*\.count$ - matches "abc.123.count" and "abcd.123.count" but not "xyz.abc.count.123"
 
 ## Filter examples
 
