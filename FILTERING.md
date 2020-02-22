@@ -24,8 +24,9 @@ A filter block contains up to 6 keys.  3 for filtering rules, and 3 for actions 
 ## Matching
 A match is defined as a case sensitive string with an optional ! prefix to invert the meaning, and an optional * suffix
 to indicate it is a prefix match.  Note: it is not a wildcard, it is a prefix match only.
+
 ## Regex matching
-If a match is prefixed with `regex:` (after the `!` if you want it inverted) then the rest of the pattern is a golang regex. The trailing `*` behavior is diffrent as it is part of the regex and not a prefix match.
+If a match is prefixed with `regex:` (after the `!` if you want it inverted) then the rest of the pattern is a golang regex. The trailing `*` behavior is diffrent as it is part of the regex and not a prefix match. See [re2](https://github.com/google/re2/wiki/Syntax) for syntax.
 
 Examples:
 - abc - matches the "abc", but not ABC or abcd
