@@ -129,7 +129,7 @@ It is also recommended to set up the backend to either use the [Insight Collecto
 Sending via the Infrastructure Agent's inbuilt HTTP server provides additional features, such as automatically applying
 additional metadata to the event the host may have such as AWS tags, instance type, host information, labels etc.
 
-The payload structure required to be accepted by the agent can be viewed [here.](https://github.com/newrelic/infra-integrations-sdk/blob/master/docs/v2tov3.md#v2-json-full-sample)
+The payload structure required to be accepted by the agent can be viewed [here](https://github.com/newrelic/infra-integrations-sdk/blob/master/docs/v2tov3.md#v2-json-full-sample).
 
 To enable the HTTP server, modify /etc/newrelic.yml to include the below, and restart the agent ([Step 1.2](https://docs.newrelic.com/docs/integrations/host-integrations/host-integrations-list/statsd-monitoring-integration#install)).
 ```
@@ -144,7 +144,7 @@ The `flush-type` attribute can be configured with the following available  optio
 ```
 [newrelic]
     transport = "default"
-	flush-type = "insights" # <-- 
+	flush-type = "insights" # <--
     address = "https://another-collector.newrelic.com/v1/accounts/YOUR_ACCOUNT_ID/events"
     api-key = "yourEventAPIInsertKey"
 ```
