@@ -2,11 +2,11 @@
 ------
 - Build with 1.13.6
 - Refactor dependencies, re-run `make setup` if build failures are encountered
-- Adds support for Kubernetes as a cloud provider for enriching metrics.  See [CLOUDPRIVDERS.md] for details.
+- Adds support for Kubernetes as a cloud provider for enriching metrics.  See [CLOUDPRIVDERS.md](CLOUDPRIVDERS.md) for details.
 
 19.1.0
 ------
-- Adds support for New Relics new dimensional metrics pipeline.  See [BACKENDS.md].
+- Adds support for New Relics new dimensional metrics pipeline.  See [BACKENDS.md](BACKENDS.md).
 - Test fixes
 
 19.0.1
@@ -15,7 +15,7 @@
 
 19.0.0
 ------
-- BREAKING: Refactor how http clients are configured.  See [TRANSPORT.md] for details.  Some
+- BREAKING: Refactor how http clients are configured.  See [TRANSPORT.md](TRANSPORT.md) for details.  Some
   configuration options are in a new location, however defaults are generally unchanged.
 
 18.1.0
@@ -51,8 +51,8 @@
 17.0.0
 ------
 - BREAKING: Added support for [Graphite 1.1 style tags](https://grafana.com/blog/2018/01/11/graphite-1.1-teaching-an-old-dog-new-tricks/),
-  details can be found in [BACKENDS.md].
-- Moved backend documentation from [README.md] to [BACKENDS.md], still lacking documentation for most backends.
+  details can be found in [BACKENDS.md](BACKENDS.md).
+- Moved backend documentation from [README.md](README.md) to [BACKENDS.md](BACKENDS.md), still lacking documentation for most backends.
 
 16.0.0
 ------
@@ -106,7 +106,7 @@
 
 11.0.0
 ------
-- Add http forwarding and ingestion.  See `Configuring the server mode` and `Configuring HTTP servers` in [README.md]
+- Add http forwarding and ingestion.  See `Configuring the server mode` and `Configuring HTTP servers` in [README.md](README.md)
   for details.  Not recommended for production use at this time.  Healthcheck is ok to use
 - Introduces v1 ingestion
 

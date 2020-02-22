@@ -63,7 +63,7 @@ service.  At present the central aggregation service can only scale vertically, 
 clustering is planned.
 
 Configuring `forwarder` mode requires a configuration file, with a section named `http-transport`.  The raw version
-spoken is not configurable per server (see [HTTP.md] for version guarantees).  The configuration section allows the
+spoken is not configurable per server (see [HTTP.md](HTTP.md) for version guarantees).  The configuration section allows the
 following configuration options:
 
 - `compress`: boolean indicating if the payload should be compressed.  Defaults to `true`
@@ -78,7 +78,7 @@ following configuration options:
   HTTP based servers.
 - `flush-interval`: duration for how long to batch metrics before flushing. Should be an order of magnitude less than
   the upstream flush interval. Defaults to `1s`.
-- `transport`: see [TRANSPORT.md] for how to configure the transport.
+- `transport`: see [TRANSPORT.md](TRANSPORT.md) for how to configure the transport.
 - `log-raw-metric`: logs raw metrics received from the network.  Defaults to `false`.
 - `custom-headers` : a map of strings that are added to each request sent to allow for additional network routing / request inspection.
   Not required, default is empty. Example: `--custom-headers='{"region" : "us-east-1", "service" : "event-producer"}'`

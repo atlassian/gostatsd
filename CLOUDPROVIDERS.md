@@ -40,7 +40,7 @@ In kubernetes when a new pod is created it gets a new unique identifier. The k8s
 as the hostname for the pods. This means if the k8s cluster has a high pod churn, then there will be a lot of unique
 values for the hostname tag. This is not ideal, and will waste resources unless you really care about those hostnames.
 To fix this it is highly recommended to drop the hostname from incoming metrics. The
-[examples]((examples/cloudproviders/k8s/K8S.md)) contain the configuration for a filter that will do this.
+[examples](examples/cloudproviders/k8s/K8S.md) contain the configuration for a filter that will do this.
 
 #### Example with defaults
 
@@ -101,4 +101,4 @@ The value of any included statsd tag is the value of the annotation/label on the
 
 #### Example kubernetes deployments
 
-[See here for example configurations for using the k8s cloud provider in Kubernetes.](examples/cloudproviders/k8s/K8S.md)
+[See here for example configurations for using the k8s cloud provider in Kubernetes](examples/cloudproviders/k8s/K8S.md).
