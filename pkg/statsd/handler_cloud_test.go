@@ -10,9 +10,12 @@ import (
 	"time"
 
 	"github.com/atlassian/gostatsd"
+	"github.com/atlassian/gostatsd/pkg/cloudproviders/aws"
+	"github.com/atlassian/gostatsd/pkg/cloudproviders/k8s"
 
 	"github.com/ash2k/stager/wait"
 	"github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/time/rate"
 )
@@ -22,7 +25,7 @@ import (
 func BenchmarkCloudHandlerDispatchMetric(b *testing.B) {
 	fp := &fakeProviderIP{}
 	nh := &nopHandler{}
-	ch := NewCloudHandler(fp, nh, logrus.StandardLogger(), rate.NewLimiter(100, 120), &CacheOptions{
+	ch := NewCloudHandler(fp, nh, logrus.StandardLogger(), rate.NewLimiter(100, 120), CacheOptions{
 		CacheRefreshPeriod:        100 * time.Millisecond,
 		CacheEvictAfterIdlePeriod: 700 * time.Millisecond,
 		CacheTTL:                  500 * time.Millisecond,
@@ -56,7 +59,7 @@ func TestTransientInstanceFailure(t *testing.T) {
 
 	counting := &countingHandler{}
 
-	ch := NewCloudHandler(fpt, counting, logrus.StandardLogger(), rate.NewLimiter(100, 120), &CacheOptions{
+	ch := NewCloudHandler(fpt, counting, logrus.StandardLogger(), rate.NewLimiter(100, 120), CacheOptions{
 		CacheRefreshPeriod:        50 * time.Millisecond,
 		CacheEvictAfterIdlePeriod: 1 * time.Minute,
 		CacheTTL:                  1 * time.Millisecond,
@@ -139,7 +142,7 @@ func testExpireAndRefresh(t *testing.T, expectedIp gostatsd.IP, f func(*CloudHan
 		T+66: refresh loop, entry is expired
 		T+70: sleep completes
 	*/
-	ch := NewCloudHandler(fp, counting, logrus.StandardLogger(), rate.NewLimiter(100, 120), &CacheOptions{
+	ch := NewCloudHandler(fp, counting, logrus.StandardLogger(), rate.NewLimiter(100, 120), CacheOptions{
 		CacheRefreshPeriod:        11 * time.Millisecond,
 		CacheEvictAfterIdlePeriod: 50 * time.Millisecond,
 		CacheTTL:                  10 * time.Millisecond,
@@ -238,9 +241,51 @@ func TestCloudHandlerFailingProvider(t *testing.T) {
 	doCheck(t, fp, sm1(), se1(), sm2(), se2(), &fp.ips, expectedIps, expectedMetrics, expectedEvents)
 }
 
+func TestConstructCloudHandlerFactoryFromViper(t *testing.T) {
+	t.Parallel()
+	v := viper.New()
+	logger := logrus.StandardLogger()
+
+	// Test no cloud handler
+	factory, err := NewCloudHandlerFactoryFromViper(v, logger, "test")
+	assert.NoError(t, err)
+	assert.Nil(t, factory.cloudProvider)
+
+	// Test unknown cloud handler - unsupported
+	v.Set(ParamCloudProvider, "unknown")
+	_, err = NewCloudHandlerFactoryFromViper(v, logger, "test")
+	assert.Error(t, err)
+
+	// Test known cloud provider defaults
+	cloudProvidersToTest := []string{aws.ProviderName, k8s.ProviderName}
+	for _, cpName := range cloudProvidersToTest {
+		v.Set(ParamCloudProvider, cpName)
+		factory, err = NewCloudHandlerFactoryFromViper(v, logger, "test")
+		assert.NoError(t, err)
+		assert.EqualValues(t, DefaultCloudProviderCacheValues[cpName], factory.cacheOptions)
+		assert.Equal(t, rate.Limit(DefaultCloudProviderLimiterValues[cpName].MaxCloudRequests), factory.limiter.Limit())
+		assert.Equal(t, DefaultCloudProviderLimiterValues[cpName].BurstCloudRequests, factory.limiter.Burst())
+	}
+}
+
+func TestInitCloudHandlerFactory(t *testing.T) {
+	t.Parallel()
+	v := viper.New()
+	logger := logrus.StandardLogger()
+
+	factory, err := NewCloudHandlerFactoryFromViper(v, logger, "test")
+	assert.NoError(t, err)
+	assert.Nil(t, factory.cloudProvider)
+
+	err = factory.InitCloudProvider(v)
+	assert.NoError(t, err)
+
+	// We don't test the path for specific cloud providers as they have logic that isn't easily mockable
+}
+
 func doCheck(t *testing.T, cloud gostatsd.CloudProvider, m1 gostatsd.Metric, e1 gostatsd.Event, m2 gostatsd.Metric, e2 gostatsd.Event, ips *[]gostatsd.IP, expectedIps []gostatsd.IP, expectedM []gostatsd.Metric, expectedE gostatsd.Events) {
 	counting := &countingHandler{}
-	ch := NewCloudHandler(cloud, counting, logrus.StandardLogger(), rate.NewLimiter(100, 120), &CacheOptions{
+	ch := NewCloudHandler(cloud, counting, logrus.StandardLogger(), rate.NewLimiter(100, 120), CacheOptions{
 		CacheRefreshPeriod:        DefaultCacheRefreshPeriod,
 		CacheEvictAfterIdlePeriod: DefaultCacheEvictAfterIdlePeriod,
 		CacheTTL:                  DefaultCacheTTL,

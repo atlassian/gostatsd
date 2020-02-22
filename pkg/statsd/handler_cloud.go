@@ -2,15 +2,19 @@ package statsd
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/atlassian/gostatsd"
+	"github.com/atlassian/gostatsd/pkg/cloudproviders"
 	"github.com/atlassian/gostatsd/pkg/stats"
 
+	"github.com/ash2k/stager"
 	"github.com/ash2k/stager/wait"
 	"github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
 	"golang.org/x/time/rate"
 )
 
@@ -39,6 +43,81 @@ type CacheOptions struct {
 	CacheEvictAfterIdlePeriod time.Duration
 	CacheTTL                  time.Duration
 	CacheNegativeTTL          time.Duration
+}
+
+// CloudHandlerFactory creates a CloudHandler based on some predefined options.
+type CloudHandlerFactory struct {
+	cloudProviderName string
+	version           string
+	cloudProvider     gostatsd.CloudProvider
+	logger            logrus.FieldLogger
+	limiter           *rate.Limiter
+	cacheOptions      CacheOptions
+}
+
+// newCloudHandlerFactory initialises a new cloud handler factory
+func newCloudHandlerFactory(cloudProviderName string, logger logrus.FieldLogger, cacheOptions CacheOptions, limiter *rate.Limiter, version string) *CloudHandlerFactory {
+	return &CloudHandlerFactory{
+		cacheOptions:      cacheOptions,
+		logger:            logger,
+		limiter:           limiter,
+		cloudProvider:     nil,
+		cloudProviderName: cloudProviderName,
+		version:           version,
+	}
+}
+
+// NewCloudHandlerFactoryFromViper initialises a new cloud handler factory with defaults based on the name of the cloud
+// provider requested.
+func NewCloudHandlerFactoryFromViper(v *viper.Viper, logger logrus.FieldLogger, version string) (*CloudHandlerFactory, error) {
+	cloudProviderName := v.GetString(ParamCloudProvider)
+	if cloudProviderName == "" {
+		return newCloudHandlerFactory(cloudProviderName, logger, CacheOptions{}, nil, version), nil
+	}
+
+	// Cloud provider defaults
+	cpDefaultCacheOpts, ok := DefaultCloudProviderCacheValues[cloudProviderName]
+	if !ok {
+		return nil, fmt.Errorf("could not find default cache values for cloud provider '%s'", cloudProviderName)
+	}
+	cpDefaultLimiterOpts, ok := DefaultCloudProviderLimiterValues[cloudProviderName]
+	if !ok {
+		return nil, fmt.Errorf("could not find default cache values for cloud provider '%s'", cloudProviderName)
+	}
+
+	// Set the defaults in Viper based on the cloud provider values before we manipulate things
+	v.SetDefault(ParamCacheRefreshPeriod, cpDefaultCacheOpts.CacheRefreshPeriod)
+	v.SetDefault(ParamCacheEvictAfterIdlePeriod, cpDefaultCacheOpts.CacheEvictAfterIdlePeriod)
+	v.SetDefault(ParamCacheTTL, cpDefaultCacheOpts.CacheTTL)
+	v.SetDefault(ParamCacheNegativeTTL, cpDefaultCacheOpts.CacheNegativeTTL)
+	v.SetDefault(ParamMaxCloudRequests, cpDefaultLimiterOpts.MaxCloudRequests)
+	v.SetDefault(ParamBurstCloudRequests, cpDefaultLimiterOpts.BurstCloudRequests)
+
+	// Set the used values based on the defaults merged with any overrides
+	cacheOptions := CacheOptions{
+		CacheRefreshPeriod:        v.GetDuration(ParamCacheRefreshPeriod),
+		CacheEvictAfterIdlePeriod: v.GetDuration(ParamCacheEvictAfterIdlePeriod),
+		CacheTTL:                  v.GetDuration(ParamCacheTTL),
+		CacheNegativeTTL:          v.GetDuration(ParamCacheNegativeTTL),
+	}
+	limiter := rate.NewLimiter(rate.Limit(v.GetInt(ParamMaxCloudRequests)), v.GetInt(ParamBurstCloudRequests))
+	return newCloudHandlerFactory(cloudProviderName, logger, cacheOptions, limiter, version), nil
+}
+
+// InitCloudProvider initialises the cloud provider given some already parsed defaults.
+// This is mainly split out to enable testing the config parsing separately from the cloud providers.
+func (f *CloudHandlerFactory) InitCloudProvider(v *viper.Viper) error {
+	cloudProvider, err := cloudproviders.Init(f.cloudProviderName, v, f.logger, f.version)
+	if err != nil {
+		return err
+	}
+	f.cloudProvider = cloudProvider
+	return nil
+}
+
+// NewCloudHandler creates a new Cloud Handler based on the options set in the CloudHandlerFactory.
+func (f *CloudHandlerFactory) NewCloudHandler(handler gostatsd.PipelineHandler) *CloudHandler {
+	return NewCloudHandler(f.cloudProvider, handler, f.logger, f.limiter, f.cacheOptions)
 }
 
 // CloudHandler enriches metrics and events with additional information fetched from cloud provider.
@@ -81,9 +160,9 @@ type CloudHandler struct {
 }
 
 // NewCloudHandler initialises a new cloud handler.
-func NewCloudHandler(cloud gostatsd.CloudProvider, handler gostatsd.PipelineHandler, logger logrus.FieldLogger, limiter *rate.Limiter, cacheOptions *CacheOptions) *CloudHandler {
+func NewCloudHandler(cloud gostatsd.CloudProvider, handler gostatsd.PipelineHandler, logger logrus.FieldLogger, limiter *rate.Limiter, cacheOptions CacheOptions) *CloudHandler {
 	return &CloudHandler{
-		cacheOpts:       *cacheOptions,
+		cacheOpts:       cacheOptions,
 		cloud:           cloud,
 		handler:         handler,
 		limiter:         limiter,
@@ -226,13 +305,21 @@ func (ch *CloudHandler) Run(ctx context.Context) {
 		logger:        ch.logger,
 	}
 
-	var wg wait.Group
-	defer wg.Wait() // Wait for lookupDispatcher to stop
+	// Stager will perform ordered, graceful shutdown. Stage by stage in reverse startup order.
+	stgr := stager.New()
+	defer stgr.Shutdown() // Wait for CloudProvider and lookupDispatcher to stop
 
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel() // Tell lookupDispatcher to stop
+	stage := stgr.NextStage()
 
-	wg.StartWithContext(ctx, ld.run)
+	// If the cloud provider implements runnable, it has things to do. It must start before anything that
+	// accesses it
+	if ch.cloud != nil {
+		if r, ok := ch.cloud.(gostatsd.Runner); ok {
+			go r.Run(ctx) // fork
+		}
+	}
+
+	stage.StartWithContext(ld.run) // Start the lookup mechanism
 
 	refreshTicker := time.NewTicker(ch.cacheOpts.CacheRefreshPeriod)
 	defer refreshTicker.Stop()

@@ -10,6 +10,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/spf13/viper"
+
 	"github.com/atlassian/gostatsd"
 	"github.com/atlassian/gostatsd/pkg/stats"
 	"github.com/atlassian/gostatsd/pkg/util"
@@ -20,7 +22,6 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/sirupsen/logrus"
-	"github.com/spf13/viper"
 	"golang.org/x/net/http2"
 )
 
@@ -204,7 +205,7 @@ func azToRegion(az string) (string, error) {
 }
 
 // NewProviderFromViper returns a new aws provider.
-func NewProviderFromViper(v *viper.Viper, logger logrus.FieldLogger) (gostatsd.CloudProvider, error) {
+func NewProviderFromViper(v *viper.Viper, logger logrus.FieldLogger, _ string) (gostatsd.CloudProvider, error) {
 	a := util.GetSubViper(v, "aws")
 	a.SetDefault("max_retries", 3)
 	a.SetDefault("client_timeout", defaultClientTimeout)
