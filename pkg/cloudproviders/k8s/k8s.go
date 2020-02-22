@@ -104,8 +104,8 @@ type Provider struct {
 
 	podsInf         cache.SharedIndexInformer
 	factory         informers.SharedInformerFactory
-	annotationRegex *regexp.Regexp
-	labelRegex      *regexp.Regexp
+	annotationRegex *regexp.Regexp // can be nil to disable annotation matching
+	labelRegex      *regexp.Regexp // can be nil to disable label matching
 }
 
 func (p *Provider) EstimatedTags() int {
@@ -148,16 +148,20 @@ func (p *Provider) Instance(ctx context.Context, IP ...gostatsd.IP) (map[gostats
 		// Turn the pod metadata into tags
 		var tags gostatsd.Tags
 		// TODO: deduplicate labels and annotations in their tag format, rather than overwriting
-		for k, v := range pod.ObjectMeta.Labels {
-			tagName := getTagNameFromRegex(p.labelRegex, k)
-			if tagName != "" {
-				tags = append(tags, tagName+":"+v)
+		if p.labelRegex != nil {
+			for k, v := range pod.ObjectMeta.Labels {
+				tagName := getTagNameFromRegex(p.labelRegex, k)
+				if tagName != "" {
+					tags = append(tags, tagName+":"+v)
+				}
 			}
 		}
-		for k, v := range pod.ObjectMeta.Annotations {
-			tagName := getTagNameFromRegex(p.annotationRegex, k)
-			if tagName != "" {
-				tags = append(tags, tagName+":"+v)
+		if p.annotationRegex != nil {
+			for k, v := range pod.ObjectMeta.Annotations {
+				tagName := getTagNameFromRegex(p.annotationRegex, k)
+				if tagName != "" {
+					tags = append(tags, tagName+":"+v)
+				}
 			}
 		}
 		instanceID := pod.Namespace + "/" + pod.Name
@@ -203,7 +207,24 @@ func NewProviderFromViper(v *viper.Viper, logger logrus.FieldLogger, version str
 	if err != nil {
 		return nil, err
 	}
-
+	var (
+		annotationRegex *regexp.Regexp
+		labelRegex      *regexp.Regexp
+	)
+	annotationTagRegex := k.GetString(ParamAnnotationTagRegex)
+	if annotationTagRegex != "" {
+		annotationRegex, err = regexp.Compile(annotationTagRegex)
+		if err != nil {
+			return nil, fmt.Errorf("bad annotation regex: %s: %v", annotationTagRegex, err)
+		}
+	}
+	labelTagRegex := k.GetString(ParamLabelTagRegex)
+	if labelTagRegex != "" {
+		labelRegex, err = regexp.Compile(labelTagRegex)
+		if err != nil {
+			return nil, fmt.Errorf("bad label regex: %s: %v", labelTagRegex, err)
+		}
+	}
 	return NewProvider(
 		logger,
 		clientset,
@@ -212,11 +233,12 @@ func NewProviderFromViper(v *viper.Viper, logger logrus.FieldLogger, version str
 			WatchCluster: k.GetBool(ParamWatchCluster),
 			NodeName:     k.GetString(ParamNodeName),
 		},
-		regexp.MustCompile(k.GetString(ParamAnnotationTagRegex)),
-		regexp.MustCompile(k.GetString(ParamLabelTagRegex)))
+		annotationRegex,
+		labelRegex)
 }
 
 // NewProvider returns a new k8s provider.
+// annotationRegex and/or labelRegex can be nil to disable annotation/label matching.
 func NewProvider(logger logrus.FieldLogger, clientset kubernetes.Interface, podInfOpts PodInformerOptions,
 	annotationRegex, labelRegex *regexp.Regexp) (gostatsd.CloudProvider, error) {
 
@@ -344,11 +366,6 @@ func setViperDefaults(v *viper.Viper, version string) {
 // getTagNameFromRegex gets a tag name from the regex. This is either the entire input string, or a subset matching
 // the "tag" capture group if it exists and matched. Returns "" if the regex matched nothing.
 func getTagNameFromRegex(re *regexp.Regexp, s string) string {
-	// Empty regex means ignore
-	if re.String() == "" {
-		return ""
-	}
-
 	match := re.FindStringSubmatch(s)
 	if match == nil {
 		return ""
