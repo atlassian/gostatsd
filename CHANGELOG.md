@@ -1,3 +1,8 @@
+20.1.0
+------
+- Minor internal refactoring
+- Support for regex matching in filtering, added by ermeaney
+
 20.0.0
 ------
 - Build with 1.13.6
