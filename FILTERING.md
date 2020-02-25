@@ -26,7 +26,7 @@ A match is defined as a case sensitive string with an optional ! prefix to inver
 to indicate it is a prefix match.  Note: it is not a wildcard, it is a prefix match only.
 
 ## Regex matching
-If a match is prefixed with `regex:` (after the `!` if you want it inverted) then the rest of the pattern is a golang regex. The trailing `*` behavior is diffrent as it is part of the regex and not a prefix match. See [re2](https://github.com/google/re2/wiki/Syntax) for syntax.
+If a match is prefixed with `regex:` (after the `!` if you want it inverted) then the rest of the pattern is a golang regex. The trailing `*` behavior is diffrent as it is part of the regex and not a prefix match. See [re2](https://github.com/google/re2/wiki/Syntax) for syntax.  Note that the match is sub-string. To perform an exact match, prefix the regex with `^` and suffix it with `$`.
 
 Examples:
 - abc - matches the "abc", but not ABC or abcd
@@ -35,8 +35,8 @@ Examples:
 - !abc* - matches "xyz" but not "abc" or "abcd"
 - regex:.*abc.* - matches "xyz.abc.123" but not "xyz.123"
 - !regex:.*abc.* - matches "xyz.123" but not "xyz.abc.123"
-- !regex:^abc.* - matches "abc.123" and "abcd.123" but not "xyz.abc.123"
-- !regex:.*\.count$ - matches "abc.123.count" and "abcd.123.count" but not "xyz.abc.count.123"
+- !regex:^abc.* - matches "xyz.abc.123", but not "abc.123" and "abcd.123"
+- !regex:.*\.count$ - matches "xyz.abc.count.123", but not "abc.123.count" or "abcd.123.count"
 
 ## Filter examples
 

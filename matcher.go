@@ -9,39 +9,30 @@ type StringMatch struct {
 	test        string
 	invertMatch bool
 	prefixMatch bool
-	isRegex     bool
 	regex       *regexp.Regexp
 }
 
 type StringMatchList []StringMatch
 
 func NewStringMatch(s string) StringMatch {
-
-	invert := false
-	if strings.HasPrefix(s, "!") {
-		invert = true
+	prefix := false
+	invert := strings.HasPrefix(s, "!")
+	if invert {
 		s = s[1:]
 	}
 
-	regex := false
 	var compiledRegex *regexp.Regexp = nil
 	if strings.HasPrefix(s, "regex:") {
-		regex = true
 		s = s[6:]
 		compiledRegex = regexp.MustCompile(s)
-	}
-	prefix := false
-	if !regex {
-		if strings.HasSuffix(s, "*") {
-			prefix = true
-			s = s[0 : len(s)-1]
-		}
+	} else if strings.HasSuffix(s, "*") {
+		prefix = true
+		s = s[0 : len(s)-1]
 	}
 	return StringMatch{
 		test:        s,
 		invertMatch: invert,
 		prefixMatch: prefix,
-		isRegex:     regex,
 		regex:       compiledRegex,
 	}
 }
@@ -49,7 +40,7 @@ func NewStringMatch(s string) StringMatch {
 // Match indicates if the provided string matches the criteria for this StringMatch
 func (sm StringMatch) Match(s string) bool {
 	switch {
-	case sm.isRegex:
+	case sm.regex != nil:
 		return sm.regex.MatchString(s) != sm.invertMatch
 	case sm.prefixMatch:
 		return strings.HasPrefix(s, sm.test) != sm.invertMatch

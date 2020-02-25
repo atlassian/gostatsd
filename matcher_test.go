@@ -3,36 +3,42 @@ package gostatsd
 import (
 	"testing"
 
+	"regexp"
 	"strings"
 
 	"github.com/stretchr/testify/assert"
 )
+
+// used to indicate presence or absence of a regex, the actual expression is not compared
+var present = regexp.MustCompile(".")
 
 func TestNewStringMatch(t *testing.T) {
 	tests := []struct {
 		input    string
 		expected StringMatch
 	}{
-		{"", StringMatch{test: "", invertMatch: false, prefixMatch: false, isRegex: false}},
-		{"*", StringMatch{test: "", invertMatch: false, prefixMatch: true, isRegex: false}},
-		{"!", StringMatch{test: "", invertMatch: true, prefixMatch: false, isRegex: false}},
-		{"!*", StringMatch{test: "", invertMatch: true, prefixMatch: true, isRegex: false}},
-		{"abc", StringMatch{test: "abc", invertMatch: false, prefixMatch: false, isRegex: false}},
-		{"abc*", StringMatch{test: "abc", invertMatch: false, prefixMatch: true, isRegex: false}},
-		{"!abc", StringMatch{test: "abc", invertMatch: true, prefixMatch: false, isRegex: false}},
-		{"!abc*", StringMatch{test: "abc", invertMatch: true, prefixMatch: true, isRegex: false}},
-		{"regex:", StringMatch{test: "", invertMatch: false, prefixMatch: false, isRegex: true}},
-		{"regex:.*", StringMatch{test: ".*", invertMatch: false, prefixMatch: false, isRegex: true}},
-		{"!regex:", StringMatch{test: "", invertMatch: true, prefixMatch: false, isRegex: true}},
-		{"!regex:.*", StringMatch{test: ".*", invertMatch: true, prefixMatch: false, isRegex: true}},
+		{"", StringMatch{test: "", invertMatch: false, prefixMatch: false, regex: nil}},
+		{"*", StringMatch{test: "", invertMatch: false, prefixMatch: true, regex: nil}},
+		{"!", StringMatch{test: "", invertMatch: true, prefixMatch: false, regex: nil}},
+		{"!*", StringMatch{test: "", invertMatch: true, prefixMatch: true, regex: nil}},
+		{"abc", StringMatch{test: "abc", invertMatch: false, prefixMatch: false, regex: nil}},
+		{"abc*", StringMatch{test: "abc", invertMatch: false, prefixMatch: true, regex: nil}},
+		{"!abc", StringMatch{test: "abc", invertMatch: true, prefixMatch: false, regex: nil}},
+		{"!abc*", StringMatch{test: "abc", invertMatch: true, prefixMatch: true, regex: nil}},
+		{"regex:", StringMatch{test: "", invertMatch: false, prefixMatch: false, regex: present}},
+		{"regex:.*", StringMatch{test: ".*", invertMatch: false, prefixMatch: false, regex: present}},
+		{"!regex:", StringMatch{test: "", invertMatch: true, prefixMatch: false, regex: present}},
+		{"!regex:.*", StringMatch{test: ".*", invertMatch: true, prefixMatch: false, regex: present}},
 	}
 
 	for _, test := range tests {
-		sm := NewStringMatch(test.input)
-		assert.EqualValues(t, test.expected.test, sm.test)
-		assert.EqualValues(t, test.expected.invertMatch, sm.invertMatch)
-		assert.EqualValues(t, test.expected.prefixMatch, sm.prefixMatch)
-		assert.EqualValues(t, test.expected.isRegex, sm.isRegex)
+		t.Run(test.input, func(t *testing.T) {
+			sm := NewStringMatch(test.input)
+			assert.EqualValues(t, test.expected.test, sm.test)
+			assert.EqualValues(t, test.expected.invertMatch, sm.invertMatch)
+			assert.EqualValues(t, test.expected.prefixMatch, sm.prefixMatch)
+			assert.EqualValues(t, test.expected.regex != nil, sm.regex != nil)
+		})
 	}
 }
 
