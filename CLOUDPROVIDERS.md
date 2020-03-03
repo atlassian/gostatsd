@@ -3,7 +3,7 @@ Configuring cloud providers
 Cloud providers are a way to automatically enrich metrics with metadata from a cloud vendor.
 
 Cloud providers must be configured through the usage of a configuration file (toml, yaml and json are supported), passed via
-`--config-path`.
+`--config-path`.  The cloud provider is specified using the `cloud-provider` configuration option.
 
 There are currently two supported cloud providers:
 
@@ -45,6 +45,8 @@ To fix this it is highly recommended to drop the hostname from incoming metrics.
 #### Example with defaults
 
 ```$toml
+cloud-provider = 'k8s'
+
 [k8s]
 kube-api-qps = 5
 kube-api-burst = 1.5

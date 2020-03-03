@@ -72,18 +72,16 @@ func newCloudHandlerFactory(cloudProviderName string, logger logrus.FieldLogger,
 func NewCloudHandlerFactoryFromViper(v *viper.Viper, logger logrus.FieldLogger, version string) (*CloudHandlerFactory, error) {
 	cloudProviderName := v.GetString(ParamCloudProvider)
 	if cloudProviderName == "" {
-		return newCloudHandlerFactory(cloudProviderName, logger, CacheOptions{}, nil, version), nil
+		return nil, nil
+	}
+
+	if _, ok := DefaultCloudProviderCacheValues[cloudProviderName]; !ok {
+		return nil, fmt.Errorf("unknown cloud provider %q", cloudProviderName)
 	}
 
 	// Cloud provider defaults
-	cpDefaultCacheOpts, ok := DefaultCloudProviderCacheValues[cloudProviderName]
-	if !ok {
-		return nil, fmt.Errorf("could not find default cache values for cloud provider '%s'", cloudProviderName)
-	}
-	cpDefaultLimiterOpts, ok := DefaultCloudProviderLimiterValues[cloudProviderName]
-	if !ok {
-		return nil, fmt.Errorf("could not find default cache values for cloud provider '%s'", cloudProviderName)
-	}
+	cpDefaultCacheOpts := DefaultCloudProviderCacheValues[cloudProviderName]
+	cpDefaultLimiterOpts := DefaultCloudProviderLimiterValues[cloudProviderName]
 
 	// Set the defaults in Viper based on the cloud provider values before we manipulate things
 	v.SetDefault(ParamCacheRefreshPeriod, cpDefaultCacheOpts.CacheRefreshPeriod)
