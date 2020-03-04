@@ -1,3 +1,8 @@
+20.1.1
+------
+- Fixes a bug where no cloud provider would crash on startup
+- Minor documentation fix
+
 20.1.0
 ------
 - Minor internal refactoring

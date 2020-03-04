@@ -93,8 +93,10 @@ func constructServer(v *viper.Viper) (*statsd.Server, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := cloud.InitCloudProvider(v); err != nil {
-		return nil, err
+	if cloud != nil {
+		if err := cloud.InitCloudProvider(v); err != nil {
+			return nil, err
+		}
 	}
 	// Backends
 	backendNames := v.GetStringSlice(statsd.ParamBackends)

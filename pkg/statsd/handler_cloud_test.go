@@ -249,7 +249,7 @@ func TestConstructCloudHandlerFactoryFromViper(t *testing.T) {
 	// Test no cloud handler
 	factory, err := NewCloudHandlerFactoryFromViper(v, logger, "test")
 	assert.NoError(t, err)
-	assert.Nil(t, factory.cloudProvider)
+	assert.Nil(t, factory)
 
 	// Test unknown cloud handler - unsupported
 	v.Set(ParamCloudProvider, "unknown")
@@ -275,10 +275,7 @@ func TestInitCloudHandlerFactory(t *testing.T) {
 
 	factory, err := NewCloudHandlerFactoryFromViper(v, logger, "test")
 	assert.NoError(t, err)
-	assert.Nil(t, factory.cloudProvider)
-
-	err = factory.InitCloudProvider(v)
-	assert.NoError(t, err)
+	assert.Nil(t, factory)
 
 	// We don't test the path for specific cloud providers as they have logic that isn't easily mockable
 }
