@@ -17,6 +17,7 @@ Metrics:
 | Name                                        | type                | tags                         | description
 | ------------------------------------------- | ------------------- | ---------------------------- | -----------
 | aggregator.metrics_received                 | gauge (flush)       | aggregator_id                | The number of datapoints received during the flush interval
+| aggregator.metricmaps_received              | gauge (flush)       | aggregator_id                | The number of datapoint batches received during the flush interval
 | aggregator.aggregation_time                 | gauge (time)        | aggregator_id                | The time taken (in ms) to aggregate all counter and timer
 |                                             |                     |                              | datapoints in this flush interval
 | aggregator.process_time                     | gauge (time)        | aggregator_id                | The time taken to process all synchronous flush actions
