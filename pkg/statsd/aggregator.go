@@ -194,6 +194,7 @@ func deleteMetric(key, tagsKey string, metrics gostatsd.AggregatedMetrics) {
 // Reset clears the contents of a MetricAggregator.
 func (a *MetricAggregator) Reset() {
 	a.metricsReceived = 0
+	a.metricMapsReceived = 0
 	nowNano := gostatsd.Nanotime(a.now().UnixNano())
 
 	a.metricMap.Counters.Each(func(key, tagsKey string, counter gostatsd.Counter) {

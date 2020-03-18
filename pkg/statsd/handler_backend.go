@@ -147,7 +147,7 @@ func (bh *BackendHandler) DispatchMetricMap(ctx context.Context, mm *gostatsd.Me
 	maps := mm.Split(bh.numWorkers)
 
 	for aggrIdx, mmSplit := range maps {
-		if !mm.IsEmpty() {
+		if !mmSplit.IsEmpty() {
 			w := bh.workers[aggrIdx]
 			select {
 			case <-ctx.Done():
