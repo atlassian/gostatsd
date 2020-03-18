@@ -1,3 +1,7 @@
+20.1.2
+------
+- Fixes a bug where `aggregator.metricmaps_received` are the same for for every worker
+
 20.1.1
 ------
 - Fixes a bug where no cloud provider would crash on startup
