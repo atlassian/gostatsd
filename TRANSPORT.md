@@ -56,3 +56,7 @@ tls-handshake-timeout = '3m'
 - `tls-handshake-timeout`: The maximum amount of time waiting for a TLS handshake.  Set to `0` to disable timeout, must
   not be negative.
   Corresponds to `http.Transport#TLSHandshakeTimeout`.
+- `response-header-timeout`: If non-zero, specifies the amount of time to wait for a server's response headers after
+  fully writing the request (including its body, if any). It time does not include the time to read the response body.
+  Defaults to zero.
+  Corresponds to `http.Transport#ResponseHeaderTimeout`.
