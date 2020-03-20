@@ -22,6 +22,7 @@ const paramHttpIdleConnectionTimeout = "idle-connection-timeout"
 const paramHttpMaxIdleConnections = "max-idle-connections"
 const paramHttpNetwork = "network"
 const paramHttpTLSHandshakeTimeout = "tls-handshake-timeout"
+const paramHttpResponseHeaderTimeout = "response-header-timeout"
 
 const defaultHttpDialerKeepAlive = 30 * time.Second
 const defaultHttpDialerTimeout = 5 * time.Second
@@ -30,6 +31,7 @@ const defaultHttpIdleConnectionTimeout = 1 * time.Minute
 const defaultHttpMaxIdleConnections = 50
 const defaultHttpNetwork = "tcp"
 const defaultHttpTLSHandshakeTimeout = 3 * time.Second
+const defaultHttpResponseHeaderTimeout = time.Duration(0)
 
 func (tp *TransportPool) newHttpTransport(name string, v *viper.Viper) (*http.Transport, error) {
 	v.SetDefault(paramHttpDialerKeepAlive, defaultHttpDialerKeepAlive)
@@ -39,6 +41,7 @@ func (tp *TransportPool) newHttpTransport(name string, v *viper.Viper) (*http.Tr
 	v.SetDefault(paramHttpMaxIdleConnections, defaultHttpMaxIdleConnections)
 	v.SetDefault(paramHttpNetwork, defaultHttpNetwork)
 	v.SetDefault(paramHttpTLSHandshakeTimeout, defaultHttpTLSHandshakeTimeout)
+	v.SetDefault(paramHttpResponseHeaderTimeout, defaultHttpResponseHeaderTimeout)
 
 	dialerKeepAlive := v.GetDuration(paramHttpDialerKeepAlive)
 	dialerTimeout := v.GetDuration(paramHttpDialerTimeout)
@@ -47,6 +50,7 @@ func (tp *TransportPool) newHttpTransport(name string, v *viper.Viper) (*http.Tr
 	maxIdleConnections := v.GetInt(paramHttpMaxIdleConnections)
 	network := v.GetString(paramHttpNetwork)
 	tlsHandshakeTimeout := v.GetDuration(paramHttpTLSHandshakeTimeout)
+	responseHeaderTimeout := v.GetDuration(paramHttpResponseHeaderTimeout)
 
 	if dialerKeepAlive < -1 {
 		return nil, errors.New(paramHttpDialerKeepAlive + " must be -1, 0, or positive") // -1 = disabled, 0 = keepalives enabled, not configured, >0 = keepalive interval
@@ -62,6 +66,9 @@ func (tp *TransportPool) newHttpTransport(name string, v *viper.Viper) (*http.Tr
 	}
 	if tlsHandshakeTimeout < 0 {
 		return nil, errors.New(paramHttpTLSHandshakeTimeout + " must not be negative") // 0 = no timeout
+	}
+	if responseHeaderTimeout < 0 {
+		return nil, errors.New(paramHttpResponseHeaderTimeout + " must not be negative") // 0 = no timeout
 	}
 
 	dialer := &net.Dialer{
@@ -82,8 +89,9 @@ func (tp *TransportPool) newHttpTransport(name string, v *viper.Viper) (*http.Tr
 			// replace the network with our own
 			return dialer.DialContext(ctx, network, address)
 		},
-		MaxIdleConns:    maxIdleConnections,
-		IdleConnTimeout: idleConnectionTimeout,
+		MaxIdleConns:          maxIdleConnections,
+		IdleConnTimeout:       idleConnectionTimeout,
+		ResponseHeaderTimeout: responseHeaderTimeout,
 	}
 
 	if !enableHttp2 {
