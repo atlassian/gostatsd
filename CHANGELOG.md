@@ -1,3 +1,7 @@
+20.2.0
+------
+- Support for `response-header-timeout` for `transport` section
+
 20.1.2
 ------
 - Fixes a bug where `aggregator.metricmaps_received` are the same for for every worker
