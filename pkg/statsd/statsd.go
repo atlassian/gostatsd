@@ -25,8 +25,7 @@ import (
 // the statsd server. These can either be set via command line or directly.
 type Server struct {
 	Backends                  []gostatsd.Backend
-	CloudProvider             gostatsd.CloudProvider
-	Limiter                   *rate.Limiter
+	CloudHandlerFactory       *CloudHandlerFactory
 	InternalTags              gostatsd.Tags
 	InternalNamespace         string
 	DefaultTags               gostatsd.Tags
@@ -54,9 +53,8 @@ type Server struct {
 	ServerMode                string
 	Hostname                  string
 	LogRawMetric              bool
-	CacheOptions
-	Viper         *viper.Viper
-	TransportPool *transport.TransportPool
+	Viper                     *viper.Viper
+	TransportPool             *transport.TransportPool
 }
 
 // Run runs the server until context signals done.
@@ -152,11 +150,11 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 
 	// Create the cloud handler
 	ip := gostatsd.UnknownIP
-	if s.CloudProvider != nil {
-		cloudHandler := NewCloudHandler(s.CloudProvider, handler, log.StandardLogger(), s.Limiter, &s.CacheOptions)
+	if s.CloudHandlerFactory != nil {
+		cloudHandler := s.CloudHandlerFactory.NewCloudHandler(handler)
 		runnables = append(runnables, cloudHandler.Run)
 		handler = cloudHandler
-		selfIP, err2 := s.CloudProvider.SelfIP()
+		selfIP, err2 := cloudHandler.cloud.SelfIP()
 		if err2 != nil {
 			log.Warnf("Failed to get self ip: %v", err2)
 		} else {

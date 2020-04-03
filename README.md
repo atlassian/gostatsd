@@ -24,7 +24,7 @@ server based on load.
 
 Building the server
 -------------------
-Gostatsd currently targets Go 1.12.3.  If you are compiling from source, please ensure you are running this version.
+Gostatsd currently targets Go 1.13.6.  If you are compiling from source, please ensure you are running this version.
 
 From the `gostatsd` directory run `make build`. The binary will be built in `build/bin/<arch>/gostatsd`.
 
@@ -33,7 +33,7 @@ and again if the dependencies change.  A [protobuf](https://github.com/protocolb
 directory.  Managing this in a platform agnostic way is difficult, but PRs are welcome. Hopefully it will be sufficient to use the generated protobuf
 files in the majority of cases.
 
-If you are unable to build `gostatsd` please check your go version, and try running `make setup` again before reporting a bug.
+If you are unable to build `gostatsd` please check your Go version, and try running `make setup` again before reporting a bug.
 
 Running the server
 ------------------
@@ -63,7 +63,7 @@ service.  At present the central aggregation service can only scale vertically, 
 clustering is planned.
 
 Configuring `forwarder` mode requires a configuration file, with a section named `http-transport`.  The raw version
-spoken is not configurable per server (see [HTTP.md] for version guarantees).  The configuration section allows the
+spoken is not configurable per server (see [HTTP.md](HTTP.md) for version guarantees).  The configuration section allows the
 following configuration options:
 
 - `compress`: boolean indicating if the payload should be compressed.  Defaults to `true`
@@ -78,9 +78,9 @@ following configuration options:
   HTTP based servers.
 - `flush-interval`: duration for how long to batch metrics before flushing. Should be an order of magnitude less than
   the upstream flush interval. Defaults to `1s`.
-- `transport`: see [TRANSPORT.md] for how to configure the transport.
+- `transport`: see [TRANSPORT.md](TRANSPORT.md) for how to configure the transport.
 - `log-raw-metric`: logs raw metrics received from the network.  Defaults to `false`.
-- `custom-headers` : a map of strings that are added to each request sent to allow for additional network routing / request inspection. 
+- `custom-headers` : a map of strings that are added to each request sent to allow for additional network routing / request inspection.
   Not required, default is empty. Example: `--custom-headers='{"region" : "us-east-1", "service" : "event-producer"}'`
 
 Configuring HTTP servers
@@ -119,13 +119,13 @@ under HTTP.md
 
 Configuring backends
 --------------------
-Refer to [BACKENDS.md] for configuration options for the backends
+Refer to [backends](BACKENDS.md) for configuration options for the backends.
 
 Cloud providers
 --------------
-Cloud providers are a way to automatically enrich metrics with metadata from a cloud vendor.  Currently only AWS is
-supported.  If enabled, the AWS cloudprovider will set the `host` to the instance id, collect all the EC2 tags, and
-the region.
+Cloud providers are a way to automatically enrich metrics with metadata from a cloud vendor.
+
+Refer to [cloud providers](CLOUDPROVIDERS.md) for configuration options for the cloud providers.
 
 They should be disabled on the aggregation server when using http forwarding, as the source IP isn't propagated, and
 that information should be collected on the ingestion server.
@@ -280,7 +280,7 @@ In your source code:
 
     import "github.com/atlassian/gostatsd/pkg/statsd"
 
-Note that this project uses go modules for dependency management.
+Note that this project uses Go modules for dependency management.
 
 Documentation can be found via `go doc github.com/atlassian/gostatsd/pkg/statsd` or at
 https://godoc.org/github.com/atlassian/gostatsd/pkg/statsd
@@ -309,7 +309,7 @@ License
 -------
 
 Copyright (c) 2012 Kamil Kisiel.
-Copyright @ 2016-2017 Atlassian Pty Ltd and others.
+Copyright @ 2016-2020 Atlassian Pty Ltd and others.
 
 Licensed under the MIT license. See LICENSE file.
 

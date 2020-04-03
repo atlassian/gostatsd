@@ -1,6 +1,7 @@
 package gostatsd
 
 import (
+	"regexp"
 	"strings"
 )
 
@@ -8,36 +9,44 @@ type StringMatch struct {
 	test        string
 	invertMatch bool
 	prefixMatch bool
+	regex       *regexp.Regexp
 }
 
 type StringMatchList []StringMatch
 
 func NewStringMatch(s string) StringMatch {
-	invert := false
-	if strings.HasPrefix(s, "!") {
-		invert = true
+	prefix := false
+	invert := strings.HasPrefix(s, "!")
+	if invert {
 		s = s[1:]
 	}
 
-	prefix := false
-	if strings.HasSuffix(s, "*") {
+	var compiledRegex *regexp.Regexp = nil
+	if strings.HasPrefix(s, "regex:") {
+		s = s[6:]
+		compiledRegex = regexp.MustCompile(s)
+	} else if strings.HasSuffix(s, "*") {
 		prefix = true
 		s = s[0 : len(s)-1]
 	}
-
 	return StringMatch{
 		test:        s,
 		invertMatch: invert,
 		prefixMatch: prefix,
+		regex:       compiledRegex,
 	}
 }
 
 // Match indicates if the provided string matches the criteria for this StringMatch
 func (sm StringMatch) Match(s string) bool {
-	if sm.prefixMatch {
+	switch {
+	case sm.regex != nil:
+		return sm.regex.MatchString(s) != sm.invertMatch
+	case sm.prefixMatch:
 		return strings.HasPrefix(s, sm.test) != sm.invertMatch
+	default: // exact match
+		return (s == sm.test) != sm.invertMatch
 	}
-	return (s == sm.test) != sm.invertMatch
 }
 
 // MatchAny indicates if s matches anything in the list, returns false if the list is empty

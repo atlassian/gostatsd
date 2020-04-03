@@ -3,29 +3,42 @@ package gostatsd
 import (
 	"testing"
 
+	"regexp"
 	"strings"
 
 	"github.com/stretchr/testify/assert"
 )
+
+// used to indicate presence or absence of a regex, the actual expression is not compared
+var present = regexp.MustCompile(".")
 
 func TestNewStringMatch(t *testing.T) {
 	tests := []struct {
 		input    string
 		expected StringMatch
 	}{
-		{"", StringMatch{test: "", invertMatch: false, prefixMatch: false}},
-		{"*", StringMatch{test: "", invertMatch: false, prefixMatch: true}},
-		{"!", StringMatch{test: "", invertMatch: true, prefixMatch: false}},
-		{"!*", StringMatch{test: "", invertMatch: true, prefixMatch: true}},
-		{"abc", StringMatch{test: "abc", invertMatch: false, prefixMatch: false}},
-		{"abc*", StringMatch{test: "abc", invertMatch: false, prefixMatch: true}},
-		{"!abc", StringMatch{test: "abc", invertMatch: true, prefixMatch: false}},
-		{"!abc*", StringMatch{test: "abc", invertMatch: true, prefixMatch: true}},
+		{"", StringMatch{test: "", invertMatch: false, prefixMatch: false, regex: nil}},
+		{"*", StringMatch{test: "", invertMatch: false, prefixMatch: true, regex: nil}},
+		{"!", StringMatch{test: "", invertMatch: true, prefixMatch: false, regex: nil}},
+		{"!*", StringMatch{test: "", invertMatch: true, prefixMatch: true, regex: nil}},
+		{"abc", StringMatch{test: "abc", invertMatch: false, prefixMatch: false, regex: nil}},
+		{"abc*", StringMatch{test: "abc", invertMatch: false, prefixMatch: true, regex: nil}},
+		{"!abc", StringMatch{test: "abc", invertMatch: true, prefixMatch: false, regex: nil}},
+		{"!abc*", StringMatch{test: "abc", invertMatch: true, prefixMatch: true, regex: nil}},
+		{"regex:", StringMatch{test: "", invertMatch: false, prefixMatch: false, regex: present}},
+		{"regex:.*", StringMatch{test: ".*", invertMatch: false, prefixMatch: false, regex: present}},
+		{"!regex:", StringMatch{test: "", invertMatch: true, prefixMatch: false, regex: present}},
+		{"!regex:.*", StringMatch{test: ".*", invertMatch: true, prefixMatch: false, regex: present}},
 	}
 
 	for _, test := range tests {
-		sm := NewStringMatch(test.input)
-		assert.EqualValues(t, test.expected, sm)
+		t.Run(test.input, func(t *testing.T) {
+			sm := NewStringMatch(test.input)
+			assert.EqualValues(t, test.expected.test, sm.test)
+			assert.EqualValues(t, test.expected.invertMatch, sm.invertMatch)
+			assert.EqualValues(t, test.expected.prefixMatch, sm.prefixMatch)
+			assert.EqualValues(t, test.expected.regex != nil, sm.regex != nil)
+		})
 	}
 }
 
@@ -47,6 +60,52 @@ func TestStringMatchExact(t *testing.T) {
 			assert.EqualValues(t, test.expected, sm.Match(test.input))
 		})
 	}
+}
+
+func TestStringMatchRegex(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected bool
+	}{
+		{"abc.def.098", true},
+		{"ABC.def.098", false},
+		{"abc.123.098", false},
+		{"123.def.098", true},
+		{"zabc", false},
+		{"", false},
+	}
+
+	sm := NewStringMatch("regex:[abc|123]\\.def\\.[\\d]")
+	for _, test := range tests {
+		t.Run(test.input, func(t *testing.T) {
+			assert.EqualValues(t, test.expected, sm.Match(test.input))
+		})
+	}
+}
+
+func TestStringMatchRegexInvert(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected bool
+	}{
+		{"abc.def.098", false},
+		{"ABC.def.098", true},
+		{"abc.123.098", true},
+		{"123.def.098", false},
+		{"zabc", true},
+		{"", true},
+	}
+
+	sm := NewStringMatch("!regex:[abc|123]\\.def\\.[\\d]")
+	for _, test := range tests {
+		t.Run(test.input, func(t *testing.T) {
+			assert.EqualValues(t, test.expected, sm.Match(test.input))
+		})
+	}
+}
+
+func TestStringMatchBadRegexPanics(t *testing.T) {
+	assert.Panics(t, func() { NewStringMatch("regex:([abc|123]\\.def\\.[\\d]") })
 }
 
 func TestStringMatchExactEmpty(t *testing.T) {

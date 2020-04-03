@@ -10,13 +10,13 @@ import (
 	"os"
 	"os/signal"
 	"strconv"
-	"strings"
 	"syscall"
 	"time"
 
+	"github.com/atlassian/gostatsd/pkg/util"
+
 	"github.com/atlassian/gostatsd"
 	"github.com/atlassian/gostatsd/pkg/backends"
-	"github.com/atlassian/gostatsd/pkg/cloudproviders"
 	"github.com/atlassian/gostatsd/pkg/statsd"
 	"github.com/atlassian/gostatsd/pkg/transport"
 
@@ -38,9 +38,6 @@ const (
 	// ParamVersion makes program output its version.
 	ParamVersion = "version"
 )
-
-// EnvPrefix is the prefix of the inspected environment variables.
-const EnvPrefix = "GSD" //Go Stats D
 
 func main() {
 	rand.Seed(time.Now().UnixNano())
@@ -91,10 +88,15 @@ func constructServer(v *viper.Viper) (*statsd.Server, error) {
 	// HTTP client pool
 	pool := transport.NewTransportPool(logger, v)
 
-	// Cloud provider
-	cloud, err := cloudproviders.Init(v.GetString(statsd.ParamCloudProvider), v, logger)
+	// Cloud handler factory
+	cloud, err := statsd.NewCloudHandlerFactoryFromViper(v, logger, Version)
 	if err != nil {
 		return nil, err
+	}
+	if cloud != nil {
+		if err := cloud.InitCloudProvider(v); err != nil {
+			return nil, err
+		}
 	}
 	// Backends
 	backendNames := v.GetStringSlice(statsd.ParamBackends)
@@ -114,8 +116,7 @@ func constructServer(v *viper.Viper) (*statsd.Server, error) {
 	// Create server
 	return &statsd.Server{
 		Backends:            backendsList,
-		CloudProvider:       cloud,
-		Limiter:             rate.NewLimiter(rate.Limit(v.GetInt(statsd.ParamMaxCloudRequests)), v.GetInt(statsd.ParamBurstCloudRequests)),
+		CloudHandlerFactory: cloud,
 		InternalTags:        v.GetStringSlice(statsd.ParamInternalTags),
 		InternalNamespace:   v.GetString(statsd.ParamInternalNamespace),
 		DefaultTags:         v.GetStringSlice(statsd.ParamDefaultTags),
@@ -138,12 +139,6 @@ func constructServer(v *viper.Viper) (*statsd.Server, error) {
 		ConnPerReader:       v.GetBool(statsd.ParamConnPerReader),
 		ServerMode:          v.GetString(statsd.ParamServerMode),
 		LogRawMetric:        v.GetBool(statsd.ParamLogRawMetric),
-		CacheOptions: statsd.CacheOptions{
-			CacheRefreshPeriod:        v.GetDuration(statsd.ParamCacheRefreshPeriod),
-			CacheEvictAfterIdlePeriod: v.GetDuration(statsd.ParamCacheEvictAfterIdlePeriod),
-			CacheTTL:                  v.GetDuration(statsd.ParamCacheTTL),
-			CacheNegativeTTL:          v.GetDuration(statsd.ParamCacheNegativeTTL),
-		},
 		HeartbeatTags: gostatsd.Tags{
 			fmt.Sprintf("version:%s", Version),
 			fmt.Sprintf("commit:%s", GitCommit),
@@ -184,10 +179,7 @@ func cancelOnInterrupt(ctx context.Context, f context.CancelFunc) {
 func setupConfiguration() (*viper.Viper, bool, error) {
 	v := viper.New()
 	defer setupLogger(v) // Apply logging configuration in case of early exit
-	v.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
-	v.SetEnvPrefix(EnvPrefix)
-	v.SetTypeByDefaultValue(true)
-	v.AutomaticEnv()
+	util.InitViper(v, "")
 
 	var version bool
 

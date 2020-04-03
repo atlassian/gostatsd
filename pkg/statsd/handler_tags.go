@@ -75,7 +75,7 @@ func (th *TagHandler) DispatchMetrics(ctx context.Context, metrics []*gostatsd.M
 func (th *TagHandler) DispatchMetricMap(ctx context.Context, mm *gostatsd.MetricMap) {
 	mmNew := gostatsd.NewMetricMap()
 
-	mm.Counters.Each(func(metricName, x string, cOriginal gostatsd.Counter) {
+	mm.Counters.Each(func(metricName, _ string, cOriginal gostatsd.Counter) {
 		if th.uniqueFilterAndAddTags(metricName, &cOriginal.Hostname, &cOriginal.Tags) {
 			newTagsKey := gostatsd.FormatTagsKey(cOriginal.Hostname, cOriginal.Tags)
 			if cs, ok := mmNew.Counters[metricName]; ok {

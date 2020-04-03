@@ -28,4 +28,4 @@ Only one prof will be allowed to run at any point, and requesting multiple will 
   - A major bump of the service version may drop N-1 support without adding N+1.
   - There will never be more than N-1 and N.
 
-  All changes of N will be documented in the [CHANGELOG.md].  N is currently 2.
+  All changes of N will be documented in the [CHANGELOG.md](CHANGELOG.md).  N is currently 2.
