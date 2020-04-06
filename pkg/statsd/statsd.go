@@ -48,6 +48,7 @@ type Server struct {
 	HeartbeatTags             gostatsd.Tags
 	ReceiveBatchSize          int
 	DisabledSubTypes          gostatsd.TimerSubtypes
+	HistogramLimit            uint32
 	BadLineRateLimitPerSecond rate.Limit
 	ServerMode                string
 	Hostname                  string
@@ -98,6 +99,7 @@ func (s *Server) createStandaloneSink() (gostatsd.PipelineHandler, []gostatsd.Ru
 		percentThresholds: s.PercentThreshold,
 		expiryInterval:    s.ExpiryInterval,
 		disabledSubtypes:  s.DisabledSubTypes,
+		histogramLimit:    s.HistogramLimit,
 	}
 
 	backendHandler := NewBackendHandler(s.Backends, uint(s.MaxConcurrentEvents), s.MaxWorkers, s.MaxQueueSize, &factory)
@@ -272,10 +274,11 @@ type agrFactory struct {
 	percentThresholds []float64
 	expiryInterval    time.Duration
 	disabledSubtypes  gostatsd.TimerSubtypes
+	histogramLimit    uint32
 }
 
 func (af *agrFactory) Create() Aggregator {
-	return NewMetricAggregator(af.percentThresholds, af.expiryInterval, af.disabledSubtypes)
+	return NewMetricAggregator(af.percentThresholds, af.expiryInterval, af.disabledSubtypes, af.histogramLimit)
 }
 
 func toStringSlice(fs []float64) []string {

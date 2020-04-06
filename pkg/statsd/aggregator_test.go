@@ -2,6 +2,7 @@ package statsd
 
 import (
 	"context"
+	"math"
 	"runtime"
 	"testing"
 	"time"
@@ -17,6 +18,7 @@ func newFakeAggregator() *MetricAggregator {
 		[]float64{90},
 		5*time.Minute,
 		gostatsd.TimerSubtypes{},
+		math.MaxUint32,
 	)
 }
 
@@ -47,6 +49,71 @@ func TestNewAggregator(t *testing.T) {
 	if assrt.NotNil(actual.metricMap.Sets) {
 		assrt.Equal(gostatsd.Sets{}, actual.metricMap.Sets)
 	}
+}
+
+func TestLatencyHistograms(t *testing.T) {
+	t.Parallel()
+	assrt := assert.New(t)
+	ma := newFakeAggregator()
+	ma.metricMap.Timers["testTimer"] = make(map[string]gostatsd.Timer)
+	values := gostatsd.NewTimerValues([]float64{10.0, 20.0, 29.9, 2000.0, -38.0, -5.0})
+	values.Tags = gostatsd.Tags{histogramThresholdsTagPrefix + "-10_0_2.5_20_50_5000"}
+	ma.metricMap.Timers["testTimer"]["simple"] = values
+
+	ma.Flush(10)
+
+	result := ma.metricMap.Timers["testTimer"]["simple"]
+	assrt.Len(result.Histogram, 7)
+	assrt.Equal(1, result.Histogram[gostatsd.HistogramThreshold(-10)])
+	assrt.Equal(2, result.Histogram[gostatsd.HistogramThreshold(0)])
+	assrt.Equal(2, result.Histogram[gostatsd.HistogramThreshold(2.5)])
+	assrt.Equal(5, result.Histogram[gostatsd.HistogramThreshold(50)])
+	assrt.Equal(6, result.Histogram[gostatsd.HistogramThreshold(5000)])
+	assrt.Equal(6, result.Histogram[gostatsd.HistogramThreshold(math.Inf(1))])
+}
+
+func TestLatencyHistogramWithNoValuesOutputHistogramWithZeros(t *testing.T) {
+	t.Parallel()
+	assrt := assert.New(t)
+	ma := newFakeAggregator()
+	ma.metricMap.Timers["testTimer"] = make(map[string]gostatsd.Timer)
+	values := gostatsd.NewTimerValues([]float64{})
+	values.Tags = gostatsd.Tags{histogramThresholdsTagPrefix + "10_20_50_5000"}
+	ma.metricMap.Timers["testTimer"]["simple"] = values
+
+	ma.Flush(10)
+
+	result := ma.metricMap.Timers["testTimer"]["simple"]
+	assrt.Len(result.Histogram, 5)
+	assrt.Equal(0, result.Histogram[gostatsd.HistogramThreshold(10)])
+	assrt.Equal(0, result.Histogram[gostatsd.HistogramThreshold(20)])
+	assrt.Equal(0, result.Histogram[gostatsd.HistogramThreshold(50)])
+	assrt.Equal(0, result.Histogram[gostatsd.HistogramThreshold(5000)])
+	assrt.Equal(0, result.Histogram[gostatsd.HistogramThreshold(math.Inf(1))])
+}
+
+func TestLatencyHistogramDisablesAggregations(t *testing.T) {
+	t.Parallel()
+	assrt := assert.New(t)
+	ma := newFakeAggregator()
+	ma.metricMap.Timers["testTimer"] = make(map[string]gostatsd.Timer)
+	values := gostatsd.NewTimerValues([]float64{10.0, 20.0, 29.9, 2000.0})
+	values.Tags = gostatsd.Tags{histogramThresholdsTagPrefix + "20_50_5000"}
+	ma.metricMap.Timers["testTimer"]["simple"] = values
+
+	ma.Flush(10)
+
+	result := ma.metricMap.Timers["testTimer"]["simple"]
+
+	assrt.Equal(0, result.Count)
+	assrt.Equal(0.0, result.PerSecond)
+	assrt.Equal(0.0, result.Mean)
+	assrt.Equal(0.0, result.Min)
+	assrt.Equal(0.0, result.Max)
+	assrt.Equal(0.0, result.StdDev)
+	assrt.Equal(0.0, result.Sum)
+	assrt.Equal(0.0, result.SumSquares)
+	assrt.Nil(result.Percentiles)
 }
 
 func TestFlush(t *testing.T) {
@@ -189,6 +256,27 @@ func TestReset(t *testing.T) {
 	}
 	expected.now = nowFn
 
+	assrt.Equal(expected.metricMap.Timers, actual.metricMap.Timers)
+
+	actual = newFakeAggregator()
+	actual.metricMap.Timers["histogram"] = map[string]gostatsd.Timer{
+		histogramThresholdsTagPrefix + "10_20_30": gostatsd.NewTimer(nowNano, []float64{}, host, gostatsd.Tags{histogramThresholdsTagPrefix + "10_20_30"}),
+	}
+
+	expected = newFakeAggregator()
+	expectedTimer := gostatsd.NewTimer(nowNano, []float64{}, host, gostatsd.Tags{histogramThresholdsTagPrefix + "10_20_30"})
+	expectedTimer.Histogram = map[gostatsd.HistogramThreshold]int{
+		gostatsd.HistogramThreshold(10):          0,
+		gostatsd.HistogramThreshold(20):          0,
+		gostatsd.HistogramThreshold(30):          0,
+		gostatsd.HistogramThreshold(math.Inf(1)): 0,
+	}
+	expected.metricMap.Timers["histogram"] = map[string]gostatsd.Timer{
+		histogramThresholdsTagPrefix + "10_20_30": expectedTimer,
+	}
+	expected.now = nowFn
+
+	actual.Reset()
 	assrt.Equal(expected.metricMap.Timers, actual.metricMap.Timers)
 
 	actual = newFakeAggregator()
@@ -370,6 +458,7 @@ func TestDisabledLower(t *testing.T) {
 		[]float64{-90},
 		5*time.Minute,
 		gostatsd.TimerSubtypes{},
+		math.MaxUint32,
 	)
 	ma.disabledSubtypes.LowerPct = true
 	ma.Receive(&gostatsd.Metric{Name: "x", Value: 1, Type: gostatsd.TIMER})

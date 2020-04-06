@@ -1,6 +1,7 @@
 package statsd
 
 import (
+	"math"
 	"runtime"
 	"strings"
 	"time"
@@ -122,6 +123,8 @@ const (
 	DefaultBadLinesPerMinute = 0
 	// DefaultServerMode is the default mode to run as, standalone|forwarder
 	DefaultServerMode = "standalone"
+	// DefaultTimerHistogramLimit default upper limit for timer histograms (effectively unlimited)
+	DefaultTimerHistogramLimit = math.MaxUint32
 	// DefaultLogRawMetric is the default value for whether to log the metrics received from network
 	DefaultLogRawMetric = false
 )
@@ -187,6 +190,8 @@ const (
 	ParamServerMode = "server-mode"
 	// ParamHostname allows hostname overrides
 	ParamHostname = "hostname"
+	// ParamTimerHistogramLimit upper limit of timer histogram buckets that can be specified
+	ParamTimerHistogramLimit = "timer-histogram-limit"
 	// ParamLogRawMetric enables custom metrics to be printed to stdout
 	ParamLogRawMetric = "log-raw-metric"
 )
@@ -222,6 +227,7 @@ func AddFlags(fs *pflag.FlagSet) {
 	fs.Bool(ParamConnPerReader, DefaultConnPerReader, "Create a separate connection per reader (requires system support for reusing addresses)")
 	fs.String(ParamServerMode, DefaultServerMode, "The server mode to run in")
 	fs.String(ParamHostname, getHost(), "overrides the hostname of the server")
+	fs.Uint32(ParamTimerHistogramLimit, DefaultTimerHistogramLimit, "upper limit of timer histogram buckets (MaxUint32 by default)")
 	fs.Bool(ParamLogRawMetric, DefaultLogRawMetric, "Print metrics received from network to stdout in JSON format")
 }
 

@@ -4,8 +4,10 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"math"
 	"net"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -159,35 +161,46 @@ func (client *Client) preparePayload(metrics *gostatsd.MetricMap, ts time.Time) 
 		})
 	}
 	metrics.Timers.Each(func(key, tagsKey string, timer gostatsd.Timer) {
-		if !client.disabledSubtypes.Lower {
-			_, _ = fmt.Fprintf(buf, "%s %f %d\n", client.prepareName(client.timerNamespace, key, "lower", timer.Hostname, timer.Tags), timer.Min, now)
-		}
-		if !client.disabledSubtypes.Upper {
-			_, _ = fmt.Fprintf(buf, "%s %f %d\n", client.prepareName(client.timerNamespace, key, "upper", timer.Hostname, timer.Tags), timer.Max, now)
-		}
-		if !client.disabledSubtypes.Count {
-			_, _ = fmt.Fprintf(buf, "%s %d %d\n", client.prepareName(client.timerNamespace, key, "count", timer.Hostname, timer.Tags), timer.Count, now)
-		}
-		if !client.disabledSubtypes.CountPerSecond {
-			_, _ = fmt.Fprintf(buf, "%s %f %d\n", client.prepareName(client.timerNamespace, key, "count_ps", timer.Hostname, timer.Tags), timer.PerSecond, now)
-		}
-		if !client.disabledSubtypes.Mean {
-			_, _ = fmt.Fprintf(buf, "%s %f %d\n", client.prepareName(client.timerNamespace, key, "mean", timer.Hostname, timer.Tags), timer.Mean, now)
-		}
-		if !client.disabledSubtypes.Median {
-			_, _ = fmt.Fprintf(buf, "%s %f %d\n", client.prepareName(client.timerNamespace, key, "median", timer.Hostname, timer.Tags), timer.Median, now)
-		}
-		if !client.disabledSubtypes.StdDev {
-			_, _ = fmt.Fprintf(buf, "%s %f %d\n", client.prepareName(client.timerNamespace, key, "std", timer.Hostname, timer.Tags), timer.StdDev, now)
-		}
-		if !client.disabledSubtypes.Sum {
-			_, _ = fmt.Fprintf(buf, "%s %f %d\n", client.prepareName(client.timerNamespace, key, "sum", timer.Hostname, timer.Tags), timer.Sum, now)
-		}
-		if !client.disabledSubtypes.SumSquares {
-			_, _ = fmt.Fprintf(buf, "%s %f %d\n", client.prepareName(client.timerNamespace, key, "sum_squares", timer.Hostname, timer.Tags), timer.SumSquares, now)
-		}
-		for _, pct := range timer.Percentiles {
-			_, _ = fmt.Fprintf(buf, "%s %f %d\n", client.prepareName(client.timerNamespace, key, pct.Str, timer.Hostname, timer.Tags), pct.Float, now)
+		if timer.Histogram != nil {
+			for histogramThreshold, count := range timer.Histogram {
+				bucketTag := "le:+Inf"
+				if !math.IsInf(float64(histogramThreshold), 1) {
+					bucketTag = "le:" + strconv.FormatFloat(float64(histogramThreshold), 'f', -1, 64)
+				}
+				newTags := timer.Tags.Concat(gostatsd.Tags{bucketTag})
+				_, _ = fmt.Fprintf(buf, "%s %d %d\n", client.prepareName(client.counterNamespace, key, "histogram", timer.Hostname, newTags), count, now)
+			}
+		} else {
+			if !client.disabledSubtypes.Lower {
+				_, _ = fmt.Fprintf(buf, "%s %f %d\n", client.prepareName(client.timerNamespace, key, "lower", timer.Hostname, timer.Tags), timer.Min, now)
+			}
+			if !client.disabledSubtypes.Upper {
+				_, _ = fmt.Fprintf(buf, "%s %f %d\n", client.prepareName(client.timerNamespace, key, "upper", timer.Hostname, timer.Tags), timer.Max, now)
+			}
+			if !client.disabledSubtypes.Count {
+				_, _ = fmt.Fprintf(buf, "%s %d %d\n", client.prepareName(client.timerNamespace, key, "count", timer.Hostname, timer.Tags), timer.Count, now)
+			}
+			if !client.disabledSubtypes.CountPerSecond {
+				_, _ = fmt.Fprintf(buf, "%s %f %d\n", client.prepareName(client.timerNamespace, key, "count_ps", timer.Hostname, timer.Tags), timer.PerSecond, now)
+			}
+			if !client.disabledSubtypes.Mean {
+				_, _ = fmt.Fprintf(buf, "%s %f %d\n", client.prepareName(client.timerNamespace, key, "mean", timer.Hostname, timer.Tags), timer.Mean, now)
+			}
+			if !client.disabledSubtypes.Median {
+				_, _ = fmt.Fprintf(buf, "%s %f %d\n", client.prepareName(client.timerNamespace, key, "median", timer.Hostname, timer.Tags), timer.Median, now)
+			}
+			if !client.disabledSubtypes.StdDev {
+				_, _ = fmt.Fprintf(buf, "%s %f %d\n", client.prepareName(client.timerNamespace, key, "std", timer.Hostname, timer.Tags), timer.StdDev, now)
+			}
+			if !client.disabledSubtypes.Sum {
+				_, _ = fmt.Fprintf(buf, "%s %f %d\n", client.prepareName(client.timerNamespace, key, "sum", timer.Hostname, timer.Tags), timer.Sum, now)
+			}
+			if !client.disabledSubtypes.SumSquares {
+				_, _ = fmt.Fprintf(buf, "%s %f %d\n", client.prepareName(client.timerNamespace, key, "sum_squares", timer.Hostname, timer.Tags), timer.SumSquares, now)
+			}
+			for _, pct := range timer.Percentiles {
+				_, _ = fmt.Fprintf(buf, "%s %f %d\n", client.prepareName(client.timerNamespace, key, pct.Str, timer.Hostname, timer.Tags), pct.Float, now)
+			}
 		}
 	})
 	metrics.Gauges.Each(func(key, tagsKey string, gauge gostatsd.Gauge) {

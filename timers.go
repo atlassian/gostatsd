@@ -19,7 +19,13 @@ type Timer struct {
 	Timestamp    Nanotime    // Last time value was updated
 	Hostname     string      // Hostname of the source of the metric
 	Tags         Tags        // The tags for the timer
+
+	// Map bounds to count of measures seen in that bucket.
+	// This map only non-empty if the metric specifies histogram aggregation in its tags.
+	Histogram map[HistogramThreshold]int
 }
+
+type HistogramThreshold float64
 
 // NewTimer initialises a new timer.
 func NewTimer(timestamp Nanotime, values []float64, hostname string, tags Tags) Timer {

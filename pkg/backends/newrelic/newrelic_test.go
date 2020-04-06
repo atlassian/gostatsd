@@ -4,7 +4,9 @@ import (
 	"compress/gzip"
 	"context"
 	"encoding/json"
+	"index/suffixarray"
 	"io/ioutil"
+	"math"
 	"net/http"
 	"net/http/httptest"
 	"sync/atomic"
@@ -215,6 +217,54 @@ func decodeBody(enc string, r *http.Request, t *testing.T) (string, bool) {
 	return body, false
 }
 
+func TestSendMetricsWithHistogram(t *testing.T) {
+	t.Parallel()
+	mux := http.NewServeMux()
+	mux.HandleFunc("/v1/data", func(w http.ResponseWriter, r *http.Request) {
+		data, err := ioutil.ReadAll(r.Body)
+		if !assert.NoError(t, err) {
+			return
+		}
+
+		expected := []string{
+			`{"event_type":"GoStatsD","integration_version":"2.3.0","interval":1,"le":20,"metric_name":"t1.histogram","metric_per_second":0,"metric_type":"counter","metric_value":5,"timestamp":0}`,
+			`{"event_type":"GoStatsD","integration_version":"2.3.0","interval":1,"le":30,"metric_name":"t1.histogram","metric_per_second":0,"metric_type":"counter","metric_value":10,"timestamp":0}`,
+			`{"event_type":"GoStatsD","integration_version":"2.3.0","interval":1,"le":40,"metric_name":"t1.histogram","metric_per_second":0,"metric_type":"counter","metric_value":10,"timestamp":0}`,
+			`{"event_type":"GoStatsD","integration_version":"2.3.0","interval":1,"le":50,"metric_name":"t1.histogram","metric_per_second":0,"metric_type":"counter","metric_value":10,"timestamp":0}`,
+			`{"event_type":"GoStatsD","integration_version":"2.3.0","interval":1,"le":60,"metric_name":"t1.histogram","metric_per_second":0,"metric_type":"counter","metric_value":19,"timestamp":0}`,
+			`{"event_type":"GoStatsD","integration_version":"2.3.0","interval":1,"le":"infinity","metric_name":"t1.histogram","metric_per_second":0,"metric_type":"counter","metric_value":19,"timestamp":0}`,
+		}
+
+		for _, e := range expected {
+			assert.Contains(t, string(data), e)
+		}
+		assert.Equal(t, 6, countMatches(string(data), "metric_name"))
+	})
+	ts := httptest.NewServer(mux)
+	defer ts.Close()
+
+	v := viper.New()
+	v.SetDefault("transport.default.client-timeout", 1*time.Second)
+	p := transport.NewTransportPool(logrus.New(), v)
+	client, err := NewClient("default", ts.URL+"/v1/data", "", "GoStatsD", "", "", "", "metric_name", "metric_type",
+		"metric_per_second", "metric_value", "samples_min", "samples_max", "samples_count",
+		"samples_mean", "samples_median", "samples_std_dev", "samples_sum", "samples_sum_squares", "agent",
+		defaultMetricsPerBatch, defaultMaxRequests, 2*time.Second, 1*time.Second, gostatsd.TimerSubtypes{}, p)
+
+	require.NoError(t, err)
+	client.now = func() time.Time {
+		return time.Unix(100, 0)
+	}
+	res := make(chan []error, 1)
+	client.SendMetricsAsync(context.Background(), metricsWithHistogram(), func(errs []error) {
+		res <- errs
+	})
+	errs := <-res
+	for _, err := range errs {
+		assert.NoError(t, err)
+	}
+}
+
 // twoCounters returns two counters.
 func twoCounters() *gostatsd.MetricMap {
 	return &gostatsd.MetricMap{
@@ -280,6 +330,23 @@ func metricsOneOfEach() *gostatsd.MetricMap {
 	}
 }
 
+func metricsWithHistogram() *gostatsd.MetricMap {
+	mm := gostatsd.NewMetricMap()
+	mm.Timers["t1"] = map[string]gostatsd.Timer{}
+	mm.Timers["t1"]["gsd_histogram:20_30_40_50_60"] = gostatsd.Timer{
+		Values:    []float64{10},
+		Timestamp: 0,
+		Histogram: map[gostatsd.HistogramThreshold]int{
+			20:                                       5,
+			30:                                       10,
+			40:                                       10,
+			50:                                       10,
+			60:                                       19,
+			gostatsd.HistogramThreshold(math.Inf(1)): 19,
+		}}
+	return mm
+}
+
 func TestEventFormatter(t *testing.T) {
 	t.Parallel()
 
@@ -321,4 +388,9 @@ func TestEventFormatter(t *testing.T) {
 			require.Equal(t, tt.expected, string(fevent))
 		})
 	}
+}
+
+func countMatches(s string, m string) int {
+	index := suffixarray.New([]byte(s))
+	return len(index.Lookup([]byte(m), -1))
 }

@@ -30,11 +30,12 @@ type MetricAggregator struct {
 	now                func() time.Time // Returns current time. Useful for testing.
 	statser            stats.Statser
 	disabledSubtypes   gostatsd.TimerSubtypes
+	histogramLimit     uint32
 	metricMap          *gostatsd.MetricMap
 }
 
 // NewMetricAggregator creates a new MetricAggregator object.
-func NewMetricAggregator(percentThresholds []float64, expiryInterval time.Duration, disabled gostatsd.TimerSubtypes) *MetricAggregator {
+func NewMetricAggregator(percentThresholds []float64, expiryInterval time.Duration, disabled gostatsd.TimerSubtypes, histogramLimit uint32) *MetricAggregator {
 	a := MetricAggregator{
 		expiryInterval:    expiryInterval,
 		percentThresholds: make(map[float64]percentStruct, len(percentThresholds)),
@@ -42,6 +43,7 @@ func NewMetricAggregator(percentThresholds []float64, expiryInterval time.Durati
 		statser:           stats.NewNullStatser(), // Will probably be replaced via RunMetrics
 		metricMap:         gostatsd.NewMetricMap(),
 		disabledSubtypes:  disabled,
+		histogramLimit:    histogramLimit,
 	}
 	for _, pct := range percentThresholds {
 		sPct := strconv.Itoa(int(pct))
@@ -76,6 +78,12 @@ func (a *MetricAggregator) Flush(flushInterval time.Duration) {
 	})
 
 	a.metricMap.Timers.Each(func(key, tagsKey string, timer gostatsd.Timer) {
+		if hasHistogramTag(timer) {
+			timer.Histogram = latencyHistogram(timer, a.histogramLimit)
+			a.metricMap.Timers[key][tagsKey] = timer
+			return
+		}
+
 		if count := len(timer.Values); count > 0 {
 			sort.Float64s(timer.Values)
 			timer.Min = timer.Values[0]
@@ -162,13 +170,12 @@ func (a *MetricAggregator) Flush(flushInterval time.Duration) {
 
 			timer.Count = int(round(timer.SampledCount))
 			timer.PerSecond = timer.SampledCount / flushInSeconds
-
-			a.metricMap.Timers[key][tagsKey] = timer
 		} else {
 			timer.Count = 0
 			timer.SampledCount = 0
 			timer.PerSecond = 0
 		}
+		a.metricMap.Timers[key][tagsKey] = timer
 	})
 }
 
@@ -213,11 +220,21 @@ func (a *MetricAggregator) Reset() {
 		if a.isExpired(nowNano, timer.Timestamp) {
 			deleteMetric(key, tagsKey, a.metricMap.Timers)
 		} else {
-			a.metricMap.Timers[key][tagsKey] = gostatsd.Timer{
-				Timestamp: timer.Timestamp,
-				Hostname:  timer.Hostname,
-				Tags:      timer.Tags,
-				Values:    timer.Values[:0],
+			if hasHistogramTag(timer) {
+				a.metricMap.Timers[key][tagsKey] = gostatsd.Timer{
+					Timestamp: timer.Timestamp,
+					Hostname:  timer.Hostname,
+					Tags:      timer.Tags,
+					Values:    timer.Values[:0],
+					Histogram: emptyHistogram(timer, a.histogramLimit),
+				}
+			} else {
+				a.metricMap.Timers[key][tagsKey] = gostatsd.Timer{
+					Timestamp: timer.Timestamp,
+					Hostname:  timer.Hostname,
+					Tags:      timer.Tags,
+					Values:    timer.Values[:0],
+				}
 			}
 		}
 	})

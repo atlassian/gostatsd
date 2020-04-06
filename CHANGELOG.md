@@ -1,3 +1,8 @@
+
+20.3.0
+------
+- Added experimental support for generating latency histograms for timers, more details in [README.md]
+
 20.2.0
 ------
 - Support for `response-header-timeout` for `transport` section

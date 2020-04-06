@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"math"
 	"net/http"
 	"runtime"
 	"strconv"
@@ -214,7 +215,18 @@ func (n *Client) processMetrics(metrics *gostatsd.MetricMap, cb func(*timeSeries
 	})
 
 	metrics.Timers.Each(func(key, tagsKey string, timer gostatsd.Timer) {
-		fl.addTimerMetric(n, "timer", timer, tagsKey, key)
+		if timer.Histogram != nil {
+			for histogramThreshold, count := range timer.Histogram {
+				bucketTag := "le:infinity"
+				if !math.IsInf(float64(histogramThreshold), 1) {
+					bucketTag = "le:" + strconv.FormatFloat(float64(histogramThreshold), 'f', -1, 64)
+				}
+				newTags := timer.Tags.Concat(gostatsd.Tags{bucketTag})
+				fl.addMetric(n, "counter", float64(count), 0, timer.Hostname, newTags, key+".histogram", timer.Timestamp)
+			}
+		} else {
+			fl.addTimerMetric(n, "timer", timer, tagsKey, key)
+		}
 		fl.maybeFlush()
 	})
 
