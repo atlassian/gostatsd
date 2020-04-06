@@ -227,12 +227,12 @@ func TestSendMetricsWithHistogram(t *testing.T) {
 		}
 
 		expected := []string{
-			`{"event_type":"GoStatsD","integration_version":"2.2.0","interval":1,"le":20,"metric_name":"t1.histogram","metric_per_second":0,"metric_type":"counter","metric_value":5,"timestamp":0}`,
-			`{"event_type":"GoStatsD","integration_version":"2.2.0","interval":1,"le":30,"metric_name":"t1.histogram","metric_per_second":0,"metric_type":"counter","metric_value":10,"timestamp":0}`,
-			`{"event_type":"GoStatsD","integration_version":"2.2.0","interval":1,"le":40,"metric_name":"t1.histogram","metric_per_second":0,"metric_type":"counter","metric_value":10,"timestamp":0}`,
-			`{"event_type":"GoStatsD","integration_version":"2.2.0","interval":1,"le":50,"metric_name":"t1.histogram","metric_per_second":0,"metric_type":"counter","metric_value":10,"timestamp":0}`,
-			`{"event_type":"GoStatsD","integration_version":"2.2.0","interval":1,"le":60,"metric_name":"t1.histogram","metric_per_second":0,"metric_type":"counter","metric_value":19,"timestamp":0}`,
-			`{"event_type":"GoStatsD","integration_version":"2.2.0","interval":1,"le":"infinity","metric_name":"t1.histogram","metric_per_second":0,"metric_type":"counter","metric_value":19,"timestamp":0}`,
+			`{"event_type":"GoStatsD","integration_version":"2.3.0","interval":1,"le":20,"metric_name":"t1.histogram","metric_per_second":0,"metric_type":"counter","metric_value":5,"timestamp":0}`,
+			`{"event_type":"GoStatsD","integration_version":"2.3.0","interval":1,"le":30,"metric_name":"t1.histogram","metric_per_second":0,"metric_type":"counter","metric_value":10,"timestamp":0}`,
+			`{"event_type":"GoStatsD","integration_version":"2.3.0","interval":1,"le":40,"metric_name":"t1.histogram","metric_per_second":0,"metric_type":"counter","metric_value":10,"timestamp":0}`,
+			`{"event_type":"GoStatsD","integration_version":"2.3.0","interval":1,"le":50,"metric_name":"t1.histogram","metric_per_second":0,"metric_type":"counter","metric_value":10,"timestamp":0}`,
+			`{"event_type":"GoStatsD","integration_version":"2.3.0","interval":1,"le":60,"metric_name":"t1.histogram","metric_per_second":0,"metric_type":"counter","metric_value":19,"timestamp":0}`,
+			`{"event_type":"GoStatsD","integration_version":"2.3.0","interval":1,"le":"infinity","metric_name":"t1.histogram","metric_per_second":0,"metric_type":"counter","metric_value":19,"timestamp":0}`,
 		}
 
 		for _, e := range expected {
@@ -246,7 +246,7 @@ func TestSendMetricsWithHistogram(t *testing.T) {
 	v := viper.New()
 	v.SetDefault("transport.default.client-timeout", 1*time.Second)
 	p := transport.NewTransportPool(logrus.New(), v)
-	client, err := NewClient("default", ts.URL+"/v1/data", "GoStatsD", "", "", "", "metric_name", "metric_type",
+	client, err := NewClient("default", ts.URL+"/v1/data", "", "GoStatsD", "", "", "", "metric_name", "metric_type",
 		"metric_per_second", "metric_value", "samples_min", "samples_max", "samples_count",
 		"samples_mean", "samples_median", "samples_std_dev", "samples_sum", "samples_sum_squares", "agent",
 		defaultMetricsPerBatch, defaultMaxRequests, 2*time.Second, 1*time.Second, gostatsd.TimerSubtypes{}, p)
