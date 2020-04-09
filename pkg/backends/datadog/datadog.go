@@ -59,6 +59,7 @@ type Client struct {
 	batchesRetried uint64 // Accumulated number of batches retried (first send is not a retry)
 	batchesDropped uint64 // Accumulated number of batches aborted (data loss)
 	batchesSent    uint64 // Accumulated number of batches successfully sent
+	seriesSent     uint64 // Accumulated number of series successfully sent
 
 	apiKey                string
 	apiEndpoint           string
@@ -147,6 +148,7 @@ func (d *Client) Run(ctx context.Context) {
 			statser.Gauge("backend.retried", float64(atomic.LoadUint64(&d.batchesRetried)), nil)
 			statser.Gauge("backend.dropped", float64(atomic.LoadUint64(&d.batchesDropped)), nil)
 			statser.Gauge("backend.sent", float64(atomic.LoadUint64(&d.batchesSent)), nil)
+			statser.Gauge("backend.series.sent", float64(atomic.LoadUint64(&d.seriesSent)), nil)
 		}
 	}
 }
@@ -228,7 +230,11 @@ func (d *Client) processMetrics(metrics *gostatsd.MetricMap, cb func(*timeSeries
 }
 
 func (d *Client) postMetrics(ctx context.Context, buffer *bytes.Buffer, ts *timeSeries) error {
-	return d.post(ctx, buffer, "/api/v1/series", "metrics", ts)
+	if err := d.post(ctx, buffer, "/api/v1/series", "metrics", ts); err != nil {
+		return err
+	}
+	atomic.AddUint64(&d.seriesSent, uint64(len(ts.Series)))
+	return nil
 }
 
 // SendEvent sends an event to Datadog.

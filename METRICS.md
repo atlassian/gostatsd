@@ -41,6 +41,7 @@ Metrics:
 | backend.retried                             | gauge (cumulative)  | backend                      | Lifetime number of metric batches retried by the backend
 | backend.dropped                             | gauge (cumulative)  | backend                      | Lifetime number of metric batches dropped by the backend (DATALOSS!)
 | backend.sent                                | gauge (cumulative)  | backend                      | Lifetime number of metric batches successfully transmitted
+| backend.series.sent                         | gauge (cumulative)  | backend                      | Lifetime number of metric series successfully transmitted
 | cloudprovider.aws.describeinstancecount     | gauge (cumulative)  |                              | The cumulative number of times DescribeInstancesPages has been called
 | cloudprovider.aws.describeinstanceinstances | gauge (cumulative)  |                              | The cumulative number of instances which have been fed in to DescribeInstancesPages
 | cloudprovider.aws.describeinstancepages     | gauge (cumulative)  |                              | The cumulative number of pages from DescribeInstancesPages

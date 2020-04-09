@@ -79,6 +79,7 @@ type Client struct {
 	batchesRetried uint64 // Accumulated number of batches retried (first send is not a retry)
 	batchesDropped uint64 // Accumulated number of batches aborted (data loss)
 	batchesSent    uint64 // Accumulated number of batches successfully sent
+	seriesSent     uint64 // Accumulated number of series successfully sent
 
 	userAgent             string
 	maxRequestElapsedTime time.Duration
@@ -143,6 +144,9 @@ func (n *Client) SendMetricsAsync(ctx context.Context, metrics *gostatsd.MetricM
 					n.metricsBufferSem <- buffer
 				}()
 				err := n.post(ctx, buffer, ts)
+				if err != nil {
+					atomic.AddUint64(&n.seriesSent, uint64(len(ts.Metrics)))
+				}
 
 				select {
 				case <-ctx.Done():
@@ -184,6 +188,7 @@ func (n *Client) RunMetrics(ctx context.Context, statser stats.Statser) {
 			statser.Gauge("backend.retried", float64(atomic.LoadUint64(&n.batchesRetried)), nil)
 			statser.Gauge("backend.dropped", float64(atomic.LoadUint64(&n.batchesDropped)), nil)
 			statser.Gauge("backend.sent", float64(atomic.LoadUint64(&n.batchesSent)), nil)
+			statser.Gauge("backend.series.sent", float64(atomic.LoadUint64(&n.seriesSent)), nil)
 		}
 	}
 }
