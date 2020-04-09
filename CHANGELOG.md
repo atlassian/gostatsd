@@ -1,3 +1,6 @@
+20.3.1
+------
+- Added a new internal metric called `backend.series.sent` which contains the number of flushed timeseries over time.
 
 20.3.0
 ------
