@@ -79,7 +79,7 @@ type Client struct {
 	batchesRetried uint64 // Accumulated number of batches retried (first send is not a retry)
 	batchesDropped uint64 // Accumulated number of batches aborted (data loss)
 	batchesSent    uint64 // Accumulated number of batches successfully sent
-	seriesSent    uint64 // Accumulated number of series successfully sent
+	seriesSent     uint64 // Accumulated number of series successfully sent
 
 	userAgent             string
 	maxRequestElapsedTime time.Duration
