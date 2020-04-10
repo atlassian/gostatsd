@@ -37,7 +37,7 @@ func newRawHttpHandlerV2(logger logrus.FieldLogger, serverName string, handler g
 	}
 }
 
-func (rhh *rawHttpHandlerV2) RunMetrics(ctx context.Context) {
+func (rhh *rawHttpHandlerV2) RunMetricsContext(ctx context.Context) {
 	statser := stats.FromContext(ctx).WithTags([]string{"server-name:" + rhh.serverName})
 
 	notify, cancel := statser.RegisterFlush()

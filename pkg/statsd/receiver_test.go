@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/atlassian/gostatsd"
 	"github.com/atlassian/gostatsd/pkg/fakesocket"
 	"github.com/magiconair/properties/assert"
 	"github.com/stretchr/testify/require"
@@ -19,7 +20,7 @@ func BenchmarkReceive(b *testing.B) {
 	//
 	// ... so this is pretty arbitrary.
 	ch := make(chan []*Datagram, 5000)
-	mr := NewDatagramReceiver(ch, nil, 0, DefaultReceiveBatchSize)
+	mr := NewDatagramReceiver(ch, nil, 0, gostatsd.DefaultReceiveBatchSize)
 	c, done := fakesocket.NewCountedFakePacketConn(uint64(b.N))
 
 	var wg sync.WaitGroup

@@ -2,20 +2,15 @@ package statsd
 
 import (
 	"context"
-	"errors"
 	"sort"
-	"sync"
-	"sync/atomic"
 	"testing"
 	"time"
 
-	"github.com/atlassian/gostatsd"
-	"github.com/atlassian/gostatsd/pkg/cloudproviders/aws"
-	"github.com/atlassian/gostatsd/pkg/cloudproviders/k8s"
-
 	"github.com/ash2k/stager/wait"
+	"github.com/atlassian/gostatsd"
+	"github.com/atlassian/gostatsd/pkg/cachedinstances/cloudprovider"
+	"github.com/atlassian/gostatsd/pkg/cloudproviders/fakeprovider"
 	"github.com/sirupsen/logrus"
-	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/time/rate"
 )
@@ -23,17 +18,19 @@ import (
 // BenchmarkCloudHandlerDispatchMetric is a benchmark intended to (manually) test
 // the impact of the CloudHandler.statsCacheHit field.
 func BenchmarkCloudHandlerDispatchMetric(b *testing.B) {
-	fp := &fakeProviderIP{}
+	fp := &fakeprovider.IP{}
 	nh := &nopHandler{}
-	ch := NewCloudHandler(fp, nh, logrus.StandardLogger(), rate.NewLimiter(100, 120), CacheOptions{
+	ci := cloudprovider.NewCachedCloudProvider(logrus.StandardLogger(), rate.NewLimiter(100, 120), fp, gostatsd.CacheOptions{
 		CacheRefreshPeriod:        100 * time.Millisecond,
 		CacheEvictAfterIdlePeriod: 700 * time.Millisecond,
 		CacheTTL:                  500 * time.Millisecond,
 		CacheNegativeTTL:          500 * time.Millisecond,
 	})
+	ch := NewCloudHandler(ci, nh)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+	go ci.Run(ctx)
 	go ch.Run(ctx)
 
 	b.ReportAllocs()
@@ -50,8 +47,8 @@ func BenchmarkCloudHandlerDispatchMetric(b *testing.B) {
 
 func TestTransientInstanceFailure(t *testing.T) {
 	t.Parallel()
-	fpt := &fakeProviderTransient{
-		failureMode: []int{
+	fpt := &fakeprovider.Transient{
+		FailureMode: []int{
 			0, // success, prime the cache
 			1, // soft failure, data should remain in cache
 		},
@@ -59,12 +56,13 @@ func TestTransientInstanceFailure(t *testing.T) {
 
 	counting := &countingHandler{}
 
-	ch := NewCloudHandler(fpt, counting, logrus.StandardLogger(), rate.NewLimiter(100, 120), CacheOptions{
+	ci := cloudprovider.NewCachedCloudProvider(logrus.StandardLogger(), rate.NewLimiter(100, 120), fpt, gostatsd.CacheOptions{
 		CacheRefreshPeriod:        50 * time.Millisecond,
 		CacheEvictAfterIdlePeriod: 1 * time.Minute,
 		CacheTTL:                  1 * time.Millisecond,
 		CacheNegativeTTL:          1 * time.Millisecond,
 	})
+	ch := NewCloudHandler(ci, counting)
 
 	// t+0: instance is queried, goes in cache
 	// t+50ms: instance refreshed (failure)
@@ -75,6 +73,7 @@ func TestTransientInstanceFailure(t *testing.T) {
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	defer cancelFunc()
 	wg.StartWithContext(ctx, ch.Run)
+	wg.StartWithContext(ctx, ci.Run)
 	m1 := sm1()
 	m2 := sm1()
 
@@ -100,76 +99,12 @@ func TestTransientInstanceFailure(t *testing.T) {
 	expectedMetrics[1].Tags = gostatsd.Tags{"a1", "tag:value"}
 	expectedMetrics[1].Hostname = "1.2.3.4"
 
-	assert.Equal(t, expectedMetrics, counting.metrics)
-}
-
-func TestCloudHandlerExpirationAndRefresh(t *testing.T) {
-	// These still use a real clock, which means they're more susceptible to
-	// CPU load triggering a race condition, therefore there's no t.Parallel()
-	t.Run("4.3.2.1", func(t *testing.T) {
-		testExpireAndRefresh(t, "4.3.2.1", func(h *CloudHandler) {
-			e := se1()
-			h.DispatchEvent(context.Background(), &e)
-		})
-	})
-	t.Run("1.2.3.4", func(t *testing.T) {
-		testExpireAndRefresh(t, "1.2.3.4", func(h *CloudHandler) {
-			m := sm1()
-			h.DispatchMetrics(context.Background(), []*gostatsd.Metric{&m})
-		})
-	})
-}
-
-func testExpireAndRefresh(t *testing.T, expectedIp gostatsd.IP, f func(*CloudHandler)) {
-	fp := &fakeProviderIP{}
-	counting := &countingHandler{}
-	/*
-		Note: lookup reads in to a batch for up to 10ms
-
-		T+0: IP is sent to lookup
-		T+10: lookup is performed, cached with eviction time = T+10+50=60, refresh time = T+10+10=20
-		T+11: refresh loop, nothing to do
-		T+20: cache entry passes refresh time
-		T+22: refresh loop, cache item is dispatched for refreshing
-		T+32: cache lookup is performed, eviction time is unchanged, refresh time = T+32+10=42
-		T+33: refresh loop, nothing to do
-		T+42: cache entry passes refresh time
-		T+44: refresh loop, cache item is dispatched for refreshing
-		T+54: cache lookup is performed, eviction time is unchanged, refresh time = T+54+10=64
-		T+55: refresh loop, nothing to do
-		T+60: cache entry passes expiry time
-		T+64: cache entry passes refresh time
-		T+66: refresh loop, entry is expired
-		T+70: sleep completes
-	*/
-	ch := NewCloudHandler(fp, counting, logrus.StandardLogger(), rate.NewLimiter(100, 120), CacheOptions{
-		CacheRefreshPeriod:        11 * time.Millisecond,
-		CacheEvictAfterIdlePeriod: 50 * time.Millisecond,
-		CacheTTL:                  10 * time.Millisecond,
-		CacheNegativeTTL:          100 * time.Millisecond,
-	})
-	var wg wait.Group
-	defer wg.Wait()
-	ctx, cancelFunc := context.WithCancel(context.Background())
-	defer cancelFunc()
-	wg.StartWithContext(ctx, ch.Run)
-	f(ch)
-	time.Sleep(70 * time.Millisecond) // Should be refreshed couple of times and evicted.
-
-	cancelFunc()
-	wg.Wait()
-
-	// Cache might refresh multiple times, ensure it only refreshed with the expected IP
-	for _, ip := range fp.ips {
-		assert.Equal(t, expectedIp, ip)
-	}
-	assert.GreaterOrEqual(t, len(fp.ips), 2) // Ensure it does at least 1 lookup + 1 refresh
-	assert.Zero(t, len(ch.cache))            // Ensure it eventually expired
+	assert.Equal(t, expectedMetrics, counting.Metrics())
 }
 
 func TestCloudHandlerDispatch(t *testing.T) {
 	t.Parallel()
-	fp := &fakeProviderIP{
+	fp := &fakeprovider.IP{
 		Tags: gostatsd.Tags{"region:us-west-3", "tag1", "tag2:234"},
 	}
 
@@ -208,12 +143,12 @@ func TestCloudHandlerDispatch(t *testing.T) {
 			SourceIP: "4.3.2.1",
 		},
 	}
-	doCheck(t, fp, sm1(), se1(), sm2(), se2(), &fp.ips, expectedIps, expectedMetrics, expectedEvents)
+	doCheck(t, fp, sm1(), se1(), sm2(), se2(), fp.IPs, expectedIps, expectedMetrics, expectedEvents)
 }
 
 func TestCloudHandlerInstanceNotFound(t *testing.T) {
 	t.Parallel()
-	fp := &fakeProviderNotFound{}
+	fp := &fakeprovider.NotFound{}
 	expectedIps := []gostatsd.IP{"1.2.3.4", "4.3.2.1"}
 	expectedMetrics := []gostatsd.Metric{
 		sm1(),
@@ -223,12 +158,12 @@ func TestCloudHandlerInstanceNotFound(t *testing.T) {
 		se1(),
 		se2(),
 	}
-	doCheck(t, fp, sm1(), se1(), sm2(), se2(), &fp.ips, expectedIps, expectedMetrics, expectedEvents)
+	doCheck(t, fp, sm1(), se1(), sm2(), se2(), fp.IPs, expectedIps, expectedMetrics, expectedEvents)
 }
 
 func TestCloudHandlerFailingProvider(t *testing.T) {
 	t.Parallel()
-	fp := &fakeFailingProvider{}
+	fp := &fakeprovider.Failing{}
 	expectedIps := []gostatsd.IP{"1.2.3.4", "4.3.2.1"}
 	expectedMetrics := []gostatsd.Metric{
 		sm1(),
@@ -238,77 +173,42 @@ func TestCloudHandlerFailingProvider(t *testing.T) {
 		se1(),
 		se2(),
 	}
-	doCheck(t, fp, sm1(), se1(), sm2(), se2(), &fp.ips, expectedIps, expectedMetrics, expectedEvents)
+	doCheck(t, fp, sm1(), se1(), sm2(), se2(), fp.IPs, expectedIps, expectedMetrics, expectedEvents)
 }
 
-func TestConstructCloudHandlerFactoryFromViper(t *testing.T) {
-	t.Parallel()
-	v := viper.New()
-	logger := logrus.StandardLogger()
-
-	// Test no cloud handler
-	factory, err := NewCloudHandlerFactoryFromViper(v, logger, "test")
-	assert.NoError(t, err)
-	assert.Nil(t, factory)
-
-	// Test unknown cloud handler - unsupported
-	v.Set(ParamCloudProvider, "unknown")
-	_, err = NewCloudHandlerFactoryFromViper(v, logger, "test")
-	assert.Error(t, err)
-
-	// Test known cloud provider defaults
-	cloudProvidersToTest := []string{aws.ProviderName, k8s.ProviderName}
-	for _, cpName := range cloudProvidersToTest {
-		v.Set(ParamCloudProvider, cpName)
-		factory, err = NewCloudHandlerFactoryFromViper(v, logger, "test")
-		assert.NoError(t, err)
-		assert.EqualValues(t, DefaultCloudProviderCacheValues[cpName], factory.cacheOptions)
-		assert.Equal(t, rate.Limit(DefaultCloudProviderLimiterValues[cpName].MaxCloudRequests), factory.limiter.Limit())
-		assert.Equal(t, DefaultCloudProviderLimiterValues[cpName].BurstCloudRequests, factory.limiter.Burst())
-	}
-}
-
-func TestInitCloudHandlerFactory(t *testing.T) {
-	t.Parallel()
-	v := viper.New()
-	logger := logrus.StandardLogger()
-
-	factory, err := NewCloudHandlerFactoryFromViper(v, logger, "test")
-	assert.NoError(t, err)
-	assert.Nil(t, factory)
-
-	// We don't test the path for specific cloud providers as they have logic that isn't easily mockable
-}
-
-func doCheck(t *testing.T, cloud gostatsd.CloudProvider, m1 gostatsd.Metric, e1 gostatsd.Event, m2 gostatsd.Metric, e2 gostatsd.Event, ips *[]gostatsd.IP, expectedIps []gostatsd.IP, expectedM []gostatsd.Metric, expectedE gostatsd.Events) {
+func doCheck(t *testing.T, cloud CountingProvider, m1 gostatsd.Metric, e1 gostatsd.Event, m2 gostatsd.Metric, e2 gostatsd.Event, ipsFunc func() []gostatsd.IP, expectedIps []gostatsd.IP, expectedM []gostatsd.Metric, expectedE gostatsd.Events) {
 	counting := &countingHandler{}
-	ch := NewCloudHandler(cloud, counting, logrus.StandardLogger(), rate.NewLimiter(100, 120), CacheOptions{
-		CacheRefreshPeriod:        DefaultCacheRefreshPeriod,
-		CacheEvictAfterIdlePeriod: DefaultCacheEvictAfterIdlePeriod,
-		CacheTTL:                  DefaultCacheTTL,
-		CacheNegativeTTL:          DefaultCacheNegativeTTL,
+	ci := cloudprovider.NewCachedCloudProvider(logrus.StandardLogger(), rate.NewLimiter(100, 120), cloud, gostatsd.CacheOptions{
+		CacheRefreshPeriod:        gostatsd.DefaultCacheRefreshPeriod,
+		CacheEvictAfterIdlePeriod: gostatsd.DefaultCacheEvictAfterIdlePeriod,
+		CacheTTL:                  gostatsd.DefaultCacheTTL,
+		CacheNegativeTTL:          gostatsd.DefaultCacheNegativeTTL,
 	})
+	ch := NewCloudHandler(ci, counting)
+
 	var wg wait.Group
 	defer wg.Wait()
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	defer cancelFunc()
 	wg.StartWithContext(ctx, ch.Run)
+	wg.StartWithContext(ctx, ci.Run)
 	ch.DispatchMetrics(ctx, []*gostatsd.Metric{&m1})
 	ch.DispatchEvent(ctx, &e1)
 	time.Sleep(1 * time.Second)
 	ch.DispatchMetrics(ctx, []*gostatsd.Metric{&m2})
 	ch.DispatchEvent(ctx, &e2)
-	time.Sleep(1 * time.Second)
+	time.Sleep(10 * time.Second)
 	cancelFunc()
 	wg.Wait()
 
-	sort.Slice(*ips, func(i, j int) bool {
-		return (*ips)[i] < (*ips)[j]
+	ips := ipsFunc()
+	sort.Slice(ips, func(i, j int) bool {
+		return ips[i] < ips[j]
 	})
-	assert.Equal(t, expectedIps, *ips)
-	assert.Equal(t, expectedM, counting.metrics)
-	assert.Equal(t, expectedE, counting.events)
-	assert.EqualValues(t, 1, cloud.(CountingProvider).Invocations())
+	assert.Equal(t, expectedIps, ips)
+	assert.Equal(t, expectedM, counting.Metrics())
+	assert.Equal(t, expectedE, counting.Events())
+	assert.EqualValues(t, 1, cloud.Invocations())
 }
 
 func sm1() gostatsd.Metric {
@@ -354,140 +254,6 @@ func se2() gostatsd.Event {
 }
 
 type CountingProvider interface {
+	gostatsd.CloudProvider
 	Invocations() uint64
-}
-
-type fakeCountingProvider struct {
-	mu          sync.Mutex
-	ips         []gostatsd.IP
-	invocations uint64
-}
-
-func (fp *fakeCountingProvider) EstimatedTags() int {
-	return 0
-}
-
-func (fp *fakeCountingProvider) MaxInstancesBatch() int {
-	return 16
-}
-
-func (fp *fakeCountingProvider) Invocations() uint64 {
-	fp.mu.Lock()
-	defer fp.mu.Unlock()
-	return fp.invocations
-}
-
-func (fp *fakeCountingProvider) count(ips ...gostatsd.IP) {
-	fp.mu.Lock()
-	defer fp.mu.Unlock()
-	fp.ips = append(fp.ips, ips...)
-	fp.invocations++
-}
-
-func (fp *fakeCountingProvider) SelfIP() (gostatsd.IP, error) {
-	return gostatsd.UnknownIP, nil
-}
-
-type fakeProviderIP struct {
-	fakeCountingProvider
-	Region string
-	Tags   gostatsd.Tags
-}
-
-func (fp *fakeProviderIP) Name() string {
-	return "fakeProviderIP"
-}
-
-func (fp *fakeProviderIP) Instance(ctx context.Context, ips ...gostatsd.IP) (map[gostatsd.IP]*gostatsd.Instance, error) {
-	fp.count(ips...)
-	instances := make(map[gostatsd.IP]*gostatsd.Instance, len(ips))
-	for _, ip := range ips {
-		instances[ip] = &gostatsd.Instance{
-			ID:   "i-" + string(ip),
-			Tags: fp.Tags,
-		}
-	}
-	return instances, nil
-}
-
-type fakeProviderNotFound struct {
-	fakeCountingProvider
-}
-
-func (fp *fakeProviderNotFound) Name() string {
-	return "fakeProviderNotFound"
-}
-
-func (fp *fakeProviderNotFound) Instance(ctx context.Context, ips ...gostatsd.IP) (map[gostatsd.IP]*gostatsd.Instance, error) {
-	fp.count(ips...)
-	return nil, nil
-}
-
-type fakeFailingProvider struct {
-	fakeCountingProvider
-}
-
-func (fp *fakeFailingProvider) Name() string {
-	return "fakeFailingProvider"
-}
-
-func (fp *fakeFailingProvider) Instance(ctx context.Context, ips ...gostatsd.IP) (map[gostatsd.IP]*gostatsd.Instance, error) {
-	fp.count(ips...)
-	return nil, errors.New("clear skies, no clouds available")
-}
-
-type fakeProviderTransient struct {
-	call        uint64
-	failureMode []int
-}
-
-func (fpt *fakeProviderTransient) Name() string {
-	return "fakeProviderTransient"
-}
-
-func (fpt *fakeProviderTransient) EstimatedTags() int {
-	return 1
-}
-
-func (fpt *fakeProviderTransient) MaxInstancesBatch() int {
-	return 1
-}
-
-func (fpt *fakeProviderTransient) SelfIP() (gostatsd.IP, error) {
-	return gostatsd.UnknownIP, nil
-}
-
-// Instance emulates a lookup based on the supplied criteria.
-// A failure mode of 0 is a successful lookup
-// A failure mode of 1 is nil instance, no error (lookup failure)
-// A failure mode of 2 is nil instance, with error
-// Repeats the last specified failure mode
-func (fpt *fakeProviderTransient) Instance(ctx context.Context, ips ...gostatsd.IP) (map[gostatsd.IP]*gostatsd.Instance, error) {
-	r := make(map[gostatsd.IP]*gostatsd.Instance)
-
-	c := atomic.AddUint64(&fpt.call, 1) - 1
-	if c >= uint64(len(fpt.failureMode)) {
-		c = uint64(len(fpt.failureMode) - 1)
-	}
-	switch fpt.failureMode[c] {
-	case 0:
-		for _, ip := range ips {
-			r[ip] = &gostatsd.Instance{
-				ID:   string(ip),
-				Tags: gostatsd.Tags{"tag:value"},
-			}
-		}
-		return r, nil
-	case 1:
-		for _, ip := range ips {
-			r[ip] = nil
-		}
-		return r, nil
-	case 2:
-		for _, ip := range ips {
-			r[ip] = nil
-		}
-		return r, errors.New("failure mode 2")
-	}
-	return nil, nil
 }

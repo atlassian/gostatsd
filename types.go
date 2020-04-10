@@ -48,11 +48,25 @@ type TimerSubtypes struct {
 }
 
 // Runnable is a long running function intended to be launched in a goroutine.
-type Runnable func(ctx context.Context)
+type Runnable func(context.Context)
 
 // Runner exposes a Runnable through an interface
 type Runner interface {
-	Run(ctx context.Context)
+	Run(context.Context)
+}
+
+type MetricsRunner interface {
+	RunMetricsContext(context.Context)
+}
+
+func MaybeAppendRunnable(runnables []Runnable, maybeRunner interface{}) []Runnable {
+	if r, ok := maybeRunner.(Runner); ok {
+		runnables = append(runnables, r.Run)
+	}
+	if r, ok := maybeRunner.(MetricsRunner); ok {
+		runnables = append(runnables, r.RunMetricsContext)
+	}
+	return runnables
 }
 
 // RawMetricHandler is an interface that accepts a Metric for processing.  Raw refers to pre-aggregation, not
@@ -68,7 +82,7 @@ type PipelineHandler interface {
 	// EstimatedTags returns a guess for how many tags to pre-allocate
 	EstimatedTags() int
 	// DispatchEvent dispatches event to the next step in a pipeline.
-	DispatchEvent(ctx context.Context, e *Event)
+	DispatchEvent(context.Context, *Event)
 	// WaitForEvents waits for all event-dispatching goroutines to finish.
 	WaitForEvents()
 }

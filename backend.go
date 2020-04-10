@@ -17,6 +17,7 @@ type BackendFactory func(config *viper.Viper, pool *transport.TransportPool) (Ba
 type SendCallback func([]error)
 
 // Backend represents a backend.
+// If Backend implements the Runner interface, it's started in a new goroutine at creation.
 type Backend interface {
 	// Name returns the name of the backend.
 	Name() string

@@ -8,9 +8,9 @@ import (
 	"runtime/pprof"
 	"time"
 
+	"github.com/atlassian/gostatsd"
 	"github.com/atlassian/gostatsd/pkg/fakesocket"
 	"github.com/atlassian/gostatsd/pkg/statsd"
-
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
@@ -37,14 +37,14 @@ func main() {
 	}
 	if s.Benchmark != 0 {
 		server := statsd.Server{
-			DefaultTags:      statsd.DefaultTags,
-			ExpiryInterval:   statsd.DefaultExpiryInterval,
-			FlushInterval:    statsd.DefaultFlushInterval,
-			MaxReaders:       statsd.DefaultMaxReaders,
-			MaxWorkers:       statsd.DefaultMaxWorkers,
-			MaxQueueSize:     statsd.DefaultMaxQueueSize,
-			PercentThreshold: statsd.DefaultPercentThreshold,
-			ReceiveBatchSize: statsd.DefaultReceiveBatchSize,
+			DefaultTags:      gostatsd.DefaultTags,
+			ExpiryInterval:   gostatsd.DefaultExpiryInterval,
+			FlushInterval:    gostatsd.DefaultFlushInterval,
+			MaxReaders:       gostatsd.DefaultMaxReaders,
+			MaxWorkers:       gostatsd.DefaultMaxWorkers,
+			MaxQueueSize:     gostatsd.DefaultMaxQueueSize,
+			PercentThreshold: gostatsd.DefaultPercentThreshold,
+			ReceiveBatchSize: gostatsd.DefaultReceiveBatchSize,
 			Viper:            viper.New(),
 		}
 		ctx, cancelFunc := context.WithTimeout(context.Background(), time.Duration(s.Benchmark)*time.Second)

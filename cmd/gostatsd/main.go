@@ -13,13 +13,14 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/atlassian/gostatsd/pkg/util"
-
+	"github.com/ash2k/stager"
 	"github.com/atlassian/gostatsd"
 	"github.com/atlassian/gostatsd/pkg/backends"
+	"github.com/atlassian/gostatsd/pkg/cachedinstances"
+	"github.com/atlassian/gostatsd/pkg/cloudproviders"
 	"github.com/atlassian/gostatsd/pkg/statsd"
 	"github.com/atlassian/gostatsd/pkg/transport"
-
+	"github.com/atlassian/gostatsd/pkg/util"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
@@ -66,9 +67,15 @@ func run(v *viper.Viper) error {
 	}
 
 	logrus.Info("Starting server")
-	s, err := constructServer(v)
+	s, runnables, err := constructServer(v)
 	if err != nil {
 		return err
+	}
+
+	stgr := stager.New()
+	defer stgr.Shutdown()
+	for _, runnable := range runnables {
+		stgr.NextStage().StartWithContext(runnable)
 	}
 
 	ctx, cancelFunc := context.WithCancel(context.Background())
@@ -81,74 +88,93 @@ func run(v *viper.Viper) error {
 	return nil
 }
 
-func constructServer(v *viper.Viper) (*statsd.Server, error) {
+func constructServer(v *viper.Viper) (*statsd.Server, []gostatsd.Runnable, error) {
+	var runnables []gostatsd.Runnable
 	// Logger
 	logger := logrus.StandardLogger()
 
 	// HTTP client pool
 	pool := transport.NewTransportPool(logger, v)
 
-	// Cloud handler factory
-	cloud, err := statsd.NewCloudHandlerFactoryFromViper(v, logger, Version)
-	if err != nil {
-		return nil, err
-	}
-	if cloud != nil {
-		if err := cloud.InitCloudProvider(v); err != nil {
-			return nil, err
+	// Cached instances
+	var cachedInstances gostatsd.CachedInstances
+	selfIP := gostatsd.UnknownIP
+	cloudProviderName := v.GetString(gostatsd.ParamCloudProvider)
+	if cloudProviderName == "" {
+		logger.Info("No cloud provider specified")
+	} else {
+		var err error
+		cloudProvider, err := cloudproviders.Get(logger, cloudProviderName, v, Version)
+		if err != nil {
+			return nil, nil, err
 		}
+		runnables = gostatsd.MaybeAppendRunnable(runnables, cloudProvider)
+		selfIPtmp, err := cloudProvider.SelfIP()
+		if err != nil {
+			logger.WithError(err).Warn("Failed to get self ip")
+		} else {
+			selfIP = selfIPtmp
+		}
+
+		cachedInstances, err = cachedinstances.NewCachedInstancesFromViper(logger, cloudProvider, v)
+		if err != nil {
+			return nil, nil, err
+		}
+		runnables = gostatsd.MaybeAppendRunnable(runnables, cachedInstances)
 	}
 	// Backends
-	backendNames := v.GetStringSlice(statsd.ParamBackends)
-	backendsList := make([]gostatsd.Backend, len(backendNames))
-	for i, backendName := range backendNames {
+	backendNames := v.GetStringSlice(gostatsd.ParamBackends)
+	backendsList := make([]gostatsd.Backend, 0, len(backendNames))
+	for _, backendName := range backendNames {
 		backend, errBackend := backends.InitBackend(backendName, v, pool)
 		if errBackend != nil {
-			return nil, errBackend
+			return nil, nil, errBackend
 		}
-		backendsList[i] = backend
+		backendsList = append(backendsList, backend)
+		runnables = gostatsd.MaybeAppendRunnable(runnables, backend)
 	}
 	// Percentiles
-	pt, err := getPercentiles(v.GetStringSlice(statsd.ParamPercentThreshold))
+	pt, err := getPercentiles(v.GetStringSlice(gostatsd.ParamPercentThreshold))
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	// Create server
 	return &statsd.Server{
 		Backends:            backendsList,
-		CloudHandlerFactory: cloud,
-		InternalTags:        v.GetStringSlice(statsd.ParamInternalTags),
-		InternalNamespace:   v.GetString(statsd.ParamInternalNamespace),
-		DefaultTags:         v.GetStringSlice(statsd.ParamDefaultTags),
-		Hostname:            v.GetString(statsd.ParamHostname),
-		ExpiryInterval:      v.GetDuration(statsd.ParamExpiryInterval),
-		FlushInterval:       v.GetDuration(statsd.ParamFlushInterval),
-		IgnoreHost:          v.GetBool(statsd.ParamIgnoreHost),
-		MaxReaders:          v.GetInt(statsd.ParamMaxReaders),
-		MaxParsers:          v.GetInt(statsd.ParamMaxParsers),
-		MaxWorkers:          v.GetInt(statsd.ParamMaxWorkers),
-		MaxQueueSize:        v.GetInt(statsd.ParamMaxQueueSize),
-		MaxConcurrentEvents: v.GetInt(statsd.ParamMaxConcurrentEvents),
-		EstimatedTags:       v.GetInt(statsd.ParamEstimatedTags),
-		MetricsAddr:         v.GetString(statsd.ParamMetricsAddr),
-		Namespace:           v.GetString(statsd.ParamNamespace),
-		StatserType:         v.GetString(statsd.ParamStatserType),
+		CachedInstances:     cachedInstances,
+		InternalTags:        v.GetStringSlice(gostatsd.ParamInternalTags),
+		InternalNamespace:   v.GetString(gostatsd.ParamInternalNamespace),
+		DefaultTags:         v.GetStringSlice(gostatsd.ParamDefaultTags),
+		Hostname:            v.GetString(gostatsd.ParamHostname),
+		SelfIP:              selfIP,
+		ExpiryInterval:      v.GetDuration(gostatsd.ParamExpiryInterval),
+		FlushInterval:       v.GetDuration(gostatsd.ParamFlushInterval),
+		IgnoreHost:          v.GetBool(gostatsd.ParamIgnoreHost),
+		MaxReaders:          v.GetInt(gostatsd.ParamMaxReaders),
+		MaxParsers:          v.GetInt(gostatsd.ParamMaxParsers),
+		MaxWorkers:          v.GetInt(gostatsd.ParamMaxWorkers),
+		MaxQueueSize:        v.GetInt(gostatsd.ParamMaxQueueSize),
+		MaxConcurrentEvents: v.GetInt(gostatsd.ParamMaxConcurrentEvents),
+		EstimatedTags:       v.GetInt(gostatsd.ParamEstimatedTags),
+		MetricsAddr:         v.GetString(gostatsd.ParamMetricsAddr),
+		Namespace:           v.GetString(gostatsd.ParamNamespace),
+		StatserType:         v.GetString(gostatsd.ParamStatserType),
 		PercentThreshold:    pt,
-		HeartbeatEnabled:    v.GetBool(statsd.ParamHeartbeatEnabled),
-		ReceiveBatchSize:    v.GetInt(statsd.ParamReceiveBatchSize),
-		ConnPerReader:       v.GetBool(statsd.ParamConnPerReader),
-		ServerMode:          v.GetString(statsd.ParamServerMode),
-		LogRawMetric:        v.GetBool(statsd.ParamLogRawMetric),
+		HeartbeatEnabled:    v.GetBool(gostatsd.ParamHeartbeatEnabled),
+		ReceiveBatchSize:    v.GetInt(gostatsd.ParamReceiveBatchSize),
+		ConnPerReader:       v.GetBool(gostatsd.ParamConnPerReader),
+		ServerMode:          v.GetString(gostatsd.ParamServerMode),
+		LogRawMetric:        v.GetBool(gostatsd.ParamLogRawMetric),
 		HeartbeatTags: gostatsd.Tags{
 			fmt.Sprintf("version:%s", Version),
 			fmt.Sprintf("commit:%s", GitCommit),
 		},
 		DisabledSubTypes:          gostatsd.DisabledSubMetrics(v),
-		BadLineRateLimitPerSecond: rate.Limit(v.GetFloat64(statsd.ParamBadLinesPerMinute) / 60.0),
-		HistogramLimit:            v.GetUint32(statsd.ParamTimerHistogramLimit),
+		BadLineRateLimitPerSecond: rate.Limit(v.GetFloat64(gostatsd.ParamBadLinesPerMinute) / 60.0),
+		HistogramLimit:            v.GetUint32(gostatsd.ParamTimerHistogramLimit),
 		Viper:                     v,
 		TransportPool:             pool,
-	}, nil
+	}, runnables, nil
 }
 
 func getPercentiles(s []string) ([]float64, error) {
@@ -191,7 +217,7 @@ func setupConfiguration() (*viper.Viper, bool, error) {
 	cmd.String(ParamProfile, "", "Enable profiler endpoint on the specified address and port")
 	cmd.String(ParamConfigPath, "", "Path to the configuration file")
 
-	statsd.AddFlags(cmd)
+	gostatsd.AddFlags(cmd)
 
 	cmd.VisitAll(func(flag *pflag.Flag) {
 		if err := v.BindPFlag(flag.Name, flag); err != nil {

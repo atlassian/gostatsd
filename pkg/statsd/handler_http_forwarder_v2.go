@@ -64,7 +64,7 @@ func NewHttpForwarderHandlerV2FromViper(logger logrus.FieldLogger, v *viper.Vipe
 	subViper.SetDefault("api-endpoint", defaultApiEndpoint)
 	subViper.SetDefault("max-requests", defaultMaxRequests)
 	subViper.SetDefault("max-request-elapsed-time", defaultMaxRequestElapsedTime)
-	subViper.SetDefault("consolidator-slots", v.GetInt(ParamMaxParsers))
+	subViper.SetDefault("consolidator-slots", v.GetInt(gostatsd.ParamMaxParsers))
 	subViper.SetDefault("flush-interval", defaultConsolidatorFlushInterval)
 
 	return NewHttpForwarderHandlerV2(
@@ -172,7 +172,7 @@ func (hfh *HttpForwarderHandlerV2) DispatchMetricMap(ctx context.Context, mm *go
 	hfh.consolidator.ReceiveMetricMap(mm)
 }
 
-func (hfh *HttpForwarderHandlerV2) RunMetrics(ctx context.Context) {
+func (hfh *HttpForwarderHandlerV2) RunMetricsContext(ctx context.Context) {
 	statser := stats.FromContext(ctx)
 
 	notify, cancel := statser.RegisterFlush()
