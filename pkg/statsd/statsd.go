@@ -5,16 +5,13 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"os"
-	"strconv"
 	"time"
 
+	"github.com/ash2k/stager"
 	"github.com/atlassian/gostatsd"
 	"github.com/atlassian/gostatsd/pkg/stats"
 	"github.com/atlassian/gostatsd/pkg/transport"
 	"github.com/atlassian/gostatsd/pkg/web"
-
-	"github.com/ash2k/stager"
 	"github.com/libp2p/go-reuseport"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
@@ -25,7 +22,7 @@ import (
 // the statsd server. These can either be set via command line or directly.
 type Server struct {
 	Backends                  []gostatsd.Backend
-	CloudHandlerFactory       *CloudHandlerFactory
+	CachedInstances           gostatsd.CachedInstances
 	InternalTags              gostatsd.Tags
 	InternalNamespace         string
 	DefaultTags               gostatsd.Tags
@@ -52,6 +49,7 @@ type Server struct {
 	BadLineRateLimitPerSecond rate.Limit
 	ServerMode                string
 	Hostname                  string
+	SelfIP                    gostatsd.IP
 	LogRawMetric              bool
 	Viper                     *viper.Viper
 	TransportPool             *transport.TransportPool
@@ -88,12 +86,6 @@ func socketFactory(metricsAddr string, connPerReader bool) SocketFactory {
 func (s *Server) createStandaloneSink() (gostatsd.PipelineHandler, []gostatsd.Runnable, error) {
 	var runnables []gostatsd.Runnable
 
-	for _, backend := range s.Backends {
-		if r, ok := backend.(gostatsd.Runner); ok {
-			runnables = append(runnables, r.Run)
-		}
-	}
-
 	// Create the backend handler
 	factory := agrFactory{
 		percentThresholds: s.PercentThreshold,
@@ -125,7 +117,7 @@ func (s *Server) createForwarderSink() (gostatsd.PipelineHandler, []gostatsd.Run
 	// Create a Flusher, this is primarily for all the periodic metrics which are emitted.
 	flusher := NewMetricFlusher(s.FlushInterval, nil, s.Backends)
 
-	return forwarderHandler, []gostatsd.Runnable{forwarderHandler.Run, forwarderHandler.RunMetrics, flusher.Run}, nil
+	return forwarderHandler, []gostatsd.Runnable{forwarderHandler.Run, forwarderHandler.RunMetricsContext, flusher.Run}, nil
 }
 
 func (s *Server) createFinalSink() (gostatsd.PipelineHandler, []gostatsd.Runnable, error) {
@@ -149,23 +141,16 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 	handler = NewTagHandlerFromViper(s.Viper, handler, s.DefaultTags)
 
 	// Create the cloud handler
-	ip := gostatsd.UnknownIP
-	if s.CloudHandlerFactory != nil {
-		cloudHandler := s.CloudHandlerFactory.NewCloudHandler(handler)
-		runnables = append(runnables, cloudHandler.Run)
+	if s.CachedInstances != nil {
+		cloudHandler := NewCloudHandler(s.CachedInstances, handler)
+		runnables = gostatsd.MaybeAppendRunnable(runnables, cloudHandler)
 		handler = cloudHandler
-		selfIP, err2 := cloudHandler.cloud.SelfIP()
-		if err2 != nil {
-			log.Warnf("Failed to get self ip: %v", err2)
-		} else {
-			ip = selfIP
-		}
 	}
 
 	// Create the heartbeater
 	if s.HeartbeatEnabled {
 		hb := stats.NewHeartBeater("heartbeat", s.HeartbeatTags)
-		runnables = append(runnables, hb.Run)
+		runnables = gostatsd.MaybeAppendRunnable(runnables, hb)
 	}
 
 	// Open receiver <-> parser chan
@@ -173,22 +158,19 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 
 	// Create the Parser
 	parser := NewDatagramParser(datagrams, s.Namespace, s.IgnoreHost, s.EstimatedTags, handler, s.BadLineRateLimitPerSecond, s.LogRawMetric)
-	runnables = append(runnables, parser.RunMetrics)
+	runnables = append(runnables, parser.RunMetricsContext)
 	for i := 0; i < s.MaxParsers; i++ {
 		runnables = append(runnables, parser.Run)
 	}
 
 	// Create the Receiver
 	receiver := NewDatagramReceiver(datagrams, sf, s.MaxReaders, s.ReceiveBatchSize)
-	runnables = append(runnables, receiver.RunMetrics)
-	runnables = append(runnables, receiver.Run) // loop is contained in Run to keep additional logic contained
+	runnables = gostatsd.MaybeAppendRunnable(runnables, receiver)
 
 	// Create the Statser
 	hostname := s.Hostname
 	statser := s.createStatser(hostname, handler)
-	if runner, ok := statser.(gostatsd.Runner); ok {
-		runnables = append(runnables, runner.Run)
-	}
+	runnables = gostatsd.MaybeAppendRunnable(runnables, statser)
 
 	// Create any http servers
 	httpServers, err := web.NewHttpServersFromViper(s.Viper, log.StandardLogger(), handler)
@@ -196,7 +178,7 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 		return err
 	}
 	for _, server := range httpServers {
-		runnables = append(runnables, server.Run)
+		runnables = gostatsd.MaybeAppendRunnable(runnables, server)
 	}
 
 	// Start the world!
@@ -209,8 +191,8 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 
 	// Send events on start and on stop
 	// TODO: Push these in to statser
-	defer sendStopEvent(handler, ip, hostname)
-	sendStartEvent(runCtx, handler, ip, hostname)
+	defer sendStopEvent(handler, s.SelfIP, hostname)
+	sendStartEvent(runCtx, handler, s.SelfIP, hostname)
 
 	// Listen until done
 	<-ctx.Done()
@@ -219,9 +201,9 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 
 func (s *Server) createStatser(hostname string, handler gostatsd.PipelineHandler) stats.Statser {
 	switch s.StatserType {
-	case StatserNull:
+	case gostatsd.StatserNull:
 		return stats.NewNullStatser()
-	case StatserLogging:
+	case gostatsd.StatserLogging:
 		return stats.NewLoggingStatser(s.InternalTags, log.NewEntry(log.New()))
 	default:
 		namespace := s.Namespace
@@ -261,15 +243,6 @@ func sendStopEvent(handler gostatsd.PipelineHandler, selfIP gostatsd.IP, hostnam
 	handler.WaitForEvents()
 }
 
-func getHost() string {
-	host, err := os.Hostname()
-	if err != nil {
-		log.Warnf("Cannot get hostname: %v", err)
-		return ""
-	}
-	return host
-}
-
 type agrFactory struct {
 	percentThresholds []float64
 	expiryInterval    time.Duration
@@ -279,12 +252,4 @@ type agrFactory struct {
 
 func (af *agrFactory) Create() Aggregator {
 	return NewMetricAggregator(af.percentThresholds, af.expiryInterval, af.disabledSubtypes, af.histogramLimit)
-}
-
-func toStringSlice(fs []float64) []string {
-	s := make([]string, len(fs))
-	for i, f := range fs {
-		s[i] = strconv.FormatFloat(f, 'f', -1, 64)
-	}
-	return s
 }

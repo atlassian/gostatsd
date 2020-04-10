@@ -56,6 +56,22 @@ type countingHandler struct {
 	events  gostatsd.Events
 }
 
+func (ch *countingHandler) Metrics() []gostatsd.Metric {
+	ch.mu.Lock()
+	defer ch.mu.Unlock()
+	result := make([]gostatsd.Metric, len(ch.metrics))
+	copy(result, ch.metrics)
+	return result
+}
+
+func (ch *countingHandler) Events() gostatsd.Events {
+	ch.mu.Lock()
+	defer ch.mu.Unlock()
+	result := make(gostatsd.Events, len(ch.events))
+	copy(result, ch.events)
+	return result
+}
+
 func (ch *countingHandler) EstimatedTags() int {
 	return 0
 }

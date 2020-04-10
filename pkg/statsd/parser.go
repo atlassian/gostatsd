@@ -62,7 +62,7 @@ func NewDatagramParser(in <-chan []*Datagram, ns string, ignoreHost bool, estima
 	}
 }
 
-func (dp *DatagramParser) RunMetrics(ctx context.Context) {
+func (dp *DatagramParser) RunMetricsContext(ctx context.Context) {
 	statser := stats.FromContext(ctx)
 	flushed, unregister := statser.RegisterFlush()
 	defer unregister()

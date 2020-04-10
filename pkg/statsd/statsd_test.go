@@ -8,9 +8,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ash2k/stager/wait"
 	"github.com/atlassian/gostatsd"
+	"github.com/atlassian/gostatsd/pkg/cachedinstances/cloudprovider"
 	"github.com/atlassian/gostatsd/pkg/fakesocket"
-
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"golang.org/x/time/rate"
@@ -23,44 +24,44 @@ func TestStatsdThroughput(t *testing.T) {
 	var memStatsStart, memStatsFinish runtime.MemStats
 	runtime.ReadMemStats(&memStatsStart)
 	backend := &countingBackend{}
-
-	cloudHandlerFactory := newCloudHandlerFactory(
-		"",
-		logrus.StandardLogger(),
-		CacheOptions{
-			CacheRefreshPeriod:        DefaultCacheRefreshPeriod,
-			CacheEvictAfterIdlePeriod: DefaultCacheEvictAfterIdlePeriod,
-			CacheTTL:                  DefaultCacheTTL,
-			CacheNegativeTTL:          DefaultCacheNegativeTTL,
-		},
-		rate.NewLimiter(DefaultMaxCloudRequests, DefaultBurstCloudRequests),
-		"test")
-	// Inject the mock provider
-	cloudHandlerFactory.cloudProvider = &fakeProvider{
+	cloudProvider := &fakeProvider{
 		instance: &gostatsd.Instance{
 			ID:   "i-13123123",
 			Tags: gostatsd.Tags{"region:us-west-3", "tag1", "tag2:234"},
 		},
 	}
-
+	cachedInstances := cloudprovider.NewCachedCloudProvider(
+		logrus.StandardLogger(),
+		rate.NewLimiter(gostatsd.DefaultMaxCloudRequests, gostatsd.DefaultBurstCloudRequests),
+		cloudProvider,
+		gostatsd.CacheOptions{
+			CacheRefreshPeriod:        gostatsd.DefaultCacheRefreshPeriod,
+			CacheEvictAfterIdlePeriod: gostatsd.DefaultCacheEvictAfterIdlePeriod,
+			CacheTTL:                  gostatsd.DefaultCacheTTL,
+			CacheNegativeTTL:          gostatsd.DefaultCacheNegativeTTL,
+		})
 	s := Server{
 		Backends:            []gostatsd.Backend{backend},
-		CloudHandlerFactory: cloudHandlerFactory,
-		DefaultTags:         DefaultTags,
-		ExpiryInterval:      DefaultExpiryInterval,
-		FlushInterval:       DefaultFlushInterval,
-		MaxReaders:          DefaultMaxReaders,
-		MaxParsers:          DefaultMaxParsers,
-		MaxWorkers:          DefaultMaxWorkers,
-		MaxQueueSize:        DefaultMaxQueueSize,
+		CachedInstances:     cachedInstances,
+		DefaultTags:         gostatsd.DefaultTags,
+		ExpiryInterval:      gostatsd.DefaultExpiryInterval,
+		FlushInterval:       gostatsd.DefaultFlushInterval,
+		MaxReaders:          gostatsd.DefaultMaxReaders,
+		MaxParsers:          gostatsd.DefaultMaxParsers,
+		MaxWorkers:          gostatsd.DefaultMaxWorkers,
+		MaxQueueSize:        gostatsd.DefaultMaxQueueSize,
 		EstimatedTags:       1, // Travis has limited memory
-		PercentThreshold:    DefaultPercentThreshold,
-		HeartbeatEnabled:    DefaultHeartbeatEnabled,
-		ReceiveBatchSize:    DefaultReceiveBatchSize,
+		PercentThreshold:    gostatsd.DefaultPercentThreshold,
+		HeartbeatEnabled:    gostatsd.DefaultHeartbeatEnabled,
+		ReceiveBatchSize:    gostatsd.DefaultReceiveBatchSize,
 		MaxConcurrentEvents: 2,
 		ServerMode:          "standalone",
 		Viper:               viper.New(),
 	}
+	ctxCached, cancelCached := context.WithCancel(context.Background())
+	defer cancelCached()
+	var wg wait.Group
+	wg.StartWithContext(ctxCached, cachedInstances.Run)
 	ctx, cancelFunc := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancelFunc()
 	start := time.Now()
@@ -68,6 +69,8 @@ func TestStatsdThroughput(t *testing.T) {
 	if err != nil && err != context.Canceled && err != context.DeadlineExceeded {
 		t.Errorf("statsd run failed: %v", err)
 	}
+	cancelCached()
+	wg.Wait()
 	duration := float64(time.Since(start)) / float64(time.Second)
 
 	runtime.ReadMemStats(&memStatsFinish)

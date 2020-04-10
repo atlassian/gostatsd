@@ -192,7 +192,7 @@ func (hs *httpServer) Run(ctx context.Context) {
 	if hs.rawMetricsV2 != nil {
 		var wg wait.Group
 		defer wg.Wait()
-		wg.StartWithContext(ctx, hs.rawMetricsV2.RunMetrics)
+		wg.StartWithContext(ctx, hs.rawMetricsV2.RunMetricsContext)
 	}
 
 	server := &http.Server{

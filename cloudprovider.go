@@ -2,6 +2,7 @@ package gostatsd
 
 import (
 	"context"
+	"time"
 
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
@@ -31,4 +32,31 @@ type CloudProvider interface {
 	SelfIP() (IP, error)
 	// EstimatedTags returns a guess of how many tags are likely to be added by the CloudProvider
 	EstimatedTags() int
+}
+
+type InstanceInfo struct {
+	IP IP
+	// Instance may be nil if the lookup resulted in an error or instance was not found.
+	Instance *Instance
+}
+
+type CachedInstances interface {
+	// Peek fetches instance information from the cache.
+	// The cache is also a negative cache - may be a cache hit but the returned instance is nil.
+	Peek(IP) (*Instance, bool /*is a cache hit*/)
+	// IpSink returns a channel that can be used to supply IP addresses for which information needs
+	// to be fetched and cached.
+	IpSink() chan<- IP
+	// InfoSource returns a channel that can be used to receive information about IPs.
+	InfoSource() <-chan InstanceInfo
+	// EstimatedTags returns a guess for how many tags to pre-allocate
+	EstimatedTags() int
+}
+
+// CacheOptions holds cache behaviour configuration.
+type CacheOptions struct {
+	CacheRefreshPeriod        time.Duration
+	CacheEvictAfterIdlePeriod time.Duration
+	CacheTTL                  time.Duration
+	CacheNegativeTTL          time.Duration
 }

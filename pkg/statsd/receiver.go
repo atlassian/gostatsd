@@ -48,7 +48,7 @@ func NewDatagramReceiver(out chan<- []*Datagram, sf SocketFactory, numReaders, r
 	}
 }
 
-func (dr *DatagramReceiver) RunMetrics(ctx context.Context) {
+func (dr *DatagramReceiver) RunMetricsContext(ctx context.Context) {
 	statser := stats.FromContext(ctx)
 	flushed, unregister := statser.RegisterFlush()
 	defer unregister()

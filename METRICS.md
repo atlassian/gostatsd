@@ -52,7 +52,6 @@ Metrics:
 | cloudprovider.cache_refresh_positive        | gauge (cumulative)  |                              | The cumulative number of positive refreshes
 | cloudprovider.cache_refresh_negative        | gauge (cumulative)  |                              | The cumulative number of refreshes which had an error refreshing and used old data
 | cloudprovider.cache_hit                     | gauge (cumulative)  |                              | The cumulative number of cache hits (host was in the cache)
-| cloudprovider.cache_late_hit                | gauge (cumulative)  |                              | The cumulative number of late cache hits (host was not in the cache, but had a lookup
 |                                             |                     |                              | in progress which completed)
 | cloudprovider.cache_miss                    | gauge (cumulative)  |                              | The cumulative number of cache misses
 | cloudprovider.hosts_queued                  | gauge (flush)       | type                         | The absolute number of hosts waiting to be looked up
