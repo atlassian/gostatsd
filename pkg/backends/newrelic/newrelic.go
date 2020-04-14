@@ -30,7 +30,7 @@ const (
 	// BackendName is the name of this backend.
 	BackendName                  = "newrelic"
 	integrationName              = "com.newrelic.gostatsd"
-	integrationVersion           = "2.3.0"
+	integrationVersion           = "2.3.1"
 	protocolVersion              = "2"
 	defaultUserAgent             = "gostatsd"
 	defaultMaxRequestElapsedTime = 15 * time.Second
@@ -205,17 +205,17 @@ func (n *Client) processMetrics(metrics *gostatsd.MetricMap, cb func(*timeSeries
 	}
 
 	metrics.Gauges.Each(func(key, tagsKey string, g gostatsd.Gauge) {
-		fl.addMetric(n, "gauge", g.Value, 0, g.Hostname, g.Tags, key, g.Timestamp)
+		fl.addMetric(n, "gauge", g.Value, 0, g.Hostname, g.Tags, key)
 		fl.maybeFlush()
 	})
 
 	metrics.Counters.Each(func(key, tagsKey string, counter gostatsd.Counter) {
-		fl.addMetric(n, "counter", float64(counter.Value), counter.PerSecond, counter.Hostname, counter.Tags, key, counter.Timestamp)
+		fl.addMetric(n, "counter", float64(counter.Value), counter.PerSecond, counter.Hostname, counter.Tags, key)
 		fl.maybeFlush()
 	})
 
 	metrics.Sets.Each(func(key, tagsKey string, set gostatsd.Set) {
-		fl.addMetric(n, "set", float64(len(set.Values)), 0, set.Hostname, set.Tags, key, set.Timestamp)
+		fl.addMetric(n, "set", float64(len(set.Values)), 0, set.Hostname, set.Tags, key)
 		fl.maybeFlush()
 	})
 
@@ -227,7 +227,7 @@ func (n *Client) processMetrics(metrics *gostatsd.MetricMap, cb func(*timeSeries
 					bucketTag = "le:" + strconv.FormatFloat(float64(histogramThreshold), 'f', -1, 64)
 				}
 				newTags := timer.Tags.Concat(gostatsd.Tags{bucketTag})
-				fl.addMetric(n, "counter", float64(count), 0, timer.Hostname, newTags, key+".histogram", timer.Timestamp)
+				fl.addMetric(n, "counter", float64(count), 0, timer.Hostname, newTags, key+".histogram")
 			}
 		} else {
 			fl.addTimerMetric(n, "timer", timer, tagsKey, key)
