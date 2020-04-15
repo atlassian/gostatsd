@@ -147,7 +147,7 @@ func newMetricSet(n *Client, f *flush, metricName, Type string, Value float64, t
 
 	// GoStatsD provides the timestamp in Nanotime, New Relic requires seconds or milliseconds, see under "Limits and restricted characters"
 	// https://docs.newrelic.com/docs/insights/insights-data-sources/custom-data/send-custom-events-event-api#instrument
-	metricSet["timestamp"] = n.now().Unix()
+	metricSet["timestamp"] = f.timestamp
 	metricSet["interval"] = f.flushIntervalSec
 	metricSet["integration_version"] = integrationVersion
 
@@ -171,11 +171,10 @@ func newMetricSet(n *Client, f *flush, metricName, Type string, Value float64, t
 
 // create a new metric set for the dimensional metrics api
 func newDimensionalMetricSet(n *Client, f *flush, metricName, Type string, Value float64, tags gostatsd.Tags) NRMetric {
-	// GoStatsD provides the timestamp in Nanotime, New Relic requires seconds or milliseconds, see under "Limits and restricted characters"
-	// https://docs.newrelic.com/docs/insights/insights-data-sources/custom-data/send-custom-events-event-api#instrument
+	// https://docs.newrelic.com/docs/data-ingest-apis/get-data-new-relic/metric-api/report-metrics-metric-api#new-relic-guidelines
 	metricSet := NRMetric{
 		Name:      metricName,
-		Timestamp: n.now().Unix(),
+		Timestamp: int64(f.timestamp),
 		Attributes: map[string]interface{}{
 			"statsdType": Type,
 		},
