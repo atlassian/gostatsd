@@ -1,3 +1,7 @@
+20.3.2
+------
+- Use the current timestamp when sending to NewRelic backend, rather than the last updated timestamp of the metric, which may be old.
+
 20.3.1
 ------
 - Added a new internal metric called `backend.series.sent` which contains the number of flushed timeseries over time.
