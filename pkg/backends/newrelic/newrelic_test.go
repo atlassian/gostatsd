@@ -112,38 +112,38 @@ func TestSendMetrics(t *testing.T) {
 			name:      "infra",
 			flushType: "infra",
 			apiKey:    "",
-			expected: `{"name":"com.newrelic.gostatsd","protocol_version":"2","integration_version":"2.3.0","data":[{"metrics":` +
-				`[{"event_type":"GoStatsD","integration_version":"2.3.0","interval":1,"metric_name":"g1","metric_type":"gauge","metric_value":3,"tag3":"true","timestamp":0},` +
-				`{"event_type":"GoStatsD","integration_version":"2.3.0","interval":1,"metric_name":"c1","metric_per_second":1.1,"metric_type":"counter","metric_value":5,"tag1":"true","timestamp":0},` +
-				`{"event_type":"GoStatsD","integration_version":"2.3.0","interval":1,"metric_name":"users","metric_type":"set","metric_value":3,"tag4":"true","timestamp":0},` +
-				`{"count_90":0.1,"event_type":"GoStatsD","integration_version":"2.3.0","interval":1,"metric_name":"t1","metric_per_second":1.1,"metric_type":"timer","metric_value":1,` +
-				`"samples_count":1,"samples_max":1,"samples_mean":0.5,"samples_median":0.5,"samples_min":0,"samples_std_dev":0.1,"samples_sum":1,"samples_sum_squares":1,"tag2":"true","timestamp":0}]}]}`,
+			expected: `{"name":"com.newrelic.gostatsd","protocol_version":"2","integration_version":"2.3.1","data":[{"metrics":` +
+				`[{"event_type":"GoStatsD","integration_version":"2.3.1","interval":1,"metric_name":"g1","metric_type":"gauge","metric_value":3,"tag3":"true","timestamp":100},` +
+				`{"event_type":"GoStatsD","integration_version":"2.3.1","interval":1,"metric_name":"c1","metric_per_second":1.1,"metric_type":"counter","metric_value":5,"tag1":"true","timestamp":100},` +
+				`{"event_type":"GoStatsD","integration_version":"2.3.1","interval":1,"metric_name":"users","metric_type":"set","metric_value":3,"tag4":"true","timestamp":100},` +
+				`{"count_90":0.1,"event_type":"GoStatsD","integration_version":"2.3.1","interval":1,"metric_name":"t1","metric_per_second":1.1,"metric_type":"timer","metric_value":1,` +
+				`"samples_count":1,"samples_max":1,"samples_mean":0.5,"samples_median":0.5,"samples_min":0,"samples_std_dev":0.1,"samples_sum":1,"samples_sum_squares":1,"tag2":"true","timestamp":100}]}]}`,
 		},
 		{
 			name:      "insights",
 			flushType: "insights",
 			apiKey:    "some-api-key",
-			expected: `[{"eventType":"GoStatsD","integration_version":"2.3.0","interval":1,"metric_name":"g1","metric_type":"gauge","metric_value":3,"tag3":"true","timestamp":0},` +
-				`{"eventType":"GoStatsD","integration_version":"2.3.0","interval":1,"metric_name":"c1","metric_per_second":1.1,"metric_type":"counter","metric_value":5,"tag1":"true","timestamp":0},` +
-				`{"eventType":"GoStatsD","integration_version":"2.3.0","interval":1,"metric_name":"users","metric_type":"set","metric_value":3,"tag4":"true","timestamp":0},` +
-				`{"count_90":0.1,"eventType":"GoStatsD","integration_version":"2.3.0","interval":1,"metric_name":"t1","metric_per_second":1.1,"metric_type":"timer","metric_value":1,"samples_count":1,` +
-				`"samples_max":1,"samples_mean":0.5,"samples_median":0.5,"samples_min":0,"samples_std_dev":0.1,"samples_sum":1,"samples_sum_squares":1,"tag2":"true","timestamp":0}]`,
+			expected: `[{"eventType":"GoStatsD","integration_version":"2.3.1","interval":1,"metric_name":"g1","metric_type":"gauge","metric_value":3,"tag3":"true","timestamp":100},` +
+				`{"eventType":"GoStatsD","integration_version":"2.3.1","interval":1,"metric_name":"c1","metric_per_second":1.1,"metric_type":"counter","metric_value":5,"tag1":"true","timestamp":100},` +
+				`{"eventType":"GoStatsD","integration_version":"2.3.1","interval":1,"metric_name":"users","metric_type":"set","metric_value":3,"tag4":"true","timestamp":100},` +
+				`{"count_90":0.1,"eventType":"GoStatsD","integration_version":"2.3.1","interval":1,"metric_name":"t1","metric_per_second":1.1,"metric_type":"timer","metric_value":1,"samples_count":1,` +
+				`"samples_max":1,"samples_mean":0.5,"samples_median":0.5,"samples_min":0,"samples_std_dev":0.1,"samples_sum":1,"samples_sum_squares":1,"tag2":"true","timestamp":100}]`,
 		},
 		{
 			name:      "metrics",
 			flushType: "metrics",
 			apiKey:    "some-api-key",
-			expected: `[{"common":{"attributes":{"integration.name":"GoStatsD","integration.version":"2.3.0"},"interval.ms":1000},` +
-				`"metrics":[{"name":"g1","value":3,"type":"gauge","attributes":{"statsdType":"gauge","tag3":"true"}},` +
-				`{"name":"c1.per_second","value":1.1,"type":"gauge","attributes":{"statsdType":"gauge","tag1":"true"}},` +
-				`{"name":"c1","value":5,"type":"count","attributes":{"statsdType":"counter","tag1":"true"}},` +
-				`{"name":"users","attributes":{"statsdType":"set","tag4":"true"}},{"name":"t1.per_second","value":1.1,"type":"gauge","attributes":{"statsdType":"gauge","tag2":"true"}},` +
-				`{"name":"t1.mean","value":0.5,"type":"gauge","attributes":{"statsdType":"gauge","tag2":"true"}},` +
-				`{"name":"t1.median","value":0.5,"type":"gauge","attributes":{"statsdType":"gauge","tag2":"true"}},` +
-				`{"name":"t1.std_dev","value":0.1,"type":"gauge","attributes":{"statsdType":"gauge","tag2":"true"}},` +
-				`{"name":"t1.sum_squares","value":1,"type":"gauge","attributes":{"statsdType":"gauge","tag2":"true"}},` +
-				`{"name":"t1.count.percentiles","value":0.1,"type":"gauge","attributes":{"percentile":90,"statsdType":"gauge","tag2":"true"}},` +
-				`{"name":"t1.summary","value":{"count":1,"max":1,"min":0,"sum":1},"type":"summary","attributes":{"statsdType":"timer","tag2":"true"}}]}]`,
+			expected: `[{"common":{"attributes":{"integration.name":"GoStatsD","integration.version":"2.3.1"},"interval.ms":1000},` +
+				`"metrics":[{"name":"g1","value":3,"type":"gauge","timestamp":100,"attributes":{"statsdType":"gauge","tag3":"true"}},` +
+				`{"name":"c1.per_second","value":1.1,"type":"gauge","timestamp":100,"attributes":{"statsdType":"gauge","tag1":"true"}},` +
+				`{"name":"c1","value":5,"type":"count","timestamp":100,"attributes":{"statsdType":"counter","tag1":"true"}},` +
+				`{"name":"users","timestamp":100,"attributes":{"statsdType":"set","tag4":"true"}},{"name":"t1.per_second","value":1.1,"type":"gauge","timestamp":100,"attributes":{"statsdType":"gauge","tag2":"true"}},` +
+				`{"name":"t1.mean","value":0.5,"type":"gauge","timestamp":100,"attributes":{"statsdType":"gauge","tag2":"true"}},` +
+				`{"name":"t1.median","value":0.5,"type":"gauge","timestamp":100,"attributes":{"statsdType":"gauge","tag2":"true"}},` +
+				`{"name":"t1.std_dev","value":0.1,"type":"gauge","timestamp":100,"attributes":{"statsdType":"gauge","tag2":"true"}},` +
+				`{"name":"t1.sum_squares","value":1,"type":"gauge","timestamp":100,"attributes":{"statsdType":"gauge","tag2":"true"}},` +
+				`{"name":"t1.count.percentiles","value":0.1,"type":"gauge","timestamp":100,"attributes":{"percentile":90,"statsdType":"gauge","tag2":"true"}},` +
+				`{"name":"t1.summary","value":{"count":1,"max":1,"min":0,"sum":1},"type":"summary","timestamp":100,"attributes":{"statsdType":"timer","tag2":"true"}}]}]`,
 		},
 	}
 
@@ -227,12 +227,12 @@ func TestSendMetricsWithHistogram(t *testing.T) {
 		}
 
 		expected := []string{
-			`{"event_type":"GoStatsD","integration_version":"2.3.0","interval":1,"le":20,"metric_name":"t1.histogram","metric_per_second":0,"metric_type":"counter","metric_value":5,"timestamp":0}`,
-			`{"event_type":"GoStatsD","integration_version":"2.3.0","interval":1,"le":30,"metric_name":"t1.histogram","metric_per_second":0,"metric_type":"counter","metric_value":10,"timestamp":0}`,
-			`{"event_type":"GoStatsD","integration_version":"2.3.0","interval":1,"le":40,"metric_name":"t1.histogram","metric_per_second":0,"metric_type":"counter","metric_value":10,"timestamp":0}`,
-			`{"event_type":"GoStatsD","integration_version":"2.3.0","interval":1,"le":50,"metric_name":"t1.histogram","metric_per_second":0,"metric_type":"counter","metric_value":10,"timestamp":0}`,
-			`{"event_type":"GoStatsD","integration_version":"2.3.0","interval":1,"le":60,"metric_name":"t1.histogram","metric_per_second":0,"metric_type":"counter","metric_value":19,"timestamp":0}`,
-			`{"event_type":"GoStatsD","integration_version":"2.3.0","interval":1,"le":"infinity","metric_name":"t1.histogram","metric_per_second":0,"metric_type":"counter","metric_value":19,"timestamp":0}`,
+			`{"event_type":"GoStatsD","integration_version":"2.3.1","interval":1,"le":20,"metric_name":"t1.histogram","metric_per_second":0,"metric_type":"counter","metric_value":5,"timestamp":100}`,
+			`{"event_type":"GoStatsD","integration_version":"2.3.1","interval":1,"le":30,"metric_name":"t1.histogram","metric_per_second":0,"metric_type":"counter","metric_value":10,"timestamp":100}`,
+			`{"event_type":"GoStatsD","integration_version":"2.3.1","interval":1,"le":40,"metric_name":"t1.histogram","metric_per_second":0,"metric_type":"counter","metric_value":10,"timestamp":100}`,
+			`{"event_type":"GoStatsD","integration_version":"2.3.1","interval":1,"le":50,"metric_name":"t1.histogram","metric_per_second":0,"metric_type":"counter","metric_value":10,"timestamp":100}`,
+			`{"event_type":"GoStatsD","integration_version":"2.3.1","interval":1,"le":60,"metric_name":"t1.histogram","metric_per_second":0,"metric_type":"counter","metric_value":19,"timestamp":100}`,
+			`{"event_type":"GoStatsD","integration_version":"2.3.1","interval":1,"le":"infinity","metric_name":"t1.histogram","metric_per_second":0,"metric_type":"counter","metric_value":19,"timestamp":100}`,
 		}
 
 		for _, e := range expected {
@@ -356,7 +356,7 @@ func TestEventFormatter(t *testing.T) {
 	}{
 		{
 			name: "infra",
-			expected: `{"name":"com.newrelic.gostatsd","protocol_version":"2","integration_version":"2.3.0","data":` +
+			expected: `{"name":"com.newrelic.gostatsd","protocol_version":"2","integration_version":"2.3.1","data":` +
 				`[{"metrics":[{"AggregationKey":"","AlertType":"","DateHappened":0,"Hostname":"blah","Priority":"low","SourceTypeName":"","Text":"hi","Title":"EventTitle","event_type":"GoStatsD","name":"event"}]}]}`,
 		},
 		{

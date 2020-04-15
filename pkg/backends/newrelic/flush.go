@@ -23,17 +23,17 @@ type timeSeries struct {
 }
 
 // addMetric adds a metric to the series.
-func (f *flush) addMetric(n *Client, metricType string, value float64, persecond float64, hostname string, tags gostatsd.Tags, name string, timestamp gostatsd.Nanotime) {
+func (f *flush) addMetric(n *Client, metricType string, value float64, persecond float64, hostname string, tags gostatsd.Tags, name string) {
 	if n.flushType == flushTypeMetrics {
 		metricName := name
 		if metricType == "counter" {
-			perSecondMetric := newDimensionalMetricSet(n, f, metricName+".per_second", "gauge", persecond, tags, timestamp)
+			perSecondMetric := newDimensionalMetricSet(n, f, metricName+".per_second", "gauge", persecond, tags)
 			f.ts.Metrics = append(f.ts.Metrics, perSecondMetric)
 		}
-		standardMetric := newDimensionalMetricSet(n, f, name, metricType, value, tags, timestamp)
+		standardMetric := newDimensionalMetricSet(n, f, name, metricType, value, tags)
 		f.ts.Metrics = append(f.ts.Metrics, standardMetric)
 	} else {
-		standardMetric := newMetricSet(n, f, name, metricType, value, tags, timestamp)
+		standardMetric := newMetricSet(n, f, name, metricType, value, tags)
 		if metricType == "counter" {
 			standardMetric[n.metricPerSecond] = persecond
 		}
@@ -44,7 +44,7 @@ func (f *flush) addMetric(n *Client, metricType string, value float64, persecond
 // addMetric adds a timer metric to the series.
 func (f *flush) addTimerMetric(n *Client, metricType string, timer gostatsd.Timer, tagsKey, name string) {
 	if n.flushType == flushTypeMetrics {
-		timerMetric := newDimensionalMetricSet(n, f, name, metricType, float64(timer.Count), timer.Tags, timer.Timestamp)
+		timerMetric := newDimensionalMetricSet(n, f, name, metricType, float64(timer.Count), timer.Tags)
 
 		timerMetric.Value = map[string]float64{
 			"count": float64(timer.Count),
@@ -54,23 +54,23 @@ func (f *flush) addTimerMetric(n *Client, metricType string, timer gostatsd.Time
 		}
 
 		if !n.disabledSubtypes.CountPerSecond {
-			gaugeMetric := newDimensionalMetricSet(n, f, name+".per_second", "gauge", timer.PerSecond, timer.Tags, timer.Timestamp)
+			gaugeMetric := newDimensionalMetricSet(n, f, name+".per_second", "gauge", timer.PerSecond, timer.Tags)
 			f.ts.Metrics = append(f.ts.Metrics, gaugeMetric)
 		}
 		if !n.disabledSubtypes.Mean {
-			gaugeMetric := newDimensionalMetricSet(n, f, name+".mean", "gauge", timer.Mean, timer.Tags, timer.Timestamp)
+			gaugeMetric := newDimensionalMetricSet(n, f, name+".mean", "gauge", timer.Mean, timer.Tags)
 			f.ts.Metrics = append(f.ts.Metrics, gaugeMetric)
 		}
 		if !n.disabledSubtypes.Median {
-			gaugeMetric := newDimensionalMetricSet(n, f, name+".median", "gauge", timer.Median, timer.Tags, timer.Timestamp)
+			gaugeMetric := newDimensionalMetricSet(n, f, name+".median", "gauge", timer.Median, timer.Tags)
 			f.ts.Metrics = append(f.ts.Metrics, gaugeMetric)
 		}
 		if !n.disabledSubtypes.StdDev {
-			gaugeMetric := newDimensionalMetricSet(n, f, name+".std_dev", "gauge", timer.StdDev, timer.Tags, timer.Timestamp)
+			gaugeMetric := newDimensionalMetricSet(n, f, name+".std_dev", "gauge", timer.StdDev, timer.Tags)
 			f.ts.Metrics = append(f.ts.Metrics, gaugeMetric)
 		}
 		if !n.disabledSubtypes.SumSquares {
-			gaugeMetric := newDimensionalMetricSet(n, f, name+".sum_squares", "gauge", timer.SumSquares, timer.Tags, timer.Timestamp)
+			gaugeMetric := newDimensionalMetricSet(n, f, name+".sum_squares", "gauge", timer.SumSquares, timer.Tags)
 			f.ts.Metrics = append(f.ts.Metrics, gaugeMetric)
 		}
 
@@ -82,7 +82,7 @@ func (f *flush) addTimerMetric(n *Client, metricType string, timer gostatsd.Time
 		// Each metric name MUST have a ".percentiles" suffix.
 		for _, pct := range timer.Percentiles {
 			lastUnderscore := strings.LastIndex(pct.Str, "_")
-			gaugeMetric := newDimensionalMetricSet(n, f, fmt.Sprintf("%v.%v.percentiles", name, pct.Str[:lastUnderscore]), "gauge", pct.Float, timer.Tags, timer.Timestamp)
+			gaugeMetric := newDimensionalMetricSet(n, f, fmt.Sprintf("%v.%v.percentiles", name, pct.Str[:lastUnderscore]), "gauge", pct.Float, timer.Tags)
 			percentileResult, err := strconv.ParseFloat(pct.Str[lastUnderscore+1:], 64) // eg. for sum_squares_90 will return 90
 			if err == nil {
 				gaugeMetric.Attributes["percentile"] = percentileResult
@@ -91,7 +91,7 @@ func (f *flush) addTimerMetric(n *Client, metricType string, timer gostatsd.Time
 		}
 		f.ts.Metrics = append(f.ts.Metrics, timerMetric)
 	} else {
-		timerMetric := newMetricSet(n, f, name, metricType, float64(timer.Count), timer.Tags, timer.Timestamp)
+		timerMetric := newMetricSet(n, f, name, metricType, float64(timer.Count), timer.Tags)
 
 		if !n.disabledSubtypes.Lower {
 			timerMetric[n.timerMin] = timer.Min
@@ -142,12 +142,12 @@ func (f *flush) finish() {
 	}
 }
 
-func newMetricSet(n *Client, f *flush, metricName, Type string, Value float64, tags gostatsd.Tags, timestamp gostatsd.Nanotime) map[string]interface{} {
+func newMetricSet(n *Client, f *flush, metricName, Type string, Value float64, tags gostatsd.Tags) map[string]interface{} {
 	metricSet := map[string]interface{}{}
 
 	// GoStatsD provides the timestamp in Nanotime, New Relic requires seconds or milliseconds, see under "Limits and restricted characters"
 	// https://docs.newrelic.com/docs/insights/insights-data-sources/custom-data/send-custom-events-event-api#instrument
-	metricSet["timestamp"] = timestamp / 1e9
+	metricSet["timestamp"] = f.timestamp
 	metricSet["interval"] = f.flushIntervalSec
 	metricSet["integration_version"] = integrationVersion
 
@@ -170,12 +170,11 @@ func newMetricSet(n *Client, f *flush, metricName, Type string, Value float64, t
 }
 
 // create a new metric set for the dimensional metrics api
-func newDimensionalMetricSet(n *Client, f *flush, metricName, Type string, Value float64, tags gostatsd.Tags, timestamp gostatsd.Nanotime) NRMetric {
-	// GoStatsD provides the timestamp in Nanotime, New Relic requires seconds or milliseconds, see under "Limits and restricted characters"
-	// https://docs.newrelic.com/docs/insights/insights-data-sources/custom-data/send-custom-events-event-api#instrument
+func newDimensionalMetricSet(n *Client, f *flush, metricName, Type string, Value float64, tags gostatsd.Tags) NRMetric {
+	// https://docs.newrelic.com/docs/data-ingest-apis/get-data-new-relic/metric-api/report-metrics-metric-api#new-relic-guidelines
 	metricSet := NRMetric{
 		Name:      metricName,
-		Timestamp: int64(timestamp) / 1e9,
+		Timestamp: int64(f.timestamp),
 		Attributes: map[string]interface{}{
 			"statsdType": Type,
 		},
