@@ -1,14 +1,12 @@
 package k8s
 
 import (
-	"context"
 	"fmt"
 	"regexp"
 	"testing"
 	"time"
 
-	"github.com/atlassian/gostatsd"
-
+	"github.com/ash2k/stager"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
@@ -90,9 +88,9 @@ func pod2() *core_v1.Pod {
 }
 
 type testFixture struct {
-	fakeClient    *mainFake.Clientset
-	cloudProvider gostatsd.CloudProvider
-	podsWatch     *watch.FakeWatcher
+	fakeClient *mainFake.Clientset
+	provider   *Provider
+	podsWatch  *watch.FakeWatcher
 }
 
 func setupTest(t *testing.T, test func(*testing.T, *testFixture), v *viper.Viper, nn string) {
@@ -116,17 +114,14 @@ func setupTest(t *testing.T, test func(*testing.T, *testFixture), v *viper.Viper
 		regexp.MustCompile(v.GetString(ParamLabelTagRegex)),
 	)
 	require.NoError(t, err)
-
-	r, ok := cloudProvider.(gostatsd.Runner)
-	require.True(t, ok)
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	r.Run(ctx) // run the cloud provider
+	stgr := stager.New()
+	defer stgr.Shutdown()
+	stgr.NextStage().StartWithContext(cloudProvider.Run) // run the cloud provider
 
 	test(t, &testFixture{
-		fakeClient:    fakeClient,
-		cloudProvider: cloudProvider,
-		podsWatch:     podsWatch,
+		fakeClient: fakeClient,
+		provider:   cloudProvider,
+		podsWatch:  podsWatch,
 	})
 }
 
@@ -196,12 +191,10 @@ var ipTagTests = []tagTest{
 
 func waitForFullCache(t *testing.T, fixtures *testFixture, numExpectedPods int) {
 	// Wait for the cache to fill up before moving on
-	cp, ok := fixtures.cloudProvider.(*Provider)
-	require.True(t, ok, "fixture must produce a k8s.Provider")
-	for i := 1; i < 100 && len(cp.podsInf.GetIndexer().List()) < numExpectedPods; i++ {
+	for i := 1; i < 100 && len(fixtures.provider.podsInf.GetIndexer().List()) < numExpectedPods; i++ {
 		time.Sleep(10 * time.Millisecond)
 	}
-	require.Equal(t, numExpectedPods, len(cp.podsInf.GetIndexer().List()))
+	require.Equal(t, numExpectedPods, len(fixtures.provider.podsInf.GetIndexer().List()))
 }
 
 func TestIPToTags(t *testing.T) {
@@ -222,13 +215,8 @@ func TestIPToTags(t *testing.T) {
 				waitForFullCache(t, fixtures, len(testCase.pods))
 
 				// Run the test
-				ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
-				defer cancel()
-
-				instanceData, err := fixtures.cloudProvider.Instance(ctx, ipAddr)
-				require.NoError(ttt, err)
-
-				instance := instanceData[ipAddr]
+				instance, cacheHit := fixtures.provider.Peek(ipAddr)
+				require.True(ttt, cacheHit)
 				require.NotNil(ttt, instance)
 				assert.Equal(ttt, instance.ID, fmt.Sprintf("%s/%s", namespace, podName1))
 				assert.Len(ttt, instance.Tags, testCase.expectedNumTags)
@@ -241,6 +229,8 @@ func TestIPToTags(t *testing.T) {
 }
 
 func TestNoHostNetworkPodsCached(t *testing.T) {
+	t.Parallel()
+
 	setupTest(t, func(t *testing.T, fixtures *testFixture) {
 		hostNetworkPod := pod()
 		hostNetworkPod.Status.HostIP = ipAddr
@@ -248,57 +238,15 @@ func TestNoHostNetworkPodsCached(t *testing.T) {
 		fixtures.podsWatch.Add(hostNetworkPod)
 		waitForFullCache(t, fixtures, 1)
 
-		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
-		defer cancel()
-
-		instanceData, err := fixtures.cloudProvider.Instance(ctx, ipAddr)
-		require.NoError(t, err)
-
-		instance := instanceData[ipAddr]
+		instance, cacheHit := fixtures.provider.Peek(ipAddr)
+		require.True(t, cacheHit)
 		require.Nil(t, instance)
 	}, viper.New(), nodeName)
 }
 
-func TestWatchNodeOnly(t *testing.T) {
-	v := viper.New()
-	v.Set(ParamWatchCluster, false)
-
-	setupTest(t, func(t *testing.T, fixtures *testFixture) {
-		expectedKey := "node"
-		nodeAnnotationKey := AnnotationPrefix + expectedKey
-		expectedValue := nodeName
-
-		p := pod()
-		p.Spec.NodeName = nodeName
-		p.ObjectMeta.Annotations = map[string]string{nodeAnnotationKey: expectedValue}
-		p.ObjectMeta.Labels = map[string]string{}
-		fixtures.podsWatch.Add(p)
-
-		p = pod2()
-		p.Spec.NodeName = "node2"
-		p.ObjectMeta.Annotations = map[string]string{nodeAnnotationKey: "node2"}
-		p.ObjectMeta.Labels = map[string]string{}
-		fixtures.podsWatch.Add(p)
-
-		waitForFullCache(t, fixtures, 2)
-
-		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
-		defer cancel()
-
-		instanceData, err := fixtures.cloudProvider.Instance(ctx, ipAddr)
-		require.NoError(t, err)
-
-		instance := instanceData[ipAddr2]
-		require.Nil(t, instance, "expected pod with IP '%s' not to be indexed since it is on a different node to us", ipAddr2)
-
-		instance = instanceData[ipAddr]
-		require.NotNil(t, instance, "expected pod with IP '%s' to be indexed since it is on our node", ipAddr)
-		assert.Len(t, instance.Tags, 1)
-		assert.Contains(t, instance.Tags, fmt.Sprintf("%s:%s", expectedKey, expectedValue))
-	}, v, nodeName)
-}
-
 func TestWatchNodeFailsNoNodeName(t *testing.T) {
+	t.Parallel()
+
 	fakeClient := mainFake.NewSimpleClientset()
 	podsWatch := watch.NewFake()
 	fakeClient.PrependWatchReactor("pods", kube_testing.DefaultWatchReactor(podsWatch, nil))
@@ -318,6 +266,8 @@ func TestWatchNodeFailsNoNodeName(t *testing.T) {
 }
 
 func TestGetTagNameFromRegex(t *testing.T) {
+	t.Parallel()
+
 	tests := map[string]struct {
 		str             string
 		re              string

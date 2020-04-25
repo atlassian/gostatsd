@@ -8,11 +8,11 @@ import (
 
 	"github.com/atlassian/gostatsd"
 	"github.com/atlassian/gostatsd/pkg/util"
-
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	core_v1 "k8s.io/api/core/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -106,6 +106,17 @@ type Provider struct {
 	factory         informers.SharedInformerFactory
 	annotationRegex *regexp.Regexp // can be nil to disable annotation matching
 	labelRegex      *regexp.Regexp // can be nil to disable label matching
+
+	ipSinkSource   chan gostatsd.IP
+	infoSinkSource chan gostatsd.InstanceInfo
+}
+
+func (p *Provider) IpSink() chan<- gostatsd.IP {
+	return p.ipSinkSource
+}
+
+func (p *Provider) InfoSource() <-chan gostatsd.InstanceInfo {
+	return p.infoSinkSource
 }
 
 func (p *Provider) EstimatedTags() int {
@@ -113,91 +124,91 @@ func (p *Provider) EstimatedTags() int {
 	return 0
 }
 
-// Instance returns pod details from k8s API server watches.
-// ip -> nil pointer if pod was not found.
-// map is returned even in case of errors because it may contain partial data.
-// An "instance", as far as k8s cloud provider is concerned, is an individual pod running in the cluster
-func (p *Provider) Instance(ctx context.Context, IP ...gostatsd.IP) (map[gostatsd.IP]*gostatsd.Instance, error) {
-	instanceIPs := make(map[gostatsd.IP]*gostatsd.Instance, len(IP))
-	var returnErr error
+func (p *Provider) Peek(ip gostatsd.IP) (*gostatsd.Instance, bool /*is a cache hit*/) {
+	// it's always a cache hit
+	return p.instanceFromCache(ip), true
+}
 
-	// Lookup via the pod cache
-	for _, lookupIP := range IP {
-		if lookupIP == gostatsd.UnknownIP {
-			instanceIPs[lookupIP] = nil
-			continue
+func (p *Provider) Run(ctx context.Context) {
+	p.logger.Debug("Starting informer cache")
+	p.factory.Start(ctx.Done())
+	var (
+		infoSink   chan<- gostatsd.InstanceInfo
+		info       gostatsd.InstanceInfo
+		infoToSend []gostatsd.InstanceInfo
+	)
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case ip := <-p.ipSinkSource:
+			infoToSend = append(infoToSend, gostatsd.InstanceInfo{
+				IP:       ip,
+				Instance: p.instanceFromCache(ip),
+			})
+		case infoSink <- info:
+			info = gostatsd.InstanceInfo{} // enable GC
+			infoSink = nil                 // info has been sent; if there is nothing to send, the case is disabled
 		}
-
-		p.logger.WithField("ip", lookupIP).Debug("Looking up pod ip")
-		objs, err := p.podsInf.GetIndexer().ByIndex(PodsByIPIndexName, string(lookupIP))
-		if err != nil {
-			instanceIPs[lookupIP] = nil
-			returnErr = err
-			continue
+		if infoSink == nil && len(infoToSend) > 0 {
+			last := len(infoToSend) - 1
+			info = infoToSend[last]
+			infoToSend[last] = gostatsd.InstanceInfo{} // enable GC
+			infoToSend = infoToSend[:last]
+			infoSink = p.infoSinkSource
 		}
-		if len(objs) < 1 {
-			p.logger.Debug("Could not find IP in cache, continuing")
-			instanceIPs[lookupIP] = nil
-			continue
-		}
-		if len(objs) > 1 {
-			p.logger.WithField("ip", lookupIP).Warn("More than one pod in cache. Using first stored")
-		}
-		pod := objs[0].(*core_v1.Pod)
-
-		// Turn the pod metadata into tags
-		var tags gostatsd.Tags
-		// TODO: deduplicate labels and annotations in their tag format, rather than overwriting
-		if p.labelRegex != nil {
-			for k, v := range pod.ObjectMeta.Labels {
-				tagName := getTagNameFromRegex(p.labelRegex, k)
-				if tagName != "" {
-					tags = append(tags, tagName+":"+v)
-				}
-			}
-		}
-		if p.annotationRegex != nil {
-			for k, v := range pod.ObjectMeta.Annotations {
-				tagName := getTagNameFromRegex(p.annotationRegex, k)
-				if tagName != "" {
-					tags = append(tags, tagName+":"+v)
-				}
-			}
-		}
-		instanceID := pod.Namespace + "/" + pod.Name
-		instanceIPs[lookupIP] = &gostatsd.Instance{
-			ID:   instanceID,
-			Tags: tags,
-		}
-		p.logger.WithFields(logrus.Fields{
-			"instance": instanceID,
-			"ip":       lookupIP,
-			"tags":     tags,
-		}).Debug("Added tags")
 	}
-	return instanceIPs, returnErr
 }
 
-// MaxInstancesBatch returns maximum number of instances that could be requested via the Instance method.
-func (p *Provider) MaxInstancesBatch() int {
-	// This is arbitrary since we have a local cache of information
-	return 64
-}
+func (p *Provider) instanceFromCache(ip gostatsd.IP) *gostatsd.Instance {
+	logger := p.logger.WithField("ip", ip)
+	logger.Debug("Looking up Pod ip")
+	objs, err := p.podsInf.GetIndexer().ByIndex(PodsByIPIndexName, string(ip))
+	if err != nil {
+		logger.WithError(err).Error("got error from informer")
+		return nil
+	}
+	if len(objs) < 1 {
+		logger.Debug("Could not find IP in cache")
+		return nil
+	}
+	if len(objs) > 1 {
+		logger.Warn("More than one Pod in cache. Using first stored")
+	}
+	pod := objs[0].(*core_v1.Pod)
 
-// Name returns the name of the provider.
-func (p *Provider) Name() string {
-	return ProviderName
-}
-
-// SelfIP returns host's IPv4 address.
-func (p *Provider) SelfIP() (gostatsd.IP, error) {
-	// This IP is only used for start/stop events of gostatsd. To simplify the k8s provider we have
-	// chosen to just avoid finding the IP.
-	return gostatsd.UnknownIP, nil
+	// Turn the pod metadata into tags
+	var tags gostatsd.Tags
+	// TODO: deduplicate labels and annotations in their tag format, rather than overwriting
+	if p.labelRegex != nil {
+		for k, v := range pod.ObjectMeta.Labels {
+			tagName := getTagNameFromRegex(p.labelRegex, k)
+			if tagName != "" {
+				tags = append(tags, tagName+":"+v)
+			}
+		}
+	}
+	if p.annotationRegex != nil {
+		for k, v := range pod.ObjectMeta.Annotations {
+			tagName := getTagNameFromRegex(p.annotationRegex, k)
+			if tagName != "" {
+				tags = append(tags, tagName+":"+v)
+			}
+		}
+	}
+	instanceID := pod.Namespace + "/" + pod.Name
+	logger.WithFields(logrus.Fields{
+		"instance": instanceID,
+		"tags":     tags,
+	}).Debug("Added tags")
+	return &gostatsd.Instance{
+		ID:   instanceID,
+		Tags: tags,
+	}
 }
 
 // NewProviderFromViper returns a new k8s provider.
-func NewProviderFromViper(v *viper.Viper, logger logrus.FieldLogger, version string) (gostatsd.CloudProvider, error) {
+func NewProviderFromViper(v *viper.Viper, logger logrus.FieldLogger, version string) (gostatsd.CachedInstances, error) {
 	k := util.GetSubViper(v, "k8s")
 	setViperDefaults(k, version)
 
@@ -240,7 +251,7 @@ func NewProviderFromViper(v *viper.Viper, logger logrus.FieldLogger, version str
 // NewProvider returns a new k8s provider.
 // annotationRegex and/or labelRegex can be nil to disable annotation/label matching.
 func NewProvider(logger logrus.FieldLogger, clientset kubernetes.Interface, podInfOpts PodInformerOptions,
-	annotationRegex, labelRegex *regexp.Regexp) (gostatsd.CloudProvider, error) {
+	annotationRegex, labelRegex *regexp.Regexp) (*Provider, error) {
 
 	// This list operation is for debugging purposes and failing fast. If this fails then the cache will likely fail.
 	_, err := clientset.CoreV1().Pods(meta_v1.NamespaceAll).List(meta_v1.ListOptions{})
@@ -254,7 +265,7 @@ func NewProvider(logger logrus.FieldLogger, clientset kubernetes.Interface, podI
 		if podInfOpts.NodeName == "" {
 			return nil, fmt.Errorf("watch-cluster set to false, and node name not supplied")
 		}
-		fieldSelector := "spec.nodeName=" + podInfOpts.NodeName
+		fieldSelector := fields.OneTermEqualSelector("spec.nodeName", podInfOpts.NodeName).String()
 		logger.WithField("fieldSelector", fieldSelector).Debug("set fieldSelector for informers")
 		customWatchOptions = func(lo *meta_v1.ListOptions) {
 			lo.FieldSelector = fieldSelector
@@ -286,12 +297,9 @@ func NewProvider(logger logrus.FieldLogger, clientset kubernetes.Interface, podI
 		factory:         factory,
 		annotationRegex: annotationRegex,
 		labelRegex:      labelRegex,
+		ipSinkSource:    make(chan gostatsd.IP),
+		infoSinkSource:  make(chan gostatsd.InstanceInfo),
 	}, nil
-}
-
-func (p *Provider) Run(ctx context.Context) {
-	p.logger.Debug("Starting informer cache")
-	p.factory.Start(ctx.Done())
 }
 
 func createKubernetesClient(userAgent, kubeconfigPath, kubeconfigContext string, apiQPS, apiQPSBurst float64) (kubernetes.Interface, error) {

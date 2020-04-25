@@ -53,7 +53,7 @@ func TestCachedCloudProviderExpirationAndRefresh(t *testing.T) {
 	require.Nil(t, instance)
 	require.False(t, exists)
 	ci.IpSink() <- peekIp
-	time.Sleep(70 * time.Millisecond) // Should be refreshed couple of times and evicted.
+	time.Sleep(500 * time.Millisecond) // Should be refreshed couple of times and evicted.
 
 	cancelFunc()
 	wg.Wait()

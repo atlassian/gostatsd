@@ -40,6 +40,9 @@ type InstanceInfo struct {
 	Instance *Instance
 }
 
+// CachedInstancesFactory is a function that returns a CachedInstances instance.
+type CachedInstancesFactory func(v *viper.Viper, logger logrus.FieldLogger, version string) (CachedInstances, error)
+
 type CachedInstances interface {
 	// Peek fetches instance information from the cache.
 	// The cache is also a negative cache - may be a cache hit but the returned instance is nil.
