@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"regexp"
+	"sync"
 	"time"
 
 	"github.com/atlassian/gostatsd"
@@ -109,6 +110,9 @@ type Provider struct {
 
 	ipSinkSource   chan gostatsd.IP
 	infoSinkSource chan gostatsd.InstanceInfo
+
+	rw    sync.RWMutex // Protects cache
+	cache map[gostatsd.IP]*gostatsd.Instance
 }
 
 func (p *Provider) IpSink() chan<- gostatsd.IP {
@@ -163,6 +167,14 @@ func (p *Provider) Run(ctx context.Context) {
 func (p *Provider) instanceFromCache(ip gostatsd.IP) *gostatsd.Instance {
 	logger := p.logger.WithField("ip", ip)
 	logger.Debug("Looking up Pod ip")
+	p.rw.RLock()
+	instance := p.cache[ip]
+	p.rw.RUnlock()
+	if instance != nil {
+		// Instance found
+		return instance
+	}
+	// Instance not found in cache. Fetch it from informer's cache and post-process.
 	objs, err := p.podsInf.GetIndexer().ByIndex(PodsByIPIndexName, string(ip))
 	if err != nil {
 		logger.WithError(err).Error("got error from informer")
@@ -201,10 +213,18 @@ func (p *Provider) instanceFromCache(ip gostatsd.IP) *gostatsd.Instance {
 		"instance": instanceID,
 		"tags":     tags,
 	}).Debug("Added tags")
-	return &gostatsd.Instance{
+	instance = &gostatsd.Instance{
 		ID:   instanceID,
 		Tags: tags,
 	}
+	// We are only holding the write lock while updating the cache. This may lead to concurrent calculations
+	// but this is totally fine. Performance-wise this should be a rare event (Pod's info update).
+	// Holding the lock around the whole block would prevent concurrent calculations but also ALL lookups.
+	// This is unacceptable.
+	p.rw.Lock()
+	p.cache[ip] = instance
+	p.rw.Unlock()
+	return instance
 }
 
 // NewProviderFromViper returns a new k8s provider.
@@ -287,11 +307,7 @@ func NewProvider(logger logrus.FieldLogger, clientset kubernetes.Interface, podI
 	if err != nil {
 		return nil, err
 	}
-
-	// TODO: we should emit prometheus metrics to fit in with the k8s ecosystem
-	// TODO: we should emit events to the k8s API to fit in with the k8s ecosystem
-
-	return &Provider{
+	p := &Provider{
 		logger:          logger,
 		podsInf:         podsInf,
 		factory:         factory,
@@ -299,7 +315,14 @@ func NewProvider(logger logrus.FieldLogger, clientset kubernetes.Interface, podI
 		labelRegex:      labelRegex,
 		ipSinkSource:    make(chan gostatsd.IP),
 		infoSinkSource:  make(chan gostatsd.InstanceInfo),
-	}, nil
+		cache:           make(map[gostatsd.IP]*gostatsd.Instance),
+	}
+	podsInf.AddEventHandler(cacheInvalidationHandler{p: p})
+
+	// TODO: we should emit prometheus metrics to fit in with the k8s ecosystem
+	// TODO: we should emit events to the k8s API to fit in with the k8s ecosystem
+
+	return p, nil
 }
 
 func createKubernetesClient(userAgent, kubeconfigPath, kubeconfigContext string, apiQPS, apiQPSBurst float64) (kubernetes.Interface, error) {
@@ -332,19 +355,29 @@ func createKubernetesClient(userAgent, kubeconfigPath, kubeconfigContext string,
 	return clientset, nil
 }
 
-func podByIpIndexFunc(obj interface{}) ([]string, error) {
-	pod := obj.(*core_v1.Pod)
-	ip := pod.Status.PodIP
+func isIndexablePod(pod *core_v1.Pod) bool {
 	// Pod must have an IP, be running, and also not have the same IP as the host
 	// If a pod is a HostNetwork pod then there could be multiple with the same IP sending stats, which breaks this
 	// abstraction
-	if ip == "" ||
+	if pod.Status.PodIP == "" ||
 		podIsFinishedRunning(pod) ||
 		podIsHostNetwork(pod) {
 		// Do not index irrelevant Pods
+		return false
+	}
+	return true
+}
+
+func podByIpIndexFunc(obj interface{}) ([]string, error) {
+	pod := obj.(*core_v1.Pod)
+	// Pod must have an IP, be running, and also not have the same IP as the host
+	// If a pod is a HostNetwork pod then there could be multiple with the same IP sending stats, which breaks this
+	// abstraction
+	if !isIndexablePod(pod) {
+		// Do not index irrelevant Pods
 		return nil, nil
 	}
-	return []string{ip}, nil
+	return []string{pod.Status.PodIP}, nil
 }
 
 func podIsHostNetwork(pod *core_v1.Pod) bool {
@@ -389,4 +422,43 @@ func getTagNameFromRegex(re *regexp.Regexp, s string) string {
 		return s
 	}
 	return ""
+}
+
+type cacheInvalidationHandler struct {
+	p *Provider
+}
+
+func (e cacheInvalidationHandler) OnAdd(obj interface{}) {
+	// Nothing to do
+}
+
+func (e cacheInvalidationHandler) OnUpdate(oldObj, newObj interface{}) {
+	e.maybeInvalidateCacheForPod(oldObj.(*core_v1.Pod))
+}
+
+func (e cacheInvalidationHandler) OnDelete(obj interface{}) {
+	pod, ok := obj.(*core_v1.Pod)
+	if !ok {
+		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
+		if !ok {
+			return
+		}
+		pod, ok = tombstone.Obj.(*core_v1.Pod)
+		if !ok {
+			return
+		}
+	}
+	e.maybeInvalidateCacheForPod(pod)
+}
+
+func (e cacheInvalidationHandler) maybeInvalidateCacheForPod(pod *core_v1.Pod) {
+	if !isIndexablePod(pod) {
+		// This Pod was not in the IP->Pod index so it could have not been used for lookups so it
+		// should be ignored. Don't want to invalidate the cache for it's IP because there may be another Pod
+		// with the same IP that is indexable, for which the cache holds something useful.
+		return
+	}
+	e.p.rw.Lock()
+	delete(e.p.cache, gostatsd.IP(pod.Status.PodIP))
+	e.p.rw.Unlock()
 }
