@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/ash2k/stager"
+	"github.com/atlassian/gostatsd"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
@@ -189,12 +190,13 @@ var ipTagTests = []tagTest{
 	},
 }
 
-func waitForFullCache(t *testing.T, fixtures *testFixture, numExpectedPods int) {
+func (f *testFixture) waitForCacheSize(t *testing.T, numExpectedPods int) {
 	// Wait for the cache to fill up before moving on
-	for i := 1; i < 100 && len(fixtures.provider.podsInf.GetIndexer().List()) < numExpectedPods; i++ {
+	indexer := f.provider.podsInf.GetIndexer()
+	for i := 1; i < 100 && len(indexer.List()) != numExpectedPods+1; i++ {
 		time.Sleep(10 * time.Millisecond)
 	}
-	require.Equal(t, numExpectedPods, len(fixtures.provider.podsInf.GetIndexer().List()))
+	require.Len(t, indexer.List(), numExpectedPods)
 }
 
 func TestIPToTags(t *testing.T) {
@@ -212,7 +214,7 @@ func TestIPToTags(t *testing.T) {
 				for _, p := range testCase.pods {
 					fixtures.podsWatch.Add(p)
 				}
-				waitForFullCache(t, fixtures, len(testCase.pods))
+				fixtures.waitForCacheSize(t, len(testCase.pods))
 
 				// Run the test
 				instance, cacheHit := fixtures.provider.Peek(ipAddr)
@@ -236,7 +238,7 @@ func TestNoHostNetworkPodsCached(t *testing.T) {
 		hostNetworkPod.Status.HostIP = ipAddr
 		hostNetworkPod.Spec.HostNetwork = true
 		fixtures.podsWatch.Add(hostNetworkPod)
-		waitForFullCache(t, fixtures, 1)
+		fixtures.waitForCacheSize(t, 1)
 
 		instance, cacheHit := fixtures.provider.Peek(ipAddr)
 		require.True(t, cacheHit)
@@ -286,4 +288,72 @@ func TestGetTagNameFromRegex(t *testing.T) {
 			assert.Equal(t, testCase.expectedTagName, tagName)
 		})
 	}
+}
+
+// Tests that internal cache is cleared when Pod is removed from informer.
+func TestCacheInvalidation1(t *testing.T) {
+	t.Parallel()
+
+	setupTest(t, func(t *testing.T, fixtures *testFixture) {
+		p1 := pod()
+		fixtures.podsWatch.Add(p1)
+		fixtures.waitForCacheSize(t, 1)
+
+		instance, cacheHit := fixtures.provider.Peek(ipAddr)
+		require.True(t, cacheHit)
+		require.NotNil(t, instance)
+		func() {
+			fixtures.provider.rw.RLock()
+			defer fixtures.provider.rw.RUnlock()
+			require.Len(t, fixtures.provider.cache, 1)
+			require.Contains(t, fixtures.provider.cache, gostatsd.IP(ipAddr))
+		}()
+		fixtures.podsWatch.Delete(p1)
+		fixtures.waitForCacheSize(t, 0)
+		// Even though the informer's cache is empty, the listener may not have been called yet.
+		// Give it some time.
+		time.Sleep(500 * time.Millisecond)
+		func() {
+			fixtures.provider.rw.RLock()
+			defer fixtures.provider.rw.RUnlock()
+			require.Empty(t, fixtures.provider.cache)
+		}()
+	}, viper.New(), nodeName)
+}
+
+// Tests that internal cache is not cleared when a non-indexable Pod is removed from informer.
+func TestCacheInvalidation2(t *testing.T) {
+	t.Parallel()
+
+	setupTest(t, func(t *testing.T, fixtures *testFixture) {
+		p1 := pod()
+		fixtures.podsWatch.Add(p1)
+		p2 := pod2()
+		p2.Status.PodIP = p1.Status.PodIP
+		p2.Status.Phase = core_v1.PodSucceeded
+		require.False(t, isIndexablePod(p2))
+		fixtures.podsWatch.Add(p2)
+		fixtures.waitForCacheSize(t, 2)
+
+		instance, cacheHit := fixtures.provider.Peek(ipAddr)
+		require.True(t, cacheHit)
+		require.NotNil(t, instance)
+		func() {
+			fixtures.provider.rw.RLock()
+			defer fixtures.provider.rw.RUnlock()
+			require.Len(t, fixtures.provider.cache, 1)
+			require.Contains(t, fixtures.provider.cache, gostatsd.IP(ipAddr))
+		}()
+		fixtures.podsWatch.Delete(p2)
+		fixtures.waitForCacheSize(t, 1)
+		// Even though the informer's cache is empty, the listener may not have been called yet.
+		// Give it some time.
+		time.Sleep(500 * time.Millisecond)
+		func() {
+			fixtures.provider.rw.RLock()
+			defer fixtures.provider.rw.RUnlock()
+			require.Len(t, fixtures.provider.cache, 1)
+			require.Contains(t, fixtures.provider.cache, gostatsd.IP(ipAddr))
+		}()
+	}, viper.New(), nodeName)
 }
