@@ -165,8 +165,6 @@ func (p *Provider) Run(ctx context.Context) {
 }
 
 func (p *Provider) instanceFromCache(ip gostatsd.IP) *gostatsd.Instance {
-	logger := p.logger.WithField("ip", ip)
-	logger.Debug("Looking up Pod ip")
 	p.rw.RLock()
 	instance := p.cache[ip]
 	p.rw.RUnlock()
@@ -174,6 +172,19 @@ func (p *Provider) instanceFromCache(ip gostatsd.IP) *gostatsd.Instance {
 		// Instance found
 		return instance
 	}
+	instance = p.instanceFromInformer(ip)
+	// We are only holding the write lock while updating the cache. This may lead to concurrent calculations
+	// but this is totally fine. Performance-wise this should be a rare event (Pod's info update).
+	// Holding the lock around the whole block would prevent concurrent calculations but also ALL lookups.
+	// This is unacceptable.
+	p.rw.Lock()
+	p.cache[ip] = instance
+	p.rw.Unlock()
+	return instance
+}
+
+func (p *Provider) instanceFromInformer(ip gostatsd.IP) *gostatsd.Instance {
+	logger := p.logger.WithField("ip", ip)
 	// Instance not found in cache. Fetch it from informer's cache and post-process.
 	objs, err := p.podsInf.GetIndexer().ByIndex(PodsByIPIndexName, string(ip))
 	if err != nil {
@@ -213,18 +224,10 @@ func (p *Provider) instanceFromCache(ip gostatsd.IP) *gostatsd.Instance {
 		"instance": instanceID,
 		"tags":     tags,
 	}).Debug("Added tags")
-	instance = &gostatsd.Instance{
+	return &gostatsd.Instance{
 		ID:   instanceID,
 		Tags: tags,
 	}
-	// We are only holding the write lock while updating the cache. This may lead to concurrent calculations
-	// but this is totally fine. Performance-wise this should be a rare event (Pod's info update).
-	// Holding the lock around the whole block would prevent concurrent calculations but also ALL lookups.
-	// This is unacceptable.
-	p.rw.Lock()
-	p.cache[ip] = instance
-	p.rw.Unlock()
-	return instance
 }
 
 // NewProviderFromViper returns a new k8s provider.
