@@ -340,3 +340,71 @@ func TestMetricMapIsEmpty(t *testing.T) {
 	mm.Sets.Delete("m")
 	require.True(t, mm.IsEmpty())
 }
+
+func TestTagsMatch(t *testing.T) {
+	tagsKey := "author:bob,env:dev,region:us-east-1,service:monitor,other:abc"
+
+	require.Equal(t, tagsMatch([]string{}, tagsKey), "")
+	require.Equal(t, tagsMatch([]string{"env"}, tagsKey), "env:dev")
+	require.Equal(t, tagsMatch([]string{"env", "service"}, tagsKey), "env:dev,service:monitor")
+}
+
+func TestMetricMapSplitByTags(t *testing.T) {
+	mmOriginal := NewMetricMap()
+	mmOriginal.Counters["m"] = map[string]Counter{
+		"t:x,s:h1":     {Tags: Tags{"t:x"}, Hostname: "h1", Value: 10},
+		"t:x,s:h2":     {Tags: Tags{"t:x"}, Hostname: "h2", Value: 20},
+		"t:x,v:1,s:h3": {Tags: Tags{"t:x", "v:1"}, Hostname: "h3", Value: 30},
+		"t:y,v:2,s:h4": {Tags: Tags{"t:y", "v:2"}, Hostname: "h4", Value: 40},
+		"t:y,x,s:h5":   {Tags: Tags{"t:y", "x"}, Hostname: "h5", Value: 50},
+	}
+	mmOriginal.Gauges["m"] = map[string]Gauge{
+		"t:x,s:h1":     {Tags: Tags{"t:x"}, Hostname: "h1", Value: 10},
+		"t:x,s:h2":     {Tags: Tags{"t:x"}, Hostname: "h2", Value: 20},
+		"t:x,v:1,s:h3": {Tags: Tags{"t:x", "v:1"}, Hostname: "h3", Value: 30},
+		"t:y,v:2,s:h4": {Tags: Tags{"t:y", "v:2"}, Hostname: "h4", Value: 40},
+		"t:y,x,s:h5":   {Tags: Tags{"t:y", "x"}, Hostname: "h5", Value: 50},
+	}
+	mmOriginal.Timers["m"] = map[string]Timer{
+		"t:x,s:h1":     {Values: []float64{10, 50}, Tags: Tags{"t:x"}, Hostname: "h1"},
+		"t:x,s:h2":     {Values: []float64{20, 40}, Tags: Tags{"t:x"}, Hostname: "h2"},
+		"t:x,v:1,s:h3": {Values: []float64{30, 30}, Tags: Tags{"t:x", "v:1"}, Hostname: "h3"},
+		"t:y,v:2,s:h4": {Values: []float64{40, 20}, Tags: Tags{"t:y", "v:2"}, Hostname: "h4"},
+		"t:y,x,s:h5":   {Values: []float64{50, 10}, Tags: Tags{"t:y", "x"}, Hostname: "h5"},
+	}
+	mmOriginal.Sets["m"] = map[string]Set{
+		"t:x,s:h1":     {Values: map[string]struct{}{"10": {}, "50": {}}, Tags: Tags{"t:x"}, Hostname: "h1"},
+		"t:x,s:h2":     {Values: map[string]struct{}{"20": {}, "40": {}}, Tags: Tags{"t:x"}, Hostname: "h2"},
+		"t:x,v:1,s:h3": {Values: map[string]struct{}{"30": {}, "3.0": {}}, Tags: Tags{"t:x", "v:1"}, Hostname: "h3"},
+		"t:y,v:2,s:h4": {Values: map[string]struct{}{"40": {}, "20": {}}, Tags: Tags{"t:y", "v:2"}, Hostname: "h4"},
+		"t:y,x,s:h5":   {Values: map[string]struct{}{"50": {}, "10": {}}, Tags: Tags{"t:y", "x"}, Hostname: "h5"},
+	}
+
+	// no-op if given empty tagNames
+	mms := mmOriginal.SplitByTags([]string{})
+	require.Equal(t, len(mms), 1)
+
+	// empty tag name doesn't match
+	mms = mmOriginal.SplitByTags([]string{""})
+	require.Equal(t, len(mms), 1)
+
+	// non existing tag name doesn't match
+	mms = mmOriginal.SplitByTags([]string{"key"})
+	require.Equal(t, len(mms), 1)
+
+	// valueless tag doesn't match
+	mms = mmOriginal.SplitByTags([]string{"x"})
+	require.Equal(t, len(mms), 1)
+
+	// each value of tag s is unique
+	mms = mmOriginal.SplitByTags([]string{"s"})
+	require.Equal(t, len(mms), 5)
+
+	// two possible values for tag t
+	mms = mmOriginal.SplitByTags([]string{"t"})
+	require.Equal(t, len(mms), 2)
+
+	// all value combinations of tag t and v
+	mms = mmOriginal.SplitByTags([]string{"t", "v"})
+	require.Equal(t, len(mms), 4)
+}

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/sirupsen/logrus"
 )
@@ -166,6 +167,80 @@ func (mm *MetricMap) Split(count int) []*MetricMap {
 	})
 	mm.Sets.Each(func(metricName string, tagsKey string, s Set) {
 		mmSplit := maps[Bucket(metricName, s.Hostname, count)]
+		if v, ok := mmSplit.Sets[metricName]; ok {
+			v[tagsKey] = s
+		} else {
+			mmSplit.Sets[metricName] = map[string]Set{tagsKey: s}
+		}
+	})
+
+	return maps
+}
+
+func tagsMatch(tagNames []string, tagsKey string) string {
+	res := make([]string, 0)
+	for _, tv := range strings.Split(tagsKey, ",") {
+		for _, tagName := range tagNames {
+			if strings.HasPrefix(tv, tagName+":") {
+				res = append(res, tv)
+				break
+			}
+		}
+	}
+	return strings.Join(res, ",")
+}
+
+func (mm *MetricMap) SplitByTags(tagNames []string) map[string]*MetricMap {
+	maps := make(map[string]*MetricMap)
+	if len(tagNames) == 0 {
+		maps[""] = mm
+		return maps
+	}
+	mm.Counters.Each(func(metricName string, tagsKey string, c Counter) {
+		key := tagsMatch(tagNames, tagsKey)
+		if _, ok := maps[key]; !ok {
+			maps[key] = NewMetricMap()
+		}
+		mmSplit := maps[key]
+		if v, ok := mmSplit.Counters[metricName]; ok {
+			v[tagsKey] = c
+		} else {
+			mmSplit.Counters[metricName] = map[string]Counter{tagsKey: c}
+		}
+	})
+
+	mm.Gauges.Each(func(metricName string, tagsKey string, g Gauge) {
+		key := tagsMatch(tagNames, tagsKey)
+		if _, ok := maps[key]; !ok {
+			maps[key] = NewMetricMap()
+		}
+		mmSplit := maps[key]
+		if v, ok := mmSplit.Gauges[metricName]; ok {
+			v[tagsKey] = g
+		} else {
+			mmSplit.Gauges[metricName] = map[string]Gauge{tagsKey: g}
+		}
+	})
+
+	mm.Timers.Each(func(metricName string, tagsKey string, t Timer) {
+		key := tagsMatch(tagNames, tagsKey)
+		if _, ok := maps[key]; !ok {
+			maps[key] = NewMetricMap()
+		}
+		mmSplit := maps[key]
+		if v, ok := mmSplit.Timers[metricName]; ok {
+			v[tagsKey] = t
+		} else {
+			mmSplit.Timers[metricName] = map[string]Timer{tagsKey: t}
+		}
+	})
+
+	mm.Sets.Each(func(metricName string, tagsKey string, s Set) {
+		key := tagsMatch(tagNames, tagsKey)
+		if _, ok := maps[key]; !ok {
+			maps[key] = NewMetricMap()
+		}
+		mmSplit := maps[key]
 		if v, ok := mmSplit.Sets[metricName]; ok {
 			v[tagsKey] = s
 		} else {

@@ -88,6 +88,8 @@ following configuration options:
 - `log-raw-metric`: logs raw metrics received from the network.  Defaults to `false`.
 - `custom-headers` : a map of strings that are added to each request sent to allow for additional network routing / request inspection.
   Not required, default is empty. Example: `--custom-headers='{"region" : "us-east-1", "service" : "event-producer"}'`
+- `dynamic-headers` : similar with `custom-headers`, but the header values are extracted from metric tags matching the
+  provided list of string. Not required, default is empty. Example: `--dynamic-headers='["region", "service"]'`
 
 
 Metric expiry and persistence
