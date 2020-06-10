@@ -1,3 +1,7 @@
+21.0.0
+------
+- Breaks out expiry interval in to per metric type expiry intervals.  See [README.md](README.md) for details.
+
 20.3.2
 ------
 - Use the current timestamp when sending to NewRelic backend, rather than the last updated timestamp of the metric, which may be old.
@@ -8,7 +12,7 @@
 
 20.3.0
 ------
-- Added experimental support for generating latency histograms for timers, more details in [README.md]
+- Added experimental support for generating latency histograms for timers, more details in [README.md](README.md).
 
 20.2.0
 ------

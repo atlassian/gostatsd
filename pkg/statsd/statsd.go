@@ -8,14 +8,15 @@ import (
 	"time"
 
 	"github.com/ash2k/stager"
-	"github.com/atlassian/gostatsd"
-	"github.com/atlassian/gostatsd/pkg/stats"
-	"github.com/atlassian/gostatsd/pkg/transport"
-	"github.com/atlassian/gostatsd/pkg/web"
 	"github.com/libp2p/go-reuseport"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"golang.org/x/time/rate"
+
+	"github.com/atlassian/gostatsd"
+	"github.com/atlassian/gostatsd/pkg/stats"
+	"github.com/atlassian/gostatsd/pkg/transport"
+	"github.com/atlassian/gostatsd/pkg/web"
 )
 
 // Server encapsulates all of the parameters necessary for starting up
@@ -26,7 +27,10 @@ type Server struct {
 	InternalTags              gostatsd.Tags
 	InternalNamespace         string
 	DefaultTags               gostatsd.Tags
-	ExpiryInterval            time.Duration
+	ExpiryIntervalCounter     time.Duration
+	ExpiryIntervalGauge       time.Duration
+	ExpiryIntervalSet         time.Duration
+	ExpiryIntervalTimer       time.Duration
 	FlushInterval             time.Duration
 	MaxReaders                int
 	MaxParsers                int
@@ -88,10 +92,13 @@ func (s *Server) createStandaloneSink() (gostatsd.PipelineHandler, []gostatsd.Ru
 
 	// Create the backend handler
 	factory := agrFactory{
-		percentThresholds: s.PercentThreshold,
-		expiryInterval:    s.ExpiryInterval,
-		disabledSubtypes:  s.DisabledSubTypes,
-		histogramLimit:    s.HistogramLimit,
+		percentThresholds:     s.PercentThreshold,
+		expiryIntervalCounter: s.ExpiryIntervalCounter,
+		expiryIntervalGauge:   s.ExpiryIntervalGauge,
+		expiryIntervalSet:     s.ExpiryIntervalSet,
+		expiryIntervalTimer:   s.ExpiryIntervalTimer,
+		disabledSubtypes:      s.DisabledSubTypes,
+		histogramLimit:        s.HistogramLimit,
 	}
 
 	backendHandler := NewBackendHandler(s.Backends, uint(s.MaxConcurrentEvents), s.MaxWorkers, s.MaxQueueSize, &factory)
@@ -244,12 +251,23 @@ func sendStopEvent(handler gostatsd.PipelineHandler, selfIP gostatsd.IP, hostnam
 }
 
 type agrFactory struct {
-	percentThresholds []float64
-	expiryInterval    time.Duration
-	disabledSubtypes  gostatsd.TimerSubtypes
-	histogramLimit    uint32
+	percentThresholds     []float64
+	expiryIntervalCounter time.Duration
+	expiryIntervalGauge   time.Duration
+	expiryIntervalSet     time.Duration
+	expiryIntervalTimer   time.Duration
+	disabledSubtypes      gostatsd.TimerSubtypes
+	histogramLimit        uint32
 }
 
 func (af *agrFactory) Create() Aggregator {
-	return NewMetricAggregator(af.percentThresholds, af.expiryInterval, af.disabledSubtypes, af.histogramLimit)
+	return NewMetricAggregator(
+		af.percentThresholds,
+		af.expiryIntervalCounter,
+		af.expiryIntervalGauge,
+		af.expiryIntervalSet,
+		af.expiryIntervalTimer,
+		af.disabledSubtypes,
+		af.histogramLimit,
+	)
 }
