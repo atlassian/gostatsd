@@ -81,9 +81,9 @@ There are 3 layers of headers which are on every request.  They are processed in
 3. User headers.  These always take precedence, and setting a value of `""` allows for a header set at an earlier
    layer to be removed.
 
-Custom headers can be specified as:
+Custom headers can be specified in TOML as:
 ```
-custom-headers={"header1"="value1", "header2"="value2"}
+custom-headers={header1="value1", header2="value2"}
 ```
 
 or
