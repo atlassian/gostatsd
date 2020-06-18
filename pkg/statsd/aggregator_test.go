@@ -393,15 +393,15 @@ func TestIsExpired(t *testing.T) {
 	ma := &MetricAggregator{
 		expiryIntervalCounter: 0,
 	}
-	assrt.Equal(false, ma.isExpired(ma.expiryIntervalCounter, now, now))
+	assrt.Equal(false, isExpired(ma.expiryIntervalCounter, now, now))
 
 	ma.expiryIntervalCounter = 10 * time.Second
 
 	ts := gostatsd.Nanotime(time.Now().Add(-30 * time.Second).UnixNano())
-	assrt.Equal(true, ma.isExpired(ma.expiryIntervalCounter, now, ts))
+	assrt.Equal(true, isExpired(ma.expiryIntervalCounter, now, ts))
 
 	ts = gostatsd.Nanotime(time.Now().Add(-1 * time.Second).UnixNano())
-	assrt.Equal(false, ma.isExpired(ma.expiryIntervalCounter, now, ts))
+	assrt.Equal(false, isExpired(ma.expiryIntervalCounter, now, ts))
 }
 
 func TestDisabledCount(t *testing.T) {

@@ -202,7 +202,7 @@ func (a *MetricAggregator) Process(f ProcessFunc) {
 	f(a.metricMap)
 }
 
-func (a *MetricAggregator) isExpired(interval time.Duration, now, ts gostatsd.Nanotime) bool {
+func isExpired(interval time.Duration, now, ts gostatsd.Nanotime) bool {
 	return interval != 0 && time.Duration(now-ts) > interval
 }
 
@@ -220,7 +220,7 @@ func (a *MetricAggregator) Reset() {
 	nowNano := gostatsd.Nanotime(a.now().UnixNano())
 
 	a.metricMap.Counters.Each(func(key, tagsKey string, counter gostatsd.Counter) {
-		if a.isExpired(a.expiryIntervalCounter, nowNano, counter.Timestamp) {
+		if isExpired(a.expiryIntervalCounter, nowNano, counter.Timestamp) {
 			deleteMetric(key, tagsKey, a.metricMap.Counters)
 		} else {
 			a.metricMap.Counters[key][tagsKey] = gostatsd.Counter{
@@ -232,7 +232,7 @@ func (a *MetricAggregator) Reset() {
 	})
 
 	a.metricMap.Timers.Each(func(key, tagsKey string, timer gostatsd.Timer) {
-		if a.isExpired(a.expiryIntervalTimer, nowNano, timer.Timestamp) {
+		if isExpired(a.expiryIntervalTimer, nowNano, timer.Timestamp) {
 			deleteMetric(key, tagsKey, a.metricMap.Timers)
 		} else {
 			if hasHistogramTag(timer) {
@@ -255,14 +255,14 @@ func (a *MetricAggregator) Reset() {
 	})
 
 	a.metricMap.Gauges.Each(func(key, tagsKey string, gauge gostatsd.Gauge) {
-		if a.isExpired(a.expiryIntervalGauge, nowNano, gauge.Timestamp) {
+		if isExpired(a.expiryIntervalGauge, nowNano, gauge.Timestamp) {
 			deleteMetric(key, tagsKey, a.metricMap.Gauges)
 		}
 		// No reset for gauges, they keep the last value until expiration
 	})
 
 	a.metricMap.Sets.Each(func(key, tagsKey string, set gostatsd.Set) {
-		if a.isExpired(a.expiryIntervalSet, nowNano, set.Timestamp) {
+		if isExpired(a.expiryIntervalSet, nowNano, set.Timestamp) {
 			deleteMetric(key, tagsKey, a.metricMap.Sets)
 		} else {
 			a.metricMap.Sets[key][tagsKey] = gostatsd.Set{
