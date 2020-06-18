@@ -108,6 +108,14 @@ const (
 	ParamInternalNamespace = "internal-namespace"
 	// ParamExpiryInterval is the name of parameter with expiry interval for metrics.
 	ParamExpiryInterval = "expiry-interval"
+	// ParamExpiryIntervalCounter is the name of parameter which overrides counter expiry interval for metrics.
+	ParamExpiryIntervalCounter = "expiry-interval-counter"
+	// ParamExpiryIntervalGauge is the name of parameter with overrides gauge expiry interval for metrics.
+	ParamExpiryIntervalGauge = "expiry-interval-gauge"
+	// ParamExpiryIntervalSet is the name of parameter with overrides set expiry interval for metrics.
+	ParamExpiryIntervalSet = "expiry-interval-set"
+	// ParamExpiryIntervalTimer is the name of parameter with overrides timer expiry interval for metrics.
+	ParamExpiryIntervalTimer = "expiry-interval-timer"
 	// ParamFlushInterval is the name of parameter with metrics flush interval.
 	ParamFlushInterval = "flush-interval"
 	// ParamIgnoreHost is the name of parameter indicating if the source should be used as the host
@@ -161,7 +169,11 @@ const (
 // AddFlags adds flags to the specified FlagSet.
 func AddFlags(fs *pflag.FlagSet) {
 	fs.String(ParamCloudProvider, "", "If set, use the cloud provider to retrieve metadata about the sender")
-	fs.Duration(ParamExpiryInterval, DefaultExpiryInterval, "After how long do we expire metrics (0 to disable)")
+	fs.Duration(ParamExpiryInterval, DefaultExpiryInterval, "After how long do we expire metrics (0 to disable, -1 for immediate)")
+	fs.Duration(ParamExpiryIntervalCounter, DefaultExpiryInterval, "Overrides "+ParamExpiryInterval+" for counters")
+	fs.Duration(ParamExpiryIntervalGauge, DefaultExpiryInterval, "Overrides "+ParamExpiryInterval+" for gauges")
+	fs.Duration(ParamExpiryIntervalSet, DefaultExpiryInterval, "Overrides "+ParamExpiryInterval+" for sets")
+	fs.Duration(ParamExpiryIntervalTimer, DefaultExpiryInterval, "Overrides "+ParamExpiryInterval+" for timers")
 	fs.Duration(ParamFlushInterval, DefaultFlushInterval, "How often to flush metrics to the backends")
 	fs.Bool(ParamIgnoreHost, DefaultIgnoreHost, "Ignore the source for populating the hostname field of metrics")
 	fs.Int(ParamMaxReaders, DefaultMaxReaders, "Maximum number of socket readers")

@@ -138,33 +138,43 @@ func constructServer(v *viper.Viper) (*statsd.Server, []gostatsd.Runnable, error
 	if err != nil {
 		return nil, nil, err
 	}
+
+	// Set defaults for expiry from the main expiry setting
+	v.SetDefault(gostatsd.ParamExpiryIntervalCounter, v.GetDuration(gostatsd.ParamExpiryInterval))
+	v.SetDefault(gostatsd.ParamExpiryIntervalGauge, v.GetDuration(gostatsd.ParamExpiryInterval))
+	v.SetDefault(gostatsd.ParamExpiryIntervalSet, v.GetDuration(gostatsd.ParamExpiryInterval))
+	v.SetDefault(gostatsd.ParamExpiryIntervalTimer, v.GetDuration(gostatsd.ParamExpiryInterval))
+
 	// Create server
 	return &statsd.Server{
-		Backends:            backendsList,
-		CachedInstances:     cachedInstances,
-		InternalTags:        v.GetStringSlice(gostatsd.ParamInternalTags),
-		InternalNamespace:   v.GetString(gostatsd.ParamInternalNamespace),
-		DefaultTags:         v.GetStringSlice(gostatsd.ParamDefaultTags),
-		Hostname:            v.GetString(gostatsd.ParamHostname),
-		SelfIP:              selfIP,
-		ExpiryInterval:      v.GetDuration(gostatsd.ParamExpiryInterval),
-		FlushInterval:       v.GetDuration(gostatsd.ParamFlushInterval),
-		IgnoreHost:          v.GetBool(gostatsd.ParamIgnoreHost),
-		MaxReaders:          v.GetInt(gostatsd.ParamMaxReaders),
-		MaxParsers:          v.GetInt(gostatsd.ParamMaxParsers),
-		MaxWorkers:          v.GetInt(gostatsd.ParamMaxWorkers),
-		MaxQueueSize:        v.GetInt(gostatsd.ParamMaxQueueSize),
-		MaxConcurrentEvents: v.GetInt(gostatsd.ParamMaxConcurrentEvents),
-		EstimatedTags:       v.GetInt(gostatsd.ParamEstimatedTags),
-		MetricsAddr:         v.GetString(gostatsd.ParamMetricsAddr),
-		Namespace:           v.GetString(gostatsd.ParamNamespace),
-		StatserType:         v.GetString(gostatsd.ParamStatserType),
-		PercentThreshold:    pt,
-		HeartbeatEnabled:    v.GetBool(gostatsd.ParamHeartbeatEnabled),
-		ReceiveBatchSize:    v.GetInt(gostatsd.ParamReceiveBatchSize),
-		ConnPerReader:       v.GetBool(gostatsd.ParamConnPerReader),
-		ServerMode:          v.GetString(gostatsd.ParamServerMode),
-		LogRawMetric:        v.GetBool(gostatsd.ParamLogRawMetric),
+		Backends:              backendsList,
+		CachedInstances:       cachedInstances,
+		InternalTags:          v.GetStringSlice(gostatsd.ParamInternalTags),
+		InternalNamespace:     v.GetString(gostatsd.ParamInternalNamespace),
+		DefaultTags:           v.GetStringSlice(gostatsd.ParamDefaultTags),
+		Hostname:              v.GetString(gostatsd.ParamHostname),
+		SelfIP:                selfIP,
+		ExpiryIntervalCounter: v.GetDuration(gostatsd.ParamExpiryIntervalCounter),
+		ExpiryIntervalGauge:   v.GetDuration(gostatsd.ParamExpiryIntervalGauge),
+		ExpiryIntervalSet:     v.GetDuration(gostatsd.ParamExpiryIntervalSet),
+		ExpiryIntervalTimer:   v.GetDuration(gostatsd.ParamExpiryIntervalTimer),
+		FlushInterval:         v.GetDuration(gostatsd.ParamFlushInterval),
+		IgnoreHost:            v.GetBool(gostatsd.ParamIgnoreHost),
+		MaxReaders:            v.GetInt(gostatsd.ParamMaxReaders),
+		MaxParsers:            v.GetInt(gostatsd.ParamMaxParsers),
+		MaxWorkers:            v.GetInt(gostatsd.ParamMaxWorkers),
+		MaxQueueSize:          v.GetInt(gostatsd.ParamMaxQueueSize),
+		MaxConcurrentEvents:   v.GetInt(gostatsd.ParamMaxConcurrentEvents),
+		EstimatedTags:         v.GetInt(gostatsd.ParamEstimatedTags),
+		MetricsAddr:           v.GetString(gostatsd.ParamMetricsAddr),
+		Namespace:             v.GetString(gostatsd.ParamNamespace),
+		StatserType:           v.GetString(gostatsd.ParamStatserType),
+		PercentThreshold:      pt,
+		HeartbeatEnabled:      v.GetBool(gostatsd.ParamHeartbeatEnabled),
+		ReceiveBatchSize:      v.GetInt(gostatsd.ParamReceiveBatchSize),
+		ConnPerReader:         v.GetBool(gostatsd.ParamConnPerReader),
+		ServerMode:            v.GetString(gostatsd.ParamServerMode),
+		LogRawMetric:          v.GetBool(gostatsd.ParamLogRawMetric),
 		HeartbeatTags: gostatsd.Tags{
 			fmt.Sprintf("version:%s", Version),
 			fmt.Sprintf("commit:%s", GitCommit),
