@@ -89,7 +89,11 @@ following configuration options:
 - `custom-headers` : a map of strings that are added to each request sent to allow for additional network routing / request inspection.
   Not required, default is empty. Example: `--custom-headers='{"region" : "us-east-1", "service" : "event-producer"}'`
 - `dynamic-headers` : similar with `custom-headers`, but the header values are extracted from metric tags matching the
-  provided list of string. Not required, default is empty. Example: `--dynamic-headers='["region", "service"]'`. If a tag is specified in both `custom-header` and `dynamic-header`, the vaule set by `custom-header` takes precedence.
+  provided list of string. Tag names are canonicalized by first replacing underscores with hyphens, then converting
+  first letter and each letter after a hyphen to uppercase, the rest are converted to lower case. If a tag is specified
+  in both `custom-header` and `dynamic-header`, the vaule set by `custom-header` takes precedence. Not required, default
+  is empty. Example: `--dynamic-headers='["region", "service"]'`.
+  This is an experimental feature and it may be removed or changed in future versions.
 
 
 Metric expiry and persistence
