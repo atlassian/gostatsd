@@ -55,7 +55,7 @@ type HttpForwarderHandlerV2 struct {
 	eventWg               sync.WaitGroup
 	compress              bool
 	headers               map[string]string
-	dynHeaders            []string
+	dynHeaderNames        []string
 }
 
 // NewHttpForwarderHandlerV2FromViper returns a new http API client.
@@ -95,7 +95,7 @@ func NewHttpForwarderHandlerV2(
 	maxRequestElapsedTime time.Duration,
 	flushInterval time.Duration,
 	xheaders map[string]string,
-	dynHeaders []string,
+	dynHeaderNames []string,
 	pool *transport.TransportPool,
 ) (*HttpForwarderHandlerV2, error) {
 	if apiEndpoint == "" {
@@ -143,6 +143,18 @@ func NewHttpForwarderHandlerV2(
 		headers[k] = v
 	}
 
+	dynHeaderNamesWithColon := make([]string, 0)
+	for _, name := range dynHeaderNames {
+		if name == "" {
+			continue
+		}
+		if _, ok := xheaders[name]; !ok {
+			dynHeaderNamesWithColon = append(dynHeaderNamesWithColon, name+":")
+		} else {
+			logger.WithField("header-name", name).Warn("static and dynamic header defined, using static")
+		}
+	}
+
 	metricsSem := make(chan struct{}, maxRequests)
 	for i := 0; i < maxRequests; i++ {
 		metricsSem <- struct{}{}
@@ -160,7 +172,7 @@ func NewHttpForwarderHandlerV2(
 		consolidatedMetrics:   ch,
 		client:                httpClient.Client,
 		headers:               headers,
-		dynHeaders:            dynHeaders,
+		dynHeaderNames:        dynHeaderNamesWithColon,
 	}, nil
 }
 
@@ -218,7 +230,7 @@ func (hfh *HttpForwarderHandlerV2) Run(ctx context.Context) {
 			return
 		case metricMaps := <-hfh.consolidatedMetrics:
 			mergedMetricMap := mergeMaps(metricMaps)
-			mms := mergedMetricMap.SplitByTags(hfh.dynHeaders)
+			mms := mergedMetricMap.SplitByTags(hfh.dynHeaderNames)
 			for dynHeaderTags, mm := range mms {
 				if !hfh.acquireSem(ctx) {
 					return
@@ -426,14 +438,14 @@ func (hfh *HttpForwarderHandlerV2) constructPost(ctx context.Context, logger log
 			return fmt.Errorf("unable to create http.Request: %v", err)
 		}
 		req = req.WithContext(ctx)
-		for header, v := range hfh.headers {
-			req.Header.Set(header, v)
-		}
 		for _, tv := range strings.Split(dynHeaderTags, ",") {
 			vs := strings.SplitN(tv, ":", 2)
 			if len(vs) > 1 {
 				req.Header.Set(strings.ReplaceAll(vs[0], "_", "-"), vs[1])
 			}
+		}
+		for header, v := range hfh.headers {
+			req.Header.Set(header, v)
 		}
 		req.Header.Set("Content-Encoding", encoding)
 		resp, err := hfh.client.Do(req)

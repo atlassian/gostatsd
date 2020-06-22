@@ -181,7 +181,10 @@ func tagsMatch(tagNames []string, tagsKey string) string {
 	res := make([]string, 0)
 	for _, tv := range strings.Split(tagsKey, ",") {
 		for _, tagName := range tagNames {
-			if strings.HasPrefix(tv, tagName+":") {
+			if tagName == "" {
+				break
+			}
+			if strings.HasPrefix(tv, tagName) {
 				res = append(res, tv)
 				break
 			}

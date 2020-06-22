@@ -389,22 +389,22 @@ func TestMetricMapSplitByTags(t *testing.T) {
 	require.Equal(t, len(mms), 1)
 
 	// non existing tag name doesn't match
-	mms = mmOriginal.SplitByTags([]string{"key"})
+	mms = mmOriginal.SplitByTags([]string{"key:"})
 	require.Equal(t, len(mms), 1)
 
 	// valueless tag doesn't match
-	mms = mmOriginal.SplitByTags([]string{"x"})
+	mms = mmOriginal.SplitByTags([]string{"x:"})
 	require.Equal(t, len(mms), 1)
 
 	// each value of tag s is unique
-	mms = mmOriginal.SplitByTags([]string{"s"})
+	mms = mmOriginal.SplitByTags([]string{"s:"})
 	require.Equal(t, len(mms), 5)
 
 	// two possible values for tag t
-	mms = mmOriginal.SplitByTags([]string{"t"})
+	mms = mmOriginal.SplitByTags([]string{"t:"})
 	require.Equal(t, len(mms), 2)
 
 	// all value combinations of tag t and v
-	mms = mmOriginal.SplitByTags([]string{"t", "v"})
+	mms = mmOriginal.SplitByTags([]string{"t:", "v:"})
 	require.Equal(t, len(mms), 4)
 }
