@@ -1,3 +1,7 @@
+22.0.0
+------
+- Refactor pprof endpoints to sit under `/debug/pprof`
+
 21.0.0
 ------
 - Breaks out expiry interval in to per metric type expiry intervals.  See [README.md](README.md) for details.
