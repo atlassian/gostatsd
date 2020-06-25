@@ -5,6 +5,7 @@ import (
 	"expvar"
 	"fmt"
 	"net/http"
+	"net/http/pprof"
 	"strings"
 	"time"
 
@@ -27,7 +28,7 @@ type httpServer struct {
 type route struct {
 	path    string
 	handler http.HandlerFunc
-	method  string
+	methods []string
 	name    string
 }
 
@@ -88,33 +89,34 @@ func NewHttpServer(
 	}
 
 	if enableProf {
-		profiler := &traceProfiler{}
 		routes = append(routes,
-			route{path: "/memprof", handler: profiler.MemProf, method: "POST", name: "profmem_post"},
-			route{path: "/pprof", handler: profiler.PProf, method: "POST", name: "profpprof_post"},
-			route{path: "/trace", handler: profiler.Trace, method: "POST", name: "proftrace_post"},
+			route{path: "/debug/pprof/", handler: pprof.Index, methods: []string{"GET"}, name: "pprof_index"},
+			route{path: "/debug/pprof/cmdline", handler: pprof.Cmdline, methods: []string{"GET"}, name: "pprof_cmdline"},
+			route{path: "/debug/pprof/profile", handler: pprof.Profile, methods: []string{"GET"}, name: "pprof_profile"},
+			route{path: "/debug/pprof/symbol", handler: pprof.Symbol, methods: []string{"GET"}, name: "pprof_symbol"},
+			route{path: "/debug/pprof/trace", handler: pprof.Trace, methods: []string{"GET", "POST"}, name: "pprof_trace"},
 		)
 	}
 
 	if enableExpVar {
 		routes = append(routes,
-			route{path: "/expvar", handler: expvar.Handler().ServeHTTP, method: "GET", name: "expvar_get"},
+			route{path: "/expvar", handler: expvar.Handler().ServeHTTP, methods: []string{"GET"}, name: "expvar_get"},
 		)
 	}
 
 	if enableIngestion {
 		server.rawMetricsV2 = newRawHttpHandlerV2(logger, serverName, handler)
 		routes = append(routes,
-			route{path: "/v2/raw", handler: server.rawMetricsV2.MetricHandler, method: "POST", name: "metricsv2_post"},
-			route{path: "/v2/event", handler: server.rawMetricsV2.EventHandler, method: "POST", name: "eventsv2_post"},
+			route{path: "/v2/raw", handler: server.rawMetricsV2.MetricHandler, methods: []string{"POST"}, name: "metricsv2_post"},
+			route{path: "/v2/event", handler: server.rawMetricsV2.EventHandler, methods: []string{"POST"}, name: "eventsv2_post"},
 		)
 	}
 
 	if enableHealthcheck {
 		hc := &healthChecker{logger}
 		routes = append(routes,
-			route{path: "/healthcheck", handler: hc.healthCheck, method: "GET", name: "healthcheck_get"},
-			route{path: "/deepcheck", handler: hc.deepCheck, method: "GET", name: "deepcheck_get"},
+			route{path: "/healthcheck", handler: hc.healthCheck, methods: []string{"GET"}, name: "healthcheck_get"},
+			route{path: "/deepcheck", handler: hc.deepCheck, methods: []string{"GET"}, name: "deepcheck_get"},
 		)
 	}
 
@@ -150,7 +152,7 @@ func createRoutes(routes []route) (*mux.Router, error) {
 	router := mux.NewRouter()
 
 	for _, route := range routes {
-		r := router.HandleFunc(route.path, route.handler).Methods(route.method).Name(route.name)
+		r := router.HandleFunc(route.path, route.handler).Methods(route.methods...).Name(route.name)
 		if err := r.GetError(); err != nil {
 			return nil, fmt.Errorf("error creating route %s: %v", route.name, err)
 		}
