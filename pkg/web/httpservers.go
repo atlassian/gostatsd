@@ -5,6 +5,7 @@ import (
 	"expvar"
 	"fmt"
 	"net/http"
+	"net/http/pprof"
 	"strings"
 	"time"
 
@@ -88,11 +89,11 @@ func NewHttpServer(
 	}
 
 	if enableProf {
-		profiler := &traceProfiler{}
 		routes = append(routes,
-			route{path: "/memprof", handler: profiler.MemProf, method: "POST", name: "profmem_post"},
-			route{path: "/pprof", handler: profiler.PProf, method: "POST", name: "profpprof_post"},
-			route{path: "/trace", handler: profiler.Trace, method: "POST", name: "proftrace_post"},
+			route{path: "/debug/pprof/", handler: pprof.Index, method: "GET", name: "pprof_index"},
+			route{path: "/debug/pprof/cmdline", handler: pprof.Cmdline, method: "GET", name: "pprof_cmdline"},
+			route{path: "/debug/pprof/profile", handler: pprof.Profile, method: "GET", name: "pprof_profile"},
+			route{path: "/debug/pprof/symbol", handler: pprof.Symbol, method: "GET", name: "pprof_symbol"},
 		)
 	}
 
