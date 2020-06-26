@@ -108,7 +108,7 @@ spec:
           image: alpine:latest
           # Send a metric called `metric.namespace` which is a counter with a value of 1, tagged with some dummy tags,
           # to the local gostatsd DaemonSet. Do this once every 10 seconds.
-          command: ['/bin/sh', '-c', 'while 1; echo "metric.namespace:1|c|#tag1:value1,tag2:value2" |  nc -w 1 -u $MY_NODE_IP 8125; sleep 10; done']
+          command: ['/bin/sh', '-c', 'while 1; do echo "metric.namespace:1|c|#tag1:value1,tag2:value2" |  nc -w 1 -u $MY_NODE_IP 8125; sleep 10; done']
           env:
           - name: MY_NODE_IP
             valueFrom:

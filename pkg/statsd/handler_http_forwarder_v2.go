@@ -8,6 +8,7 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -54,6 +55,7 @@ type HttpForwarderHandlerV2 struct {
 	eventWg               sync.WaitGroup
 	compress              bool
 	headers               map[string]string
+	dynHeaderNames        []string
 }
 
 // NewHttpForwarderHandlerV2FromViper returns a new http API client.
@@ -77,6 +79,7 @@ func NewHttpForwarderHandlerV2FromViper(logger logrus.FieldLogger, v *viper.Vipe
 		subViper.GetDuration("max-request-elapsed-time"),
 		subViper.GetDuration("flush-interval"),
 		subViper.GetStringMapString("custom-headers"),
+		subViper.GetStringSlice("dynamic-headers"),
 		pool,
 	)
 }
@@ -92,6 +95,7 @@ func NewHttpForwarderHandlerV2(
 	maxRequestElapsedTime time.Duration,
 	flushInterval time.Duration,
 	xheaders map[string]string,
+	dynHeaderNames []string,
 	pool *transport.TransportPool,
 ) (*HttpForwarderHandlerV2, error) {
 	if apiEndpoint == "" {
@@ -139,6 +143,18 @@ func NewHttpForwarderHandlerV2(
 		headers[k] = v
 	}
 
+	dynHeaderNamesWithColon := make([]string, 0)
+	for _, name := range dynHeaderNames {
+		if name == "" {
+			continue
+		}
+		if _, ok := xheaders[name]; !ok {
+			dynHeaderNamesWithColon = append(dynHeaderNamesWithColon, name+":")
+		} else {
+			logger.WithField("header-name", name).Warn("static and dynamic header defined, using static")
+		}
+	}
+
 	metricsSem := make(chan struct{}, maxRequests)
 	for i := 0; i < maxRequests; i++ {
 		metricsSem <- struct{}{}
@@ -156,6 +172,7 @@ func NewHttpForwarderHandlerV2(
 		consolidatedMetrics:   ch,
 		client:                httpClient.Client,
 		headers:               headers,
+		dynHeaderNames:        dynHeaderNamesWithColon,
 	}, nil
 }
 
@@ -212,15 +229,18 @@ func (hfh *HttpForwarderHandlerV2) Run(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case metricMaps := <-hfh.consolidatedMetrics:
-			if !hfh.acquireSem(ctx) {
-				return
+			mergedMetricMap := mergeMaps(metricMaps)
+			mms := mergedMetricMap.SplitByTags(hfh.dynHeaderNames)
+			for dynHeaderTags, mm := range mms {
+				if !hfh.acquireSem(ctx) {
+					return
+				}
+				postId := atomic.AddUint64(&hfh.postId, 1) - 1
+				go func(postId uint64, metricMap *gostatsd.MetricMap, dynHeaderTags string) {
+					hfh.postMetrics(ctx, metricMap, dynHeaderTags, postId)
+					hfh.releaseSem()
+				}(postId, mm, dynHeaderTags)
 			}
-			metricMap := mergeMaps(metricMaps)
-			postId := atomic.AddUint64(&hfh.postId, 1) - 1
-			go func(postId uint64) {
-				hfh.postMetrics(ctx, metricMap, postId)
-				hfh.releaseSem()
-			}(postId)
 		}
 	}
 }
@@ -305,18 +325,18 @@ func translateToProtobufV2(metricMap *gostatsd.MetricMap) *pb.RawMessageV2 {
 	return &pbMetricMap
 }
 
-func (hfh *HttpForwarderHandlerV2) postMetrics(ctx context.Context, metricMap *gostatsd.MetricMap, batchId uint64) {
+func (hfh *HttpForwarderHandlerV2) postMetrics(ctx context.Context, metricMap *gostatsd.MetricMap, dynHeaderTags string, batchId uint64) {
 	message := translateToProtobufV2(metricMap)
-	hfh.post(ctx, message, batchId, "metrics", "/v2/raw")
+	hfh.post(ctx, message, dynHeaderTags, batchId, "metrics", "/v2/raw")
 }
 
-func (hfh *HttpForwarderHandlerV2) post(ctx context.Context, message proto.Message, id uint64, endpointType, endpoint string) {
+func (hfh *HttpForwarderHandlerV2) post(ctx context.Context, message proto.Message, dynHeaderTags string, id uint64, endpointType, endpoint string) {
 	logger := hfh.logger.WithFields(logrus.Fields{
 		"id":   id,
 		"type": endpointType,
 	})
 
-	post, err := hfh.constructPost(ctx, logger, hfh.apiEndpoint+endpoint, message)
+	post, err := hfh.constructPost(ctx, logger, hfh.apiEndpoint+endpoint, message, dynHeaderTags)
 	if err != nil {
 		atomic.AddUint64(&hfh.messagesInvalid, 1)
 		logger.WithError(err).Error("failed to create request")
@@ -395,7 +415,7 @@ func (hfh *HttpForwarderHandlerV2) serializeAndCompress(message proto.Message) (
 	return buf.Bytes(), nil
 }
 
-func (hfh *HttpForwarderHandlerV2) constructPost(ctx context.Context, logger logrus.FieldLogger, path string, message proto.Message) (func() error /*doPost*/, error) {
+func (hfh *HttpForwarderHandlerV2) constructPost(ctx context.Context, logger logrus.FieldLogger, path string, message proto.Message, dynHeaderTags string) (func() error /*doPost*/, error) {
 	var body []byte
 	var err error
 	var encoding string
@@ -418,6 +438,12 @@ func (hfh *HttpForwarderHandlerV2) constructPost(ctx context.Context, logger log
 			return fmt.Errorf("unable to create http.Request: %v", err)
 		}
 		req = req.WithContext(ctx)
+		for _, tv := range strings.Split(dynHeaderTags, ",") {
+			vs := strings.SplitN(tv, ":", 2)
+			if len(vs) > 1 {
+				req.Header.Set(strings.ReplaceAll(vs[0], "_", "-"), vs[1])
+			}
+		}
 		for header, v := range hfh.headers {
 			req.Header.Set(header, v)
 		}
@@ -485,7 +511,7 @@ func (hfh *HttpForwarderHandlerV2) dispatchEvent(ctx context.Context, e *gostats
 		message.Type = pb.EventV2_Success
 	}
 
-	hfh.post(ctx, message, postId, "event", "/v2/event")
+	hfh.post(ctx, message, "", postId, "event", "/v2/event")
 
 	defer hfh.eventWg.Done()
 }

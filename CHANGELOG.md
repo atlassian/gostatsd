@@ -1,3 +1,7 @@
+UNRELEASED
+------
+- Added experimental support for adding http headers based on metrics tags
+
 22.0.0
 ------
 - Refactor pprof endpoints to sit under `/debug/pprof`
