@@ -22,6 +22,7 @@ import (
 // Server encapsulates all of the parameters necessary for starting up
 // the statsd server. These can either be set via command line or directly.
 type Server struct {
+	Runnables                 []gostatsd.Runnable
 	Backends                  []gostatsd.Backend
 	CachedInstances           gostatsd.CachedInstances
 	InternalTags              gostatsd.Tags
@@ -143,6 +144,8 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 	if err != nil {
 		return err
 	}
+
+	runnables = append(append(make([]gostatsd.Runnable, 0, len(s.Runnables)), s.Runnables...), runnables...)
 
 	// Create the tag processor
 	handler = NewTagHandlerFromViper(s.Viper, handler, s.DefaultTags)
