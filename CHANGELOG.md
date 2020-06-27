@@ -1,6 +1,7 @@
-UNRELEASED
+23.0.0
 ------
 - Added experimental support for adding http headers based on metrics tags
+- Fixed a bug breaking internal metrics from the backend and cloud provider
 
 22.0.0
 ------

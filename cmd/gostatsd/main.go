@@ -13,7 +13,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/ash2k/stager"
 	"github.com/atlassian/gostatsd"
 	"github.com/atlassian/gostatsd/pkg/backends"
 	"github.com/atlassian/gostatsd/pkg/cachedinstances"
@@ -59,23 +58,17 @@ func main() {
 }
 
 func run(v *viper.Viper) error {
+	logrus.Info("Starting server")
+	s, err := constructServer(v)
+	if err != nil {
+		return err
+	}
+
 	profileAddr := v.GetString(ParamProfile)
 	if profileAddr != "" {
 		go func() {
 			logrus.Errorf("Profiler server failed: %v", http.ListenAndServe(profileAddr, nil))
 		}()
-	}
-
-	logrus.Info("Starting server")
-	s, runnables, err := constructServer(v)
-	if err != nil {
-		return err
-	}
-
-	stgr := stager.New()
-	defer stgr.Shutdown()
-	for _, runnable := range runnables {
-		stgr.NextStage().StartWithContext(runnable)
 	}
 
 	ctx, cancelFunc := context.WithCancel(context.Background())
@@ -88,7 +81,7 @@ func run(v *viper.Viper) error {
 	return nil
 }
 
-func constructServer(v *viper.Viper) (*statsd.Server, []gostatsd.Runnable, error) {
+func constructServer(v *viper.Viper) (*statsd.Server, error) {
 	var runnables []gostatsd.Runnable
 	// Logger
 	logger := logrus.StandardLogger()
@@ -106,7 +99,7 @@ func constructServer(v *viper.Viper) (*statsd.Server, []gostatsd.Runnable, error
 		var err error
 		cloudProvider, err := cloudproviders.Get(logger, cloudProviderName, v, Version)
 		if err != nil {
-			return nil, nil, err
+			return nil, err
 		}
 		runnables = gostatsd.MaybeAppendRunnable(runnables, cloudProvider)
 		selfIPtmp, err := cloudProvider.SelfIP()
@@ -118,7 +111,7 @@ func constructServer(v *viper.Viper) (*statsd.Server, []gostatsd.Runnable, error
 
 		cachedInstances, err = cachedinstances.NewCachedInstancesFromViper(logger, cloudProvider, v)
 		if err != nil {
-			return nil, nil, err
+			return nil, err
 		}
 		runnables = gostatsd.MaybeAppendRunnable(runnables, cachedInstances)
 	}
@@ -128,7 +121,7 @@ func constructServer(v *viper.Viper) (*statsd.Server, []gostatsd.Runnable, error
 	for _, backendName := range backendNames {
 		backend, errBackend := backends.InitBackend(backendName, v, pool)
 		if errBackend != nil {
-			return nil, nil, errBackend
+			return nil, errBackend
 		}
 		backendsList = append(backendsList, backend)
 		runnables = gostatsd.MaybeAppendRunnable(runnables, backend)
@@ -136,7 +129,7 @@ func constructServer(v *viper.Viper) (*statsd.Server, []gostatsd.Runnable, error
 	// Percentiles
 	pt, err := getPercentiles(v.GetStringSlice(gostatsd.ParamPercentThreshold))
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	// Set defaults for expiry from the main expiry setting
@@ -147,6 +140,7 @@ func constructServer(v *viper.Viper) (*statsd.Server, []gostatsd.Runnable, error
 
 	// Create server
 	return &statsd.Server{
+		Runnables:             runnables,
 		Backends:              backendsList,
 		CachedInstances:       cachedInstances,
 		InternalTags:          v.GetStringSlice(gostatsd.ParamInternalTags),
@@ -184,7 +178,7 @@ func constructServer(v *viper.Viper) (*statsd.Server, []gostatsd.Runnable, error
 		HistogramLimit:            v.GetUint32(gostatsd.ParamTimerHistogramLimit),
 		Viper:                     v,
 		TransportPool:             pool,
-	}, runnables, nil
+	}, nil
 }
 
 func getPercentiles(s []string) ([]float64, error) {
