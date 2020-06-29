@@ -15,11 +15,12 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"github.com/tilinna/clock"
 
 	"github.com/atlassian/gostatsd"
 	"github.com/atlassian/gostatsd/pkg/transport"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func TestRetries(t *testing.T) {
@@ -132,11 +133,11 @@ func TestSendMetrics(t *testing.T) {
 	p := transport.NewTransportPool(logrus.New(), v)
 	cli, err := NewClient(ts.URL, "apiKey123", "agent", "default", 1000, defaultMaxRequests, true, 2*time.Second, 1100*time.Millisecond, gostatsd.TimerSubtypes{}, p)
 	require.NoError(t, err)
-	cli.now = func() time.Time {
-		return time.Unix(100, 0)
-	}
+
+	c := clock.NewMock(time.Unix(100, 0))
+	ctx := clock.Context(context.Background(), c)
 	res := make(chan []error, 1)
-	cli.SendMetricsAsync(context.Background(), metricsOneOfEach(), func(errs []error) {
+	cli.SendMetricsAsync(ctx, metricsOneOfEach(), func(errs []error) {
 		res <- errs
 	})
 	errs := <-res
@@ -250,11 +251,9 @@ func TestSendHistogram(t *testing.T) {
 	p := transport.NewTransportPool(logrus.New(), v)
 	client, err := NewClient(ts.URL, "apiKey123", "agent", "default", 1000, defaultMaxRequests, true, 2*time.Second, 1100*time.Millisecond, gostatsd.TimerSubtypes{}, p)
 	require.NoError(t, err)
-	client.now = func() time.Time {
-		return time.Unix(100, 0)
-	}
+	ctx := clock.Context(context.Background(), clock.NewMock(time.Unix(100, 0)))
 	res := make(chan []error, 1)
-	client.SendMetricsAsync(context.Background(), metricsWithHistogram(), func(errs []error) {
+	client.SendMetricsAsync(ctx, metricsWithHistogram(), func(errs []error) {
 		res <- errs
 	})
 	errs := <-res

@@ -16,15 +16,16 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/atlassian/gostatsd"
-	"github.com/atlassian/gostatsd/pkg/stats"
-	"github.com/atlassian/gostatsd/pkg/transport"
-	"github.com/atlassian/gostatsd/pkg/util"
-
 	"github.com/cenkalti/backoff"
 	jsoniter "github.com/json-iterator/go"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
+	"github.com/tilinna/clock"
+
+	"github.com/atlassian/gostatsd"
+	"github.com/atlassian/gostatsd/pkg/stats"
+	"github.com/atlassian/gostatsd/pkg/transport"
+	"github.com/atlassian/gostatsd/pkg/util"
 )
 
 const (
@@ -69,7 +70,6 @@ type Client struct {
 	metricsPerBatch       uint
 	metricsBufferSem      chan *bytes.Buffer // Two in one - a semaphore and a buffer pool
 	eventsBufferSem       chan *bytes.Buffer // Two in one - a semaphore and a buffer pool
-	now                   func() time.Time   // Returns current time. Useful for testing.
 	compressPayload       bool
 
 	disabledSubtypes gostatsd.TimerSubtypes
@@ -93,7 +93,9 @@ type event struct {
 func (d *Client) SendMetricsAsync(ctx context.Context, metrics *gostatsd.MetricMap, cb gostatsd.SendCallback) {
 	counter := 0
 	results := make(chan error)
-	d.processMetrics(metrics, func(ts *timeSeries) {
+
+	now := float64(clock.FromContext(ctx).Now().Unix())
+	d.processMetrics(now, metrics, func(ts *timeSeries) {
 		// This section would be likely be better if it pushed all ts's in to a single channel
 		// which n goroutines then read from.  Current behavior still spins up many goroutines
 		// and has them all hit the same channel.
@@ -153,12 +155,12 @@ func (d *Client) Run(ctx context.Context) {
 	}
 }
 
-func (d *Client) processMetrics(metrics *gostatsd.MetricMap, cb func(*timeSeries)) {
+func (d *Client) processMetrics(now float64, metrics *gostatsd.MetricMap, cb func(*timeSeries)) {
 	fl := flush{
 		ts: &timeSeries{
 			Series: make([]metric, 0, d.metricsPerBatch),
 		},
-		timestamp:        float64(d.now().Unix()),
+		timestamp:        now,
 		flushIntervalSec: d.flushInterval.Seconds(),
 		metricsPerBatch:  d.metricsPerBatch,
 		cb:               cb,
@@ -450,7 +452,6 @@ func NewClient(
 		metricsBufferSem:      metricsBufferSem,
 		eventsBufferSem:       eventsBufferSem,
 		compressPayload:       compressPayload,
-		now:                   time.Now,
 		flushInterval:         flushInterval,
 		disabledSubtypes:      disabled,
 	}, nil
