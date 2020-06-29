@@ -177,14 +177,14 @@ func TestCloudHandlerFailingProvider(t *testing.T) {
 }
 
 func doCheck(t *testing.T, cloud CountingProvider, m1 gostatsd.Metric, e1 gostatsd.Event, m2 gostatsd.Metric, e2 gostatsd.Event, ipsFunc func() []gostatsd.IP, expectedIps []gostatsd.IP, expectedM []gostatsd.Metric, expectedE gostatsd.Events) {
-	counting := &countingHandler{}
+	expecting := &expectingHandler{}
 	ci := cloudprovider.NewCachedCloudProvider(logrus.StandardLogger(), rate.NewLimiter(100, 120), cloud, gostatsd.CacheOptions{
 		CacheRefreshPeriod:        gostatsd.DefaultCacheRefreshPeriod,
 		CacheEvictAfterIdlePeriod: gostatsd.DefaultCacheEvictAfterIdlePeriod,
 		CacheTTL:                  gostatsd.DefaultCacheTTL,
 		CacheNegativeTTL:          gostatsd.DefaultCacheNegativeTTL,
 	})
-	ch := NewCloudHandler(ci, counting)
+	ch := NewCloudHandler(ci, expecting)
 
 	var wg wait.Group
 	defer wg.Wait()
@@ -192,12 +192,17 @@ func doCheck(t *testing.T, cloud CountingProvider, m1 gostatsd.Metric, e1 gostat
 	defer cancelFunc()
 	wg.StartWithContext(ctx, ch.Run)
 	wg.StartWithContext(ctx, ci.Run)
+
+	expecting.Expect(1, 0, 1)
 	ch.DispatchMetrics(ctx, []*gostatsd.Metric{&m1})
 	ch.DispatchEvent(ctx, &e1)
-	time.Sleep(1 * time.Second)
+	expecting.WaitAll()
+
+	expecting.Expect(1, 0, 1)
 	ch.DispatchMetrics(ctx, []*gostatsd.Metric{&m2})
 	ch.DispatchEvent(ctx, &e2)
-	time.Sleep(10 * time.Second)
+	expecting.WaitAll()
+
 	cancelFunc()
 	wg.Wait()
 
@@ -206,8 +211,8 @@ func doCheck(t *testing.T, cloud CountingProvider, m1 gostatsd.Metric, e1 gostat
 		return ips[i] < ips[j]
 	})
 	assert.Equal(t, expectedIps, ips)
-	assert.Equal(t, expectedM, counting.Metrics())
-	assert.Equal(t, expectedE, counting.Events())
+	assert.Equal(t, expectedM, expecting.Metrics())
+	assert.Equal(t, expectedE, expecting.Events())
 	assert.EqualValues(t, 1, cloud.Invocations())
 }
 
