@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/ash2k/stager/wait"
 	"github.com/atlassian/gostatsd"
 	"github.com/atlassian/gostatsd/pkg/stats"
 )
@@ -47,21 +48,22 @@ func (w *worker) executeProcess(cmd *processCommand) {
 }
 
 func (w *worker) RunMetrics(ctx context.Context, statser stats.Statser) {
-	go stats.NewChannelStatsWatcher(
+	wg := &wait.Group{}
+	wg.StartWithContext(ctx, stats.NewChannelStatsWatcher(
 		statser,
 		"dispatch_aggregator_batch",
 		gostatsd.Tags{fmt.Sprintf("aggregator_id:%d", w.id)},
 		cap(w.metricsQueue),
 		func() int { return len(w.metricsQueue) },
 		1000*time.Millisecond, // TODO: Make configurable
-	).Run(ctx)
-
-	stats.NewChannelStatsWatcher(
+	).Run)
+	wg.StartWithContext(ctx, stats.NewChannelStatsWatcher(
 		statser,
 		"dispatch_aggregator_map",
 		gostatsd.Tags{fmt.Sprintf("aggregator_id:%d", w.id)},
 		cap(w.metricMapQueue),
 		func() int { return len(w.metricMapQueue) },
 		1000*time.Millisecond,
-	).Run(ctx)
+	).Run)
+	wg.Wait()
 }
