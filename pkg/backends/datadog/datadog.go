@@ -276,6 +276,8 @@ func (d *Client) post(ctx context.Context, buffer *bytes.Buffer, path, typeOfPos
 	}
 
 	b := backoff.NewExponentialBackOff()
+	clck := clock.FromContext(ctx)
+	b.Clock = clck
 	b.MaxElapsedTime = d.maxRequestElapsedTime
 	for {
 		if err = post(); err == nil {
@@ -291,7 +293,7 @@ func (d *Client) post(ctx context.Context, buffer *bytes.Buffer, path, typeOfPos
 
 		log.Warnf("[%s] failed to send %s, sleeping for %s: %v", BackendName, typeOfPost, next, err)
 
-		timer := time.NewTimer(next)
+		timer := clck.NewTimer(next)
 		select {
 		case <-ctx.Done():
 			timer.Stop()

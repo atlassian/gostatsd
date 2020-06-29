@@ -16,14 +16,16 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/cenkalti/backoff"
+	log "github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
+	"github.com/tilinna/clock"
+
 	"github.com/atlassian/gostatsd"
 	"github.com/atlassian/gostatsd/pkg/stats"
 	"github.com/atlassian/gostatsd/pkg/transport"
 	"github.com/atlassian/gostatsd/pkg/util"
 
-	"github.com/cenkalti/backoff"
-	log "github.com/sirupsen/logrus"
-	"github.com/spf13/viper"
 )
 
 const (
@@ -86,7 +88,6 @@ type Client struct {
 	client                *http.Client
 	metricsPerBatch       uint
 	metricsBufferSem      chan *bytes.Buffer // Two in one - a semaphore and a buffer pool
-	now                   func() time.Time   // Returns current time. Useful for testing.
 
 	disabledSubtypes gostatsd.TimerSubtypes
 	flushInterval    time.Duration
@@ -129,7 +130,8 @@ func (n *Client) SendMetricsAsync(ctx context.Context, metrics *gostatsd.MetricM
 
 	counter := 0
 	results := make(chan error)
-	n.processMetrics(metrics, func(ts *timeSeries) {
+	now := float64(clock.FromContext(ctx).Now().Unix())
+	n.processMetrics(now, metrics, func(ts *timeSeries) {
 		// This section would be likely be better if it pushed all ts's in to a single channel
 		// which n goroutines then read from.  Current behavior still spins up many goroutines
 		// and has them all hit the same channel.
@@ -193,12 +195,12 @@ func (n *Client) RunMetrics(ctx context.Context, statser stats.Statser) {
 	}
 }
 
-func (n *Client) processMetrics(metrics *gostatsd.MetricMap, cb func(*timeSeries)) {
+func (n *Client) processMetrics(now float64, metrics *gostatsd.MetricMap, cb func(*timeSeries)) {
 	fl := flush{
 		ts: &timeSeries{
 			Metrics: make([]interface{}, 0, n.metricsPerBatch),
 		},
-		timestamp:        float64(n.now().Unix()),
+		timestamp:        now,
 		flushIntervalSec: n.flushInterval.Seconds(),
 		metricsPerBatch:  n.metricsPerBatch,
 		cb:               cb,
@@ -555,7 +557,6 @@ func NewClient(transport, address, addressMetrics, eventType, flushType, apiKey,
 		client:                httpClient.Client,
 		metricsPerBatch:       uint(metricsPerBatch),
 		metricsBufferSem:      metricsBufferSem,
-		now:                   time.Now,
 		flushInterval:         flushInterval,
 		disabledSubtypes:      disabled,
 	}, nil

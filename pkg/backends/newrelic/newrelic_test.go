@@ -15,12 +15,12 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"github.com/tilinna/clock"
 
 	"github.com/atlassian/gostatsd"
 	"github.com/atlassian/gostatsd/pkg/transport"
-
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func TestRetries(t *testing.T) {
@@ -178,11 +178,9 @@ func TestSendMetrics(t *testing.T) {
 				defaultMetricsPerBatch, defaultMaxRequests, 2*time.Second, 1*time.Second, gostatsd.TimerSubtypes{}, p)
 
 			require.NoError(t, err)
-			client.now = func() time.Time {
-				return time.Unix(100, 0)
-			}
 			res := make(chan []error, 1)
-			client.SendMetricsAsync(context.Background(), metricsOneOfEach(), func(errs []error) {
+			ctx := clock.Context(context.Background(), clock.NewMock(time.Unix(100, 0)))
+			client.SendMetricsAsync(ctx, metricsOneOfEach(), func(errs []error) {
 				res <- errs
 			})
 			errs := <-res
@@ -252,11 +250,9 @@ func TestSendMetricsWithHistogram(t *testing.T) {
 		defaultMetricsPerBatch, defaultMaxRequests, 2*time.Second, 1*time.Second, gostatsd.TimerSubtypes{}, p)
 
 	require.NoError(t, err)
-	client.now = func() time.Time {
-		return time.Unix(100, 0)
-	}
 	res := make(chan []error, 1)
-	client.SendMetricsAsync(context.Background(), metricsWithHistogram(), func(errs []error) {
+	ctx := clock.Context(context.Background(), clock.NewMock(time.Unix(100, 0)))
+	client.SendMetricsAsync(ctx, metricsWithHistogram(), func(errs []error) {
 		res <- errs
 	})
 	errs := <-res
