@@ -23,6 +23,17 @@ import (
 	"github.com/atlassian/gostatsd/pkg/transport"
 )
 
+func advanceTime(c *clock.Mock, ch <-chan struct{}) {
+	for {
+		select {
+		case <- ch:
+			return
+		default:
+			c.AddNext()
+		}
+	}
+}
+
 func TestRetries(t *testing.T) {
 	t.Parallel()
 	var requestNum uint32
@@ -54,7 +65,11 @@ func TestRetries(t *testing.T) {
 
 	require.NoError(t, err)
 	res := make(chan []error, 1)
-	client.SendMetricsAsync(context.Background(), twoCounters(), func(errs []error) {
+	clck := clock.NewMock(time.Unix(0, 0))
+	ctx := clock.Context(context.Background(), clck)
+	ch := make(chan struct{})
+	go advanceTime(clck, ch)
+	client.SendMetricsAsync(ctx, twoCounters(), func(errs []error) {
 		res <- errs
 	})
 	errs := <-res
@@ -62,6 +77,7 @@ func TestRetries(t *testing.T) {
 		assert.NoError(t, err)
 	}
 	assert.EqualValues(t, 2, requestNum)
+	ch <- struct{}{}
 }
 
 func TestSendMetricsInMultipleBatches(t *testing.T) {
