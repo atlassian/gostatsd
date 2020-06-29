@@ -84,6 +84,7 @@ the samples are reset.
 | Channel name              | Additional tags | Description
 | ------------------------- | --------------- | -----------
 | dispatch_aggregator       | aggregator_id   | Channel to dispatch metrics to a specific aggregator.
+| dispatch_receiver         | aggregator_id   | Channel to dispatch singular metrics to a given aggregator.
 | backend_events_sem        |                 | Semaphore limiting the number of events in flight at once.  Corresponds to
 |                           |                 | the `--max-concurrent-events` flag.
 
