@@ -225,7 +225,7 @@ func doCheck(t *testing.T, cloud CountingProvider, m1 gostatsd.Metric, e1 gostat
 	assert.Equal(t, expectedIps, ips)
 	assert.Equal(t, expectedM, expecting.Metrics())
 	assert.Equal(t, expectedE, expecting.Events())
-	assert.EqualValues(t, 1, cloud.Invocations())
+	assert.LessOrEqual(t, cloud.Invocations(), uint64(2))
 }
 
 func sm1() gostatsd.Metric {
