@@ -1,7 +1,12 @@
+24.0.0
+------
+- Update to aggregator channel metrics. see [METRICS.md](METRICS.md) for details.
+
 23.0.0
 ------
 - Added experimental support for adding http headers based on metrics tags
 - Fixed a bug breaking internal metrics from the backend and cloud provider
+
 
 22.0.0
 ------

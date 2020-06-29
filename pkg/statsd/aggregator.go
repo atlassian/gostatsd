@@ -275,7 +275,8 @@ func (a *MetricAggregator) Reset() {
 	})
 }
 
-// Receive aggregates an incoming metric.
+// Receive takes a batched metrics and will put them on the internal aggregator
+// queue to be processed
 func (a *MetricAggregator) Receive(ms ...*gostatsd.Metric) {
 	a.metricsReceived += uint64(len(ms))
 	for _, m := range ms {
@@ -283,6 +284,7 @@ func (a *MetricAggregator) Receive(ms ...*gostatsd.Metric) {
 	}
 }
 
+// ReceiveMap takes a single metric map and will aggregate the values
 func (a *MetricAggregator) ReceiveMap(mm *gostatsd.MetricMap) {
 	a.metricMapsReceived++
 	a.metricMap.Merge(mm)
