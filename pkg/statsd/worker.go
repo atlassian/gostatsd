@@ -49,7 +49,7 @@ func (w *worker) executeProcess(cmd *processCommand) {
 func (w *worker) RunMetrics(ctx context.Context, statser stats.Statser) {
 	go stats.NewChannelStatsWatcher(
 		statser,
-		"dispatch_aggregator",
+		"dispatch_aggregator_batch",
 		gostatsd.Tags{fmt.Sprintf("aggregator_id:%d", w.id)},
 		cap(w.metricsQueue),
 		func() int { return len(w.metricsQueue) },
@@ -58,7 +58,7 @@ func (w *worker) RunMetrics(ctx context.Context, statser stats.Statser) {
 
 	stats.NewChannelStatsWatcher(
 		statser,
-		"dispatch_receiver",
+		"dispatch_aggregator_map",
 		gostatsd.Tags{fmt.Sprintf("aggregator_id:%d", w.id)},
 		cap(w.metricMapQueue),
 		func() int { return len(w.metricMapQueue) },

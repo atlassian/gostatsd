@@ -284,7 +284,7 @@ func (a *MetricAggregator) Receive(ms ...*gostatsd.Metric) {
 	}
 }
 
-// ReceiveMap takes a single Me
+// ReceiveMap takes a single metric map and will aggregate the values
 func (a *MetricAggregator) ReceiveMap(mm *gostatsd.MetricMap) {
 	a.metricMapsReceived++
 	a.metricMap.Merge(mm)
