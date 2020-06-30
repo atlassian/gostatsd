@@ -17,7 +17,7 @@ import (
 	"time"
 
 	"github.com/cenkalti/backoff"
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"github.com/tilinna/clock"
 
@@ -38,7 +38,7 @@ const (
 	// defaultMetricsPerBatch is the default number of metrics to send in a single batch.
 	defaultMetricsPerBatch = 1000
 	// maxResponseSize is the maximum response size we are willing to read.
-	maxResponseSize = 10 * 1024
+	maxResponseSize = 1024
 
 	flushTypeInsights = "insights"
 	flushTypeInfra    = "infra"
@@ -56,6 +56,7 @@ var (
 
 // Client represents a New Relic client.
 type Client struct {
+	logger         logrus.FieldLogger
 	address        string
 	addressMetrics string
 	eventType      string
@@ -314,7 +315,10 @@ func (n *Client) post(ctx context.Context, buffer *bytes.Buffer, data interface{
 			return fmt.Errorf("[%s] %v", BackendName, err)
 		}
 
-		log.Warnf("[%s] failed to send, sleeping for %s: %v", BackendName, next, err)
+		n.logger.WithFields(logrus.Fields{
+			"sleep": next,
+			"error": err,
+		}).Warn("failed to send, sleeping")
 
 		timer := clck.NewTimer(next)
 		select {
@@ -403,10 +407,10 @@ func (n *Client) postWrapper(ctx context.Context, json []byte, dataType string) 
 		body := io.LimitReader(resp.Body, maxResponseSize)
 		if resp.StatusCode < http.StatusOK || resp.StatusCode > http.StatusNoContent {
 			b, _ := ioutil.ReadAll(body)
-			log.WithFields(log.Fields{
+			n.logger.WithFields(logrus.Fields{
 				"status": resp.StatusCode,
-				"body":   b,
-			}).Infof("[%s] failed request", BackendName)
+				"body":   string(b),
+			}).Info("request failed")
 			return fmt.Errorf("received bad status code %d", resp.StatusCode)
 		}
 		_, _ = io.Copy(ioutil.Discard, body)
@@ -416,7 +420,7 @@ func (n *Client) postWrapper(ctx context.Context, json []byte, dataType string) 
 }
 
 // NewClientFromViper returns a new New Relic client.
-func NewClientFromViper(v *viper.Viper, logger log.FieldLogger, pool *transport.TransportPool) (gostatsd.Backend, error) {
+func NewClientFromViper(v *viper.Viper, logger logrus.FieldLogger, pool *transport.TransportPool) (gostatsd.Backend, error) {
 	nr := util.GetSubViper(v, "newrelic")
 	nr.SetDefault("transport", "default")
 	nr.SetDefault("address", "http://localhost:8001/v1/data")
@@ -454,7 +458,7 @@ func NewClientFromViper(v *viper.Viper, logger log.FieldLogger, pool *transport.
 	v.SetDefault("statser-type", "null")
 	v.SetDefault("flush-interval", "10s")
 	if v.GetString("statser-type") == "null" {
-		log.Infof("[%s] internal metrics OFF, to enable set 'statser-type' to 'logging' or 'internal'", BackendName)
+		logger.Info("internal metrics OFF, to enable set 'statser-type' to 'logging' or 'internal'")
 	}
 
 	return NewClient(
@@ -483,6 +487,7 @@ func NewClientFromViper(v *viper.Viper, logger log.FieldLogger, pool *transport.
 		nr.GetDuration("max-request-elapsed-time"),
 		v.GetDuration("flush-interval"), // Main viper, not sub-viper
 		gostatsd.DisabledSubMetrics(v),
+		logger,
 		pool,
 	)
 }
@@ -493,9 +498,7 @@ func NewClient(transport, address, addressMetrics, eventType, flushType, apiKey,
 	timerMin, timerMax, timerCount, timerMean, timerMedian, timerStdDev, timerSum, timerSumSquares,
 	userAgent string, metricsPerBatch int, maxRequests uint,
 	maxRequestElapsedTime, flushInterval time.Duration,
-	disabled gostatsd.TimerSubtypes, pool *transport.TransportPool) (*Client, error) {
-
-	logger := log.WithField("backend", BackendName)
+	disabled gostatsd.TimerSubtypes, logger logrus.FieldLogger, pool *transport.TransportPool) (*Client, error) {
 
 	if metricsPerBatch <= 0 {
 		return nil, fmt.Errorf("[%s] metricsPerBatch must be positive", BackendName)
@@ -523,7 +526,7 @@ func NewClient(transport, address, addressMetrics, eventType, flushType, apiKey,
 		logger.WithError(err).Error("failed to create http client")
 		return nil, err
 	}
-	logger.WithFields(log.Fields{
+	logger.WithFields(logrus.Fields{
 		"max-request-elapsed-time": maxRequestElapsedTime,
 		"max-requests":             maxRequests,
 		"metrics-per-batch":        metricsPerBatch,
@@ -535,6 +538,7 @@ func NewClient(transport, address, addressMetrics, eventType, flushType, apiKey,
 		metricsBufferSem <- &bytes.Buffer{}
 	}
 	return &Client{
+		logger:                logger,
 		address:               address,
 		addressMetrics:        addressMetrics,
 		eventType:             eventType,
