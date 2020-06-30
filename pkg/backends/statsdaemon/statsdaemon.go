@@ -242,6 +242,7 @@ func NewClient(address string, dialTimeout, writeTimeout time.Duration, disableT
 		packetSize:  packetSize,
 		disableTags: disableTags,
 		sender: sender.Sender{
+			Logger:      logger,
 			ConnFactory: connFactory,
 			Sink:        make(chan sender.Stream, maxConcurrentSends),
 			BufPool: sync.Pool{

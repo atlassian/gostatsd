@@ -327,6 +327,7 @@ func NewClient(
 
 	return &Client{
 		sender: sender.Sender{
+			Logger: logger,
 			ConnFactory: func() (net.Conn, error) {
 				return net.DialTimeout("tcp", address, dialTimeout)
 			},
