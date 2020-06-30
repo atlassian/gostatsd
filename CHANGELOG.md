@@ -1,3 +1,7 @@
+24.0.1
+------
+- Add pprof catch-all route to match the rest of pprof's available endpoints
+
 24.0.0
 ------
 - Update to aggregator channel metrics. see [METRICS.md](METRICS.md) for details.
