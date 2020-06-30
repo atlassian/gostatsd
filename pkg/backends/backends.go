@@ -3,6 +3,9 @@ package backends
 import (
 	"fmt"
 
+	log "github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
+
 	"github.com/atlassian/gostatsd"
 	"github.com/atlassian/gostatsd/pkg/backends/cloudwatch"
 	"github.com/atlassian/gostatsd/pkg/backends/datadog"
@@ -12,9 +15,6 @@ import (
 	"github.com/atlassian/gostatsd/pkg/backends/statsdaemon"
 	"github.com/atlassian/gostatsd/pkg/backends/stdout"
 	"github.com/atlassian/gostatsd/pkg/transport"
-
-	log "github.com/sirupsen/logrus"
-	"github.com/spf13/viper"
 )
 
 // All known backends.

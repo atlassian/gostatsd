@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/atlassian/gostatsd"
-
 	"github.com/stretchr/testify/require"
+
+	"github.com/atlassian/gostatsd"
 )
 
 type capturingHandler struct {

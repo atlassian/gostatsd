@@ -9,13 +9,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/atlassian/gostatsd"
-	"github.com/atlassian/gostatsd/pkg/util"
-
 	"github.com/ash2k/stager/wait"
 	"github.com/gorilla/mux"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
+
+	"github.com/atlassian/gostatsd"
+	"github.com/atlassian/gostatsd/pkg/util"
 )
 
 type httpServer struct {

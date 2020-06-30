@@ -6,13 +6,13 @@ import (
 	"strings"
 	"sync/atomic"
 
+	"github.com/ash2k/stager/wait"
+	"github.com/sirupsen/logrus"
+
 	"github.com/atlassian/gostatsd"
 	"github.com/atlassian/gostatsd/pkg/fakesocket"
 	"github.com/atlassian/gostatsd/pkg/pool"
 	"github.com/atlassian/gostatsd/pkg/stats"
-
-	"github.com/ash2k/stager/wait"
-	"github.com/sirupsen/logrus"
 )
 
 // ip packet size is stored in two bytes and that is how big in theory the packet can be.

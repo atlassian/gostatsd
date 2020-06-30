@@ -26,7 +26,7 @@ import (
 func advanceTime(c *clock.Mock, ch <-chan struct{}) {
 	for {
 		select {
-		case <- ch:
+		case <-ch:
 			return
 		default:
 			c.AddNext()

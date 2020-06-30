@@ -7,9 +7,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/atlassian/gostatsd"
-
 	log "github.com/sirupsen/logrus"
+
+	"github.com/atlassian/gostatsd"
 )
 
 const maxStreamsPerConnection = 100

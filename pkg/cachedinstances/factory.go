@@ -4,13 +4,14 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
+	"golang.org/x/time/rate"
+
 	"github.com/atlassian/gostatsd"
 	"github.com/atlassian/gostatsd/pkg/cachedinstances/cloudprovider"
 	"github.com/atlassian/gostatsd/pkg/cloudproviders/aws"
 	"github.com/atlassian/gostatsd/pkg/cloudproviders/k8s"
-	"github.com/sirupsen/logrus"
-	"github.com/spf13/viper"
-	"golang.org/x/time/rate"
 )
 
 var (

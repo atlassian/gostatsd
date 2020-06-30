@@ -5,10 +5,10 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/atlassian/gostatsd"
-
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/time/rate"
+
+	"github.com/atlassian/gostatsd"
 )
 
 type metricAndEvent struct {

@@ -11,13 +11,13 @@ import (
 	"sync"
 	"time"
 
+	log "github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
+
 	"github.com/atlassian/gostatsd"
 	"github.com/atlassian/gostatsd/pkg/backends/sender"
 	"github.com/atlassian/gostatsd/pkg/transport"
 	"github.com/atlassian/gostatsd/pkg/util"
-
-	log "github.com/sirupsen/logrus"
-	"github.com/spf13/viper"
 )
 
 const (

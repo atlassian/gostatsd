@@ -8,12 +8,12 @@ import (
 	"sync/atomic"
 	"time"
 
+	log "github.com/sirupsen/logrus"
+	"golang.org/x/time/rate"
+
 	"github.com/atlassian/gostatsd"
 	"github.com/atlassian/gostatsd/pkg/pool"
 	"github.com/atlassian/gostatsd/pkg/stats"
-
-	log "github.com/sirupsen/logrus"
-	"golang.org/x/time/rate"
 )
 
 // Default buffer size for debug channel

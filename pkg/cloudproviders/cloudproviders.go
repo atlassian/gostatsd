@@ -3,11 +3,12 @@ package cloudproviders
 import (
 	"fmt"
 
+	"github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
+
 	"github.com/atlassian/gostatsd"
 	"github.com/atlassian/gostatsd/pkg/cloudproviders/aws"
 	"github.com/atlassian/gostatsd/pkg/cloudproviders/k8s"
-	"github.com/sirupsen/logrus"
-	"github.com/spf13/viper"
 )
 
 // All registered cloud providers.

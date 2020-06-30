@@ -8,10 +8,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/atlassian/gostatsd"
-
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/atlassian/gostatsd"
 )
 
 var longName = strings.Repeat("t", maxUDPPacketSize-5)

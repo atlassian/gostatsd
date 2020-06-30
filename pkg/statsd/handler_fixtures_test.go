@@ -52,7 +52,7 @@ func (nh *nopHandler) WaitForEvents() {
 
 type expectingHandler struct {
 	countingHandler
-	
+
 	wgMetrics    sync.WaitGroup
 	wgMetricMaps sync.WaitGroup
 	wgEvents     sync.WaitGroup
