@@ -30,7 +30,7 @@ func TestSendMetrics(t *testing.T) {
 	t.Parallel()
 
 	p := transport.NewTransportPool(logrus.New(), viper.New())
-	cli, err := NewClient("ns", "default", gostatsd.TimerSubtypes{}, p)
+	cli, err := NewClient("ns", "default", gostatsd.TimerSubtypes{}, logrus.New(), p)
 	require.NoError(t, err)
 
 	expected := []struct {
@@ -87,7 +87,7 @@ func TestSendMetricDimensions(t *testing.T) {
 	t.Parallel()
 
 	p := transport.NewTransportPool(logrus.New(), viper.New())
-	cli, err := NewClient("ns", "default", gostatsd.TimerSubtypes{}, p)
+	cli, err := NewClient("ns", "default", gostatsd.TimerSubtypes{}, logrus.New(), p)
 	require.NoError(t, err)
 
 	metricMap := &gostatsd.MetricMap{
@@ -193,7 +193,7 @@ func TestSendHistogram(t *testing.T) {
 	t.Parallel()
 
 	p := transport.NewTransportPool(logrus.New(), viper.New())
-	cli, err := NewClient("ns", "default", gostatsd.TimerSubtypes{}, p)
+	cli, err := NewClient("ns", "default", gostatsd.TimerSubtypes{}, logrus.New(), p)
 	require.NoError(t, err)
 
 	metricMap := &gostatsd.MetricMap{
