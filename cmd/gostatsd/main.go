@@ -120,7 +120,7 @@ func constructServer(v *viper.Viper) (*statsd.Server, error) {
 	backendNames := v.GetStringSlice(gostatsd.ParamBackends)
 	backendsList := make([]gostatsd.Backend, 0, len(backendNames))
 	for _, backendName := range backendNames {
-		backend, errBackend := backends.InitBackend(backendName, v, pool)
+		backend, errBackend := backends.InitBackend(backendName, v, logger, pool)
 		if errBackend != nil {
 			return nil, errBackend
 		}

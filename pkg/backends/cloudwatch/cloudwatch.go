@@ -35,7 +35,7 @@ type Client struct {
 }
 
 // NewClientFromViper constructs a Cloudwatch backend.
-func NewClientFromViper(v *viper.Viper, pool *transport.TransportPool) (gostatsd.Backend, error) {
+func NewClientFromViper(v *viper.Viper, logger log.FieldLogger, pool *transport.TransportPool) (gostatsd.Backend, error) {
 	g := util.GetSubViper(v, "cloudwatch")
 	g.SetDefault("namespace", "StatsD")
 	g.SetDefault("transport", "default")

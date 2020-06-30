@@ -368,7 +368,7 @@ func (d *Client) authenticatedURL(path string) string {
 }
 
 // NewClientFromViper returns a new Datadog API client.
-func NewClientFromViper(v *viper.Viper, pool *transport.TransportPool) (gostatsd.Backend, error) {
+func NewClientFromViper(v *viper.Viper, logger log.FieldLogger, pool *transport.TransportPool) (gostatsd.Backend, error) {
 	dd := util.GetSubViper(v, "datadog")
 	dd.SetDefault("api_endpoint", apiURL)
 	dd.SetDefault("metrics_per_batch", defaultMetricsPerBatch)

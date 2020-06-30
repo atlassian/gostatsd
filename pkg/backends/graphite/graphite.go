@@ -223,7 +223,7 @@ func (client *Client) Name() string {
 }
 
 // NewClientFromViper constructs a Client object using configuration provided by Viper
-func NewClientFromViper(v *viper.Viper, pool *transport.TransportPool) (gostatsd.Backend, error) {
+func NewClientFromViper(v *viper.Viper, logger log.FieldLogger, pool *transport.TransportPool) (gostatsd.Backend, error) {
 	g := util.GetSubViper(v, "graphite")
 	g.SetDefault("address", DefaultAddress)
 	g.SetDefault("dial_timeout", DefaultDialTimeout)

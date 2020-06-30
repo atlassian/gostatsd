@@ -25,7 +25,7 @@ type Client struct {
 }
 
 // NewClientFromViper constructs a stdout backend.
-func NewClientFromViper(v *viper.Viper, pool *transport.TransportPool) (gostatsd.Backend, error) {
+func NewClientFromViper(v *viper.Viper, logger log.FieldLogger, pool *transport.TransportPool) (gostatsd.Backend, error) {
 	return NewClient(
 		gostatsd.DisabledSubMetrics(v),
 	)

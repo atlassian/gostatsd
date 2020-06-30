@@ -416,7 +416,7 @@ func (n *Client) postWrapper(ctx context.Context, json []byte, dataType string) 
 }
 
 // NewClientFromViper returns a new New Relic client.
-func NewClientFromViper(v *viper.Viper, pool *transport.TransportPool) (gostatsd.Backend, error) {
+func NewClientFromViper(v *viper.Viper, logger log.FieldLogger, pool *transport.TransportPool) (gostatsd.Backend, error) {
 	nr := util.GetSubViper(v, "newrelic")
 	nr.SetDefault("transport", "default")
 	nr.SetDefault("address", "http://localhost:8001/v1/data")

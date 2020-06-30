@@ -252,7 +252,7 @@ func NewClient(address string, dialTimeout, writeTimeout time.Duration, disableT
 }
 
 // NewClientFromViper constructs a statsd client by connecting to an address.
-func NewClientFromViper(v *viper.Viper, pool *transport.TransportPool) (gostatsd.Backend, error) {
+func NewClientFromViper(v *viper.Viper, logger log.FieldLogger, pool *transport.TransportPool) (gostatsd.Backend, error) {
 	g := util.GetSubViper(v, "statsdaemon")
 	g.SetDefault("dial_timeout", DefaultDialTimeout)
 	g.SetDefault("write_timeout", DefaultWriteTimeout)
