@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/ash2k/stager/wait"
+	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -41,7 +42,7 @@ func TestPreparePayloadLegacy(t *testing.T) {
 		"stats.timers.t1.count_90.gs 90.000000 1234\n" +
 		"stats.gauges.g1.gs 3.000000 1234\n" +
 		"stats.sets.users.gs 3 1234\n"
-	cl, err := NewClient("127.0.0.1:9", 1*time.Second, 1*time.Second, "ignored1", "ignored2", "ignored3", "ignored4", "ignored5", "gs", "legacy", gostatsd.TimerSubtypes{})
+	cl, err := NewClient("127.0.0.1:9", 1*time.Second, 1*time.Second, "ignored1", "ignored2", "ignored3", "ignored4", "ignored5", "gs", "legacy", gostatsd.TimerSubtypes{}, logrus.New())
 	require.NoError(t, err)
 	b := cl.preparePayload(metrics, time.Unix(1234, 0))
 	expected = sortLines(expected)
@@ -72,7 +73,7 @@ func TestPreparePayloadBasic(t *testing.T) {
 		"gp.pt.t1.count_90.gs 90.000000 1234\n" +
 		"gp.pg.g1.gs 3.000000 1234\n" +
 		"gp.ps.users.gs 3 1234\n"
-	cl, err := NewClient("127.0.0.1:9", 1*time.Second, 1*time.Second, "gp", "pc", "pt", "pg", "ps", "gs", "basic", gostatsd.TimerSubtypes{})
+	cl, err := NewClient("127.0.0.1:9", 1*time.Second, 1*time.Second, "gp", "pc", "pt", "pg", "ps", "gs", "basic", gostatsd.TimerSubtypes{}, logrus.New())
 	require.NoError(t, err)
 	b := cl.preparePayload(metrics, time.Unix(1234, 0))
 	expected = sortLines(expected)
@@ -103,7 +104,7 @@ func TestPreparePayloadTags(t *testing.T) {
 		"gp.pt.t1.count_90.gs 90.000000 1234\n" +
 		"gp.pg.g1.gs 3.000000 1234\n" +
 		"gp.ps.users.gs 3 1234\n"
-	cl, err := NewClient("127.0.0.1:9", 1*time.Second, 1*time.Second, "gp", "pc", "pt", "pg", "ps", "gs", "tags", gostatsd.TimerSubtypes{})
+	cl, err := NewClient("127.0.0.1:9", 1*time.Second, 1*time.Second, "gp", "pc", "pt", "pg", "ps", "gs", "tags", gostatsd.TimerSubtypes{}, logrus.New())
 	require.NoError(t, err)
 	b := cl.preparePayload(metrics, time.Unix(1234, 0))
 	expected = sortLines(expected)
@@ -122,7 +123,7 @@ func TestPreparePayloadHistogram(t *testing.T) {
 			"gp.pc.t1.histogram.gs;le=60 19 1234\n" +
 			"gp.pc.t1.histogram.gs;le=+Inf 19 1234\n"
 
-	cl, err := NewClient("127.0.0.1:9", 1*time.Second, 1*time.Second, "gp", "pc", "pt", "pg", "ps", "gs", "tags", gostatsd.TimerSubtypes{})
+	cl, err := NewClient("127.0.0.1:9", 1*time.Second, 1*time.Second, "gp", "pc", "pt", "pg", "ps", "gs", "tags", gostatsd.TimerSubtypes{}, logrus.New())
 	require.NoError(t, err)
 	b := cl.preparePayload(metrics, time.Unix(1234, 0))
 	expected = sortLines(expected)
@@ -142,7 +143,7 @@ func TestSendMetricsAsync(t *testing.T) {
 	require.NoError(t, err)
 	defer l.Close()
 	addr := l.Addr().String()
-	c, err := NewClient(addr, 1*time.Second, 10*time.Second, "", "", "", "", "", "", "basic", gostatsd.TimerSubtypes{})
+	c, err := NewClient(addr, 1*time.Second, 10*time.Second, "", "", "", "", "", "", "basic", gostatsd.TimerSubtypes{}, logrus.New())
 	require.NoError(t, err)
 
 	var acceptWg sync.WaitGroup
