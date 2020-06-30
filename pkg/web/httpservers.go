@@ -90,11 +90,11 @@ func NewHttpServer(
 
 	if enableProf {
 		routes = append(routes,
-			route{path: "/debug/pprof/", handler: pprof.Index, methods: []string{"GET"}, name: "pprof_index"},
 			route{path: "/debug/pprof/cmdline", handler: pprof.Cmdline, methods: []string{"GET"}, name: "pprof_cmdline"},
 			route{path: "/debug/pprof/profile", handler: pprof.Profile, methods: []string{"GET"}, name: "pprof_profile"},
 			route{path: "/debug/pprof/symbol", handler: pprof.Symbol, methods: []string{"GET"}, name: "pprof_symbol"},
 			route{path: "/debug/pprof/trace", handler: pprof.Trace, methods: []string{"GET", "POST"}, name: "pprof_trace"},
+			route{path: "/debug/pprof/{any:.*}", handler: pprof.Index, methods: []string{"GET"}, name: "pprof_index"},
 		)
 	}
 
