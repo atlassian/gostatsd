@@ -12,6 +12,7 @@ import (
 	"github.com/atlassian/gostatsd/pkg/cloudproviders/fakeprovider"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
+	"github.com/tilinna/clock"
 	"golang.org/x/time/rate"
 )
 
@@ -54,7 +55,7 @@ func TestTransientInstanceFailure(t *testing.T) {
 		},
 	}
 
-	counting := &countingHandler{}
+	expecting := &expectingHandler{}
 
 	ci := cloudprovider.NewCachedCloudProvider(logrus.StandardLogger(), rate.NewLimiter(100, 120), fpt, gostatsd.CacheOptions{
 		CacheRefreshPeriod:        50 * time.Millisecond,
@@ -62,7 +63,7 @@ func TestTransientInstanceFailure(t *testing.T) {
 		CacheTTL:                  1 * time.Millisecond,
 		CacheNegativeTTL:          1 * time.Millisecond,
 	})
-	ch := NewCloudHandler(ci, counting)
+	ch := NewCloudHandler(ci, expecting)
 
 	// t+0: instance is queried, goes in cache
 	// t+50ms: instance refreshed (failure)
@@ -72,20 +73,31 @@ func TestTransientInstanceFailure(t *testing.T) {
 	defer wg.Wait()
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	defer cancelFunc()
+	clck := clock.NewMock(time.Unix(0, 0))
+	ctx = clock.Context(ctx, clck)
 	wg.StartWithContext(ctx, ch.Run)
 	wg.StartWithContext(ctx, ci.Run)
 	m1 := sm1()
 	m2 := sm1()
 
-	// t+0: prime the cache
-	ch.DispatchMetrics(ctx, []*gostatsd.Metric{&m1})
+	// There's no good way to tell when the Ticker has been created, so we use a hard loop
+	for _, d := clck.AddNext(); d == 0 && ctx.Err() == nil; _, d = clck.AddNext() {
+		time.Sleep(time.Millisecond) // Allows the system to actually idle, runtime.Gosched() does not.
+	}
 
-	time.Sleep(50 * time.Millisecond)
+	// t+0: prime the cache
+	expecting.Expect(1, 0, 0)
+	ch.DispatchMetrics(ctx, []*gostatsd.Metric{&m1})
+	expecting.WaitAll()
+
+	clck.Add(50 * time.Millisecond)
 	// t+50: refresh
-	time.Sleep(50 * time.Millisecond)
+	clck.Add(50 * time.Millisecond)
 
 	// t+100ms: read from cache, must still be valid
+	expecting.Expect(1, 0, 0)
 	ch.DispatchMetrics(ctx, []*gostatsd.Metric{&m2})
+	expecting.WaitAll()
 
 	cancelFunc()
 	wg.Wait()
@@ -99,7 +111,7 @@ func TestTransientInstanceFailure(t *testing.T) {
 	expectedMetrics[1].Tags = gostatsd.Tags{"a1", "tag:value"}
 	expectedMetrics[1].Hostname = "1.2.3.4"
 
-	assert.Equal(t, expectedMetrics, counting.Metrics())
+	assert.Equal(t, expectedMetrics, expecting.Metrics())
 }
 
 func TestCloudHandlerDispatch(t *testing.T) {
@@ -177,14 +189,14 @@ func TestCloudHandlerFailingProvider(t *testing.T) {
 }
 
 func doCheck(t *testing.T, cloud CountingProvider, m1 gostatsd.Metric, e1 gostatsd.Event, m2 gostatsd.Metric, e2 gostatsd.Event, ipsFunc func() []gostatsd.IP, expectedIps []gostatsd.IP, expectedM []gostatsd.Metric, expectedE gostatsd.Events) {
-	counting := &countingHandler{}
+	expecting := &expectingHandler{}
 	ci := cloudprovider.NewCachedCloudProvider(logrus.StandardLogger(), rate.NewLimiter(100, 120), cloud, gostatsd.CacheOptions{
 		CacheRefreshPeriod:        gostatsd.DefaultCacheRefreshPeriod,
 		CacheEvictAfterIdlePeriod: gostatsd.DefaultCacheEvictAfterIdlePeriod,
 		CacheTTL:                  gostatsd.DefaultCacheTTL,
 		CacheNegativeTTL:          gostatsd.DefaultCacheNegativeTTL,
 	})
-	ch := NewCloudHandler(ci, counting)
+	ch := NewCloudHandler(ci, expecting)
 
 	var wg wait.Group
 	defer wg.Wait()
@@ -192,12 +204,17 @@ func doCheck(t *testing.T, cloud CountingProvider, m1 gostatsd.Metric, e1 gostat
 	defer cancelFunc()
 	wg.StartWithContext(ctx, ch.Run)
 	wg.StartWithContext(ctx, ci.Run)
+
+	expecting.Expect(1, 0, 1)
 	ch.DispatchMetrics(ctx, []*gostatsd.Metric{&m1})
 	ch.DispatchEvent(ctx, &e1)
-	time.Sleep(1 * time.Second)
+	expecting.WaitAll()
+
+	expecting.Expect(1, 0, 1)
 	ch.DispatchMetrics(ctx, []*gostatsd.Metric{&m2})
 	ch.DispatchEvent(ctx, &e2)
-	time.Sleep(10 * time.Second)
+	expecting.WaitAll()
+
 	cancelFunc()
 	wg.Wait()
 
@@ -206,9 +223,9 @@ func doCheck(t *testing.T, cloud CountingProvider, m1 gostatsd.Metric, e1 gostat
 		return ips[i] < ips[j]
 	})
 	assert.Equal(t, expectedIps, ips)
-	assert.Equal(t, expectedM, counting.Metrics())
-	assert.Equal(t, expectedE, counting.Events())
-	assert.EqualValues(t, 1, cloud.Invocations())
+	assert.Equal(t, expectedM, expecting.Metrics())
+	assert.Equal(t, expectedE, expecting.Events())
+	assert.LessOrEqual(t, cloud.Invocations(), uint64(2))
 }
 
 func sm1() gostatsd.Metric {

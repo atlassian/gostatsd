@@ -111,7 +111,7 @@ func TestSendCallsCallbackOnCtxDone1(t *testing.T) {
 	wg.StartWithContext(ctx, sender.Run)
 	var cbWg sync.WaitGroup
 	cbWg.Add(2)
-	ctx1, cancel1 := context.WithTimeout(ctx, 100*time.Millisecond)
+	ctx1, cancel1 := context.WithTimeout(ctx, 0)
 	defer cancel1()
 	sender.Sink <- Stream{
 		Ctx: ctx1,
@@ -123,7 +123,7 @@ func TestSendCallsCallbackOnCtxDone1(t *testing.T) {
 		},
 		Buf: make(<-chan *bytes.Buffer),
 	}
-	ctx2, cancel2 := context.WithTimeout(ctx, 300*time.Millisecond)
+	ctx2, cancel2 := context.WithTimeout(ctx, 0)
 	defer cancel2()
 	sender.Sink <- Stream{
 		Ctx: ctx2,
@@ -165,7 +165,7 @@ func TestSendCallsCallbackOnCtxDone2(t *testing.T) {
 	wg.StartWithContext(ctx, sender.Run)
 	var cbWg sync.WaitGroup
 	cbWg.Add(2)
-	ctx1, cancel1 := context.WithTimeout(ctx, 100*time.Millisecond)
+	ctx1, cancel1 := context.WithTimeout(ctx, 0)
 	defer cancel1()
 	buf := make(chan *bytes.Buffer, 1)
 	buf <- &bytes.Buffer{}
@@ -181,7 +181,7 @@ func TestSendCallsCallbackOnCtxDone2(t *testing.T) {
 		},
 		Buf: buf,
 	}
-	ctx2, cancel2 := context.WithTimeout(ctx, 300*time.Millisecond)
+	ctx2, cancel2 := context.WithTimeout(ctx, 0)
 	defer cancel2()
 	sender.Sink <- Stream{
 		Ctx: ctx2,

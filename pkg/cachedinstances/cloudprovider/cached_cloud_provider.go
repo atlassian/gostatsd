@@ -11,6 +11,7 @@ import (
 	"github.com/atlassian/gostatsd/pkg/stats"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/time/rate"
+	"github.com/tilinna/clock"
 )
 
 func NewCachedCloudProvider(logger logrus.FieldLogger, limiter *rate.Limiter, cloudProvider gostatsd.CloudProvider, cacheOpts gostatsd.CacheOptions) *CachedCloudProvider {
@@ -49,6 +50,7 @@ type CachedCloudProvider struct {
 }
 
 func (ccp *CachedCloudProvider) Run(ctx context.Context) {
+	clck := clock.FromContext(ctx)
 	var (
 		toLookupC     chan<- gostatsd.IP
 		toLookupIP    gostatsd.IP
@@ -74,7 +76,8 @@ func (ccp *CachedCloudProvider) Run(ctx context.Context) {
 
 	wg.StartWithContext(ctx, ld.run)
 
-	refreshTicker := time.NewTicker(ccp.cacheOpts.CacheRefreshPeriod)
+	refreshTicker := clck.NewTicker(ccp.cacheOpts.CacheRefreshPeriod)
+
 	defer refreshTicker.Stop()
 	// No locking for ccp.cache READ access required - this goroutine owns the object and only it mutates it.
 	// So reads from the same goroutine are always safe (no concurrent mutations).
