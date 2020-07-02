@@ -126,7 +126,7 @@ func (dp *DatagramParser) Run(ctx context.Context) {
 func (dp *DatagramParser) logBadLineRateLimited(line []byte, ip gostatsd.IP, err error) {
 	if dp.badLineLimiter.Allow() {
 		logrus.WithFields(logrus.Fields{
-			"line":  line,
+			"line":  string(line),
 			"ip":    ip,
 			"error": err,
 		}).Info("error parsing line")
