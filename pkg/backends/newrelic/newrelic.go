@@ -302,6 +302,7 @@ func (n *Client) post(ctx context.Context, buffer *bytes.Buffer, data interface{
 	b := backoff.NewExponentialBackOff()
 	clck := clock.FromContext(ctx)
 	b.Clock = clck
+	b.Reset()
 	b.MaxElapsedTime = n.maxRequestElapsedTime
 	for {
 		if err = post(); err == nil {
