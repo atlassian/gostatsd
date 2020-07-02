@@ -11,11 +11,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/atlassian/gostatsd"
-
 	"github.com/ash2k/stager/wait"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/atlassian/gostatsd"
 )
 
 func TestPreparePayloadLegacy(t *testing.T) {

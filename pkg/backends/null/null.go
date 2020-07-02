@@ -3,10 +3,10 @@ package null
 import (
 	"context"
 
+	"github.com/spf13/viper"
+
 	"github.com/atlassian/gostatsd"
 	"github.com/atlassian/gostatsd/pkg/transport"
-
-	"github.com/spf13/viper"
 )
 
 // BackendName is the name of this backend.

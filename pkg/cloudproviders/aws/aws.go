@@ -10,19 +10,18 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/spf13/viper"
-
-	"github.com/atlassian/gostatsd"
-	"github.com/atlassian/gostatsd/pkg/stats"
-	"github.com/atlassian/gostatsd/pkg/util"
-
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/ec2metadata"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
 	"golang.org/x/net/http2"
+
+	"github.com/atlassian/gostatsd"
+	"github.com/atlassian/gostatsd/pkg/stats"
+	"github.com/atlassian/gostatsd/pkg/util"
 )
 
 const (

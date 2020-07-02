@@ -9,11 +9,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/atlassian/gostatsd"
-	"github.com/atlassian/gostatsd/pkg/stats"
-
 	"github.com/ash2k/stager/wait"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/atlassian/gostatsd"
+	"github.com/atlassian/gostatsd/pkg/stats"
 )
 
 type testAggregator struct {

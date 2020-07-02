@@ -13,6 +13,11 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/sirupsen/logrus"
+	"github.com/spf13/pflag"
+	"github.com/spf13/viper"
+	"golang.org/x/time/rate"
+
 	"github.com/atlassian/gostatsd"
 	"github.com/atlassian/gostatsd/pkg/backends"
 	"github.com/atlassian/gostatsd/pkg/cachedinstances"
@@ -20,10 +25,6 @@ import (
 	"github.com/atlassian/gostatsd/pkg/statsd"
 	"github.com/atlassian/gostatsd/pkg/transport"
 	"github.com/atlassian/gostatsd/pkg/util"
-	"github.com/sirupsen/logrus"
-	"github.com/spf13/pflag"
-	"github.com/spf13/viper"
-	"golang.org/x/time/rate"
 )
 
 const (

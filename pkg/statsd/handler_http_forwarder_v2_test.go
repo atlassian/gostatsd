@@ -4,12 +4,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/atlassian/gostatsd"
-	"github.com/atlassian/gostatsd/pb"
-	"github.com/atlassian/gostatsd/pkg/transport"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/require"
+
+	"github.com/atlassian/gostatsd"
+	"github.com/atlassian/gostatsd/pb"
+	"github.com/atlassian/gostatsd/pkg/transport"
 )
 
 func TestHttpForwarderV2Translation(t *testing.T) {

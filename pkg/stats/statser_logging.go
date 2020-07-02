@@ -3,9 +3,9 @@ package stats
 import (
 	"time"
 
-	"github.com/atlassian/gostatsd"
-
 	log "github.com/sirupsen/logrus"
+
+	"github.com/atlassian/gostatsd"
 )
 
 // LoggingStatser is a Statser which emits logs

@@ -7,8 +7,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/atlassian/gostatsd"
-
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
@@ -18,6 +16,8 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 	mainFake "k8s.io/client-go/kubernetes/fake"
 	kube_testing "k8s.io/client-go/testing"
+
+	"github.com/atlassian/gostatsd"
 )
 
 const (

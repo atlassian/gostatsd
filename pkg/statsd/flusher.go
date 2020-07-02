@@ -7,10 +7,10 @@ import (
 	"sync/atomic"
 	"time"
 
+	log "github.com/sirupsen/logrus"
+
 	"github.com/atlassian/gostatsd"
 	"github.com/atlassian/gostatsd/pkg/stats"
-
-	log "github.com/sirupsen/logrus"
 )
 
 // MetricFlusher periodically flushes metrics from all Aggregators to Senders.

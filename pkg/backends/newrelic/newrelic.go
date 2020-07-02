@@ -25,7 +25,6 @@ import (
 	"github.com/atlassian/gostatsd/pkg/stats"
 	"github.com/atlassian/gostatsd/pkg/transport"
 	"github.com/atlassian/gostatsd/pkg/util"
-
 )
 
 const (

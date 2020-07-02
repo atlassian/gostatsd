@@ -7,17 +7,16 @@ import (
 	"strings"
 	"time"
 
-	"github.com/atlassian/gostatsd"
-	"github.com/atlassian/gostatsd/pkg/transport"
-	"github.com/atlassian/gostatsd/pkg/util"
-
-	log "github.com/sirupsen/logrus"
-
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/cloudwatch"
 	"github.com/aws/aws-sdk-go/service/cloudwatch/cloudwatchiface"
+	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
+
+	"github.com/atlassian/gostatsd"
+	"github.com/atlassian/gostatsd/pkg/transport"
+	"github.com/atlassian/gostatsd/pkg/util"
 )
 
 // Maximum number of dimensions per metric

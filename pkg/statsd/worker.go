@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/ash2k/stager/wait"
+
 	"github.com/atlassian/gostatsd"
 	"github.com/atlassian/gostatsd/pkg/stats"
 )
