@@ -1,3 +1,8 @@
+25.0.0
+------
+- Adds InfluxDB as a backend, see [BACKENDS.md](BACKENDS.md) for details.
+- Some logs have been changed to be slightly more machine readable.
+
 24.0.1
 ------
 - Add pprof catch-all route to match the rest of pprof's available endpoints

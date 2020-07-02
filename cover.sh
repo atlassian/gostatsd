@@ -15,10 +15,11 @@ declare -a packages=('' \
     'cmd/gostatsd' 'cmd/tester'
     'pkg/backends' 'pkg/backends/sender'
     'pkg/backends/datadog' 'pkg/backends/graphite' 'pkg/backends/null' \
-    'pkg/backends/statsdaemon' 'pkg/backends/stdout' \
-    'pkg/cloudproviders' 'pkg/cloudproviders/aws' \
+    'pkg/backends/statsdaemon' 'pkg/backends/stdout' 'pkg/backends/newrelic'  \
+    'pkg/backends/influxdb' \
+    'pkg/cloudproviders' 'pkg/cloudproviders/aws' 'pkg/cloudproviders/k8s' \
     'pkg/fakesocket' 'pkg/statsd' \
-    'pkg/stats' 'pkg/cluster/nodes' 'pkg/web');
+    'pkg/util' 'pkg/stats' 'pkg/cluster/nodes' 'pkg/web');
 
 # Test each package and append coverage profile info to coverage.out
 for pkg in "${packages[@]}"
