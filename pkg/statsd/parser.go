@@ -8,7 +8,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 	"golang.org/x/time/rate"
 
 	"github.com/atlassian/gostatsd"
@@ -29,6 +29,8 @@ type DatagramParser struct {
 	metricsReceived uint64
 	eventsReceived  uint64
 
+	logger logrus.FieldLogger
+
 	ignoreHost bool
 	handler    gostatsd.PipelineHandler
 	namespace  string // Namespace to prefix all metrics
@@ -45,13 +47,23 @@ type DatagramParser struct {
 }
 
 // NewDatagramParser initialises a new DatagramParser.
-func NewDatagramParser(in <-chan []*Datagram, ns string, ignoreHost bool, estimatedTags int, handler gostatsd.PipelineHandler, badLineRateLimitPerSecond rate.Limit, logRawMetric bool) *DatagramParser {
+func NewDatagramParser(
+	in <-chan []*Datagram,
+	ns string,
+	ignoreHost bool,
+	estimatedTags int,
+	handler gostatsd.PipelineHandler,
+	badLineRateLimitPerSecond rate.Limit,
+	logRawMetric bool,
+	logger logrus.FieldLogger,
+) *DatagramParser {
 	limiter := &rate.Limiter{}
 	if badLineRateLimitPerSecond > 0 {
 		limiter = rate.NewLimiter(badLineRateLimitPerSecond, 1)
 	}
 
 	return &DatagramParser{
+		logger:         logger,
 		in:             in,
 		ignoreHost:     ignoreHost,
 		handler:        handler,
@@ -113,7 +125,11 @@ func (dp *DatagramParser) Run(ctx context.Context) {
 // logBadLineRateLimited will log a line which failed to decode, if the current rate limit has not been exceeded.
 func (dp *DatagramParser) logBadLineRateLimited(line []byte, ip gostatsd.IP, err error) {
 	if dp.badLineLimiter.Allow() {
-		log.Infof("Error parsing line %q from %s: %v", line, ip, err)
+		logrus.WithFields(logrus.Fields{
+			"line":  string(line),
+			"ip":    ip,
+			"error": err,
+		}).Info("error parsing line")
 	}
 }
 
@@ -170,7 +186,7 @@ func (dp *DatagramParser) handleDatagram(ctx context.Context, now gostatsd.Nanot
 			dp.handler.DispatchEvent(ctx, event)
 		} else {
 			// Should never happen.
-			log.Panic("Both event and metric are nil")
+			dp.logger.Panic("Both event and metric are nil")
 		}
 	}
 	return metrics, numEvents, numBad
@@ -193,13 +209,12 @@ func (dp *DatagramParser) initLogRawMetric(ctx context.Context) {
 				// The `StandardLogger` returns the singleton log instance which is used elsewhere in the application.
 				// And the `log` package makes sure that the logging interface are thread-safe so that we wouldn't
 				// mess up the contents of stdout/stderr.
-				lg := log.StandardLogger()
 				for {
 					select {
 					case <-ctx.Done():
 						return
 					case metrics := <-dp.logRawMetricChan:
-						lg.Info(metrics)
+						dp.logger.Info(metrics)
 					}
 				}
 			}()

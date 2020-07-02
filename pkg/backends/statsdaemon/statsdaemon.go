@@ -11,7 +11,7 @@ import (
 	"sync"
 	"time"
 
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 
 	"github.com/atlassian/gostatsd"
@@ -197,7 +197,7 @@ func constructEventMessage(e *gostatsd.Event) *bytes.Buffer {
 }
 
 // NewClient constructs a new statsd backend client.
-func NewClient(address string, dialTimeout, writeTimeout time.Duration, disableTags, tcpTransport bool, tlsConfig *tls.Config) (*Client, error) {
+func NewClient(address string, dialTimeout, writeTimeout time.Duration, disableTags, tcpTransport bool, tlsConfig *tls.Config, logger logrus.FieldLogger) (*Client, error) {
 	if address == "" {
 		return nil, fmt.Errorf("[%s] address is required", BackendName)
 	}
@@ -207,7 +207,12 @@ func NewClient(address string, dialTimeout, writeTimeout time.Duration, disableT
 	if writeTimeout < 0 {
 		return nil, fmt.Errorf("[%s] writeTimeout should be non-negative", BackendName)
 	}
-	log.Infof("[%s] address=%s dialTimeout=%s writeTimeout=%s", BackendName, address, dialTimeout, writeTimeout)
+	logger.WithFields(logrus.Fields{
+		"address":       address,
+		"dial-timeout":  dialTimeout,
+		"write-timeout": writeTimeout,
+	}).Info("created backend")
+
 	var packetSize int
 	var connFactory func() (net.Conn, error)
 
@@ -237,6 +242,7 @@ func NewClient(address string, dialTimeout, writeTimeout time.Duration, disableT
 		packetSize:  packetSize,
 		disableTags: disableTags,
 		sender: sender.Sender{
+			Logger:      logger,
 			ConnFactory: connFactory,
 			Sink:        make(chan sender.Stream, maxConcurrentSends),
 			BufPool: sync.Pool{
@@ -252,7 +258,7 @@ func NewClient(address string, dialTimeout, writeTimeout time.Duration, disableT
 }
 
 // NewClientFromViper constructs a statsd client by connecting to an address.
-func NewClientFromViper(v *viper.Viper, pool *transport.TransportPool) (gostatsd.Backend, error) {
+func NewClientFromViper(v *viper.Viper, logger logrus.FieldLogger, pool *transport.TransportPool) (gostatsd.Backend, error) {
 	g := util.GetSubViper(v, "statsdaemon")
 	g.SetDefault("dial_timeout", DefaultDialTimeout)
 	g.SetDefault("write_timeout", DefaultWriteTimeout)
@@ -274,6 +280,7 @@ func NewClientFromViper(v *viper.Viper, pool *transport.TransportPool) (gostatsd
 		g.GetBool("disable_tags"),
 		g.GetBool("tcp_transport"),
 		maybeTLSConfig,
+		logger,
 	)
 }
 

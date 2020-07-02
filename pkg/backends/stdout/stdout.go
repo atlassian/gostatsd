@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 
 	"github.com/atlassian/gostatsd"
@@ -25,7 +25,7 @@ type Client struct {
 }
 
 // NewClientFromViper constructs a stdout backend.
-func NewClientFromViper(v *viper.Viper, pool *transport.TransportPool) (gostatsd.Backend, error) {
+func NewClientFromViper(v *viper.Viper, logger logrus.FieldLogger, pool *transport.TransportPool) (gostatsd.Backend, error) {
 	return NewClient(
 		gostatsd.DisabledSubMetrics(v),
 	)
@@ -63,7 +63,7 @@ func (client Client) SendMetricsAsync(ctx context.Context, metrics *gostatsd.Met
 }
 
 func writePayload(buf *bytes.Buffer) (retErr error) {
-	writer := log.StandardLogger().Writer()
+	writer := logrus.StandardLogger().Writer()
 	defer func() {
 		if err := writer.Close(); err != nil && retErr == nil {
 			retErr = err
@@ -138,7 +138,7 @@ func preparePayload(metrics *gostatsd.MetricMap, disabled *gostatsd.TimerSubtype
 
 // SendEvent prints events to the stdout.
 func (client Client) SendEvent(ctx context.Context, e *gostatsd.Event) (retErr error) {
-	writer := log.StandardLogger().Writer()
+	writer := logrus.StandardLogger().Writer()
 	defer func() {
 		if err := writer.Close(); err != nil && retErr == nil {
 			retErr = err

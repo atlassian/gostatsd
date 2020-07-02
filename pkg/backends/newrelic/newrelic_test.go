@@ -61,7 +61,7 @@ func TestRetries(t *testing.T) {
 	client, err := NewClient("default", ts.URL+"/v1/data", "", "GoStatsD", "", "", "", "metric_name", "metric_type",
 		"metric_per_second", "metric_value", "samples_min", "samples_max", "samples_count",
 		"samples_mean", "samples_median", "samples_std_dev", "samples_sum", "samples_sum_squares", "agent",
-		defaultMetricsPerBatch, defaultMaxRequests, 2*time.Second, 1*time.Second, gostatsd.TimerSubtypes{}, p)
+		defaultMetricsPerBatch, defaultMaxRequests, 2*time.Second, 1*time.Second, gostatsd.TimerSubtypes{}, logrus.New(), p)
 
 	require.NoError(t, err)
 	res := make(chan []error, 1)
@@ -103,7 +103,7 @@ func TestSendMetricsInMultipleBatches(t *testing.T) {
 	client, err := NewClient("default", ts.URL+"/v1/data", "", "GoStatsD", "", "", "", "metric_name", "metric_type",
 		"metric_per_second", "metric_value", "samples_min", "samples_max", "samples_count",
 		"samples_mean", "samples_median", "samples_std_dev", "samples_sum", "samples_sum_squares", "agent",
-		1, defaultMaxRequests, 2*time.Second, 1*time.Second, gostatsd.TimerSubtypes{}, p)
+		1, defaultMaxRequests, 2*time.Second, 1*time.Second, gostatsd.TimerSubtypes{}, logrus.New(), p)
 	require.NoError(t, err)
 	res := make(chan []error, 1)
 	client.SendMetricsAsync(context.Background(), twoCounters(), func(errs []error) {
@@ -191,7 +191,7 @@ func TestSendMetrics(t *testing.T) {
 			client, err := NewClient("default", ts.URL+"/v1/data", ts.URL+"/metric/v1", "GoStatsD", tt.flushType, tt.apiKey, "", "metric_name", "metric_type",
 				"metric_per_second", "metric_value", "samples_min", "samples_max", "samples_count",
 				"samples_mean", "samples_median", "samples_std_dev", "samples_sum", "samples_sum_squares", "agent",
-				defaultMetricsPerBatch, defaultMaxRequests, 2*time.Second, 1*time.Second, gostatsd.TimerSubtypes{}, p)
+				defaultMetricsPerBatch, defaultMaxRequests, 2*time.Second, 1*time.Second, gostatsd.TimerSubtypes{}, logrus.New(), p)
 
 			require.NoError(t, err)
 			res := make(chan []error, 1)
@@ -263,7 +263,7 @@ func TestSendMetricsWithHistogram(t *testing.T) {
 	client, err := NewClient("default", ts.URL+"/v1/data", "", "GoStatsD", "", "", "", "metric_name", "metric_type",
 		"metric_per_second", "metric_value", "samples_min", "samples_max", "samples_count",
 		"samples_mean", "samples_median", "samples_std_dev", "samples_sum", "samples_sum_squares", "agent",
-		defaultMetricsPerBatch, defaultMaxRequests, 2*time.Second, 1*time.Second, gostatsd.TimerSubtypes{}, p)
+		defaultMetricsPerBatch, defaultMaxRequests, 2*time.Second, 1*time.Second, gostatsd.TimerSubtypes{}, logrus.New(), p)
 
 	require.NoError(t, err)
 	res := make(chan []error, 1)
@@ -390,7 +390,7 @@ func TestEventFormatter(t *testing.T) {
 			client, err := NewClient("default", "v1/data", "", "GoStatsD", tt.name, "api-key", "", "metric_name", "metric_type",
 				"metric_per_second", "metric_value", "samples_min", "samples_max", "samples_count",
 				"samples_mean", "samples_median", "samples_std_dev", "samples_sum", "samples_sum_squares", "agent",
-				defaultMetricsPerBatch, defaultMaxRequests, 2*time.Second, 1*time.Second, gostatsd.TimerSubtypes{}, p)
+				defaultMetricsPerBatch, defaultMaxRequests, 2*time.Second, 1*time.Second, gostatsd.TimerSubtypes{}, logrus.New(), p)
 			require.NoError(t, err)
 
 			gostatsdEvent := gostatsd.Event{Title: "EventTitle", Text: "hi", Hostname: "blah", Priority: 1}

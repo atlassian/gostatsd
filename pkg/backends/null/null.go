@@ -3,6 +3,7 @@ package null
 import (
 	"context"
 
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 
 	"github.com/atlassian/gostatsd"
@@ -16,7 +17,7 @@ const BackendName = "null"
 type Client struct{}
 
 // NewClientFromViper constructs a GraphiteClient object by connecting to an address.
-func NewClientFromViper(v *viper.Viper, pool *transport.TransportPool) (gostatsd.Backend, error) {
+func NewClientFromViper(v *viper.Viper, logger logrus.FieldLogger, pool *transport.TransportPool) (gostatsd.Backend, error) {
 	return NewClient()
 }
 

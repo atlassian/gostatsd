@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/ash2k/stager/wait"
+	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -18,6 +19,7 @@ func TestSend(t *testing.T) {
 	t.Parallel()
 	dc := dummyConn{}
 	sender := Sender{
+		Logger: logrus.New(),
 		ConnFactory: func() (net.Conn, error) {
 			return &dc, nil
 		},
@@ -60,6 +62,7 @@ func TestSend(t *testing.T) {
 func TestSendCallsCallbacksOnMainCtxDone(t *testing.T) {
 	t.Parallel()
 	sender := Sender{
+		Logger: logrus.New(),
 		ConnFactory: func() (net.Conn, error) {
 			return nil, errors.New("(donotwant)")
 		},
@@ -94,6 +97,7 @@ func TestSendCallsCallbacksOnMainCtxDone(t *testing.T) {
 func TestSendCallsCallbackOnCtxDone1(t *testing.T) {
 	t.Parallel()
 	sender := Sender{
+		Logger: logrus.New(),
 		ConnFactory: func() (net.Conn, error) {
 			return nil, errors.New("(donotwant)")
 		},
@@ -142,6 +146,7 @@ func TestSendCallsCallbackOnCtxDone2(t *testing.T) {
 	t.Parallel()
 	getFail := false
 	sender := Sender{
+		Logger: logrus.New(),
 		ConnFactory: func() (net.Conn, error) {
 			if getFail {
 				return nil, errors.New("(donotwant)")

@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 
 	"github.com/atlassian/gostatsd"
 )
@@ -23,6 +23,8 @@ type Stream struct {
 }
 
 type Sender struct {
+	Logger logrus.FieldLogger
+
 	ConnFactory  ConnFactory
 	Sink         chan Stream
 	BufPool      sync.Pool
@@ -43,7 +45,7 @@ func (s *Sender) Run(ctx context.Context) {
 	for {
 		w, err := s.ConnFactory()
 		if err != nil {
-			log.Warnf("Failed to connect: %v", err)
+			s.Logger.WithError(err).Warn("failed to connect")
 			// TODO do backoff
 			timer := time.NewTimer(1 * time.Second)
 			for {
@@ -85,7 +87,7 @@ func (s *Sender) Run(ctx context.Context) {
 func (s *Sender) innerRun(ctx context.Context, conn net.Conn, stream *Stream, errs []error) (*Stream, []error, error) {
 	defer func() {
 		if err := conn.Close(); err != nil {
-			log.Warnf("Close failed: %v", err)
+			s.Logger.WithError(err).Warn("close failed")
 		}
 	}()
 	var err error
@@ -103,7 +105,7 @@ loop:
 		for buf := range stream.Buf {
 			if s.WriteTimeout > 0 {
 				if e := conn.SetWriteDeadline(time.Now().Add(s.WriteTimeout)); e != nil {
-					log.Warnf("Failed to set write deadline: %v", e)
+					s.Logger.WithError(e).Warn("failed to set write deadline")
 				}
 			}
 			_, err = conn.Write(buf.Bytes())

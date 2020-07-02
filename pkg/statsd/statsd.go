@@ -9,7 +9,7 @@ import (
 
 	"github.com/ash2k/stager"
 	"github.com/libp2p/go-reuseport"
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"golang.org/x/time/rate"
 
@@ -112,9 +112,9 @@ func (s *Server) createStandaloneSink() (gostatsd.PipelineHandler, []gostatsd.Ru
 	return backendHandler, runnables, nil
 }
 
-func (s *Server) createForwarderSink() (gostatsd.PipelineHandler, []gostatsd.Runnable, error) {
+func (s *Server) createForwarderSink(logger logrus.FieldLogger) (gostatsd.PipelineHandler, []gostatsd.Runnable, error) {
 	forwarderHandler, err := NewHttpForwarderHandlerV2FromViper(
-		log.StandardLogger(),
+		logger,
 		s.Viper,
 		s.TransportPool,
 	)
@@ -128,11 +128,11 @@ func (s *Server) createForwarderSink() (gostatsd.PipelineHandler, []gostatsd.Run
 	return forwarderHandler, []gostatsd.Runnable{forwarderHandler.Run, forwarderHandler.RunMetricsContext, flusher.Run}, nil
 }
 
-func (s *Server) createFinalSink() (gostatsd.PipelineHandler, []gostatsd.Runnable, error) {
+func (s *Server) createFinalSink(logger logrus.FieldLogger) (gostatsd.PipelineHandler, []gostatsd.Runnable, error) {
 	if s.ServerMode == "standalone" {
 		return s.createStandaloneSink()
 	} else if s.ServerMode == "forwarder" {
-		return s.createForwarderSink()
+		return s.createForwarderSink(logger)
 	}
 	return nil, nil, errors.New("invalid server-mode, must be standalone, or forwarder")
 }
@@ -140,7 +140,9 @@ func (s *Server) createFinalSink() (gostatsd.PipelineHandler, []gostatsd.Runnabl
 // RunWithCustomSocket runs the server until context signals done.
 // Listening socket is created using sf.
 func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) error {
-	handler, runnables, err := s.createFinalSink()
+	logger := logrus.StandardLogger()
+
+	handler, runnables, err := s.createFinalSink(logger)
 	if err != nil {
 		return err
 	}
@@ -167,7 +169,7 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 	datagrams := make(chan []*Datagram)
 
 	// Create the Parser
-	parser := NewDatagramParser(datagrams, s.Namespace, s.IgnoreHost, s.EstimatedTags, handler, s.BadLineRateLimitPerSecond, s.LogRawMetric)
+	parser := NewDatagramParser(datagrams, s.Namespace, s.IgnoreHost, s.EstimatedTags, handler, s.BadLineRateLimitPerSecond, s.LogRawMetric, logger)
 	runnables = append(runnables, parser.RunMetricsContext)
 	for i := 0; i < s.MaxParsers; i++ {
 		runnables = append(runnables, parser.Run)
@@ -179,11 +181,11 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 
 	// Create the Statser
 	hostname := s.Hostname
-	statser := s.createStatser(hostname, handler)
+	statser := s.createStatser(hostname, handler, logger)
 	runnables = gostatsd.MaybeAppendRunnable(runnables, statser)
 
 	// Create any http servers
-	httpServers, err := web.NewHttpServersFromViper(s.Viper, log.StandardLogger(), handler)
+	httpServers, err := web.NewHttpServersFromViper(s.Viper, logger, handler)
 	if err != nil {
 		return err
 	}
@@ -209,12 +211,12 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 	return ctx.Err()
 }
 
-func (s *Server) createStatser(hostname string, handler gostatsd.PipelineHandler) stats.Statser {
+func (s *Server) createStatser(hostname string, handler gostatsd.PipelineHandler, logger logrus.FieldLogger) stats.Statser {
 	switch s.StatserType {
 	case gostatsd.StatserNull:
 		return stats.NewNullStatser()
 	case gostatsd.StatserLogging:
-		return stats.NewLoggingStatser(s.InternalTags, log.NewEntry(log.New()))
+		return stats.NewLoggingStatser(s.InternalTags, logger)
 	default:
 		namespace := s.Namespace
 		if s.InternalNamespace != "" {
