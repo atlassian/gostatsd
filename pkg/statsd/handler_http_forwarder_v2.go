@@ -21,10 +21,10 @@ import (
 	"github.com/tilinna/clock"
 
 	"github.com/atlassian/gostatsd"
+	"github.com/atlassian/gostatsd/internal/util"
 	"github.com/atlassian/gostatsd/pb"
 	"github.com/atlassian/gostatsd/pkg/stats"
 	"github.com/atlassian/gostatsd/pkg/transport"
-	"github.com/atlassian/gostatsd/pkg/util"
 )
 
 const (

@@ -15,7 +15,7 @@ import (
 	"github.com/spf13/viper"
 
 	"github.com/atlassian/gostatsd"
-	"github.com/atlassian/gostatsd/pkg/util"
+	"github.com/atlassian/gostatsd/internal/util"
 )
 
 type httpServer struct {
