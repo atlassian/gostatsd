@@ -19,10 +19,10 @@ install:
 
 script:
   - make build-all
-  - make test-race
-  - make check
-  - make bench-race
   - make coveralls
+  - make check
+  - make test-race
+  - make bench-race
 
 after_success:
   - if [ "$TRAVIS_OS_NAME" == "linux" -a ! -z "$TRAVIS_TAG" ]; then
