@@ -55,9 +55,9 @@ var (
 	defaultMaxRequests = uint(10 * runtime.NumCPU())
 
 	errApiEndpointRequired          = errors.New("[" + BackendName + "] " + paramApiEndpoint + " is required")
-	errMaxRequestsIsNegative        = errors.New("[" + BackendName + "] " + paramMaxRequests + " must be above zero")
+	errMaxRequestsIsNotPositive     = errors.New("[" + BackendName + "] " + paramMaxRequests + " must be above zero")
 	errMaxRequestElapsedTimeInvalid = errors.New("[" + BackendName + "] " + paramMaxRequestElapsedTime + " must be positive or -1")
-	errMetricsPerBatchIsNegative    = errors.New("[" + BackendName + "] " + paramMetricsPerBatch + " must be positive")
+	errMetricsPerBatchIsNotPositive = errors.New("[" + BackendName + "] " + paramMetricsPerBatch + " must be positive")
 	errPostEventFailed              = errors.New("[" + BackendName + "] failed to post event")
 )
 
@@ -139,13 +139,13 @@ func NewClient(
 		return nil, errApiEndpointRequired
 	}
 	if maxRequests == 0 {
-		return nil, errMaxRequestsIsNegative
+		return nil, errMaxRequestsIsNotPositive
 	}
 	if maxRequestElapsedTime <= 0 && maxRequestElapsedTime != -1 {
 		return nil, errMaxRequestElapsedTimeInvalid
 	}
-	if metricsPerBatch <= 0 {
-		return nil, errMetricsPerBatchIsNegative
+	if metricsPerBatch == 0 {
+		return nil, errMetricsPerBatchIsNotPositive
 	}
 	parsedEndpoint, err := url.Parse(apiEndpoint)
 	if err != nil {
