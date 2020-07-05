@@ -53,6 +53,8 @@ func TestStatsdThroughput(t *testing.T) {
 		ExpiryIntervalGauge:   gostatsd.DefaultExpiryInterval,
 		ExpiryIntervalTimer:   gostatsd.DefaultExpiryInterval,
 		FlushInterval:         gostatsd.DefaultFlushInterval,
+		FlushOffset:           0,
+		FlushAligned:          false,
 		MaxReaders:            gostatsd.DefaultMaxReaders,
 		MaxParsers:            gostatsd.DefaultMaxParsers,
 		MaxWorkers:            gostatsd.DefaultMaxWorkers,

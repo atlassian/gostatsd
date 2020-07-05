@@ -1,3 +1,9 @@
+26.0.0
+------
+- Adds new options `flush-offset` and `flush-aligned` to align the flush interval to a configurable multiple.  See [README.md](README.md) for details.
+- Adds documentation for many of the server options.
+- Internal library refactoring
+
 25.0.0
 ------
 - Adds InfluxDB as a backend, see [BACKENDS.md](BACKENDS.md) for details.

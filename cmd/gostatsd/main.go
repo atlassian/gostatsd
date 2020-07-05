@@ -160,6 +160,8 @@ func constructServer(v *viper.Viper) (*statsd.Server, error) {
 		ExpiryIntervalSet:     v.GetDuration(gostatsd.ParamExpiryIntervalSet),
 		ExpiryIntervalTimer:   v.GetDuration(gostatsd.ParamExpiryIntervalTimer),
 		FlushInterval:         v.GetDuration(gostatsd.ParamFlushInterval),
+		FlushOffset:           v.GetDuration(gostatsd.ParamFlushOffset),
+		FlushAligned:          v.GetBool(gostatsd.ParamFlushAligned),
 		IgnoreHost:            v.GetBool(gostatsd.ParamIgnoreHost),
 		MaxReaders:            v.GetInt(gostatsd.ParamMaxReaders),
 		MaxParsers:            v.GetInt(gostatsd.ParamMaxParsers),

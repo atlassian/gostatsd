@@ -55,12 +55,62 @@ The server can currently run in two modes: `standalone` and `forwarder`.  It is 
 In `standalone` mode, raw metrics are processed and aggregated as normal, and aggregated data is submitted to
 configured backends (see below)
 
+This configuration mode allows the following configuration options:
+- `expiry-interval`: interval before metrics are expired, see `Metric expiry and persistence` section.  Defaults
+   to `5m`.  0 to disable, -1 for immediate.
+- `expiry-interval-counter`: interval before counters are expired, defaults to the value of `expiry-interval`.
+- `expiry-interval-gauge`: interval before gauges are expired, defaults to the value of `expiry-interval`.
+- `expiry-interval-set`: interval before sets are expired, defaults to the value of `expiry-interval`.
+- `expiry-interval-timer`: interval before timers are expired, defaults to the value of `expiry-interval`.
+- `flush-aligned`: whether or not the flush should be aligned.  Setting this will flush at an exact time interval.  With
+  a 10 second flush-interval, if the service happens to be started at 12:47:13, then flushing will occur at 12:47:20,
+  12:47:30, etc, rather than 12:47:23, 12:47:33, etc.  This removes query time ambiguity in a multi-server environment.
+  Defaults to `false`.
+- `flush-interval`: duration for how long to batch metrics before flushing. Should be an order of magnitude less than
+  the upstream flush interval. Defaults to `1s`.
+- `flush-offset`: offset for flush interval when flush alignment is enabled.  For example, with an offset of 7s and an
+  interval of 10s, it will flush at 12:47:10+7 = 12:47:17, etc.
+- `ignore-host`: indicates whether or not an explicit `host` field will be added to all incoming metrics and events.
+  Defaults to `false`
+- `max-readers`: the number of UDP receivers to run.  Defaults to 8 or the number of logical cores, whichever is less.
+- `max-parsers`: the number of workers available to parse metrics.  Defaults to the number of logical cores.
+- `max-workers`: the number of aggregators to process metrics.  Defaults to the number of logical cores.
+- `max-queue-size`: the size of the buffers between parsers and workers.  Defaults to `10000`, monitored via
+  `channel.*` metric, with `dispatch_aggregator_batch` and `dispatch_aggregator_map` channels.
+- `max-concurrent-events`: the maximum number of concurrent events to be dispatching.  Defaults to `1024`, monitored
+  via `channel.*` metric, with `backend_events_sem` channel.
+- `estimated-tags`: provides a hint to the system as to how many tags are expected to be seen on any particular metric,
+  so that memory can be pre-allocated and reducing churn.  Defaults to `4`.  Note: this is only a hint, and it is safe
+  to send more.
+- `log-raw-metric`: logs raw metrics received from the network.  Defaults to `false`.
+- `metrics-addr`: the address to listen to metrics on. Defaults to `:8125`.
+- `namespace`: a namespace to prefix all metrics with.  Defaults to ''.
+- `statser-type`: configures where internal metrics are sent to.  May be `internal` which sends them to the internal
+  processing pipeline, `logging` which logs them, `null` which drops them.  Defaults to `internal`, or `null` if the
+  NewRelic backend is enabled.
+- `percent-threshold`: configures the "percentiles" sent on timers.  Space separated string.  Defaults to `90`.
+- `heartbeat-enabled`: emits a metric named `heartbeat` every flush interval, tagged by `version` and `commit`.
+  Defaults to `false`.
+- `receive-batch-size`: the number of datagrams to attempt to read.  It is more CPU efficient to read multiple, however
+  it takes extra memory.  See [Memory allocation for read buffers] section below for details.  Defaults to 50.
+- `conn-per-reader`: attempts to create a connection for every UDP receiver.  Not supported by all OS versions.
+  Defaults to `false`.
+- `bad-lines-per-minute`: the number of metrics which fail to parse to log per minute.  This is used to prevent a bad
+  client spamming malformed statsd data, while still logging some information to enable troubleshooting.  Defaults to `0`.
+- `hostname`: sets the hostname on internal metrics
+- `timer-histogram-limit`: specifies the maximum number of buckets on histograms.  See [Timer histograms] below.
+
+
 In `forwarder` mode, raw metrics are collected from a frontend, and instead of being aggregated they are sent via http
 to another gostatsd server after passing through the processing pipeline (cloud provider, static tags, filtering, etc).
 
 A `forwarder` server is intended to run on-host and collect metrics, forwarding them on to a central aggregation
 service.  At present the central aggregation service can only scale vertically, but horizontal scaling through
 clustering is planned.
+
+Aligned flushing is deliberately not supported in `forwarder` mode, as it would impact the central aggregation server
+due to all for forwarder nodes transmitting at once, and the expectation that many forwarding flushes will occur per
+central flush anyway.
 
 Configuring `forwarder` mode requires a configuration file, with a section named `http-transport`.  The raw version
 spoken is not configurable per server (see [HTTP.md](HTTP.md) for version guarantees).  The configuration section allows the
@@ -76,16 +126,7 @@ following configuration options:
   may cause blocking in the pipeline (back pressure).  A UDP only receiver will never use more than the number of
   configured parsers (`--max-parsers` option).  Defaults to the value of `--max-parsers`, but may require tuning for
   HTTP based servers.
-- `expiry-interval`: interval before metrics are expired, see `Metric expiry and persistence` section.  Defaults
-   to `5m`.  0 to disable, -1 for immediate.
-- `expiry-interval-counter`: interval before counters are expired, defaults to the value of `expiry-interval`.
-- `expiry-interval-gauge`: interval before gauges are expired, defaults to the value of `expiry-interval`.
-- `expiry-interval-set`: interval before sets are expired, defaults to the value of `expiry-interval`.
-- `expiry-interval-timer`: interval before timers are expired, defaults to the value of `expiry-interval`.
-- `flush-interval`: duration for how long to batch metrics before flushing. Should be an order of magnitude less than
-  the upstream flush interval. Defaults to `1s`.
 - `transport`: see [TRANSPORT.md](TRANSPORT.md) for how to configure the transport.
-- `log-raw-metric`: logs raw metrics received from the network.  Defaults to `false`.
 - `custom-headers` : a map of strings that are added to each request sent to allow for additional network routing / request inspection.
   Not required, default is empty. Example: `--custom-headers='{"region" : "us-east-1", "service" : "event-producer"}'`
 - `dynamic-headers` : similar with `custom-headers`, but the header values are extracted from metric tags matching the
@@ -94,6 +135,23 @@ following configuration options:
   in both `custom-header` and `dynamic-header`, the vaule set by `custom-header` takes precedence. Not required, default
   is empty. Example: `--dynamic-headers='["region", "service"]'`.
   This is an experimental feature and it may be removed or changed in future versions.
+
+The following settings from the previous section are also supported:
+- `expiry-*`
+- `ignore-host`
+- `max-readers`
+- `max-parsers`
+- `estimated-tags`
+- `log-raw-metric`
+- `metrics-addr`
+- `namespace`
+- `statser-type`
+- `heartbeat-enabled`
+- `receive-batch-size`
+- `conn-per-reader`
+- `bad-lines-per-minute`
+- `hostname`
+- `log-raw-metric`
 
 
 Metric expiry and persistence
