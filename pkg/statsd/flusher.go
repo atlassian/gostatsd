@@ -7,10 +7,10 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/sirupsen/logrus"
+
 	"github.com/atlassian/gostatsd"
 	"github.com/atlassian/gostatsd/pkg/stats"
-
-	log "github.com/sirupsen/logrus"
 )
 
 // MetricFlusher periodically flushes metrics from all Aggregators to Senders.
@@ -100,7 +100,7 @@ func (f *MetricFlusher) handleSendResult(flushResults []error) {
 		if err != nil {
 			timestampPointer = &f.lastFlushError
 			if err != context.DeadlineExceeded && err != context.Canceled {
-				log.Errorf("Sending metrics to backend failed: %v", err)
+				logrus.WithError(err).Error("Sending metrics to backend failed")
 			}
 		}
 	}

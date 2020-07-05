@@ -8,9 +8,9 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/atlassian/gostatsd"
-
 	log "github.com/sirupsen/logrus"
+
+	"github.com/atlassian/gostatsd"
 )
 
 // Metrics store the metrics to send.

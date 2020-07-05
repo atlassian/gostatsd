@@ -9,17 +9,21 @@ import (
 	"time"
 
 	"github.com/ash2k/stager/wait"
-	"github.com/atlassian/gostatsd"
-	"github.com/atlassian/gostatsd/pkg/cachedinstances/cloudprovider"
-	"github.com/atlassian/gostatsd/pkg/fakesocket"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"golang.org/x/time/rate"
+
+	"github.com/atlassian/gostatsd"
+	"github.com/atlassian/gostatsd/pkg/cachedinstances/cloudprovider"
+	"github.com/atlassian/gostatsd/pkg/fakesocket"
 )
 
 // TestStatsdThroughput emulates statsd work using fake network socket and null backend to
 // measure throughput.
 func TestStatsdThroughput(t *testing.T) {
+	if testing.Short() {
+		t.Skip()
+	}
 	rand.Seed(time.Now().UnixNano())
 	var memStatsStart, memStatsFinish runtime.MemStats
 	runtime.ReadMemStats(&memStatsStart)
@@ -41,22 +45,25 @@ func TestStatsdThroughput(t *testing.T) {
 			CacheNegativeTTL:          gostatsd.DefaultCacheNegativeTTL,
 		})
 	s := Server{
-		Backends:            []gostatsd.Backend{backend},
-		CachedInstances:     cachedInstances,
-		DefaultTags:         gostatsd.DefaultTags,
-		ExpiryInterval:      gostatsd.DefaultExpiryInterval,
-		FlushInterval:       gostatsd.DefaultFlushInterval,
-		MaxReaders:          gostatsd.DefaultMaxReaders,
-		MaxParsers:          gostatsd.DefaultMaxParsers,
-		MaxWorkers:          gostatsd.DefaultMaxWorkers,
-		MaxQueueSize:        gostatsd.DefaultMaxQueueSize,
-		EstimatedTags:       1, // Travis has limited memory
-		PercentThreshold:    gostatsd.DefaultPercentThreshold,
-		HeartbeatEnabled:    gostatsd.DefaultHeartbeatEnabled,
-		ReceiveBatchSize:    gostatsd.DefaultReceiveBatchSize,
-		MaxConcurrentEvents: 2,
-		ServerMode:          "standalone",
-		Viper:               viper.New(),
+		Backends:              []gostatsd.Backend{backend},
+		CachedInstances:       cachedInstances,
+		DefaultTags:           gostatsd.DefaultTags,
+		ExpiryIntervalCounter: gostatsd.DefaultExpiryInterval,
+		ExpiryIntervalSet:     gostatsd.DefaultExpiryInterval,
+		ExpiryIntervalGauge:   gostatsd.DefaultExpiryInterval,
+		ExpiryIntervalTimer:   gostatsd.DefaultExpiryInterval,
+		FlushInterval:         gostatsd.DefaultFlushInterval,
+		MaxReaders:            gostatsd.DefaultMaxReaders,
+		MaxParsers:            gostatsd.DefaultMaxParsers,
+		MaxWorkers:            gostatsd.DefaultMaxWorkers,
+		MaxQueueSize:          gostatsd.DefaultMaxQueueSize,
+		EstimatedTags:         1, // Travis has limited memory
+		PercentThreshold:      gostatsd.DefaultPercentThreshold,
+		HeartbeatEnabled:      gostatsd.DefaultHeartbeatEnabled,
+		ReceiveBatchSize:      gostatsd.DefaultReceiveBatchSize,
+		MaxConcurrentEvents:   2,
+		ServerMode:            "standalone",
+		Viper:                 viper.New(),
 	}
 	ctxCached, cancelCached := context.WithCancel(context.Background())
 	defer cancelCached()

@@ -5,17 +5,15 @@ import (
 	"math"
 	"testing"
 
+	"github.com/aws/aws-sdk-go/service/cloudwatch"
+	"github.com/aws/aws-sdk-go/service/cloudwatch/cloudwatchiface"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/atlassian/gostatsd"
 	"github.com/atlassian/gostatsd/pkg/transport"
-
-	"github.com/aws/aws-sdk-go/service/cloudwatch"
-	"github.com/aws/aws-sdk-go/service/cloudwatch/cloudwatchiface"
-
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 type mockedCloudwatch struct {
@@ -32,7 +30,7 @@ func TestSendMetrics(t *testing.T) {
 	t.Parallel()
 
 	p := transport.NewTransportPool(logrus.New(), viper.New())
-	cli, err := NewClient("ns", "default", gostatsd.TimerSubtypes{}, p)
+	cli, err := NewClient("ns", "default", gostatsd.TimerSubtypes{}, logrus.New(), p)
 	require.NoError(t, err)
 
 	expected := []struct {
@@ -89,7 +87,7 @@ func TestSendMetricDimensions(t *testing.T) {
 	t.Parallel()
 
 	p := transport.NewTransportPool(logrus.New(), viper.New())
-	cli, err := NewClient("ns", "default", gostatsd.TimerSubtypes{}, p)
+	cli, err := NewClient("ns", "default", gostatsd.TimerSubtypes{}, logrus.New(), p)
 	require.NoError(t, err)
 
 	metricMap := &gostatsd.MetricMap{
@@ -195,7 +193,7 @@ func TestSendHistogram(t *testing.T) {
 	t.Parallel()
 
 	p := transport.NewTransportPool(logrus.New(), viper.New())
-	cli, err := NewClient("ns", "default", gostatsd.TimerSubtypes{}, p)
+	cli, err := NewClient("ns", "default", gostatsd.TimerSubtypes{}, logrus.New(), p)
 	require.NoError(t, err)
 
 	metricMap := &gostatsd.MetricMap{

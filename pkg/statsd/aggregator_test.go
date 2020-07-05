@@ -17,6 +17,9 @@ func newFakeAggregator() *MetricAggregator {
 	return NewMetricAggregator(
 		[]float64{90},
 		5*time.Minute,
+		5*time.Minute,
+		5*time.Minute,
+		5*time.Minute,
 		gostatsd.TimerSubtypes{},
 		math.MaxUint32,
 	)
@@ -315,7 +318,10 @@ func TestReset(t *testing.T) {
 	pastNano := gostatsd.Nanotime(now.Add(-30 * time.Second).UnixNano())
 
 	actual = newFakeAggregator()
-	actual.expiryInterval = 10 * time.Second
+	actual.expiryIntervalCounter = 10 * time.Second
+	actual.expiryIntervalGauge = 5 * time.Minute
+	actual.expiryIntervalSet = 5 * time.Minute
+	actual.expiryIntervalTimer = 5 * time.Minute
 	actual.metricMap.Counters["some"] = map[string]gostatsd.Counter{
 		"thing":       gostatsd.NewCounter(pastNano, 50, host, nil),
 		"other:thing": gostatsd.NewCounter(pastNano, 90, host, nil),
@@ -329,7 +335,10 @@ func TestReset(t *testing.T) {
 	assrt.Equal(expected.metricMap.Counters, actual.metricMap.Counters)
 
 	actual = newFakeAggregator()
-	actual.expiryInterval = 10 * time.Second
+	actual.expiryIntervalCounter = 5 * time.Minute
+	actual.expiryIntervalGauge = 5 * time.Minute
+	actual.expiryIntervalSet = 5 * time.Minute
+	actual.expiryIntervalTimer = 10 * time.Second
 	actual.metricMap.Timers["some"] = map[string]gostatsd.Timer{
 		"thing": gostatsd.NewTimer(pastNano, []float64{50}, host, nil),
 	}
@@ -342,7 +351,10 @@ func TestReset(t *testing.T) {
 	assrt.Equal(expected.metricMap.Timers, actual.metricMap.Timers)
 
 	actual = newFakeAggregator()
-	actual.expiryInterval = 10 * time.Second
+	actual.expiryIntervalCounter = 5 * time.Minute
+	actual.expiryIntervalGauge = 10 * time.Second
+	actual.expiryIntervalSet = 5 * time.Minute
+	actual.expiryIntervalTimer = 5 * time.Minute
 	actual.metricMap.Gauges["some"] = map[string]gostatsd.Gauge{
 		"thing":       gostatsd.NewGauge(pastNano, 50, host, nil),
 		"other:thing": gostatsd.NewGauge(pastNano, 90, host, nil),
@@ -356,7 +368,10 @@ func TestReset(t *testing.T) {
 	assrt.Equal(expected.metricMap.Gauges, actual.metricMap.Gauges)
 
 	actual = newFakeAggregator()
-	actual.expiryInterval = 10 * time.Second
+	actual.expiryIntervalCounter = 5 * time.Minute
+	actual.expiryIntervalGauge = 5 * time.Minute
+	actual.expiryIntervalSet = 10 * time.Second
+	actual.expiryIntervalTimer = 5 * time.Minute
 	actual.metricMap.Sets["some"] = map[string]gostatsd.Set{
 		"thing": gostatsd.NewSet(pastNano, map[string]struct{}{"user": {}}, host, nil),
 	}
@@ -375,16 +390,18 @@ func TestIsExpired(t *testing.T) {
 
 	now := gostatsd.Nanotime(time.Now().UnixNano())
 
-	ma := &MetricAggregator{expiryInterval: 0}
-	assrt.Equal(false, ma.isExpired(now, now))
+	ma := &MetricAggregator{
+		expiryIntervalCounter: 0,
+	}
+	assrt.Equal(false, isExpired(ma.expiryIntervalCounter, now, now))
 
-	ma.expiryInterval = 10 * time.Second
+	ma.expiryIntervalCounter = 10 * time.Second
 
 	ts := gostatsd.Nanotime(time.Now().Add(-30 * time.Second).UnixNano())
-	assrt.Equal(true, ma.isExpired(now, ts))
+	assrt.Equal(true, isExpired(ma.expiryIntervalCounter, now, ts))
 
 	ts = gostatsd.Nanotime(time.Now().Add(-1 * time.Second).UnixNano())
-	assrt.Equal(false, ma.isExpired(now, ts))
+	assrt.Equal(false, isExpired(ma.expiryIntervalCounter, now, ts))
 }
 
 func TestDisabledCount(t *testing.T) {
@@ -456,6 +473,9 @@ func TestDisabledLower(t *testing.T) {
 	t.Parallel()
 	ma := NewMetricAggregator(
 		[]float64{-90},
+		5*time.Minute,
+		5*time.Minute,
+		5*time.Minute,
 		5*time.Minute,
 		gostatsd.TimerSubtypes{},
 		math.MaxUint32,

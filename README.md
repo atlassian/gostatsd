@@ -76,12 +76,43 @@ following configuration options:
   may cause blocking in the pipeline (back pressure).  A UDP only receiver will never use more than the number of
   configured parsers (`--max-parsers` option).  Defaults to the value of `--max-parsers`, but may require tuning for
   HTTP based servers.
+- `expiry-interval`: interval before metrics are expired, see `Metric expiry and persistence` section.  Defaults
+   to `5m`.  0 to disable, -1 for immediate.
+- `expiry-interval-counter`: interval before counters are expired, defaults to the value of `expiry-interval`.
+- `expiry-interval-gauge`: interval before gauges are expired, defaults to the value of `expiry-interval`.
+- `expiry-interval-set`: interval before sets are expired, defaults to the value of `expiry-interval`.
+- `expiry-interval-timer`: interval before timers are expired, defaults to the value of `expiry-interval`.
 - `flush-interval`: duration for how long to batch metrics before flushing. Should be an order of magnitude less than
   the upstream flush interval. Defaults to `1s`.
 - `transport`: see [TRANSPORT.md](TRANSPORT.md) for how to configure the transport.
 - `log-raw-metric`: logs raw metrics received from the network.  Defaults to `false`.
 - `custom-headers` : a map of strings that are added to each request sent to allow for additional network routing / request inspection.
   Not required, default is empty. Example: `--custom-headers='{"region" : "us-east-1", "service" : "event-producer"}'`
+- `dynamic-headers` : similar with `custom-headers`, but the header values are extracted from metric tags matching the
+  provided list of string. Tag names are canonicalized by first replacing underscores with hyphens, then converting
+  first letter and each letter after a hyphen to uppercase, the rest are converted to lower case. If a tag is specified
+  in both `custom-header` and `dynamic-header`, the vaule set by `custom-header` takes precedence. Not required, default
+  is empty. Example: `--dynamic-headers='["region", "service"]'`.
+  This is an experimental feature and it may be removed or changed in future versions.
+
+
+Metric expiry and persistence
+-----------------------------
+After a metric has been sent to the server, the server will continue to send the metric to the configured backend until
+it expires, even if no additional metrics are sent from the client.  The value sent depends on the metric type:
+
+- `counter`: sends 0 for both rate and count
+- `gauge`: sends the last received value.
+- `set`: sends 0
+- `timer`: sends non-percentile values of 0.  Percentile values are not sent at all (see issue #135)
+
+Setting an expiry interval of 0 will persist metrics forever.  If metrics are not carefully controlled in such an
+environment, the server may run out of memory or overload the backend receiving the metrics.  Setting a negative expiry
+interval will result in metrics not being persisted at all.
+
+Each metric type has its own interval, which is configured using the following precedence (from highest to lowest):
+`expiry-interval-<type>` > `expiry-interval` > default (5 minutes).
+
 
 Configuring HTTP servers
 ------------------------

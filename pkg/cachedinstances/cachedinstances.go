@@ -3,10 +3,11 @@ package cachedinstances
 import (
 	"errors"
 
-	"github.com/atlassian/gostatsd"
-	"github.com/atlassian/gostatsd/pkg/cachedinstances/k8s"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
+
+	"github.com/atlassian/gostatsd"
+	"github.com/atlassian/gostatsd/pkg/cachedinstances/k8s"
 )
 
 var (

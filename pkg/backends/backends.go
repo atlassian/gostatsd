@@ -3,6 +3,9 @@ package backends
 import (
 	"fmt"
 
+	"github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
+
 	"github.com/atlassian/gostatsd"
 	"github.com/atlassian/gostatsd/pkg/backends/cloudwatch"
 	"github.com/atlassian/gostatsd/pkg/backends/datadog"
@@ -12,9 +15,6 @@ import (
 	"github.com/atlassian/gostatsd/pkg/backends/statsdaemon"
 	"github.com/atlassian/gostatsd/pkg/backends/stdout"
 	"github.com/atlassian/gostatsd/pkg/transport"
-
-	log "github.com/sirupsen/logrus"
-	"github.com/spf13/viper"
 )
 
 // All known backends.
@@ -31,29 +31,31 @@ var backends = map[string]gostatsd.BackendFactory{
 // GetBackend creates an instance of the named backend, or nil if
 // the name is not known. The error return is only used if the named backend
 // was known but failed to initialize.
-func GetBackend(name string, v *viper.Viper, pool *transport.TransportPool) (gostatsd.Backend, error) {
+func GetBackend(name string, v *viper.Viper, logger logrus.FieldLogger, pool *transport.TransportPool) (gostatsd.Backend, error) {
 	f, found := backends[name]
 	if !found {
 		return nil, nil
 	}
-	return f(v, pool)
+	return f(v, logger, pool)
 }
 
 // InitBackend creates an instance of the named backend.
-func InitBackend(name string, v *viper.Viper, pool *transport.TransportPool) (gostatsd.Backend, error) {
+func InitBackend(name string, v *viper.Viper, logger logrus.FieldLogger, pool *transport.TransportPool) (gostatsd.Backend, error) {
 	if name == "" {
-		log.Info("No backend specified")
+		logger.Info("No backend specified")
 		return nil, nil
 	}
 
-	backend, err := GetBackend(name, v, pool)
+	logger = logger.WithField("backend", name)
+
+	backend, err := GetBackend(name, v, logger, pool)
 	if err != nil {
 		return nil, fmt.Errorf("could not init backend %q: %v", name, err)
 	}
 	if backend == nil {
 		return nil, fmt.Errorf("unknown backend %q", name)
 	}
-	log.Infof("Initialised backend %q", name)
+	logger.Info("Initialised backend")
 
 	return backend, nil
 }

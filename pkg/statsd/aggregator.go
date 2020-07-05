@@ -23,21 +23,36 @@ type percentStruct struct {
 
 // MetricAggregator aggregates metrics.
 type MetricAggregator struct {
-	metricsReceived    uint64
-	metricMapsReceived uint64
-	expiryInterval     time.Duration // How often to expire metrics
-	percentThresholds  map[float64]percentStruct
-	now                func() time.Time // Returns current time. Useful for testing.
-	statser            stats.Statser
-	disabledSubtypes   gostatsd.TimerSubtypes
-	histogramLimit     uint32
-	metricMap          *gostatsd.MetricMap
+	metricsReceived       uint64
+	metricMapsReceived    uint64
+	expiryIntervalCounter time.Duration // How often to expire counters
+	expiryIntervalGauge   time.Duration // How often to expire gauges
+	expiryIntervalSet     time.Duration // How often to expire sets
+	expiryIntervalTimer   time.Duration // How often to expire timers
+	percentThresholds     map[float64]percentStruct
+	now                   func() time.Time // Returns current time. Useful for testing.
+	statser               stats.Statser
+	disabledSubtypes      gostatsd.TimerSubtypes
+	histogramLimit        uint32
+	metricMap             *gostatsd.MetricMap
 }
 
 // NewMetricAggregator creates a new MetricAggregator object.
-func NewMetricAggregator(percentThresholds []float64, expiryInterval time.Duration, disabled gostatsd.TimerSubtypes, histogramLimit uint32) *MetricAggregator {
+func NewMetricAggregator(
+	percentThresholds []float64,
+	expiryIntervalCounter time.Duration,
+	expiryIntervalGauge time.Duration,
+	expiryIntervalSet time.Duration,
+	expiryIntervalTimer time.Duration,
+	disabled gostatsd.TimerSubtypes,
+	histogramLimit uint32,
+) *MetricAggregator {
 	a := MetricAggregator{
-		expiryInterval:    expiryInterval,
+		expiryIntervalCounter: expiryIntervalCounter,
+		expiryIntervalGauge:   expiryIntervalGauge,
+		expiryIntervalSet:     expiryIntervalSet,
+		expiryIntervalTimer:   expiryIntervalTimer,
+
 		percentThresholds: make(map[float64]percentStruct, len(percentThresholds)),
 		now:               time.Now,
 		statser:           stats.NewNullStatser(), // Will probably be replaced via RunMetrics
@@ -187,8 +202,8 @@ func (a *MetricAggregator) Process(f ProcessFunc) {
 	f(a.metricMap)
 }
 
-func (a *MetricAggregator) isExpired(now, ts gostatsd.Nanotime) bool {
-	return a.expiryInterval != 0 && time.Duration(now-ts) > a.expiryInterval
+func isExpired(interval time.Duration, now, ts gostatsd.Nanotime) bool {
+	return interval != 0 && time.Duration(now-ts) > interval
 }
 
 func deleteMetric(key, tagsKey string, metrics gostatsd.AggregatedMetrics) {
@@ -205,7 +220,7 @@ func (a *MetricAggregator) Reset() {
 	nowNano := gostatsd.Nanotime(a.now().UnixNano())
 
 	a.metricMap.Counters.Each(func(key, tagsKey string, counter gostatsd.Counter) {
-		if a.isExpired(nowNano, counter.Timestamp) {
+		if isExpired(a.expiryIntervalCounter, nowNano, counter.Timestamp) {
 			deleteMetric(key, tagsKey, a.metricMap.Counters)
 		} else {
 			a.metricMap.Counters[key][tagsKey] = gostatsd.Counter{
@@ -217,7 +232,7 @@ func (a *MetricAggregator) Reset() {
 	})
 
 	a.metricMap.Timers.Each(func(key, tagsKey string, timer gostatsd.Timer) {
-		if a.isExpired(nowNano, timer.Timestamp) {
+		if isExpired(a.expiryIntervalTimer, nowNano, timer.Timestamp) {
 			deleteMetric(key, tagsKey, a.metricMap.Timers)
 		} else {
 			if hasHistogramTag(timer) {
@@ -240,14 +255,14 @@ func (a *MetricAggregator) Reset() {
 	})
 
 	a.metricMap.Gauges.Each(func(key, tagsKey string, gauge gostatsd.Gauge) {
-		if a.isExpired(nowNano, gauge.Timestamp) {
+		if isExpired(a.expiryIntervalGauge, nowNano, gauge.Timestamp) {
 			deleteMetric(key, tagsKey, a.metricMap.Gauges)
 		}
 		// No reset for gauges, they keep the last value until expiration
 	})
 
 	a.metricMap.Sets.Each(func(key, tagsKey string, set gostatsd.Set) {
-		if a.isExpired(nowNano, set.Timestamp) {
+		if isExpired(a.expiryIntervalSet, nowNano, set.Timestamp) {
 			deleteMetric(key, tagsKey, a.metricMap.Sets)
 		} else {
 			a.metricMap.Sets[key][tagsKey] = gostatsd.Set{
@@ -260,7 +275,8 @@ func (a *MetricAggregator) Reset() {
 	})
 }
 
-// Receive aggregates an incoming metric.
+// Receive takes a batched metrics and will put them on the internal aggregator
+// queue to be processed
 func (a *MetricAggregator) Receive(ms ...*gostatsd.Metric) {
 	a.metricsReceived += uint64(len(ms))
 	for _, m := range ms {
@@ -268,6 +284,7 @@ func (a *MetricAggregator) Receive(ms ...*gostatsd.Metric) {
 	}
 }
 
+// ReceiveMap takes a single metric map and will aggregate the values
 func (a *MetricAggregator) ReceiveMap(mm *gostatsd.MetricMap) {
 	a.metricMapsReceived++
 	a.metricMap.Merge(mm)

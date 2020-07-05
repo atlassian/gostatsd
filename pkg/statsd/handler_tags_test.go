@@ -7,11 +7,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/atlassian/gostatsd"
-
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/atlassian/gostatsd"
 )
 
 func TestTagStripMergesCounters(t *testing.T) {

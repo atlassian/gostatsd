@@ -1,3 +1,25 @@
+24.0.1
+------
+- Add pprof catch-all route to match the rest of pprof's available endpoints
+
+24.0.0
+------
+- Update to aggregator channel metrics. see [METRICS.md](METRICS.md) for details.
+
+23.0.0
+------
+- Added experimental support for adding http headers based on metrics tags
+- Fixed a bug breaking internal metrics from the backend and cloud provider
+
+
+22.0.0
+------
+- Refactor pprof endpoints to sit under `/debug/pprof`
+
+21.0.0
+------
+- Breaks out expiry interval in to per metric type expiry intervals.  See [README.md](README.md) for details.
+
 20.3.2
 ------
 - Use the current timestamp when sending to NewRelic backend, rather than the last updated timestamp of the metric, which may be old.
@@ -8,7 +30,7 @@
 
 20.3.0
 ------
-- Added experimental support for generating latency histograms for timers, more details in [README.md]
+- Added experimental support for generating latency histograms for timers, more details in [README.md](README.md).
 
 20.2.0
 ------

@@ -5,10 +5,11 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/atlassian/gostatsd"
-
+	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/time/rate"
+
+	"github.com/atlassian/gostatsd"
 )
 
 type metricAndEvent struct {
@@ -20,7 +21,7 @@ const fakeIP = gostatsd.IP("127.0.0.1")
 
 func newTestParser(ignoreHost bool) (*DatagramParser, *countingHandler) {
 	ch := &countingHandler{}
-	return NewDatagramParser(nil, "", ignoreHost, 0, ch, rate.Limit(0), false), ch
+	return NewDatagramParser(nil, "", ignoreHost, 0, ch, rate.Limit(0), false, logrus.New()), ch
 }
 
 func TestParseEmptyDatagram(t *testing.T) {

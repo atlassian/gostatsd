@@ -7,17 +7,16 @@ import (
 	"strings"
 	"time"
 
-	"github.com/atlassian/gostatsd"
-	"github.com/atlassian/gostatsd/pkg/transport"
-	"github.com/atlassian/gostatsd/pkg/util"
-
-	log "github.com/sirupsen/logrus"
-
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/cloudwatch"
 	"github.com/aws/aws-sdk-go/service/cloudwatch/cloudwatchiface"
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
+
+	"github.com/atlassian/gostatsd"
+	"github.com/atlassian/gostatsd/pkg/transport"
+	"github.com/atlassian/gostatsd/pkg/util"
 )
 
 // Maximum number of dimensions per metric
@@ -29,6 +28,8 @@ const BackendName = "cloudwatch"
 
 // Client is an object that is used to send messages to AWS CloudWatch.
 type Client struct {
+	logger logrus.FieldLogger
+
 	cloudwatch cloudwatchiface.CloudWatchAPI
 	namespace  string
 
@@ -36,7 +37,7 @@ type Client struct {
 }
 
 // NewClientFromViper constructs a Cloudwatch backend.
-func NewClientFromViper(v *viper.Viper, pool *transport.TransportPool) (gostatsd.Backend, error) {
+func NewClientFromViper(v *viper.Viper, logger logrus.FieldLogger, pool *transport.TransportPool) (gostatsd.Backend, error) {
 	g := util.GetSubViper(v, "cloudwatch")
 	g.SetDefault("namespace", "StatsD")
 	g.SetDefault("transport", "default")
@@ -45,12 +46,13 @@ func NewClientFromViper(v *viper.Viper, pool *transport.TransportPool) (gostatsd
 		g.GetString("namespace"),
 		g.GetString("transport"),
 		gostatsd.DisabledSubMetrics(v),
+		logger,
 		pool,
 	)
 }
 
 // NewClient constructs a AWS Cloudwatch backend.
-func NewClient(namespace, transport string, disabled gostatsd.TimerSubtypes, pool *transport.TransportPool) (*Client, error) {
+func NewClient(namespace, transport string, disabled gostatsd.TimerSubtypes, logger logrus.FieldLogger, pool *transport.TransportPool) (*Client, error) {
 	httpClient, err := pool.Get(transport)
 	if err != nil {
 		return nil, err
@@ -63,14 +65,16 @@ func NewClient(namespace, transport string, disabled gostatsd.TimerSubtypes, poo
 	}
 
 	return &Client{
-		cloudwatch: cloudwatch.New(sess),
+		logger: logger,
 
-		namespace:        namespace,
+		cloudwatch: cloudwatch.New(sess),
+		namespace:  namespace,
+
 		disabledSubtypes: disabled,
 	}, nil
 }
 
-func extractDimensions(tags gostatsd.Tags) (dimensions []*cloudwatch.Dimension) {
+func (client *Client) extractDimensions(tags gostatsd.Tags) (dimensions []*cloudwatch.Dimension) {
 	dimensions = []*cloudwatch.Dimension{}
 
 	for _, tag := range tags {
@@ -92,14 +96,17 @@ func extractDimensions(tags gostatsd.Tags) (dimensions []*cloudwatch.Dimension) 
 	// Check that there are not too many dimensions
 	dimensionCount := len(dimensions)
 	if dimensionCount > MAX_DIMENSIONS {
-		log.Warnf("[%s] Too many dimensions (%d) specified, truncating to %d", BackendName, dimensionCount, MAX_DIMENSIONS)
+		client.logger.WithFields(logrus.Fields{
+			"count": dimensionCount,
+			"limit": MAX_DIMENSIONS,
+		}).Warn("too many dimensions, truncated")
 		return dimensions[:MAX_DIMENSIONS]
 	}
 
 	return dimensions
 }
 
-func (client Client) buildMetricData(metrics *gostatsd.MetricMap) (metricData []*cloudwatch.MetricDatum) {
+func (client *Client) buildMetricData(metrics *gostatsd.MetricMap) (metricData []*cloudwatch.MetricDatum) {
 	disabled := client.disabledSubtypes
 
 	metricData = []*cloudwatch.MetricDatum{}
@@ -107,7 +114,7 @@ func (client Client) buildMetricData(metrics *gostatsd.MetricMap) (metricData []
 	prefix := ""
 
 	addMetricData := func(key string, unit string, value float64, tags gostatsd.Tags) {
-		dimensions := extractDimensions(tags)
+		dimensions := client.extractDimensions(tags)
 		key = prefix + key
 
 		metricData = append(metricData, &cloudwatch.MetricDatum{
@@ -185,7 +192,7 @@ func (client Client) buildMetricData(metrics *gostatsd.MetricMap) (metricData []
 
 // SendMetricsAsync sends the metrics in a MetricsMap to AWS Cloudwatch,
 // preparing payload synchronously but doing the send asynchronously.
-func (client Client) SendMetricsAsync(ctx context.Context, metrics *gostatsd.MetricMap, cb gostatsd.SendCallback) {
+func (client *Client) SendMetricsAsync(ctx context.Context, metrics *gostatsd.MetricMap, cb gostatsd.SendCallback) {
 	api := client.cloudwatch
 	metricData := client.buildMetricData(metrics)
 	length := len(metricData)
@@ -230,7 +237,7 @@ func (client Client) SendMetricsAsync(ctx context.Context, metrics *gostatsd.Met
 }
 
 // Events currently not supported.
-func (client Client) SendEvent(ctx context.Context, e *gostatsd.Event) (retErr error) {
+func (client *Client) SendEvent(ctx context.Context, e *gostatsd.Event) (retErr error) {
 	return nil
 }
 

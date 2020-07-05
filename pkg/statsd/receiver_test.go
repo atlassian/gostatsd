@@ -7,10 +7,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/atlassian/gostatsd"
-	"github.com/atlassian/gostatsd/pkg/fakesocket"
 	"github.com/magiconair/properties/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/atlassian/gostatsd"
+	"github.com/atlassian/gostatsd/pkg/fakesocket"
 )
 
 func BenchmarkReceive(b *testing.B) {

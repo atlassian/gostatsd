@@ -7,8 +7,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/atlassian/gostatsd"
-	"github.com/atlassian/gostatsd/pkg/util"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	core_v1 "k8s.io/api/core/v1"
@@ -19,6 +17,9 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
+
+	"github.com/atlassian/gostatsd"
+	"github.com/atlassian/gostatsd/pkg/util"
 )
 
 var (

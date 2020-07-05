@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/ash2k/stager/wait"
+	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -18,6 +19,7 @@ func TestSend(t *testing.T) {
 	t.Parallel()
 	dc := dummyConn{}
 	sender := Sender{
+		Logger: logrus.New(),
 		ConnFactory: func() (net.Conn, error) {
 			return &dc, nil
 		},
@@ -60,6 +62,7 @@ func TestSend(t *testing.T) {
 func TestSendCallsCallbacksOnMainCtxDone(t *testing.T) {
 	t.Parallel()
 	sender := Sender{
+		Logger: logrus.New(),
 		ConnFactory: func() (net.Conn, error) {
 			return nil, errors.New("(donotwant)")
 		},
@@ -94,6 +97,7 @@ func TestSendCallsCallbacksOnMainCtxDone(t *testing.T) {
 func TestSendCallsCallbackOnCtxDone1(t *testing.T) {
 	t.Parallel()
 	sender := Sender{
+		Logger: logrus.New(),
 		ConnFactory: func() (net.Conn, error) {
 			return nil, errors.New("(donotwant)")
 		},
@@ -111,7 +115,7 @@ func TestSendCallsCallbackOnCtxDone1(t *testing.T) {
 	wg.StartWithContext(ctx, sender.Run)
 	var cbWg sync.WaitGroup
 	cbWg.Add(2)
-	ctx1, cancel1 := context.WithTimeout(ctx, 100*time.Millisecond)
+	ctx1, cancel1 := context.WithTimeout(ctx, 0)
 	defer cancel1()
 	sender.Sink <- Stream{
 		Ctx: ctx1,
@@ -123,7 +127,7 @@ func TestSendCallsCallbackOnCtxDone1(t *testing.T) {
 		},
 		Buf: make(<-chan *bytes.Buffer),
 	}
-	ctx2, cancel2 := context.WithTimeout(ctx, 300*time.Millisecond)
+	ctx2, cancel2 := context.WithTimeout(ctx, 0)
 	defer cancel2()
 	sender.Sink <- Stream{
 		Ctx: ctx2,
@@ -142,6 +146,7 @@ func TestSendCallsCallbackOnCtxDone2(t *testing.T) {
 	t.Parallel()
 	getFail := false
 	sender := Sender{
+		Logger: logrus.New(),
 		ConnFactory: func() (net.Conn, error) {
 			if getFail {
 				return nil, errors.New("(donotwant)")
@@ -165,7 +170,7 @@ func TestSendCallsCallbackOnCtxDone2(t *testing.T) {
 	wg.StartWithContext(ctx, sender.Run)
 	var cbWg sync.WaitGroup
 	cbWg.Add(2)
-	ctx1, cancel1 := context.WithTimeout(ctx, 100*time.Millisecond)
+	ctx1, cancel1 := context.WithTimeout(ctx, 0)
 	defer cancel1()
 	buf := make(chan *bytes.Buffer, 1)
 	buf <- &bytes.Buffer{}
@@ -181,7 +186,7 @@ func TestSendCallsCallbackOnCtxDone2(t *testing.T) {
 		},
 		Buf: buf,
 	}
-	ctx2, cancel2 := context.WithTimeout(ctx, 300*time.Millisecond)
+	ctx2, cancel2 := context.WithTimeout(ctx, 0)
 	defer cancel2()
 	sender.Sink <- Stream{
 		Ctx: ctx2,

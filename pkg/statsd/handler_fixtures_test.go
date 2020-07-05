@@ -50,6 +50,41 @@ func (nh *nopHandler) DispatchEvent(ctx context.Context, e *gostatsd.Event) {
 func (nh *nopHandler) WaitForEvents() {
 }
 
+type expectingHandler struct {
+	countingHandler
+
+	wgMetrics    sync.WaitGroup
+	wgMetricMaps sync.WaitGroup
+	wgEvents     sync.WaitGroup
+}
+
+func (e *expectingHandler) DispatchMetrics(ctx context.Context, m []*gostatsd.Metric) {
+	e.countingHandler.DispatchMetrics(ctx, m)
+	e.wgMetrics.Add(-len(m))
+}
+
+func (e *expectingHandler) DispatchMetricMap(ctx context.Context, mm *gostatsd.MetricMap) {
+	e.countingHandler.DispatchMetricMap(ctx, mm)
+	e.wgMetricMaps.Done()
+}
+
+func (e *expectingHandler) DispatchEvent(ctx context.Context, event *gostatsd.Event) {
+	e.countingHandler.DispatchEvent(ctx, event)
+	e.wgEvents.Done()
+}
+
+func (e *expectingHandler) Expect(ms, mms, es int) {
+	e.wgMetrics.Add(ms)
+	e.wgMetricMaps.Add(mms)
+	e.wgEvents.Add(es)
+}
+
+func (e *expectingHandler) WaitAll() {
+	e.wgMetrics.Wait()
+	e.wgMetricMaps.Wait()
+	e.wgEvents.Wait()
+}
+
 type countingHandler struct {
 	mu      sync.Mutex
 	metrics []gostatsd.Metric

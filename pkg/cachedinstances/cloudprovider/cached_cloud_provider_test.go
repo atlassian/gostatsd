@@ -6,12 +6,13 @@ import (
 	"time"
 
 	"github.com/ash2k/stager/wait"
-	"github.com/atlassian/gostatsd"
-	"github.com/atlassian/gostatsd/pkg/cloudproviders/fakeprovider"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/time/rate"
+
+	"github.com/atlassian/gostatsd"
+	"github.com/atlassian/gostatsd/pkg/cloudproviders/fakeprovider"
 )
 
 func TestCachedCloudProviderExpirationAndRefresh(t *testing.T) {

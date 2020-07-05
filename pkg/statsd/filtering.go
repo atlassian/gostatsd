@@ -1,9 +1,9 @@
 package statsd
 
 import (
-	"github.com/atlassian/gostatsd"
-
 	"github.com/spf13/viper"
+
+	"github.com/atlassian/gostatsd"
 )
 
 type Filter struct {

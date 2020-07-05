@@ -7,12 +7,12 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/atlassian/gostatsd"
-	"github.com/atlassian/gostatsd/pb"
-
-	"github.com/atlassian/gostatsd/pkg/stats"
 	"github.com/golang/protobuf/proto"
 	"github.com/sirupsen/logrus"
+
+	"github.com/atlassian/gostatsd"
+	"github.com/atlassian/gostatsd/pb"
+	"github.com/atlassian/gostatsd/pkg/stats"
 )
 
 type rawHttpHandlerV2 struct {

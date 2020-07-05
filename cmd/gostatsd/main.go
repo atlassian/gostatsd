@@ -13,7 +13,11 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/ash2k/stager"
+	"github.com/sirupsen/logrus"
+	"github.com/spf13/pflag"
+	"github.com/spf13/viper"
+	"golang.org/x/time/rate"
+
 	"github.com/atlassian/gostatsd"
 	"github.com/atlassian/gostatsd/pkg/backends"
 	"github.com/atlassian/gostatsd/pkg/cachedinstances"
@@ -22,10 +26,6 @@ import (
 	"github.com/atlassian/gostatsd/pkg/statsd"
 	"github.com/atlassian/gostatsd/pkg/transport"
 	"github.com/atlassian/gostatsd/pkg/util"
-	"github.com/sirupsen/logrus"
-	"github.com/spf13/pflag"
-	"github.com/spf13/viper"
-	"golang.org/x/time/rate"
 )
 
 const (
@@ -60,23 +60,17 @@ func main() {
 }
 
 func run(v *viper.Viper) error {
+	logrus.Info("Starting server")
+	s, err := constructServer(v)
+	if err != nil {
+		return err
+	}
+
 	profileAddr := v.GetString(ParamProfile)
 	if profileAddr != "" {
 		go func() {
 			logrus.Errorf("Profiler server failed: %v", http.ListenAndServe(profileAddr, nil))
 		}()
-	}
-
-	logrus.Info("Starting server")
-	s, runnables, err := constructServer(v)
-	if err != nil {
-		return err
-	}
-
-	stgr := stager.New()
-	defer stgr.Shutdown()
-	for _, runnable := range runnables {
-		stgr.NextStage().StartWithContext(runnable)
 	}
 
 	ctx, cancelFunc := context.WithCancel(context.Background())
@@ -89,7 +83,7 @@ func run(v *viper.Viper) error {
 	return nil
 }
 
-func constructServer(v *viper.Viper) (*statsd.Server, []gostatsd.Runnable, error) {
+func constructServer(v *viper.Viper) (*statsd.Server, error) {
 	var runnables []gostatsd.Runnable
 	// Logger
 	logger := logrus.StandardLogger()
@@ -113,7 +107,7 @@ func constructServer(v *viper.Viper) (*statsd.Server, []gostatsd.Runnable, error
 			// See if requested cloud provider is a CloudProvider implementation
 			cloudProvider, err := cloudproviders.Get(logger, cloudProviderName, v, Version)
 			if err != nil {
-				return nil, nil, err
+				return nil, err
 			}
 			runnables = gostatsd.MaybeAppendRunnable(runnables, cloudProvider)
 			selfIPtmp, err := cloudProvider.SelfIP()
@@ -124,7 +118,7 @@ func constructServer(v *viper.Viper) (*statsd.Server, []gostatsd.Runnable, error
 			}
 			cachedInstances = newCachedInstancesFromViper(logger, cloudProvider, v)
 		default:
-			return nil, nil, err
+			return nil, err
 		}
 		runnables = gostatsd.MaybeAppendRunnable(runnables, cachedInstances)
 	}
@@ -132,9 +126,9 @@ func constructServer(v *viper.Viper) (*statsd.Server, []gostatsd.Runnable, error
 	backendNames := v.GetStringSlice(gostatsd.ParamBackends)
 	backendsList := make([]gostatsd.Backend, 0, len(backendNames))
 	for _, backendName := range backendNames {
-		backend, errBackend := backends.InitBackend(backendName, v, pool)
+		backend, errBackend := backends.InitBackend(backendName, v, logger, pool)
 		if errBackend != nil {
-			return nil, nil, errBackend
+			return nil, errBackend
 		}
 		backendsList = append(backendsList, backend)
 		runnables = gostatsd.MaybeAppendRunnable(runnables, backend)
@@ -142,35 +136,46 @@ func constructServer(v *viper.Viper) (*statsd.Server, []gostatsd.Runnable, error
 	// Percentiles
 	pt, err := getPercentiles(v.GetStringSlice(gostatsd.ParamPercentThreshold))
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
+
+	// Set defaults for expiry from the main expiry setting
+	v.SetDefault(gostatsd.ParamExpiryIntervalCounter, v.GetDuration(gostatsd.ParamExpiryInterval))
+	v.SetDefault(gostatsd.ParamExpiryIntervalGauge, v.GetDuration(gostatsd.ParamExpiryInterval))
+	v.SetDefault(gostatsd.ParamExpiryIntervalSet, v.GetDuration(gostatsd.ParamExpiryInterval))
+	v.SetDefault(gostatsd.ParamExpiryIntervalTimer, v.GetDuration(gostatsd.ParamExpiryInterval))
+
 	// Create server
 	return &statsd.Server{
-		Backends:            backendsList,
-		CachedInstances:     cachedInstances,
-		InternalTags:        v.GetStringSlice(gostatsd.ParamInternalTags),
-		InternalNamespace:   v.GetString(gostatsd.ParamInternalNamespace),
-		DefaultTags:         v.GetStringSlice(gostatsd.ParamDefaultTags),
-		Hostname:            v.GetString(gostatsd.ParamHostname),
-		SelfIP:              selfIP,
-		ExpiryInterval:      v.GetDuration(gostatsd.ParamExpiryInterval),
-		FlushInterval:       v.GetDuration(gostatsd.ParamFlushInterval),
-		IgnoreHost:          v.GetBool(gostatsd.ParamIgnoreHost),
-		MaxReaders:          v.GetInt(gostatsd.ParamMaxReaders),
-		MaxParsers:          v.GetInt(gostatsd.ParamMaxParsers),
-		MaxWorkers:          v.GetInt(gostatsd.ParamMaxWorkers),
-		MaxQueueSize:        v.GetInt(gostatsd.ParamMaxQueueSize),
-		MaxConcurrentEvents: v.GetInt(gostatsd.ParamMaxConcurrentEvents),
-		EstimatedTags:       v.GetInt(gostatsd.ParamEstimatedTags),
-		MetricsAddr:         v.GetString(gostatsd.ParamMetricsAddr),
-		Namespace:           v.GetString(gostatsd.ParamNamespace),
-		StatserType:         v.GetString(gostatsd.ParamStatserType),
-		PercentThreshold:    pt,
-		HeartbeatEnabled:    v.GetBool(gostatsd.ParamHeartbeatEnabled),
-		ReceiveBatchSize:    v.GetInt(gostatsd.ParamReceiveBatchSize),
-		ConnPerReader:       v.GetBool(gostatsd.ParamConnPerReader),
-		ServerMode:          v.GetString(gostatsd.ParamServerMode),
-		LogRawMetric:        v.GetBool(gostatsd.ParamLogRawMetric),
+		Runnables:             runnables,
+		Backends:              backendsList,
+		CachedInstances:       cachedInstances,
+		InternalTags:          v.GetStringSlice(gostatsd.ParamInternalTags),
+		InternalNamespace:     v.GetString(gostatsd.ParamInternalNamespace),
+		DefaultTags:           v.GetStringSlice(gostatsd.ParamDefaultTags),
+		Hostname:              v.GetString(gostatsd.ParamHostname),
+		SelfIP:                selfIP,
+		ExpiryIntervalCounter: v.GetDuration(gostatsd.ParamExpiryIntervalCounter),
+		ExpiryIntervalGauge:   v.GetDuration(gostatsd.ParamExpiryIntervalGauge),
+		ExpiryIntervalSet:     v.GetDuration(gostatsd.ParamExpiryIntervalSet),
+		ExpiryIntervalTimer:   v.GetDuration(gostatsd.ParamExpiryIntervalTimer),
+		FlushInterval:         v.GetDuration(gostatsd.ParamFlushInterval),
+		IgnoreHost:            v.GetBool(gostatsd.ParamIgnoreHost),
+		MaxReaders:            v.GetInt(gostatsd.ParamMaxReaders),
+		MaxParsers:            v.GetInt(gostatsd.ParamMaxParsers),
+		MaxWorkers:            v.GetInt(gostatsd.ParamMaxWorkers),
+		MaxQueueSize:          v.GetInt(gostatsd.ParamMaxQueueSize),
+		MaxConcurrentEvents:   v.GetInt(gostatsd.ParamMaxConcurrentEvents),
+		EstimatedTags:         v.GetInt(gostatsd.ParamEstimatedTags),
+		MetricsAddr:           v.GetString(gostatsd.ParamMetricsAddr),
+		Namespace:             v.GetString(gostatsd.ParamNamespace),
+		StatserType:           v.GetString(gostatsd.ParamStatserType),
+		PercentThreshold:      pt,
+		HeartbeatEnabled:      v.GetBool(gostatsd.ParamHeartbeatEnabled),
+		ReceiveBatchSize:      v.GetInt(gostatsd.ParamReceiveBatchSize),
+		ConnPerReader:         v.GetBool(gostatsd.ParamConnPerReader),
+		ServerMode:            v.GetString(gostatsd.ParamServerMode),
+		LogRawMetric:          v.GetBool(gostatsd.ParamLogRawMetric),
 		HeartbeatTags: gostatsd.Tags{
 			fmt.Sprintf("version:%s", Version),
 			fmt.Sprintf("commit:%s", GitCommit),
@@ -180,7 +185,7 @@ func constructServer(v *viper.Viper) (*statsd.Server, []gostatsd.Runnable, error
 		HistogramLimit:            v.GetUint32(gostatsd.ParamTimerHistogramLimit),
 		Viper:                     v,
 		TransportPool:             pool,
-	}, runnables, nil
+	}, nil
 }
 
 func getPercentiles(s []string) ([]float64, error) {

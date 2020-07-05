@@ -2,10 +2,15 @@ package statsd
 
 import (
 	"testing"
+	"time"
+
+	"github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
+	"github.com/stretchr/testify/require"
 
 	"github.com/atlassian/gostatsd"
 	"github.com/atlassian/gostatsd/pb"
-	"github.com/stretchr/testify/require"
+	"github.com/atlassian/gostatsd/pkg/transport"
 )
 
 func TestHttpForwarderV2Translation(t *testing.T) {
@@ -200,5 +205,30 @@ func BenchmarkHttpForwarderV2TranslateAll(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		translateToProtobufV2(mm)
+	}
+}
+
+func TestHttpForwarderV2New(t *testing.T) {
+	logger := logrus.New()
+	pool := transport.NewTransportPool(logger, viper.New())
+	cusHeaders := map[string]string{"region": "us", "env": "dev"}
+
+	for _, testcase := range []struct {
+		dynHeaders []string
+		expected   []string
+	}{
+		{
+			dynHeaders: []string{"service", "deploy"},
+			expected:   []string{"service:", "deploy:"},
+		},
+		{
+			dynHeaders: []string{"service", "deploy", "env"},
+			expected:   []string{"service:", "deploy:"},
+		},
+	} {
+		h, err := NewHttpForwarderHandlerV2(logger, "default", "endpoint", 1, 1, false, time.Second, time.Second,
+			cusHeaders, testcase.dynHeaders, pool)
+		require.Nil(t, err)
+		require.Equal(t, h.dynHeaderNames, testcase.expected)
 	}
 }

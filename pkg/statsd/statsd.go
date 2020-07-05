@@ -8,25 +8,30 @@ import (
 	"time"
 
 	"github.com/ash2k/stager"
+	"github.com/libp2p/go-reuseport"
+	"github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
+	"golang.org/x/time/rate"
+
 	"github.com/atlassian/gostatsd"
 	"github.com/atlassian/gostatsd/pkg/stats"
 	"github.com/atlassian/gostatsd/pkg/transport"
 	"github.com/atlassian/gostatsd/pkg/web"
-	"github.com/libp2p/go-reuseport"
-	log "github.com/sirupsen/logrus"
-	"github.com/spf13/viper"
-	"golang.org/x/time/rate"
 )
 
 // Server encapsulates all of the parameters necessary for starting up
 // the statsd server. These can either be set via command line or directly.
 type Server struct {
+	Runnables                 []gostatsd.Runnable
 	Backends                  []gostatsd.Backend
 	CachedInstances           gostatsd.CachedInstances
 	InternalTags              gostatsd.Tags
 	InternalNamespace         string
 	DefaultTags               gostatsd.Tags
-	ExpiryInterval            time.Duration
+	ExpiryIntervalCounter     time.Duration
+	ExpiryIntervalGauge       time.Duration
+	ExpiryIntervalSet         time.Duration
+	ExpiryIntervalTimer       time.Duration
 	FlushInterval             time.Duration
 	MaxReaders                int
 	MaxParsers                int
@@ -88,10 +93,13 @@ func (s *Server) createStandaloneSink() (gostatsd.PipelineHandler, []gostatsd.Ru
 
 	// Create the backend handler
 	factory := agrFactory{
-		percentThresholds: s.PercentThreshold,
-		expiryInterval:    s.ExpiryInterval,
-		disabledSubtypes:  s.DisabledSubTypes,
-		histogramLimit:    s.HistogramLimit,
+		percentThresholds:     s.PercentThreshold,
+		expiryIntervalCounter: s.ExpiryIntervalCounter,
+		expiryIntervalGauge:   s.ExpiryIntervalGauge,
+		expiryIntervalSet:     s.ExpiryIntervalSet,
+		expiryIntervalTimer:   s.ExpiryIntervalTimer,
+		disabledSubtypes:      s.DisabledSubTypes,
+		histogramLimit:        s.HistogramLimit,
 	}
 
 	backendHandler := NewBackendHandler(s.Backends, uint(s.MaxConcurrentEvents), s.MaxWorkers, s.MaxQueueSize, &factory)
@@ -104,9 +112,9 @@ func (s *Server) createStandaloneSink() (gostatsd.PipelineHandler, []gostatsd.Ru
 	return backendHandler, runnables, nil
 }
 
-func (s *Server) createForwarderSink() (gostatsd.PipelineHandler, []gostatsd.Runnable, error) {
+func (s *Server) createForwarderSink(logger logrus.FieldLogger) (gostatsd.PipelineHandler, []gostatsd.Runnable, error) {
 	forwarderHandler, err := NewHttpForwarderHandlerV2FromViper(
-		log.StandardLogger(),
+		logger,
 		s.Viper,
 		s.TransportPool,
 	)
@@ -120,11 +128,11 @@ func (s *Server) createForwarderSink() (gostatsd.PipelineHandler, []gostatsd.Run
 	return forwarderHandler, []gostatsd.Runnable{forwarderHandler.Run, forwarderHandler.RunMetricsContext, flusher.Run}, nil
 }
 
-func (s *Server) createFinalSink() (gostatsd.PipelineHandler, []gostatsd.Runnable, error) {
+func (s *Server) createFinalSink(logger logrus.FieldLogger) (gostatsd.PipelineHandler, []gostatsd.Runnable, error) {
 	if s.ServerMode == "standalone" {
 		return s.createStandaloneSink()
 	} else if s.ServerMode == "forwarder" {
-		return s.createForwarderSink()
+		return s.createForwarderSink(logger)
 	}
 	return nil, nil, errors.New("invalid server-mode, must be standalone, or forwarder")
 }
@@ -132,10 +140,14 @@ func (s *Server) createFinalSink() (gostatsd.PipelineHandler, []gostatsd.Runnabl
 // RunWithCustomSocket runs the server until context signals done.
 // Listening socket is created using sf.
 func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) error {
-	handler, runnables, err := s.createFinalSink()
+	logger := logrus.StandardLogger()
+
+	handler, runnables, err := s.createFinalSink(logger)
 	if err != nil {
 		return err
 	}
+
+	runnables = append(append(make([]gostatsd.Runnable, 0, len(s.Runnables)), s.Runnables...), runnables...)
 
 	// Create the tag processor
 	handler = NewTagHandlerFromViper(s.Viper, handler, s.DefaultTags)
@@ -157,7 +169,7 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 	datagrams := make(chan []*Datagram)
 
 	// Create the Parser
-	parser := NewDatagramParser(datagrams, s.Namespace, s.IgnoreHost, s.EstimatedTags, handler, s.BadLineRateLimitPerSecond, s.LogRawMetric)
+	parser := NewDatagramParser(datagrams, s.Namespace, s.IgnoreHost, s.EstimatedTags, handler, s.BadLineRateLimitPerSecond, s.LogRawMetric, logger)
 	runnables = append(runnables, parser.RunMetricsContext)
 	for i := 0; i < s.MaxParsers; i++ {
 		runnables = append(runnables, parser.Run)
@@ -169,11 +181,11 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 
 	// Create the Statser
 	hostname := s.Hostname
-	statser := s.createStatser(hostname, handler)
+	statser := s.createStatser(hostname, handler, logger)
 	runnables = gostatsd.MaybeAppendRunnable(runnables, statser)
 
 	// Create any http servers
-	httpServers, err := web.NewHttpServersFromViper(s.Viper, log.StandardLogger(), handler)
+	httpServers, err := web.NewHttpServersFromViper(s.Viper, logger, handler)
 	if err != nil {
 		return err
 	}
@@ -199,12 +211,12 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 	return ctx.Err()
 }
 
-func (s *Server) createStatser(hostname string, handler gostatsd.PipelineHandler) stats.Statser {
+func (s *Server) createStatser(hostname string, handler gostatsd.PipelineHandler, logger logrus.FieldLogger) stats.Statser {
 	switch s.StatserType {
 	case gostatsd.StatserNull:
 		return stats.NewNullStatser()
 	case gostatsd.StatserLogging:
-		return stats.NewLoggingStatser(s.InternalTags, log.NewEntry(log.New()))
+		return stats.NewLoggingStatser(s.InternalTags, logger)
 	default:
 		namespace := s.Namespace
 		if s.InternalNamespace != "" {
@@ -244,12 +256,23 @@ func sendStopEvent(handler gostatsd.PipelineHandler, selfIP gostatsd.IP, hostnam
 }
 
 type agrFactory struct {
-	percentThresholds []float64
-	expiryInterval    time.Duration
-	disabledSubtypes  gostatsd.TimerSubtypes
-	histogramLimit    uint32
+	percentThresholds     []float64
+	expiryIntervalCounter time.Duration
+	expiryIntervalGauge   time.Duration
+	expiryIntervalSet     time.Duration
+	expiryIntervalTimer   time.Duration
+	disabledSubtypes      gostatsd.TimerSubtypes
+	histogramLimit        uint32
 }
 
 func (af *agrFactory) Create() Aggregator {
-	return NewMetricAggregator(af.percentThresholds, af.expiryInterval, af.disabledSubtypes, af.histogramLimit)
+	return NewMetricAggregator(
+		af.percentThresholds,
+		af.expiryIntervalCounter,
+		af.expiryIntervalGauge,
+		af.expiryIntervalSet,
+		af.expiryIntervalTimer,
+		af.disabledSubtypes,
+		af.histogramLimit,
+	)
 }

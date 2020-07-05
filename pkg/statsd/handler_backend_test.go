@@ -9,11 +9,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/atlassian/gostatsd"
-	"github.com/atlassian/gostatsd/pkg/stats"
-
 	"github.com/ash2k/stager/wait"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/atlassian/gostatsd"
+	"github.com/atlassian/gostatsd/pkg/stats"
 )
 
 type testAggregator struct {
@@ -110,8 +110,8 @@ func TestNewBackendHandlerShouldCreateCorrectNumberOfWorkers(t *testing.T) {
 func TestRunShouldReturnWhenContextCancelled(t *testing.T) {
 	t.Parallel()
 	h := NewBackendHandler(nil, 0, 5, 1, newTestFactory())
-	ctx, cancelFunc := context.WithTimeout(context.Background(), 1*time.Second)
-	defer cancelFunc()
+	ctx, cancelFunc := context.WithCancel(context.Background())
+	cancelFunc()
 	h.Run(ctx)
 }
 

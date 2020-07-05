@@ -3,9 +3,9 @@ package stats
 import (
 	"time"
 
-	"github.com/atlassian/gostatsd"
+	"github.com/sirupsen/logrus"
 
-	log "github.com/sirupsen/logrus"
+	"github.com/atlassian/gostatsd"
 )
 
 // LoggingStatser is a Statser which emits logs
@@ -13,12 +13,12 @@ type LoggingStatser struct {
 	flushNotifier
 
 	tags   gostatsd.Tags
-	logger *log.Entry
+	logger logrus.FieldLogger
 }
 
 // NewLoggingStatser creates a new Statser which sends metrics to the
-// supplied log.Entry
-func NewLoggingStatser(tags gostatsd.Tags, logger *log.Entry) Statser {
+// supplied logger.
+func NewLoggingStatser(tags gostatsd.Tags, logger logrus.FieldLogger) Statser {
 	return &LoggingStatser{
 		tags:   tags,
 		logger: logger,
@@ -27,7 +27,7 @@ func NewLoggingStatser(tags gostatsd.Tags, logger *log.Entry) Statser {
 
 // Gauge sends a gauge metric
 func (ls *LoggingStatser) Gauge(name string, value float64, tags gostatsd.Tags) {
-	ls.logger.WithFields(log.Fields{
+	ls.logger.WithFields(logrus.Fields{
 		"name":  name,
 		"tags":  ls.tags.Concat(tags),
 		"value": value,
@@ -36,7 +36,7 @@ func (ls *LoggingStatser) Gauge(name string, value float64, tags gostatsd.Tags) 
 
 // Count sends a counter metric
 func (ls *LoggingStatser) Count(name string, amount float64, tags gostatsd.Tags) {
-	ls.logger.WithFields(log.Fields{
+	ls.logger.WithFields(logrus.Fields{
 		"name":   name,
 		"tags":   ls.tags.Concat(tags),
 		"amount": amount,
@@ -45,7 +45,7 @@ func (ls *LoggingStatser) Count(name string, amount float64, tags gostatsd.Tags)
 
 // Increment sends a counter metric with a value of 1
 func (ls *LoggingStatser) Increment(name string, tags gostatsd.Tags) {
-	ls.logger.WithFields(log.Fields{
+	ls.logger.WithFields(logrus.Fields{
 		"name": name,
 		"tags": ls.tags.Concat(tags),
 	}).Infof("increment")
@@ -53,7 +53,7 @@ func (ls *LoggingStatser) Increment(name string, tags gostatsd.Tags) {
 
 // TimingMS sends a timing metric from a millisecond value
 func (ls *LoggingStatser) TimingMS(name string, ms float64, tags gostatsd.Tags) {
-	ls.logger.WithFields(log.Fields{
+	ls.logger.WithFields(logrus.Fields{
 		"name": name,
 		"tags": ls.tags.Concat(tags),
 		"ms":   ms,

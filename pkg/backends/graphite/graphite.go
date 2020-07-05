@@ -12,13 +12,13 @@ import (
 	"sync"
 	"time"
 
+	"github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
+
 	"github.com/atlassian/gostatsd"
 	"github.com/atlassian/gostatsd/pkg/backends/sender"
 	"github.com/atlassian/gostatsd/pkg/transport"
 	"github.com/atlassian/gostatsd/pkg/util"
-
-	log "github.com/sirupsen/logrus"
-	"github.com/spf13/viper"
 )
 
 const (
@@ -223,7 +223,7 @@ func (client *Client) Name() string {
 }
 
 // NewClientFromViper constructs a Client object using configuration provided by Viper
-func NewClientFromViper(v *viper.Viper, pool *transport.TransportPool) (gostatsd.Backend, error) {
+func NewClientFromViper(v *viper.Viper, logger logrus.FieldLogger, pool *transport.TransportPool) (gostatsd.Backend, error) {
 	g := util.GetSubViper(v, "graphite")
 	g.SetDefault("address", DefaultAddress)
 	g.SetDefault("dial_timeout", DefaultDialTimeout)
@@ -247,6 +247,7 @@ func NewClientFromViper(v *viper.Viper, pool *transport.TransportPool) (gostatsd
 		g.GetString("global_suffix"),
 		g.GetString("mode"),
 		gostatsd.DisabledSubMetrics(v),
+		logger,
 	)
 }
 
@@ -263,6 +264,7 @@ func NewClient(
 	globalSuffix string,
 	mode string,
 	disabled gostatsd.TimerSubtypes,
+	logger logrus.FieldLogger,
 ) (*Client, error) {
 	if address == "" {
 		return nil, fmt.Errorf("[%s] address is required", BackendName)
@@ -311,21 +313,21 @@ func NewClient(
 	setsNamespace = normalizeMetricName(setsNamespace)
 	globalSuffix = normalizeMetricName(globalSuffix)
 
-	log.Infof("[%s] address=%s dialTimeout=%s writeTimeout=%s counterNamespace=%s timerNamespace=%s gaugesNamespace=%s setsNamespace=%s globalSuffix=%s mode=%s",
-		BackendName,
-		address,
-		dialTimeout,
-		writeTimeout,
-		counterNamespace,
-		timerNamespace,
-		gaugesNamespace,
-		setsNamespace,
-		globalSuffix,
-		mode,
-	)
+	logger.WithFields(logrus.Fields{
+		"address":           address,
+		"dial-timeout":      dialTimeout,
+		"write-timeout":     writeTimeout,
+		"counter-namespace": counterNamespace,
+		"timer-namespace":   timerNamespace,
+		"gauges-namespace":  gaugesNamespace,
+		"sets-namespace":    setsNamespace,
+		"global-suffix":     globalSuffix,
+		"mode":              mode,
+	}).Info("created backend")
 
 	return &Client{
 		sender: sender.Sender{
+			Logger: logger,
 			ConnFactory: func() (net.Conn, error) {
 				return net.DialTimeout("tcp", address, dialTimeout)
 			},

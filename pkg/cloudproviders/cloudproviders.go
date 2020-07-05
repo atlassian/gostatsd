@@ -3,10 +3,11 @@ package cloudproviders
 import (
 	"errors"
 
-	"github.com/atlassian/gostatsd"
-	"github.com/atlassian/gostatsd/pkg/cloudproviders/aws"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
+
+	"github.com/atlassian/gostatsd"
+	"github.com/atlassian/gostatsd/pkg/cloudproviders/aws"
 )
 
 var (

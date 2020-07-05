@@ -8,10 +8,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/atlassian/gostatsd"
-
+	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/atlassian/gostatsd"
 )
 
 var longName = strings.Repeat("t", maxUDPPacketSize-5)
@@ -25,7 +26,7 @@ var m = gostatsd.MetricMap{
 
 func TestProcessMetricsRecover(t *testing.T) {
 	t.Parallel()
-	c, err := NewClient("localhost:8125", 1*time.Second, 1*time.Second, false, false, nil)
+	c, err := NewClient("localhost:8125", 1*time.Second, 1*time.Second, false, false, nil, logrus.New())
 	require.NoError(t, err)
 	c.processMetrics(&m, func(buf *bytes.Buffer) (*bytes.Buffer, bool) {
 		return nil, true
@@ -34,7 +35,7 @@ func TestProcessMetricsRecover(t *testing.T) {
 
 func TestProcessMetricsPanic(t *testing.T) {
 	t.Parallel()
-	c, err := NewClient("localhost:8125", 1*time.Second, 1*time.Second, false, false, nil)
+	c, err := NewClient("localhost:8125", 1*time.Second, 1*time.Second, false, false, nil, logrus.New())
 	require.NoError(t, err)
 	expectedErr := errors.New("ABC some error")
 	defer func() {
@@ -77,7 +78,7 @@ func TestProcessMetrics(t *testing.T) {
 		val := val
 		t.Run(fmt.Sprintf("disableTags: %t", val.disableTags), func(t *testing.T) {
 			t.Parallel()
-			c, err := NewClient("localhost:8125", 1*time.Second, 1*time.Second, val.disableTags, false, nil)
+			c, err := NewClient("localhost:8125", 1*time.Second, 1*time.Second, val.disableTags, false, nil, logrus.New())
 			require.NoError(t, err)
 			c.processMetrics(&gaugeMetic, func(buf *bytes.Buffer) (*bytes.Buffer, bool) {
 				assert.EqualValues(t, val.expectedValue, buf.String())

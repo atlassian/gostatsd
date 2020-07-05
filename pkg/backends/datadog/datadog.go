@@ -16,15 +16,16 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/cenkalti/backoff"
+	jsoniter "github.com/json-iterator/go"
+	"github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
+	"github.com/tilinna/clock"
+
 	"github.com/atlassian/gostatsd"
 	"github.com/atlassian/gostatsd/pkg/stats"
 	"github.com/atlassian/gostatsd/pkg/transport"
 	"github.com/atlassian/gostatsd/pkg/util"
-
-	"github.com/cenkalti/backoff"
-	jsoniter "github.com/json-iterator/go"
-	log "github.com/sirupsen/logrus"
-	"github.com/spf13/viper"
 )
 
 const (
@@ -37,7 +38,7 @@ const (
 	// defaultMetricsPerBatch is the default number of metrics to send in a single batch.
 	defaultMetricsPerBatch = 1000
 	// maxResponseSize is the maximum response size we are willing to read.
-	maxResponseSize     = 10 * 1024
+	maxResponseSize     = 1024
 	maxConcurrentEvents = 20
 )
 
@@ -61,6 +62,7 @@ type Client struct {
 	batchesSent    uint64 // Accumulated number of batches successfully sent
 	seriesSent     uint64 // Accumulated number of series successfully sent
 
+	logger                logrus.FieldLogger
 	apiKey                string
 	apiEndpoint           string
 	userAgent             string
@@ -69,7 +71,6 @@ type Client struct {
 	metricsPerBatch       uint
 	metricsBufferSem      chan *bytes.Buffer // Two in one - a semaphore and a buffer pool
 	eventsBufferSem       chan *bytes.Buffer // Two in one - a semaphore and a buffer pool
-	now                   func() time.Time   // Returns current time. Useful for testing.
 	compressPayload       bool
 
 	disabledSubtypes gostatsd.TimerSubtypes
@@ -93,7 +94,9 @@ type event struct {
 func (d *Client) SendMetricsAsync(ctx context.Context, metrics *gostatsd.MetricMap, cb gostatsd.SendCallback) {
 	counter := 0
 	results := make(chan error)
-	d.processMetrics(metrics, func(ts *timeSeries) {
+
+	now := float64(clock.FromContext(ctx).Now().Unix())
+	d.processMetrics(now, metrics, func(ts *timeSeries) {
 		// This section would be likely be better if it pushed all ts's in to a single channel
 		// which n goroutines then read from.  Current behavior still spins up many goroutines
 		// and has them all hit the same channel.
@@ -153,12 +156,12 @@ func (d *Client) Run(ctx context.Context) {
 	}
 }
 
-func (d *Client) processMetrics(metrics *gostatsd.MetricMap, cb func(*timeSeries)) {
+func (d *Client) processMetrics(now float64, metrics *gostatsd.MetricMap, cb func(*timeSeries)) {
 	fl := flush{
 		ts: &timeSeries{
 			Series: make([]metric, 0, d.metricsPerBatch),
 		},
-		timestamp:        float64(d.now().Unix()),
+		timestamp:        now,
 		flushIntervalSec: d.flushInterval.Seconds(),
 		metricsPerBatch:  d.metricsPerBatch,
 		cb:               cb,
@@ -274,6 +277,9 @@ func (d *Client) post(ctx context.Context, buffer *bytes.Buffer, path, typeOfPos
 	}
 
 	b := backoff.NewExponentialBackOff()
+	clck := clock.FromContext(ctx)
+	b.Clock = clck
+	b.Reset()
 	b.MaxElapsedTime = d.maxRequestElapsedTime
 	for {
 		if err = post(); err == nil {
@@ -287,9 +293,13 @@ func (d *Client) post(ctx context.Context, buffer *bytes.Buffer, path, typeOfPos
 			return fmt.Errorf("[%s] %v", BackendName, err)
 		}
 
-		log.Warnf("[%s] failed to send %s, sleeping for %s: %v", BackendName, typeOfPost, next, err)
+		d.logger.WithFields(logrus.Fields{
+			"type":  typeOfPost,
+			"sleep": next,
+			"error": err,
+		}).Warn("failed to send")
 
-		timer := time.NewTimer(next)
+		timer := clck.NewTimer(next)
 		select {
 		case <-ctx.Done():
 			timer.Stop()
@@ -348,7 +358,10 @@ func (d *Client) constructPost(ctx context.Context, buffer *bytes.Buffer, path, 
 		body := io.LimitReader(resp.Body, maxResponseSize)
 		if resp.StatusCode < http.StatusOK || resp.StatusCode > http.StatusNoContent {
 			b, _ := ioutil.ReadAll(body)
-			log.Infof("[%s] failed request status: %d\n%s", BackendName, resp.StatusCode, b)
+			d.logger.WithFields(logrus.Fields{
+				"status": resp.StatusCode,
+				"body":   string(b),
+			}).Info("request failed")
 			return fmt.Errorf("received bad status code %d", resp.StatusCode)
 		}
 		_, _ = io.Copy(ioutil.Discard, body)
@@ -364,7 +377,7 @@ func (d *Client) authenticatedURL(path string) string {
 }
 
 // NewClientFromViper returns a new Datadog API client.
-func NewClientFromViper(v *viper.Viper, pool *transport.TransportPool) (gostatsd.Backend, error) {
+func NewClientFromViper(v *viper.Viper, logger logrus.FieldLogger, pool *transport.TransportPool) (gostatsd.Backend, error) {
 	dd := util.GetSubViper(v, "datadog")
 	dd.SetDefault("api_endpoint", apiURL)
 	dd.SetDefault("metrics_per_batch", defaultMetricsPerBatch)
@@ -385,6 +398,7 @@ func NewClientFromViper(v *viper.Viper, pool *transport.TransportPool) (gostatsd
 		dd.GetDuration("max_request_elapsed_time"),
 		v.GetDuration("flush-interval"), // Main viper, not sub-viper
 		gostatsd.DisabledSubMetrics(v),
+		logger,
 		pool,
 	)
 }
@@ -401,6 +415,7 @@ func NewClient(
 	maxRequestElapsedTime,
 	flushInterval time.Duration,
 	disabled gostatsd.TimerSubtypes,
+	logger logrus.FieldLogger,
 	pool *transport.TransportPool,
 ) (*Client, error) {
 	if apiEndpoint == "" {
@@ -419,13 +434,12 @@ func NewClient(
 		return nil, fmt.Errorf("[%s] maxRequestElapsedTime must be positive", BackendName)
 	}
 
-	logger := log.WithField("backend", BackendName)
 	httpClient, err := pool.Get(transport)
 	if err != nil {
 		logger.WithError(err).Error("failed to create http client")
 		return nil, err
 	}
-	logger.WithFields(log.Fields{
+	logger.WithFields(logrus.Fields{
 		"max-request-elapsed-time": maxRequestElapsedTime,
 		"max-requests":             maxRequests,
 		"metrics-per-batch":        metricsPerBatch,
@@ -441,6 +455,7 @@ func NewClient(
 		eventsBufferSem <- &bytes.Buffer{}
 	}
 	return &Client{
+		logger:                logger,
 		apiKey:                apiKey,
 		apiEndpoint:           apiEndpoint,
 		userAgent:             userAgent,
@@ -450,7 +465,6 @@ func NewClient(
 		metricsBufferSem:      metricsBufferSem,
 		eventsBufferSem:       eventsBufferSem,
 		compressPayload:       compressPayload,
-		now:                   time.Now,
 		flushInterval:         flushInterval,
 		disabledSubtypes:      disabled,
 	}, nil
