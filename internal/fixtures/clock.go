@@ -36,6 +36,6 @@ func NewAdvancingClock(ctx context.Context) (context.Context, func()) {
 // possible to tell when the goroutine is ready to consume mock time.
 func NextStep(ctx context.Context, clck *clock.Mock) {
 	for _, d := clck.AddNext(); d == 0 && ctx.Err() == nil; _, d = clck.AddNext() {
-		time.Sleep(1) // Allows the system to actually idle, runtime.Gosched() does not.
+		time.Sleep(time.Nanosecond) // Allows the system to actually idle, runtime.Gosched() does not.
 	}
 }
