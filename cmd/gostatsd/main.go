@@ -21,6 +21,7 @@ import (
 	"github.com/atlassian/gostatsd"
 	"github.com/atlassian/gostatsd/pkg/backends"
 	"github.com/atlassian/gostatsd/pkg/cachedinstances"
+	"github.com/atlassian/gostatsd/pkg/cachedinstances/cloudprovider"
 	"github.com/atlassian/gostatsd/pkg/cloudproviders"
 	"github.com/atlassian/gostatsd/pkg/statsd"
 	"github.com/atlassian/gostatsd/pkg/transport"
@@ -98,20 +99,25 @@ func constructServer(v *viper.Viper) (*statsd.Server, error) {
 		logger.Info("No cloud provider specified")
 	} else {
 		var err error
-		cloudProvider, err := cloudproviders.Get(logger, cloudProviderName, v, Version)
-		if err != nil {
-			return nil, err
-		}
-		runnables = gostatsd.MaybeAppendRunnable(runnables, cloudProvider)
-		selfIPtmp, err := cloudProvider.SelfIP()
-		if err != nil {
-			logger.WithError(err).Warn("Failed to get self ip")
-		} else {
-			selfIP = selfIPtmp
-		}
-
-		cachedInstances, err = cachedinstances.NewCachedInstancesFromViper(logger, cloudProvider, v)
-		if err != nil {
+		// See if requested cloud provider is a native CachedInstances implementation
+		cachedInstances, err = cachedinstances.Get(logger, cloudProviderName, v, Version)
+		switch err {
+		case nil:
+		case cachedinstances.ErrUnknownProvider:
+			// See if requested cloud provider is a CloudProvider implementation
+			cloudProvider, err := cloudproviders.Get(logger, cloudProviderName, v, Version)
+			if err != nil {
+				return nil, err
+			}
+			runnables = gostatsd.MaybeAppendRunnable(runnables, cloudProvider)
+			selfIPtmp, err := cloudProvider.SelfIP()
+			if err != nil {
+				logger.WithError(err).Warn("Failed to get self ip")
+			} else {
+				selfIP = selfIPtmp
+			}
+			cachedInstances = newCachedInstancesFromViper(logger, cloudProvider, v)
+		default:
 			return nil, err
 		}
 		runnables = gostatsd.MaybeAppendRunnable(runnables, cachedInstances)
@@ -252,4 +258,25 @@ func setupLogger(v *viper.Viper) {
 	if v.GetBool(ParamJSON) {
 		logrus.SetFormatter(&logrus.JSONFormatter{})
 	}
+}
+
+// newCachedInstancesFromViper initialises a new cached instances.
+func newCachedInstancesFromViper(logger logrus.FieldLogger, cloudProvider gostatsd.CloudProvider, v *viper.Viper) gostatsd.CachedInstances {
+	// Set the defaults in Viper based on the cloud provider values before we manipulate things
+	v.SetDefault(gostatsd.ParamCacheRefreshPeriod, gostatsd.DefaultCacheRefreshPeriod)
+	v.SetDefault(gostatsd.ParamCacheEvictAfterIdlePeriod, gostatsd.DefaultCacheEvictAfterIdlePeriod)
+	v.SetDefault(gostatsd.ParamCacheTTL, gostatsd.DefaultCacheTTL)
+	v.SetDefault(gostatsd.ParamCacheNegativeTTL, gostatsd.DefaultCacheNegativeTTL)
+	v.SetDefault(gostatsd.ParamMaxCloudRequests, gostatsd.DefaultMaxCloudRequests)
+	v.SetDefault(gostatsd.ParamBurstCloudRequests, gostatsd.DefaultBurstCloudRequests)
+
+	// Set the used values based on the defaults merged with any overrides
+	cacheOptions := gostatsd.CacheOptions{
+		CacheRefreshPeriod:        v.GetDuration(gostatsd.ParamCacheRefreshPeriod),
+		CacheEvictAfterIdlePeriod: v.GetDuration(gostatsd.ParamCacheEvictAfterIdlePeriod),
+		CacheTTL:                  v.GetDuration(gostatsd.ParamCacheTTL),
+		CacheNegativeTTL:          v.GetDuration(gostatsd.ParamCacheNegativeTTL),
+	}
+	limiter := rate.NewLimiter(rate.Limit(v.GetInt(gostatsd.ParamMaxCloudRequests)), v.GetInt(gostatsd.ParamBurstCloudRequests))
+	return cloudprovider.NewCachedCloudProvider(logger, limiter, cloudProvider, cacheOptions)
 }

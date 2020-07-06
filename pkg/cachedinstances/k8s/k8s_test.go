@@ -1,18 +1,19 @@
 package k8s
 
 import (
-	"context"
 	"fmt"
 	"regexp"
 	"testing"
 	"time"
 
+	"github.com/ash2k/stager"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	core_v1 "k8s.io/api/core/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apimachinery/pkg/watch"
 	mainFake "k8s.io/client-go/kubernetes/fake"
 	kube_testing "k8s.io/client-go/testing"
@@ -90,9 +91,9 @@ func pod2() *core_v1.Pod {
 }
 
 type testFixture struct {
-	fakeClient    *mainFake.Clientset
-	cloudProvider gostatsd.CloudProvider
-	podsWatch     *watch.FakeWatcher
+	fakeClient *mainFake.Clientset
+	provider   *Provider
+	podsWatch  *watch.FakeWatcher
 }
 
 func setupTest(t *testing.T, test func(*testing.T, *testFixture), v *viper.Viper, nn string) {
@@ -108,7 +109,7 @@ func setupTest(t *testing.T, test func(*testing.T, *testFixture), v *viper.Viper
 		logrus.StandardLogger(),
 		fakeClient,
 		PodInformerOptions{
-			ResyncPeriod: v.GetDuration(ParamResyncPeriod),
+			ResyncPeriod: 0, // Disable resync to simplify testing
 			WatchCluster: v.GetBool(ParamWatchCluster),
 			NodeName:     nn,
 		},
@@ -116,17 +117,14 @@ func setupTest(t *testing.T, test func(*testing.T, *testFixture), v *viper.Viper
 		regexp.MustCompile(v.GetString(ParamLabelTagRegex)),
 	)
 	require.NoError(t, err)
-
-	r, ok := cloudProvider.(gostatsd.Runner)
-	require.True(t, ok)
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	r.Run(ctx) // run the cloud provider
+	stgr := stager.New()
+	defer stgr.Shutdown()
+	stgr.NextStage().StartWithContext(cloudProvider.Run) // run the cloud provider
 
 	test(t, &testFixture{
-		fakeClient:    fakeClient,
-		cloudProvider: cloudProvider,
-		podsWatch:     podsWatch,
+		fakeClient: fakeClient,
+		provider:   cloudProvider,
+		podsWatch:  podsWatch,
 	})
 }
 
@@ -194,14 +192,13 @@ var ipTagTests = []tagTest{
 	},
 }
 
-func waitForFullCache(t *testing.T, fixtures *testFixture, numExpectedPods int) {
+func (f *testFixture) waitForCacheSize(t *testing.T, numExpectedPods int) {
 	// Wait for the cache to fill up before moving on
-	cp, ok := fixtures.cloudProvider.(*Provider)
-	require.True(t, ok, "fixture must produce a k8s.Provider")
-	for i := 1; i < 100 && len(cp.podsInf.GetIndexer().List()) < numExpectedPods; i++ {
+	indexer := f.provider.podsInf.GetIndexer()
+	for i := 1; i < 100 && len(indexer.List()) != numExpectedPods; i++ {
 		time.Sleep(10 * time.Millisecond)
 	}
-	require.Equal(t, numExpectedPods, len(cp.podsInf.GetIndexer().List()))
+	require.Len(t, indexer.List(), numExpectedPods)
 }
 
 func TestIPToTags(t *testing.T) {
@@ -219,16 +216,11 @@ func TestIPToTags(t *testing.T) {
 				for _, p := range testCase.pods {
 					fixtures.podsWatch.Add(p)
 				}
-				waitForFullCache(t, fixtures, len(testCase.pods))
+				fixtures.waitForCacheSize(t, len(testCase.pods))
 
 				// Run the test
-				ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
-				defer cancel()
-
-				instanceData, err := fixtures.cloudProvider.Instance(ctx, ipAddr)
-				require.NoError(ttt, err)
-
-				instance := instanceData[ipAddr]
+				instance, cacheHit := fixtures.provider.Peek(ipAddr)
+				require.True(ttt, cacheHit)
 				require.NotNil(ttt, instance)
 				assert.Equal(ttt, instance.ID, fmt.Sprintf("%s/%s", namespace, podName1))
 				assert.Len(ttt, instance.Tags, testCase.expectedNumTags)
@@ -241,64 +233,24 @@ func TestIPToTags(t *testing.T) {
 }
 
 func TestNoHostNetworkPodsCached(t *testing.T) {
+	t.Parallel()
+
 	setupTest(t, func(t *testing.T, fixtures *testFixture) {
 		hostNetworkPod := pod()
 		hostNetworkPod.Status.HostIP = ipAddr
 		hostNetworkPod.Spec.HostNetwork = true
 		fixtures.podsWatch.Add(hostNetworkPod)
-		waitForFullCache(t, fixtures, 1)
+		fixtures.waitForCacheSize(t, 1)
 
-		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
-		defer cancel()
-
-		instanceData, err := fixtures.cloudProvider.Instance(ctx, ipAddr)
-		require.NoError(t, err)
-
-		instance := instanceData[ipAddr]
+		instance, cacheHit := fixtures.provider.Peek(ipAddr)
+		require.True(t, cacheHit)
 		require.Nil(t, instance)
 	}, viper.New(), nodeName)
 }
 
-func TestWatchNodeOnly(t *testing.T) {
-	v := viper.New()
-	v.Set(ParamWatchCluster, false)
-
-	setupTest(t, func(t *testing.T, fixtures *testFixture) {
-		expectedKey := "node"
-		nodeAnnotationKey := AnnotationPrefix + expectedKey
-		expectedValue := nodeName
-
-		p := pod()
-		p.Spec.NodeName = nodeName
-		p.ObjectMeta.Annotations = map[string]string{nodeAnnotationKey: expectedValue}
-		p.ObjectMeta.Labels = map[string]string{}
-		fixtures.podsWatch.Add(p)
-
-		p = pod2()
-		p.Spec.NodeName = "node2"
-		p.ObjectMeta.Annotations = map[string]string{nodeAnnotationKey: "node2"}
-		p.ObjectMeta.Labels = map[string]string{}
-		fixtures.podsWatch.Add(p)
-
-		waitForFullCache(t, fixtures, 2)
-
-		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
-		defer cancel()
-
-		instanceData, err := fixtures.cloudProvider.Instance(ctx, ipAddr)
-		require.NoError(t, err)
-
-		instance := instanceData[ipAddr2]
-		require.Nil(t, instance, "expected pod with IP '%s' not to be indexed since it is on a different node to us", ipAddr2)
-
-		instance = instanceData[ipAddr]
-		require.NotNil(t, instance, "expected pod with IP '%s' to be indexed since it is on our node", ipAddr)
-		assert.Len(t, instance.Tags, 1)
-		assert.Contains(t, instance.Tags, fmt.Sprintf("%s:%s", expectedKey, expectedValue))
-	}, v, nodeName)
-}
-
 func TestWatchNodeFailsNoNodeName(t *testing.T) {
+	t.Parallel()
+
 	fakeClient := mainFake.NewSimpleClientset()
 	podsWatch := watch.NewFake()
 	fakeClient.PrependWatchReactor("pods", kube_testing.DefaultWatchReactor(podsWatch, nil))
@@ -307,7 +259,7 @@ func TestWatchNodeFailsNoNodeName(t *testing.T) {
 		logrus.StandardLogger(),
 		fakeClient,
 		PodInformerOptions{
-			ResyncPeriod: DefaultResyncPeriod,
+			ResyncPeriod: 0,     // Disable resync to simplify testing
 			WatchCluster: false, // the important bit
 			NodeName:     "",
 		},
@@ -318,6 +270,8 @@ func TestWatchNodeFailsNoNodeName(t *testing.T) {
 }
 
 func TestGetTagNameFromRegex(t *testing.T) {
+	t.Parallel()
+
 	tests := map[string]struct {
 		str             string
 		re              string
@@ -336,4 +290,71 @@ func TestGetTagNameFromRegex(t *testing.T) {
 			assert.Equal(t, testCase.expectedTagName, tagName)
 		})
 	}
+}
+
+// Tests that internal cache is cleared when Pod is removed from informer.
+func TestCacheInvalidation1(t *testing.T) {
+	t.Parallel()
+
+	setupTest(t, func(t *testing.T, fixtures *testFixture) {
+		p1 := pod()
+		fixtures.podsWatch.Add(p1)
+		fixtures.waitForCacheSize(t, 1)
+
+		instance, cacheHit := fixtures.provider.Peek(ipAddr)
+		require.True(t, cacheHit)
+		require.NotNil(t, instance)
+		func() {
+			fixtures.provider.rw.RLock()
+			defer fixtures.provider.rw.RUnlock()
+			require.Len(t, fixtures.provider.cache, 1)
+			require.Contains(t, fixtures.provider.cache, gostatsd.IP(ipAddr))
+		}()
+		fixtures.podsWatch.Delete(p1)
+		fixtures.waitForCacheSize(t, 0)
+		// Even though the informer's cache is empty, the listener may not have been called yet.
+		// Give it some time.
+		require.NoError(t, wait.Poll(100*time.Millisecond, 10*time.Second, func() (done bool, err error) {
+			fixtures.provider.rw.RLock()
+			defer fixtures.provider.rw.RUnlock()
+			l := len(fixtures.provider.cache)
+			t.Logf("Number of Pods in internal cache: %d", l)
+			return l == 0, nil
+		}))
+	}, viper.New(), nodeName)
+}
+
+// Tests that internal cache is not cleared when a non-indexable Pod is removed from informer.
+func TestCacheInvalidation2(t *testing.T) {
+	t.Parallel()
+
+	setupTest(t, func(t *testing.T, fixtures *testFixture) {
+		p1 := pod()
+		fixtures.podsWatch.Add(p1)
+		p2 := pod2()
+		p2.Status.PodIP = p1.Status.PodIP
+		p2.Status.Phase = core_v1.PodSucceeded
+		require.False(t, isIndexablePod(p2))
+		fixtures.podsWatch.Add(p2)
+		fixtures.waitForCacheSize(t, 2)
+
+		instance, cacheHit := fixtures.provider.Peek(ipAddr)
+		require.True(t, cacheHit)
+		require.NotNil(t, instance)
+
+		onePodInCache := func() (done bool, err error) {
+			fixtures.provider.rw.RLock()
+			defer fixtures.provider.rw.RUnlock()
+			l := len(fixtures.provider.cache)
+			t.Logf("Number of Pods in internal cache: %d", l)
+			pod := fixtures.provider.cache[ipAddr]
+			return l == 1 && pod != nil, nil
+		}
+		require.NoError(t, wait.Poll(100*time.Millisecond, 10*time.Second, onePodInCache))
+		fixtures.podsWatch.Delete(p2)
+		fixtures.waitForCacheSize(t, 1)
+		// Even though the informer's cache is empty, the listener may not have been called yet.
+		// Give it some time.
+		require.NoError(t, wait.Poll(100*time.Millisecond, 10*time.Second, onePodInCache))
+	}, viper.New(), nodeName)
 }
