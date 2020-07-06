@@ -342,7 +342,7 @@ func (idb *Client) postData(ctx context.Context, buffer *bytes.Buffer, seriesCou
 func writeEvent(w io.Writer, e *gostatsd.Event) {
 	hasHost := false
 	var eventTags []string
-	tags := make(gostatsd.Tags, 0, len(e.Tags)+4)
+	tags := make(gostatsd.Tags, 0, len(e.Tags)+4) // for priority, alerttype, etc below
 	for _, tag := range e.Tags {
 		if strings.HasPrefix(tag, "host:") {
 			hasHost = true
