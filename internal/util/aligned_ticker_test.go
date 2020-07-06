@@ -16,8 +16,7 @@ const ms = int64(time.Millisecond)
 func checkTime(t *testing.T, ctx context.Context, ch <-chan time.Time, expected time.Time) {
 	select {
 	case <-ctx.Done():
-		t.Error("timed out")
-		t.FailNow()
+		require.FailNow(t, "timed out")
 	case now := <-ch:
 		require.Equal(t, expected.UnixNano(), now.UnixNano())
 	}
