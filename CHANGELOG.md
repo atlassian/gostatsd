@@ -1,3 +1,14 @@
+27.0.0
+------
+- Simplify internal tracking of the source address of a metric.  The current rules are:
+
+If ignore-host is set, it will be set to the `host` tag if present, otherwise blank.  If ignore-host is not set, it will be set to the sending IP
+If the cloud provider is enabled, it will attempt to perform a lookup of this value to find a new value (instance ID, pod ID, etc)
+If the tag handler matches a `drop-host` filter, it will be removed
+Backends use it inconsistently
+
+This really is simpler than it was before.
+
 26.0.0
 ------
 - Adds new options `flush-offset` and `flush-aligned` to align the flush interval to a configurable multiple.  See [README.md](README.md) for details.
