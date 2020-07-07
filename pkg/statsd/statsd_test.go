@@ -156,7 +156,3 @@ func (fp *fakeProvider) Instance(ctx context.Context, ips ...gostatsd.Source) (m
 	}
 	return instances, nil
 }
-
-func (fp *fakeProvider) SelfIP() (gostatsd.Source, error) {
-	return gostatsd.UnknownSource, nil
-}

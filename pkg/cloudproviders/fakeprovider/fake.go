@@ -44,10 +44,6 @@ func (fp *Counting) count(ips ...gostatsd.Source) {
 	fp.invocations++
 }
 
-func (fp *Counting) SelfIP() (gostatsd.Source, error) {
-	return gostatsd.UnknownSource, nil
-}
-
 type IP struct {
 	Counting
 	Region string
@@ -111,10 +107,6 @@ func (fpt *Transient) EstimatedTags() int {
 
 func (fpt *Transient) MaxInstancesBatch() int {
 	return 1
-}
-
-func (fpt *Transient) SelfIP() (gostatsd.Source, error) {
-	return gostatsd.UnknownSource, nil
 }
 
 // Instance emulates a lookup based on the supplied criteria.

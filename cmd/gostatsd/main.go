@@ -93,7 +93,6 @@ func constructServer(v *viper.Viper) (*statsd.Server, error) {
 
 	// Cached instances
 	var cachedInstances gostatsd.CachedInstances
-	selfIP := gostatsd.UnknownSource
 	cloudProviderName := v.GetString(gostatsd.ParamCloudProvider)
 	if cloudProviderName == "" {
 		logger.Info("No cloud provider specified")
@@ -110,12 +109,6 @@ func constructServer(v *viper.Viper) (*statsd.Server, error) {
 				return nil, err
 			}
 			runnables = gostatsd.MaybeAppendRunnable(runnables, cloudProvider)
-			selfIPtmp, err := cloudProvider.SelfIP()
-			if err != nil {
-				logger.WithError(err).Warn("Failed to get self ip")
-			} else {
-				selfIP = selfIPtmp
-			}
 			cachedInstances = newCachedInstancesFromViper(logger, cloudProvider, v)
 		default:
 			return nil, err
@@ -154,7 +147,6 @@ func constructServer(v *viper.Viper) (*statsd.Server, error) {
 		InternalNamespace:     v.GetString(gostatsd.ParamInternalNamespace),
 		DefaultTags:           v.GetStringSlice(gostatsd.ParamDefaultTags),
 		Hostname:              gostatsd.Source(v.GetString(gostatsd.ParamHostname)),
-		SelfIP:                selfIP,
 		ExpiryIntervalCounter: v.GetDuration(gostatsd.ParamExpiryIntervalCounter),
 		ExpiryIntervalGauge:   v.GetDuration(gostatsd.ParamExpiryIntervalGauge),
 		ExpiryIntervalSet:     v.GetDuration(gostatsd.ParamExpiryIntervalSet),

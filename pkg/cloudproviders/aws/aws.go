@@ -187,12 +187,6 @@ func (p *Provider) Name() string {
 	return ProviderName
 }
 
-// SelfIP returns host's IPv4 address.
-func (p *Provider) SelfIP() (gostatsd.Source, error) {
-	ip, err := p.Metadata.GetMetadata("local-ipv4")
-	return gostatsd.Source(ip), err
-}
-
 // Derives the region from a valid az name.
 // Returns an error if the az is known invalid (empty).
 func azToRegion(az string) (string, error) {

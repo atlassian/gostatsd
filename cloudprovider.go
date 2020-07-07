@@ -28,8 +28,6 @@ type CloudProvider interface {
 	Instance(context.Context, ...Source) (map[Source]*Instance, error)
 	// MaxInstancesBatch returns maximum number of instances that could be requested via the Instance method.
 	MaxInstancesBatch() int
-	// SelfIP returns host's IPv4 address.
-	SelfIP() (Source, error)
 	// EstimatedTags returns a guess of how many tags are likely to be added by the CloudProvider
 	EstimatedTags() int
 }

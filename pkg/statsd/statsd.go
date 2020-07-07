@@ -56,7 +56,6 @@ type Server struct {
 	BadLineRateLimitPerSecond rate.Limit
 	ServerMode                string
 	Hostname                  gostatsd.Source
-	SelfIP                    gostatsd.Source
 	LogRawMetric              bool
 	Viper                     *viper.Viper
 	TransportPool             *transport.TransportPool
