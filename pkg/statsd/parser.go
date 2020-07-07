@@ -123,7 +123,7 @@ func (dp *DatagramParser) Run(ctx context.Context) {
 }
 
 // logBadLineRateLimited will log a line which failed to decode, if the current rate limit has not been exceeded.
-func (dp *DatagramParser) logBadLineRateLimited(line []byte, ip gostatsd.IP, err error) {
+func (dp *DatagramParser) logBadLineRateLimited(line []byte, ip gostatsd.Source, err error) {
 	if dp.badLineLimiter.Allow() {
 		logrus.WithFields(logrus.Fields{
 			"line":  string(line),
@@ -135,7 +135,7 @@ func (dp *DatagramParser) logBadLineRateLimited(line []byte, ip gostatsd.IP, err
 
 // handleDatagram handles the contents of a datagram and parsers it in to Metrics (which are returned), or
 // Events (which are sent to the pipeline via DispatchEvent).
-func (dp *DatagramParser) handleDatagram(ctx context.Context, now gostatsd.Nanotime, ip gostatsd.IP, msg []byte) (metrics []*gostatsd.Metric, eventCount uint64, badLineCount uint64) {
+func (dp *DatagramParser) handleDatagram(ctx context.Context, now gostatsd.Nanotime, ip gostatsd.Source, msg []byte) (metrics []*gostatsd.Metric, eventCount uint64, badLineCount uint64) {
 	var numEvents, numBad uint64
 	for {
 		idx := bytes.IndexByte(msg, '\n')

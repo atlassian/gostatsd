@@ -160,10 +160,10 @@ func (dr *DatagramReceiver) Receive(ctx context.Context, c net.PacketConn) {
 	}
 }
 
-func getIP(addr net.Addr) gostatsd.IP {
+func getIP(addr net.Addr) gostatsd.Source {
 	if a, ok := addr.(*net.UDPAddr); ok {
-		return gostatsd.IP(a.IP.String())
+		return gostatsd.Source(a.IP.String())
 	}
 	logrus.Errorf("Cannot get source address %q of type %T", addr, addr)
-	return gostatsd.UnknownIP
+	return gostatsd.UnknownSource
 }

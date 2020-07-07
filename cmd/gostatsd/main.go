@@ -93,7 +93,7 @@ func constructServer(v *viper.Viper) (*statsd.Server, error) {
 
 	// Cached instances
 	var cachedInstances gostatsd.CachedInstances
-	selfIP := gostatsd.UnknownIP
+	selfIP := gostatsd.UnknownSource
 	cloudProviderName := v.GetString(gostatsd.ParamCloudProvider)
 	if cloudProviderName == "" {
 		logger.Info("No cloud provider specified")

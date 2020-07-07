@@ -18,13 +18,13 @@ type cloudProviderLookupDispatcher struct {
 	logger        logrus.FieldLogger
 	limiter       *rate.Limiter
 	cloudProvider gostatsd.CloudProvider
-	ipSource      <-chan gostatsd.IP
+	ipSource      <-chan gostatsd.Source
 	infoSink      chan<- gostatsd.InstanceInfo
 }
 
 func (ld *cloudProviderLookupDispatcher) run(ctx context.Context) {
 	maxLookupIPs := ld.cloudProvider.MaxInstancesBatch()
-	ips := make([]gostatsd.IP, 0, maxLookupIPs)
+	ips := make([]gostatsd.Source, 0, maxLookupIPs)
 	var c <-chan time.Time
 	for {
 		select {
@@ -53,13 +53,13 @@ func (ld *cloudProviderLookupDispatcher) run(ctx context.Context) {
 		}
 		ld.doLookup(ctx, ips)
 		for i := range ips { // cleanup pointers for GC
-			ips[i] = gostatsd.UnknownIP
+			ips[i] = gostatsd.UnknownSource
 		}
 		ips = ips[:0] // reset slice
 	}
 }
 
-func (ld *cloudProviderLookupDispatcher) doLookup(ctx context.Context, ips []gostatsd.IP) {
+func (ld *cloudProviderLookupDispatcher) doLookup(ctx context.Context, ips []gostatsd.Source) {
 	// instances may contain partial result even if err != nil
 	instances, err := ld.cloudProvider.Instance(ctx, ips...)
 	if err != nil {

@@ -87,7 +87,7 @@ type Event struct {
 	// Tags of the event.
 	Tags Tags
 	// IP of the source of the metric
-	SourceIP IP
+	SourceIP Source
 	// Priority of the event.
 	Priority Priority
 	// AlertType of the event.

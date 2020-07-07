@@ -17,7 +17,7 @@ type metricAndEvent struct {
 	events  gostatsd.Events
 }
 
-const fakeIP = gostatsd.IP("127.0.0.1")
+const fakeIP = gostatsd.Source("127.0.0.1")
 
 func newTestParser(ignoreHost bool) (*DatagramParser, *countingHandler) {
 	ch := &countingHandler{}
@@ -36,7 +36,7 @@ func TestParseEmptyDatagram(t *testing.T) {
 		t.Run(strconv.Itoa(pos), func(t *testing.T) {
 			t.Parallel()
 			mr, ch := newTestParser(false)
-			_, _, _ = mr.handleDatagram(context.Background(), 0, gostatsd.UnknownIP, inp)
+			_, _, _ = mr.handleDatagram(context.Background(), 0, gostatsd.UnknownSource, inp)
 			assert.Zero(t, len(ch.events), ch.events)
 			assert.Zero(t, len(ch.metrics), ch.metrics)
 		})

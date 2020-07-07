@@ -152,7 +152,7 @@ func (rhh *rawHttpHandlerV2) EventHandler(w http.ResponseWriter, req *http.Reque
 		AggregationKey: msg.AggregationKey,
 		SourceTypeName: msg.SourceTypeName,
 		Tags:           msg.Tags,
-		SourceIP:       gostatsd.IP(msg.SourceIP),
+		SourceIP:       gostatsd.Source(msg.SourceIP),
 	}
 
 	switch msg.Priority {

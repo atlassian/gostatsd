@@ -56,7 +56,7 @@ type Server struct {
 	BadLineRateLimitPerSecond rate.Limit
 	ServerMode                string
 	Hostname                  string
-	SelfIP                    gostatsd.IP
+	SelfIP                    gostatsd.Source
 	LogRawMetric              bool
 	Viper                     *viper.Viper
 	TransportPool             *transport.TransportPool
@@ -232,7 +232,7 @@ func (s *Server) createStatser(hostname string, handler gostatsd.PipelineHandler
 	}
 }
 
-func sendStartEvent(ctx context.Context, handler gostatsd.PipelineHandler, selfIP gostatsd.IP, hostname string) {
+func sendStartEvent(ctx context.Context, handler gostatsd.PipelineHandler, selfIP gostatsd.Source, hostname string) {
 	handler.DispatchEvent(ctx, &gostatsd.Event{
 		Title:        "Gostatsd started",
 		Text:         "Gostatsd started",
@@ -243,7 +243,7 @@ func sendStartEvent(ctx context.Context, handler gostatsd.PipelineHandler, selfI
 	})
 }
 
-func sendStopEvent(handler gostatsd.PipelineHandler, selfIP gostatsd.IP, hostname string) {
+func sendStopEvent(handler gostatsd.PipelineHandler, selfIP gostatsd.Source, hostname string) {
 	ctx, cancelFunc := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancelFunc()
 	handler.DispatchEvent(ctx, &gostatsd.Event{

@@ -30,9 +30,9 @@ type CloudHandler struct {
 
 	// emitChan triggers a write of all the current stats when it is given a Statser
 	emitChan        chan stats.Statser
-	awaitingEvents  map[gostatsd.IP][]*gostatsd.Event
-	awaitingMetrics map[gostatsd.IP][]*gostatsd.Metric
-	toLookupIPs     []gostatsd.IP
+	awaitingEvents  map[gostatsd.Source][]*gostatsd.Event
+	awaitingMetrics map[gostatsd.Source][]*gostatsd.Metric
+	toLookupIPs     []gostatsd.Source
 	wg              sync.WaitGroup
 
 	estimatedTags int
@@ -46,8 +46,8 @@ func NewCloudHandler(cachedInstances gostatsd.CachedInstances, handler gostatsd.
 		incomingMetrics: make(chan []*gostatsd.Metric),
 		incomingEvents:  make(chan *gostatsd.Event),
 		emitChan:        make(chan stats.Statser),
-		awaitingEvents:  make(map[gostatsd.IP][]*gostatsd.Event),
-		awaitingMetrics: make(map[gostatsd.IP][]*gostatsd.Metric),
+		awaitingEvents:  make(map[gostatsd.Source][]*gostatsd.Event),
+		awaitingMetrics: make(map[gostatsd.Source][]*gostatsd.Metric),
 		estimatedTags:   handler.EstimatedTags() + cachedInstances.EstimatedTags(),
 	}
 }
@@ -158,8 +158,8 @@ func (ch *CloudHandler) emit(statser stats.Statser) {
 
 func (ch *CloudHandler) Run(ctx context.Context) {
 	var (
-		toLookupC  chan<- gostatsd.IP
-		toLookupIP gostatsd.IP
+		toLookupC  chan<- gostatsd.Source
+		toLookupIP gostatsd.Source
 	)
 	infoSource := ch.cachedInstances.InfoSource()
 	ipSink := ch.cachedInstances.IpSink()
@@ -168,8 +168,8 @@ func (ch *CloudHandler) Run(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case toLookupC <- toLookupIP:
-			toLookupIP = gostatsd.UnknownIP // Enable GC
-			toLookupC = nil                 // ip has been sent; if there is nothing to send, will block
+			toLookupIP = gostatsd.UnknownSource // Enable GC
+			toLookupC = nil                     // ip has been sent; if there is nothing to send, will block
 		case info := <-infoSource:
 			ch.handleInstanceInfo(ctx, info)
 		case metrics := <-ch.incomingMetrics:
@@ -184,7 +184,7 @@ func (ch *CloudHandler) Run(ctx context.Context) {
 		if toLookupC == nil && len(ch.toLookupIPs) > 0 {
 			last := len(ch.toLookupIPs) - 1
 			toLookupIP = ch.toLookupIPs[last]
-			ch.toLookupIPs[last] = gostatsd.UnknownIP // Enable GC
+			ch.toLookupIPs[last] = gostatsd.UnknownSource // Enable GC
 			ch.toLookupIPs = ch.toLookupIPs[:last]
 			toLookupC = ipSink
 		}
@@ -251,7 +251,7 @@ func (ch *CloudHandler) updateAndDispatchEvents(ctx context.Context, instance *g
 	}
 }
 
-func (ch *CloudHandler) updateTagsAndHostname(ip gostatsd.IP, tags *gostatsd.Tags, hostname *string) bool /*is a cache hit*/ {
+func (ch *CloudHandler) updateTagsAndHostname(ip gostatsd.Source, tags *gostatsd.Tags, hostname *string) bool /*is a cache hit*/ {
 	instance, cacheHit := ch.getInstance(ip)
 	if cacheHit {
 		updateInplace(tags, hostname, instance)
@@ -259,8 +259,8 @@ func (ch *CloudHandler) updateTagsAndHostname(ip gostatsd.IP, tags *gostatsd.Tag
 	return cacheHit
 }
 
-func (ch *CloudHandler) getInstance(ip gostatsd.IP) (*gostatsd.Instance, bool /*is a cache hit*/) {
-	if ip == gostatsd.UnknownIP {
+func (ch *CloudHandler) getInstance(ip gostatsd.Source) (*gostatsd.Instance, bool /*is a cache hit*/) {
+	if ip == gostatsd.UnknownSource {
 		return nil, true
 	}
 	instance, cacheHit := ch.cachedInstances.Peek(ip)

@@ -72,8 +72,8 @@ func (p *Provider) RunMetrics(ctx context.Context, statser stats.Statser) {
 // Instance returns instances details from AWS.
 // ip -> nil pointer if instance was not found.
 // map is returned even in case of errors because it may contain partial data.
-func (p *Provider) Instance(ctx context.Context, IP ...gostatsd.IP) (map[gostatsd.IP]*gostatsd.Instance, error) {
-	instances := make(map[gostatsd.IP]*gostatsd.Instance, len(IP))
+func (p *Provider) Instance(ctx context.Context, IP ...gostatsd.Source) (map[gostatsd.Source]*gostatsd.Instance, error) {
+	instances := make(map[gostatsd.Source]*gostatsd.Instance, len(IP))
 	values := make([]*string, len(IP))
 	for i, ip := range IP {
 		instances[ip] = nil // initialize map. Used for lookups to see if info for IP was requested
@@ -99,7 +99,7 @@ func (p *Provider) Instance(ctx context.Context, IP ...gostatsd.IP) (map[gostats
 		for _, reservation := range page.Reservations {
 			for _, instance := range reservation.Instances {
 				ip := getInterestingInstanceIP(instance, instances)
-				if ip == gostatsd.UnknownIP {
+				if ip == gostatsd.UnknownSource {
 					p.logger.Warnf("AWS returned unexpected EC2 instance: %#v", instance)
 					continue
 				}
@@ -151,9 +151,9 @@ func (p *Provider) Instance(ctx context.Context, IP ...gostatsd.IP) (map[gostats
 	return instances, nil
 }
 
-func getInterestingInstanceIP(instance *ec2.Instance, instances map[gostatsd.IP]*gostatsd.Instance) gostatsd.IP {
+func getInterestingInstanceIP(instance *ec2.Instance, instances map[gostatsd.Source]*gostatsd.Instance) gostatsd.Source {
 	// Check primary private IPv4 address
-	ip := gostatsd.IP(aws.StringValue(instance.PrivateIpAddress))
+	ip := gostatsd.Source(aws.StringValue(instance.PrivateIpAddress))
 	if _, ok := instances[ip]; ok {
 		return ip
 	}
@@ -161,20 +161,20 @@ func getInterestingInstanceIP(instance *ec2.Instance, instances map[gostatsd.IP]
 	for _, iface := range instance.NetworkInterfaces {
 		// Check private IPv4 addresses on interface
 		for _, privateIP := range iface.PrivateIpAddresses {
-			ip = gostatsd.IP(aws.StringValue(privateIP.PrivateIpAddress))
+			ip = gostatsd.Source(aws.StringValue(privateIP.PrivateIpAddress))
 			if _, ok := instances[ip]; ok {
 				return ip
 			}
 		}
 		// Check private IPv6 addresses on interface
 		for _, IPv6 := range iface.Ipv6Addresses {
-			ip = gostatsd.IP(aws.StringValue(IPv6.Ipv6Address))
+			ip = gostatsd.Source(aws.StringValue(IPv6.Ipv6Address))
 			if _, ok := instances[ip]; ok {
 				return ip
 			}
 		}
 	}
-	return gostatsd.UnknownIP
+	return gostatsd.UnknownSource
 }
 
 // MaxInstancesBatch returns maximum number of instances that could be requested via the Instance method.
@@ -188,9 +188,9 @@ func (p *Provider) Name() string {
 }
 
 // SelfIP returns host's IPv4 address.
-func (p *Provider) SelfIP() (gostatsd.IP, error) {
+func (p *Provider) SelfIP() (gostatsd.Source, error) {
 	ip, err := p.Metadata.GetMetadata("local-ipv4")
-	return gostatsd.IP(ip), err
+	return gostatsd.Source(ip), err
 }
 
 // Derives the region from a valid az name.

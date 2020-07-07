@@ -308,7 +308,7 @@ func TestCacheInvalidation1(t *testing.T) {
 			fixtures.provider.rw.RLock()
 			defer fixtures.provider.rw.RUnlock()
 			require.Len(t, fixtures.provider.cache, 1)
-			require.Contains(t, fixtures.provider.cache, gostatsd.IP(ipAddr))
+			require.Contains(t, fixtures.provider.cache, gostatsd.Source(ipAddr))
 		}()
 		fixtures.podsWatch.Delete(p1)
 		fixtures.waitForCacheSize(t, 0)

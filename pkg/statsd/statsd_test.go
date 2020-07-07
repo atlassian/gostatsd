@@ -149,14 +149,14 @@ func (fp *fakeProvider) MaxInstancesBatch() int {
 	return 16
 }
 
-func (fp *fakeProvider) Instance(ctx context.Context, ips ...gostatsd.IP) (map[gostatsd.IP]*gostatsd.Instance, error) {
-	instances := make(map[gostatsd.IP]*gostatsd.Instance, len(ips))
+func (fp *fakeProvider) Instance(ctx context.Context, ips ...gostatsd.Source) (map[gostatsd.Source]*gostatsd.Instance, error) {
+	instances := make(map[gostatsd.Source]*gostatsd.Instance, len(ips))
 	for _, ip := range ips {
 		instances[ip] = fp.instance
 	}
 	return instances, nil
 }
 
-func (fp *fakeProvider) SelfIP() (gostatsd.IP, error) {
-	return gostatsd.UnknownIP, nil
+func (fp *fakeProvider) SelfIP() (gostatsd.Source, error) {
+	return gostatsd.UnknownSource, nil
 }

@@ -20,12 +20,12 @@ func NanoMax(t1, t2 Nanotime) Nanotime {
 	return t2
 }
 
-// IP is a v4/v6 IP address.
+// Source is a v4/v6 IP address.
 // We do not use net.IP because it will involve conversion to string and back several times.
-type IP string
+type Source string
 
-// UnknownIP is an IP of an unknown source.
-const UnknownIP IP = ""
+// UnknownSource is an IP of an unknown source.
+const UnknownSource Source = ""
 
 type Wait func()
 

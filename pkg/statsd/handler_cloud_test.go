@@ -121,7 +121,7 @@ func TestCloudHandlerDispatch(t *testing.T) {
 		Tags: gostatsd.Tags{"region:us-west-3", "tag1", "tag2:234"},
 	}
 
-	expectedIps := []gostatsd.IP{"1.2.3.4", "4.3.2.1"}
+	expectedIps := []gostatsd.Source{"1.2.3.4", "4.3.2.1"}
 	expectedMetrics := []gostatsd.Metric{
 		{
 			Name:     "t1",
@@ -162,7 +162,7 @@ func TestCloudHandlerDispatch(t *testing.T) {
 func TestCloudHandlerInstanceNotFound(t *testing.T) {
 	t.Parallel()
 	fp := &fakeprovider.NotFound{}
-	expectedIps := []gostatsd.IP{"1.2.3.4", "4.3.2.1"}
+	expectedIps := []gostatsd.Source{"1.2.3.4", "4.3.2.1"}
 	expectedMetrics := []gostatsd.Metric{
 		sm1(),
 		sm2(),
@@ -177,7 +177,7 @@ func TestCloudHandlerInstanceNotFound(t *testing.T) {
 func TestCloudHandlerFailingProvider(t *testing.T) {
 	t.Parallel()
 	fp := &fakeprovider.Failing{}
-	expectedIps := []gostatsd.IP{"1.2.3.4", "4.3.2.1"}
+	expectedIps := []gostatsd.Source{"1.2.3.4", "4.3.2.1"}
 	expectedMetrics := []gostatsd.Metric{
 		sm1(),
 		sm2(),
@@ -189,7 +189,7 @@ func TestCloudHandlerFailingProvider(t *testing.T) {
 	doCheck(t, fp, sm1(), se1(), sm2(), se2(), fp.IPs, expectedIps, expectedMetrics, expectedEvents)
 }
 
-func doCheck(t *testing.T, cloud CountingProvider, m1 gostatsd.Metric, e1 gostatsd.Event, m2 gostatsd.Metric, e2 gostatsd.Event, ipsFunc func() []gostatsd.IP, expectedIps []gostatsd.IP, expectedM []gostatsd.Metric, expectedE gostatsd.Events) {
+func doCheck(t *testing.T, cloud CountingProvider, m1 gostatsd.Metric, e1 gostatsd.Event, m2 gostatsd.Metric, e2 gostatsd.Event, ipsFunc func() []gostatsd.Source, expectedIps []gostatsd.Source, expectedM []gostatsd.Metric, expectedE gostatsd.Events) {
 	expecting := &expectingHandler{}
 	ci := cloudprovider.NewCachedCloudProvider(logrus.StandardLogger(), rate.NewLimiter(100, 120), cloud, gostatsd.CacheOptions{
 		CacheRefreshPeriod:        gostatsd.DefaultCacheRefreshPeriod,
