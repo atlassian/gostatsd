@@ -53,6 +53,10 @@ const (
 	DefaultExpiryInterval = 5 * time.Minute
 	// DefaultFlushInterval is the default metrics flush interval.
 	DefaultFlushInterval = 1 * time.Second
+	// DefaultFlushOffset is the default metrics flush interval offset when alignment is enabled
+	DefaultFlushOffset = 0
+	// DefaultFlushOffset is the default for whether metric flushing should be aligned
+	DefaultFlushAligned = false
 	// DefaultIgnoreHost is the default value for whether the source should be used as the host
 	DefaultIgnoreHost = false
 	// DefaultMetricsAddr is the default address on which to listen for metrics.
@@ -118,6 +122,10 @@ const (
 	ParamExpiryIntervalTimer = "expiry-interval-timer"
 	// ParamFlushInterval is the name of parameter with metrics flush interval.
 	ParamFlushInterval = "flush-interval"
+	// ParamFlushInterval is the name of parameter with metrics flush interval alignment.
+	ParamFlushOffset = "flush-offset"
+	// ParamFlushInterval is the name of parameter with metrics flush interval alignment enable state.
+	ParamFlushAligned = "flush-aligned"
 	// ParamIgnoreHost is the name of parameter indicating if the source should be used as the host
 	ParamIgnoreHost = "ignore-host"
 	// ParamMaxReaders is the name of parameter with number of socket readers.
@@ -175,6 +183,8 @@ func AddFlags(fs *pflag.FlagSet) {
 	fs.Duration(ParamExpiryIntervalSet, DefaultExpiryInterval, "Overrides "+ParamExpiryInterval+" for sets")
 	fs.Duration(ParamExpiryIntervalTimer, DefaultExpiryInterval, "Overrides "+ParamExpiryInterval+" for timers")
 	fs.Duration(ParamFlushInterval, DefaultFlushInterval, "How often to flush metrics to the backends")
+	fs.Duration(ParamFlushOffset, DefaultFlushOffset, "Flush offset to use when flush alignment is enabled")
+	fs.Bool(ParamFlushAligned, DefaultFlushAligned, "Enable aligned flush interval")
 	fs.Bool(ParamIgnoreHost, DefaultIgnoreHost, "Ignore the source for populating the hostname field of metrics")
 	fs.Int(ParamMaxReaders, DefaultMaxReaders, "Maximum number of socket readers")
 	fs.Int(ParamMaxParsers, DefaultMaxParsers, "Maximum number of workers to parse datagrams into metrics")

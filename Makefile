@@ -46,7 +46,7 @@ build-race: fmt
 build-all: pb/gostatsd.pb.go
 	go install -v ./...
 
-test-all: fmt test test-race bench bench-race check cover
+test-all: fmt cover test-race bench bench-race check
 
 fmt:
 	gofmt -w=true -s $$(find . -type f -name '*.go' -not -path "./vendor/*" -not -path "./pb/*")

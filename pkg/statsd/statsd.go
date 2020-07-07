@@ -33,6 +33,8 @@ type Server struct {
 	ExpiryIntervalSet         time.Duration
 	ExpiryIntervalTimer       time.Duration
 	FlushInterval             time.Duration
+	FlushOffset               time.Duration
+	FlushAligned              bool
 	MaxReaders                int
 	MaxParsers                int
 	MaxWorkers                int
@@ -106,7 +108,7 @@ func (s *Server) createStandaloneSink() (gostatsd.PipelineHandler, []gostatsd.Ru
 	runnables = append(runnables, backendHandler.Run, backendHandler.RunMetricsContext)
 
 	// Create the Flusher
-	flusher := NewMetricFlusher(s.FlushInterval, backendHandler, s.Backends)
+	flusher := NewMetricFlusher(s.FlushInterval, s.FlushOffset, s.FlushAligned, backendHandler, s.Backends)
 	runnables = append(runnables, flusher.Run)
 
 	return backendHandler, runnables, nil
@@ -123,7 +125,7 @@ func (s *Server) createForwarderSink(logger logrus.FieldLogger) (gostatsd.Pipeli
 	}
 
 	// Create a Flusher, this is primarily for all the periodic metrics which are emitted.
-	flusher := NewMetricFlusher(s.FlushInterval, nil, s.Backends)
+	flusher := NewMetricFlusher(s.FlushInterval, 0, false, nil, s.Backends)
 
 	return forwarderHandler, []gostatsd.Runnable{forwarderHandler.Run, forwarderHandler.RunMetricsContext, flusher.Run}, nil
 }

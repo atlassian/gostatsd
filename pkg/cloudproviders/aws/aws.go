@@ -20,8 +20,8 @@ import (
 	"golang.org/x/net/http2"
 
 	"github.com/atlassian/gostatsd"
+	"github.com/atlassian/gostatsd/internal/util"
 	"github.com/atlassian/gostatsd/pkg/stats"
-	"github.com/atlassian/gostatsd/pkg/util"
 )
 
 const (

@@ -15,8 +15,8 @@ import (
 	"github.com/spf13/viper"
 
 	"github.com/atlassian/gostatsd"
+	"github.com/atlassian/gostatsd/internal/util"
 	"github.com/atlassian/gostatsd/pkg/transport"
-	"github.com/atlassian/gostatsd/pkg/util"
 )
 
 // Maximum number of dimensions per metric

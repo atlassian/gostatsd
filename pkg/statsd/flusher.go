@@ -8,8 +8,10 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
+	"github.com/tilinna/clock"
 
 	"github.com/atlassian/gostatsd"
+	"github.com/atlassian/gostatsd/internal/util"
 	"github.com/atlassian/gostatsd/pkg/stats"
 )
 
@@ -22,16 +24,31 @@ type MetricFlusher struct {
 	lastFlushError int64 // Time of the last flush error. Unix timestamp in nsec.
 
 	flushInterval      time.Duration // How often to flush metrics to the sender
+	flushOffset        time.Duration // Offset for when to flush if alignment is enabled
+	flushAligned       bool          // Indicate if flush is aligned to the interval or not
 	aggregateProcesser AggregateProcesser
 	backends           []gostatsd.Backend
 }
 
 // NewMetricFlusher creates a new MetricFlusher with provided configuration.
-func NewMetricFlusher(flushInterval time.Duration, aggregateProcesser AggregateProcesser, backends []gostatsd.Backend) *MetricFlusher {
+func NewMetricFlusher(flushInterval, flushOffset time.Duration, aligned bool, aggregateProcesser AggregateProcesser, backends []gostatsd.Backend) *MetricFlusher {
 	return &MetricFlusher{
 		flushInterval:      flushInterval,
+		flushOffset:        flushOffset,
+		flushAligned:       aligned,
 		aggregateProcesser: aggregateProcesser,
 		backends:           backends,
+	}
+}
+
+func (f *MetricFlusher) makeTicker(ctx context.Context) (<-chan time.Time, func()) {
+	if f.flushAligned {
+		flushTicker := util.NewAlignedTickerWithContext(ctx, f.flushInterval, f.flushOffset)
+		return flushTicker.C, flushTicker.Stop
+	} else {
+		clck := clock.FromContext(ctx)
+		flushTicker := clck.NewTicker(f.flushInterval)
+		return flushTicker.C, flushTicker.Stop
 	}
 }
 
@@ -39,15 +56,15 @@ func NewMetricFlusher(flushInterval time.Duration, aggregateProcesser AggregateP
 func (f *MetricFlusher) Run(ctx context.Context) {
 	statser := stats.FromContext(ctx)
 
-	flushTicker := time.NewTicker(f.flushInterval)
-	defer flushTicker.Stop()
+	ch, stop := f.makeTicker(ctx)
+	defer stop()
 
 	lastFlush := time.Now()
 	for {
 		select {
 		case <-ctx.Done():
 			return
-		case thisFlush := <-flushTicker.C: // Time to flush to the backends
+		case thisFlush := <-ch: // Time to flush to the backends
 			flushDelta := thisFlush.Sub(lastFlush)
 			if f.aggregateProcesser != AggregateProcesser(nil) {
 				f.flushData(ctx, flushDelta, statser)

@@ -19,13 +19,13 @@ import (
 	"golang.org/x/time/rate"
 
 	"github.com/atlassian/gostatsd"
+	"github.com/atlassian/gostatsd/internal/util"
 	"github.com/atlassian/gostatsd/pkg/backends"
 	"github.com/atlassian/gostatsd/pkg/cachedinstances"
 	"github.com/atlassian/gostatsd/pkg/cachedinstances/cloudprovider"
 	"github.com/atlassian/gostatsd/pkg/cloudproviders"
 	"github.com/atlassian/gostatsd/pkg/statsd"
 	"github.com/atlassian/gostatsd/pkg/transport"
-	"github.com/atlassian/gostatsd/pkg/util"
 )
 
 const (
@@ -160,6 +160,8 @@ func constructServer(v *viper.Viper) (*statsd.Server, error) {
 		ExpiryIntervalSet:     v.GetDuration(gostatsd.ParamExpiryIntervalSet),
 		ExpiryIntervalTimer:   v.GetDuration(gostatsd.ParamExpiryIntervalTimer),
 		FlushInterval:         v.GetDuration(gostatsd.ParamFlushInterval),
+		FlushOffset:           v.GetDuration(gostatsd.ParamFlushOffset),
+		FlushAligned:          v.GetBool(gostatsd.ParamFlushAligned),
 		IgnoreHost:            v.GetBool(gostatsd.ParamIgnoreHost),
 		MaxReaders:            v.GetInt(gostatsd.ParamMaxReaders),
 		MaxParsers:            v.GetInt(gostatsd.ParamMaxParsers),
