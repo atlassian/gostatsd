@@ -83,7 +83,7 @@ func TestParseDatagram(t *testing.T) {
 				{Name: "f", Value: 6, Source: "127.0.0.1", Type: gostatsd.COUNTER, Rate: 1},
 			},
 			events: gostatsd.Events{
-				gostatsd.Event{Title: "a", Text: "b", SourceIP: "127.0.0.1"},
+				gostatsd.Event{Title: "a", Text: "b", Source: "127.0.0.1"},
 			},
 		},
 	}
@@ -152,7 +152,7 @@ func TestParseDatagramIgnoreHost(t *testing.T) {
 				{Name: "f", Value: 6, Type: gostatsd.COUNTER, Rate: 1},
 			},
 			events: gostatsd.Events{
-				gostatsd.Event{Title: "a", Text: "b", SourceIP: "127.0.0.1"},
+				gostatsd.Event{Title: "a", Text: "b", Source: "127.0.0.1"},
 			},
 		},
 	}

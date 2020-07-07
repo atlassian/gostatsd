@@ -152,7 +152,7 @@ func (rhh *rawHttpHandlerV2) EventHandler(w http.ResponseWriter, req *http.Reque
 		AggregationKey: msg.AggregationKey,
 		SourceTypeName: msg.SourceTypeName,
 		Tags:           msg.Tags,
-		SourceIP:       gostatsd.Source(msg.SourceIP),
+		Source:         gostatsd.Source(msg.SourceIP),
 	}
 
 	switch msg.Priority {
@@ -194,7 +194,7 @@ func translateFromProtobufV2(pbMetricMap *pb.RawMessageV2) *gostatsd.MetricMap {
 			mm.Gauges[metricName][tagsKey] = gostatsd.Gauge{
 				Value:     gauge.Value,
 				Timestamp: now,
-				Hostname:  gauge.Hostname,
+				Source:    gauge.Hostname,
 				Tags:      gauge.Tags,
 			}
 		}
@@ -207,7 +207,7 @@ func translateFromProtobufV2(pbMetricMap *pb.RawMessageV2) *gostatsd.MetricMap {
 				Value:     counter.Value,
 				Timestamp: now,
 				Tags:      counter.Tags,
-				Hostname:  counter.Hostname,
+				Source:    counter.Hostname,
 			}
 		}
 	}
@@ -219,7 +219,7 @@ func translateFromProtobufV2(pbMetricMap *pb.RawMessageV2) *gostatsd.MetricMap {
 				Values:       timer.Values,
 				Timestamp:    now,
 				Tags:         timer.Tags,
-				Hostname:     timer.Hostname,
+				Source:       timer.Hostname,
 				SampledCount: timer.SampleCount,
 			}
 		}
@@ -232,7 +232,7 @@ func translateFromProtobufV2(pbMetricMap *pb.RawMessageV2) *gostatsd.MetricMap {
 				Values:    map[string]struct{}{},
 				Timestamp: now,
 				Tags:      set.Tags,
-				Hostname:  set.Hostname,
+				Source:    set.Hostname,
 			}
 			for _, value := range set.Values {
 				mm.Sets[metricName][tagsKey].Values[value] = struct{}{}

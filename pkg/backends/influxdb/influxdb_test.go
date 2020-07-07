@@ -266,7 +266,7 @@ func metricsOneOfEach() *gostatsd.MetricMap {
 	return &gostatsd.MetricMap{
 		Counters: gostatsd.Counters{
 			"c1": map[string]gostatsd.Counter{
-				"tag1": {PerSecond: 1.1, Value: 5, Timestamp: gostatsd.Nanotime(100), Hostname: "h1", Tags: gostatsd.Tags{"tag1"}},
+				"tag1": {PerSecond: 1.1, Value: 5, Timestamp: gostatsd.Nanotime(100), Source: "h1", Tags: gostatsd.Tags{"tag1"}},
 			},
 		},
 		Timers: gostatsd.Timers{
@@ -286,14 +286,14 @@ func metricsOneOfEach() *gostatsd.MetricMap {
 						gostatsd.Percentile{Float: 0.1, Str: "count_90"},
 					},
 					Timestamp: gostatsd.Nanotime(200),
-					Hostname:  "h2",
+					Source:    "h2",
 					Tags:      gostatsd.Tags{"tag2"},
 				},
 			},
 		},
 		Gauges: gostatsd.Gauges{
 			"g1": map[string]gostatsd.Gauge{
-				"tag3": {Value: 3, Timestamp: gostatsd.Nanotime(300), Hostname: "h3", Tags: gostatsd.Tags{"tag3"}},
+				"tag3": {Value: 3, Timestamp: gostatsd.Nanotime(300), Source: "h3", Tags: gostatsd.Tags{"tag3"}},
 			},
 		},
 		Sets: gostatsd.Sets{
@@ -305,7 +305,7 @@ func metricsOneOfEach() *gostatsd.MetricMap {
 						"john": {},
 					},
 					Timestamp: gostatsd.Nanotime(400),
-					Hostname:  "h4",
+					Source:    "h4",
 					Tags:      gostatsd.Tags{"tag4"},
 				},
 			},
@@ -392,7 +392,7 @@ func metricsWithHistogram() *gostatsd.MetricMap {
 				"tag2": {
 					Values:    []float64{0, 1},
 					Timestamp: gostatsd.Nanotime(200),
-					Hostname:  "h2",
+					Source:    "h2",
 					Tags:      gostatsd.Tags{"tag2", "gsd_histogram:20_30_40_50_60"},
 					Histogram: map[gostatsd.HistogramThreshold]int{
 						20:                                       5,
@@ -481,7 +481,7 @@ func TestSendEvent(t *testing.T) {
 		AggregationKey: "test-ak",
 		SourceTypeName: "test-sourcename",
 		Tags:           nil,
-		SourceIP:       "test-sourceip",
+		Source:         "test-sourceip",
 		Priority:       0,
 		AlertType:      0,
 	})
@@ -497,7 +497,7 @@ func TestSendEvent(t *testing.T) {
 		Tags: gostatsd.Tags{
 			"host:tag-host",
 		},
-		SourceIP:  "test-sourceip",
+		Source:    "test-sourceip",
 		Priority:  0,
 		AlertType: 0,
 	})
@@ -514,7 +514,7 @@ func TestSendEvent(t *testing.T) {
 			"eventtags:abc",
 			"eventtags:def",
 		},
-		SourceIP:  "test-sourceip",
+		Source:    "test-sourceip",
 		Priority:  0,
 		AlertType: 0,
 	})

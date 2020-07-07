@@ -179,7 +179,7 @@ func (dp *DatagramParser) handleDatagram(ctx context.Context, now gostatsd.Nanot
 			metrics = append(metrics, metric)
 		} else if event != nil {
 			numEvents++
-			event.SourceIP = ip // Always keep the source ip for events
+			event.Source = ip // Always keep the source ip for events
 			if event.DateHappened == 0 {
 				event.DateHappened = time.Now().Unix()
 			}

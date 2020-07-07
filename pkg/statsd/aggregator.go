@@ -225,7 +225,7 @@ func (a *MetricAggregator) Reset() {
 		} else {
 			a.metricMap.Counters[key][tagsKey] = gostatsd.Counter{
 				Timestamp: counter.Timestamp,
-				Hostname:  counter.Hostname,
+				Source:    counter.Source,
 				Tags:      counter.Tags,
 			}
 		}
@@ -238,7 +238,7 @@ func (a *MetricAggregator) Reset() {
 			if hasHistogramTag(timer) {
 				a.metricMap.Timers[key][tagsKey] = gostatsd.Timer{
 					Timestamp: timer.Timestamp,
-					Hostname:  timer.Hostname,
+					Source:    timer.Source,
 					Tags:      timer.Tags,
 					Values:    timer.Values[:0],
 					Histogram: emptyHistogram(timer, a.histogramLimit),
@@ -246,7 +246,7 @@ func (a *MetricAggregator) Reset() {
 			} else {
 				a.metricMap.Timers[key][tagsKey] = gostatsd.Timer{
 					Timestamp: timer.Timestamp,
-					Hostname:  timer.Hostname,
+					Source:    timer.Source,
 					Tags:      timer.Tags,
 					Values:    timer.Values[:0],
 				}
@@ -268,7 +268,7 @@ func (a *MetricAggregator) Reset() {
 			a.metricMap.Sets[key][tagsKey] = gostatsd.Set{
 				Values:    make(map[string]struct{}),
 				Timestamp: set.Timestamp,
-				Hostname:  set.Hostname,
+				Source:    set.Source,
 				Tags:      set.Tags,
 			}
 		}

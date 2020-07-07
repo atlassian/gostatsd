@@ -4,13 +4,13 @@ package gostatsd
 type Set struct {
 	Values    map[string]struct{}
 	Timestamp Nanotime // Last time value was updated
-	Hostname  string   // Hostname of the source of the metric
+	Source    string   // Hostname of the source of the metric
 	Tags      Tags     // The tags for the set
 }
 
 // NewSet initialises a new set.
-func NewSet(timestamp Nanotime, values map[string]struct{}, hostname string, tags Tags) Set {
-	return Set{Values: values, Timestamp: timestamp, Hostname: hostname, Tags: tags.Copy()}
+func NewSet(timestamp Nanotime, values map[string]struct{}, source string, tags Tags) Set {
+	return Set{Values: values, Timestamp: timestamp, Source: source, Tags: tags.Copy()}
 }
 
 // Sets stores a map of sets by tags.

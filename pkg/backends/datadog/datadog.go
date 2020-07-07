@@ -168,8 +168,8 @@ func (d *Client) processMetrics(now float64, metrics *gostatsd.MetricMap, cb fun
 	}
 
 	metrics.Counters.Each(func(key, tagsKey string, counter gostatsd.Counter) {
-		fl.addMetric(rate, counter.PerSecond, counter.Hostname, counter.Tags, key)
-		fl.addMetricf(gauge, float64(counter.Value), counter.Hostname, counter.Tags, "%s.count", key)
+		fl.addMetric(rate, counter.PerSecond, counter.Source, counter.Tags, key)
+		fl.addMetricf(gauge, float64(counter.Value), counter.Source, counter.Tags, "%s.count", key)
 		fl.maybeFlush()
 	})
 
@@ -181,51 +181,51 @@ func (d *Client) processMetrics(now float64, metrics *gostatsd.MetricMap, cb fun
 					bucketTag = "le:" + strconv.FormatFloat(float64(histogramThreshold), 'f', -1, 64)
 				}
 				newTags := timer.Tags.Concat(gostatsd.Tags{bucketTag})
-				fl.addMetricf(counter, float64(count), timer.Hostname, newTags, "%s.histogram", key)
+				fl.addMetricf(counter, float64(count), timer.Source, newTags, "%s.histogram", key)
 			}
 		} else {
 
 			if !d.disabledSubtypes.Lower {
-				fl.addMetricf(gauge, timer.Min, timer.Hostname, timer.Tags, "%s.lower", key)
+				fl.addMetricf(gauge, timer.Min, timer.Source, timer.Tags, "%s.lower", key)
 			}
 			if !d.disabledSubtypes.Upper {
-				fl.addMetricf(gauge, timer.Max, timer.Hostname, timer.Tags, "%s.upper", key)
+				fl.addMetricf(gauge, timer.Max, timer.Source, timer.Tags, "%s.upper", key)
 			}
 			if !d.disabledSubtypes.Count {
-				fl.addMetricf(gauge, float64(timer.Count), timer.Hostname, timer.Tags, "%s.count", key)
+				fl.addMetricf(gauge, float64(timer.Count), timer.Source, timer.Tags, "%s.count", key)
 			}
 			if !d.disabledSubtypes.CountPerSecond {
-				fl.addMetricf(rate, timer.PerSecond, timer.Hostname, timer.Tags, "%s.count_ps", key)
+				fl.addMetricf(rate, timer.PerSecond, timer.Source, timer.Tags, "%s.count_ps", key)
 			}
 			if !d.disabledSubtypes.Mean {
-				fl.addMetricf(gauge, timer.Mean, timer.Hostname, timer.Tags, "%s.mean", key)
+				fl.addMetricf(gauge, timer.Mean, timer.Source, timer.Tags, "%s.mean", key)
 			}
 			if !d.disabledSubtypes.Median {
-				fl.addMetricf(gauge, timer.Median, timer.Hostname, timer.Tags, "%s.median", key)
+				fl.addMetricf(gauge, timer.Median, timer.Source, timer.Tags, "%s.median", key)
 			}
 			if !d.disabledSubtypes.StdDev {
-				fl.addMetricf(gauge, timer.StdDev, timer.Hostname, timer.Tags, "%s.std", key)
+				fl.addMetricf(gauge, timer.StdDev, timer.Source, timer.Tags, "%s.std", key)
 			}
 			if !d.disabledSubtypes.Sum {
-				fl.addMetricf(gauge, timer.Sum, timer.Hostname, timer.Tags, "%s.sum", key)
+				fl.addMetricf(gauge, timer.Sum, timer.Source, timer.Tags, "%s.sum", key)
 			}
 			if !d.disabledSubtypes.SumSquares {
-				fl.addMetricf(gauge, timer.SumSquares, timer.Hostname, timer.Tags, "%s.sum_squares", key)
+				fl.addMetricf(gauge, timer.SumSquares, timer.Source, timer.Tags, "%s.sum_squares", key)
 			}
 			for _, pct := range timer.Percentiles {
-				fl.addMetricf(gauge, pct.Float, timer.Hostname, timer.Tags, "%s.%s", key, pct.Str)
+				fl.addMetricf(gauge, pct.Float, timer.Source, timer.Tags, "%s.%s", key, pct.Str)
 			}
 		}
 		fl.maybeFlush()
 	})
 
 	metrics.Gauges.Each(func(key, tagsKey string, g gostatsd.Gauge) {
-		fl.addMetric(gauge, g.Value, g.Hostname, g.Tags, key)
+		fl.addMetric(gauge, g.Value, g.Source, g.Tags, key)
 		fl.maybeFlush()
 	})
 
 	metrics.Sets.Each(func(key, tagsKey string, set gostatsd.Set) {
-		fl.addMetric(gauge, float64(len(set.Values)), set.Hostname, set.Tags, key)
+		fl.addMetric(gauge, float64(len(set.Values)), set.Source, set.Tags, key)
 		fl.maybeFlush()
 	})
 

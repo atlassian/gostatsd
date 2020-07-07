@@ -207,17 +207,17 @@ func (n *Client) processMetrics(now float64, metrics *gostatsd.MetricMap, cb fun
 	}
 
 	metrics.Gauges.Each(func(key, tagsKey string, g gostatsd.Gauge) {
-		fl.addMetric(n, "gauge", g.Value, 0, g.Hostname, g.Tags, key)
+		fl.addMetric(n, "gauge", g.Value, 0, g.Tags, key)
 		fl.maybeFlush()
 	})
 
 	metrics.Counters.Each(func(key, tagsKey string, counter gostatsd.Counter) {
-		fl.addMetric(n, "counter", float64(counter.Value), counter.PerSecond, counter.Hostname, counter.Tags, key)
+		fl.addMetric(n, "counter", float64(counter.Value), counter.PerSecond, counter.Tags, key)
 		fl.maybeFlush()
 	})
 
 	metrics.Sets.Each(func(key, tagsKey string, set gostatsd.Set) {
-		fl.addMetric(n, "set", float64(len(set.Values)), 0, set.Hostname, set.Tags, key)
+		fl.addMetric(n, "set", float64(len(set.Values)), 0, set.Tags, key)
 		fl.maybeFlush()
 	})
 
@@ -229,7 +229,7 @@ func (n *Client) processMetrics(now float64, metrics *gostatsd.MetricMap, cb fun
 					bucketTag = "le:" + strconv.FormatFloat(float64(histogramThreshold), 'f', -1, 64)
 				}
 				newTags := timer.Tags.Concat(gostatsd.Tags{bucketTag})
-				fl.addMetric(n, "counter", float64(count), 0, timer.Hostname, newTags, key+".histogram")
+				fl.addMetric(n, "counter", float64(count), 0, newTags, key+".histogram")
 			}
 		} else {
 			fl.addTimerMetric(n, "timer", timer, tagsKey, key)

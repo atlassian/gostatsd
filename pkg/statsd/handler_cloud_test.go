@@ -146,14 +146,14 @@ func TestCloudHandlerDispatch(t *testing.T) {
 			Text:     "asrasdfasdr",
 			Tags:     gostatsd.Tags{"a2", "region:us-west-3", "tag1", "tag2:234"},
 			Hostname: "i-4.3.2.1",
-			SourceIP: "4.3.2.1",
+			Source:   "4.3.2.1",
 		},
 		gostatsd.Event{
 			Title:    "t1asdas",
 			Text:     "asdr",
 			Tags:     gostatsd.Tags{"a2-35", "region:us-west-3", "tag1", "tag2:234"},
 			Hostname: "i-4.3.2.1",
-			SourceIP: "4.3.2.1",
+			Source:   "4.3.2.1",
 		},
 	}
 	doCheck(t, fp, sm1(), se1(), sm2(), se2(), fp.IPs, expectedIps, expectedMetrics, expectedEvents)
@@ -257,7 +257,7 @@ func se1() gostatsd.Event {
 		Text:     "asrasdfasdr",
 		Tags:     gostatsd.Tags{"a2"},
 		Hostname: "some_random_host",
-		SourceIP: "4.3.2.1",
+		Source:   "4.3.2.1",
 	}
 }
 
@@ -267,7 +267,7 @@ func se2() gostatsd.Event {
 		Text:     "asdr",
 		Tags:     gostatsd.Tags{"a2-35"},
 		Hostname: "some_random_host",
-		SourceIP: "4.3.2.1",
+		Source:   "4.3.2.1",
 	}
 }
 

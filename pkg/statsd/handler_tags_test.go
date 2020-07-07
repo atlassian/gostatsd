@@ -494,7 +494,7 @@ func TestTagEventHandlerAddsHostname(t *testing.T) {
 	tch := &capturingHandler{}
 	th := NewTagHandler(tch, gostatsd.Tags{}, nil)
 	e := &gostatsd.Event{
-		SourceIP: "1.2.3.4",
+		Source: "1.2.3.4",
 	}
 	th.DispatchEvent(context.Background(), e)
 	assert.Equal(t, 1, len(tch.e)) // Metric tracked

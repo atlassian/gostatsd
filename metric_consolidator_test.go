@@ -48,7 +48,7 @@ func TestConsolidation(t *testing.T) {
 			PerSecond: 0,
 			Value:     1,
 			Timestamp: 10,
-			Hostname:  "",
+			Source:    "",
 			Tags:      nil,
 		},
 	}
@@ -57,7 +57,7 @@ func TestConsolidation(t *testing.T) {
 			PerSecond: 0,
 			Value:     30,
 			Timestamp: 20,
-			Hostname:  "",
+			Source:    "",
 			Tags:      nil,
 		},
 	}

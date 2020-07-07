@@ -151,13 +151,13 @@ func (client *Client) preparePayload(metrics *gostatsd.MetricMap, ts time.Time) 
 	now := ts.Unix()
 	if client.legacyNamespace {
 		metrics.Counters.Each(func(key, tagsKey string, counter gostatsd.Counter) {
-			_, _ = fmt.Fprintf(buf, "%s %d %d\n", client.prepareName("stats_counts", key, "", counter.Hostname, counter.Tags), counter.Value, now)
-			_, _ = fmt.Fprintf(buf, "%s %f %d\n", client.prepareName(client.counterNamespace, key, "", counter.Hostname, counter.Tags), counter.PerSecond, now)
+			_, _ = fmt.Fprintf(buf, "%s %d %d\n", client.prepareName("stats_counts", key, "", counter.Source, counter.Tags), counter.Value, now)
+			_, _ = fmt.Fprintf(buf, "%s %f %d\n", client.prepareName(client.counterNamespace, key, "", counter.Source, counter.Tags), counter.PerSecond, now)
 		})
 	} else {
 		metrics.Counters.Each(func(key, tagsKey string, counter gostatsd.Counter) {
-			_, _ = fmt.Fprintf(buf, "%s %d %d\n", client.prepareName(client.counterNamespace, key, "count", counter.Hostname, counter.Tags), counter.Value, now)
-			_, _ = fmt.Fprintf(buf, "%s %f %d\n", client.prepareName(client.counterNamespace, key, "rate", counter.Hostname, counter.Tags), counter.PerSecond, now)
+			_, _ = fmt.Fprintf(buf, "%s %d %d\n", client.prepareName(client.counterNamespace, key, "count", counter.Source, counter.Tags), counter.Value, now)
+			_, _ = fmt.Fprintf(buf, "%s %f %d\n", client.prepareName(client.counterNamespace, key, "rate", counter.Source, counter.Tags), counter.PerSecond, now)
 		})
 	}
 	metrics.Timers.Each(func(key, tagsKey string, timer gostatsd.Timer) {
@@ -168,46 +168,46 @@ func (client *Client) preparePayload(metrics *gostatsd.MetricMap, ts time.Time) 
 					bucketTag = "le:" + strconv.FormatFloat(float64(histogramThreshold), 'f', -1, 64)
 				}
 				newTags := timer.Tags.Concat(gostatsd.Tags{bucketTag})
-				_, _ = fmt.Fprintf(buf, "%s %d %d\n", client.prepareName(client.counterNamespace, key, "histogram", timer.Hostname, newTags), count, now)
+				_, _ = fmt.Fprintf(buf, "%s %d %d\n", client.prepareName(client.counterNamespace, key, "histogram", timer.Source, newTags), count, now)
 			}
 		} else {
 			if !client.disabledSubtypes.Lower {
-				_, _ = fmt.Fprintf(buf, "%s %f %d\n", client.prepareName(client.timerNamespace, key, "lower", timer.Hostname, timer.Tags), timer.Min, now)
+				_, _ = fmt.Fprintf(buf, "%s %f %d\n", client.prepareName(client.timerNamespace, key, "lower", timer.Source, timer.Tags), timer.Min, now)
 			}
 			if !client.disabledSubtypes.Upper {
-				_, _ = fmt.Fprintf(buf, "%s %f %d\n", client.prepareName(client.timerNamespace, key, "upper", timer.Hostname, timer.Tags), timer.Max, now)
+				_, _ = fmt.Fprintf(buf, "%s %f %d\n", client.prepareName(client.timerNamespace, key, "upper", timer.Source, timer.Tags), timer.Max, now)
 			}
 			if !client.disabledSubtypes.Count {
-				_, _ = fmt.Fprintf(buf, "%s %d %d\n", client.prepareName(client.timerNamespace, key, "count", timer.Hostname, timer.Tags), timer.Count, now)
+				_, _ = fmt.Fprintf(buf, "%s %d %d\n", client.prepareName(client.timerNamespace, key, "count", timer.Source, timer.Tags), timer.Count, now)
 			}
 			if !client.disabledSubtypes.CountPerSecond {
-				_, _ = fmt.Fprintf(buf, "%s %f %d\n", client.prepareName(client.timerNamespace, key, "count_ps", timer.Hostname, timer.Tags), timer.PerSecond, now)
+				_, _ = fmt.Fprintf(buf, "%s %f %d\n", client.prepareName(client.timerNamespace, key, "count_ps", timer.Source, timer.Tags), timer.PerSecond, now)
 			}
 			if !client.disabledSubtypes.Mean {
-				_, _ = fmt.Fprintf(buf, "%s %f %d\n", client.prepareName(client.timerNamespace, key, "mean", timer.Hostname, timer.Tags), timer.Mean, now)
+				_, _ = fmt.Fprintf(buf, "%s %f %d\n", client.prepareName(client.timerNamespace, key, "mean", timer.Source, timer.Tags), timer.Mean, now)
 			}
 			if !client.disabledSubtypes.Median {
-				_, _ = fmt.Fprintf(buf, "%s %f %d\n", client.prepareName(client.timerNamespace, key, "median", timer.Hostname, timer.Tags), timer.Median, now)
+				_, _ = fmt.Fprintf(buf, "%s %f %d\n", client.prepareName(client.timerNamespace, key, "median", timer.Source, timer.Tags), timer.Median, now)
 			}
 			if !client.disabledSubtypes.StdDev {
-				_, _ = fmt.Fprintf(buf, "%s %f %d\n", client.prepareName(client.timerNamespace, key, "std", timer.Hostname, timer.Tags), timer.StdDev, now)
+				_, _ = fmt.Fprintf(buf, "%s %f %d\n", client.prepareName(client.timerNamespace, key, "std", timer.Source, timer.Tags), timer.StdDev, now)
 			}
 			if !client.disabledSubtypes.Sum {
-				_, _ = fmt.Fprintf(buf, "%s %f %d\n", client.prepareName(client.timerNamespace, key, "sum", timer.Hostname, timer.Tags), timer.Sum, now)
+				_, _ = fmt.Fprintf(buf, "%s %f %d\n", client.prepareName(client.timerNamespace, key, "sum", timer.Source, timer.Tags), timer.Sum, now)
 			}
 			if !client.disabledSubtypes.SumSquares {
-				_, _ = fmt.Fprintf(buf, "%s %f %d\n", client.prepareName(client.timerNamespace, key, "sum_squares", timer.Hostname, timer.Tags), timer.SumSquares, now)
+				_, _ = fmt.Fprintf(buf, "%s %f %d\n", client.prepareName(client.timerNamespace, key, "sum_squares", timer.Source, timer.Tags), timer.SumSquares, now)
 			}
 			for _, pct := range timer.Percentiles {
-				_, _ = fmt.Fprintf(buf, "%s %f %d\n", client.prepareName(client.timerNamespace, key, pct.Str, timer.Hostname, timer.Tags), pct.Float, now)
+				_, _ = fmt.Fprintf(buf, "%s %f %d\n", client.prepareName(client.timerNamespace, key, pct.Str, timer.Source, timer.Tags), pct.Float, now)
 			}
 		}
 	})
 	metrics.Gauges.Each(func(key, tagsKey string, gauge gostatsd.Gauge) {
-		_, _ = fmt.Fprintf(buf, "%s %f %d\n", client.prepareName(client.gaugesNamespace, key, "", gauge.Hostname, gauge.Tags), gauge.Value, now)
+		_, _ = fmt.Fprintf(buf, "%s %f %d\n", client.prepareName(client.gaugesNamespace, key, "", gauge.Source, gauge.Tags), gauge.Value, now)
 	})
 	metrics.Sets.Each(func(key, tagsKey string, set gostatsd.Set) {
-		_, _ = fmt.Fprintf(buf, "%s %d %d\n", client.prepareName(client.setsNamespace, key, "", set.Hostname, set.Tags), len(set.Values), now)
+		_, _ = fmt.Fprintf(buf, "%s %d %d\n", client.prepareName(client.setsNamespace, key, "", set.Source, set.Tags), len(set.Values), now)
 	})
 	return buf
 }

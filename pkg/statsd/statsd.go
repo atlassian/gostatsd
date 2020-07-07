@@ -238,7 +238,7 @@ func sendStartEvent(ctx context.Context, handler gostatsd.PipelineHandler, selfI
 		Text:         "Gostatsd started",
 		DateHappened: time.Now().Unix(),
 		Hostname:     hostname,
-		SourceIP:     selfIP,
+		Source:       selfIP,
 		Priority:     gostatsd.PriLow,
 	})
 }
@@ -251,7 +251,7 @@ func sendStopEvent(handler gostatsd.PipelineHandler, selfIP gostatsd.Source, hos
 		Text:         "Gostatsd stopped",
 		DateHappened: time.Now().Unix(),
 		Hostname:     hostname,
-		SourceIP:     selfIP,
+		Source:       selfIP,
 		Priority:     gostatsd.PriLow,
 	})
 	handler.WaitForEvents()
