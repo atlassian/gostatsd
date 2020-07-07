@@ -127,12 +127,12 @@ func TestParseDatagramIgnoreHost(t *testing.T) {
 		},
 		"f:2|c|#host:h": {
 			metrics: []gostatsd.Metric{
-				{Name: "f", Value: 2, Hostname: "h", Type: gostatsd.COUNTER, Rate: 1},
+				{Name: "f", Value: 2, Source: "h", Type: gostatsd.COUNTER, Rate: 1},
 			},
 		},
 		"f:2|c|#host:h1,host:h2": {
 			metrics: []gostatsd.Metric{
-				{Name: "f", Value: 2, Hostname: "h1", Type: gostatsd.COUNTER, Rate: 1, Tags: gostatsd.Tags{"host:h2"}},
+				{Name: "f", Value: 2, Source: "h1", Type: gostatsd.COUNTER, Rate: 1, Tags: gostatsd.Tags{"host:h2"}},
 			},
 		},
 		"f:2|c\nx:3|c": {

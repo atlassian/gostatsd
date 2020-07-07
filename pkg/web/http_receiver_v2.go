@@ -148,11 +148,10 @@ func (rhh *rawHttpHandlerV2) EventHandler(w http.ResponseWriter, req *http.Reque
 		Title:          msg.Title,
 		Text:           msg.Text,
 		DateHappened:   msg.DateHappened,
-		Hostname:       gostatsd.Source(msg.Hostname),
+		Source:         gostatsd.Source(msg.Hostname),
 		AggregationKey: msg.AggregationKey,
 		SourceTypeName: msg.SourceTypeName,
 		Tags:           msg.Tags,
-		Source:         gostatsd.Source(msg.SourceIP),
 	}
 
 	switch msg.Priority {

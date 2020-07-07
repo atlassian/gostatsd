@@ -33,6 +33,9 @@ const bufferSize = 1000 // estimating this is difficult and tends to cause probl
 // NewInternalStatser creates a new Statser which sends metrics to the
 // supplied InternalHandler.
 func NewInternalStatser(tags gostatsd.Tags, namespace string, hostname gostatsd.Source, handler gostatsd.PipelineHandler) *InternalStatser {
+	if hostname != gostatsd.UnknownSource {
+		tags = tags.Concat(gostatsd.Tags{"host:" + string(hostname)})
+	}
 	return &InternalStatser{
 		buffer:    make(chan *gostatsd.Metric, bufferSize),
 		tags:      tags,
@@ -63,12 +66,12 @@ func (is *InternalStatser) Run(ctx context.Context) {
 // Gauge sends a gauge metric
 func (is *InternalStatser) Gauge(name string, value float64, tags gostatsd.Tags) {
 	g := &gostatsd.Metric{
-		Name:     name,
-		Value:    value,
-		Tags:     tags,
-		Hostname: is.hostname,
-		Rate:     1,
-		Type:     gostatsd.GAUGE,
+		Name:   name,
+		Value:  value,
+		Tags:   tags,
+		Source: is.hostname,
+		Rate:   1,
+		Type:   gostatsd.GAUGE,
 	}
 	is.dispatchInternal(g)
 }
@@ -76,12 +79,12 @@ func (is *InternalStatser) Gauge(name string, value float64, tags gostatsd.Tags)
 // Count sends a counter metric
 func (is *InternalStatser) Count(name string, amount float64, tags gostatsd.Tags) {
 	c := &gostatsd.Metric{
-		Name:     name,
-		Value:    amount,
-		Tags:     tags,
-		Hostname: is.hostname,
-		Rate:     1,
-		Type:     gostatsd.COUNTER,
+		Name:   name,
+		Value:  amount,
+		Tags:   tags,
+		Source: is.hostname,
+		Rate:   1,
+		Type:   gostatsd.COUNTER,
 	}
 	is.dispatchInternal(c)
 }
@@ -94,12 +97,12 @@ func (is *InternalStatser) Increment(name string, tags gostatsd.Tags) {
 // TimingMS sends a timing metric from a millisecond value
 func (is *InternalStatser) TimingMS(name string, ms float64, tags gostatsd.Tags) {
 	c := &gostatsd.Metric{
-		Name:     name,
-		Value:    ms,
-		Tags:     tags,
-		Hostname: is.hostname,
-		Rate:     1,
-		Type:     gostatsd.TIMER,
+		Name:   name,
+		Value:  ms,
+		Tags:   tags,
+		Source: is.hostname,
+		Rate:   1,
+		Type:   gostatsd.TIMER,
 	}
 	is.dispatchInternal(c)
 }

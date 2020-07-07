@@ -61,7 +61,7 @@ func (ch *CloudHandler) DispatchMetrics(ctx context.Context, metrics []*gostatsd
 	var toDispatch []*gostatsd.Metric
 	var toHandle []*gostatsd.Metric
 	for _, m := range metrics {
-		if ch.updateTagsAndHostname(m.Source, &m.Tags, &m.Hostname) {
+		if ch.updateTagsAndHostname(&m.Tags, &m.Source) {
 			toDispatch = append(toDispatch, m)
 		} else {
 			toHandle = append(toHandle, m)
@@ -89,7 +89,7 @@ func (ch *CloudHandler) DispatchMetricMap(ctx context.Context, mm *gostatsd.Metr
 }
 
 func (ch *CloudHandler) DispatchEvent(ctx context.Context, e *gostatsd.Event) {
-	if ch.updateTagsAndHostname(e.Source, &e.Tags, &e.Hostname) {
+	if ch.updateTagsAndHostname(&e.Tags, &e.Source) {
 		ch.handler.DispatchEvent(ctx, e)
 		return
 	}
@@ -234,7 +234,7 @@ func (ch *CloudHandler) handleIncomingEvent(e *gostatsd.Event) {
 
 func (ch *CloudHandler) updateAndDispatchMetrics(ctx context.Context, instance *gostatsd.Instance, metrics []*gostatsd.Metric) {
 	for _, m := range metrics {
-		updateInplace(&m.Tags, &m.Hostname, instance)
+		updateInplace(&m.Tags, &m.Source, instance)
 	}
 	ch.handler.DispatchMetrics(ctx, metrics)
 }
@@ -245,16 +245,16 @@ func (ch *CloudHandler) updateAndDispatchEvents(ctx context.Context, instance *g
 		ch.wg.Add(-dispatched)
 	}()
 	for _, e := range events {
-		updateInplace(&e.Tags, &e.Hostname, instance)
+		updateInplace(&e.Tags, &e.Source, instance)
 		dispatched++
 		ch.handler.DispatchEvent(ctx, e)
 	}
 }
 
-func (ch *CloudHandler) updateTagsAndHostname(ip gostatsd.Source, tags *gostatsd.Tags, hostname *gostatsd.Source) bool /*is a cache hit*/ {
-	instance, cacheHit := ch.getInstance(ip)
+func (ch *CloudHandler) updateTagsAndHostname(tags *gostatsd.Tags, source *gostatsd.Source) bool /*is a cache hit*/ {
+	instance, cacheHit := ch.getInstance(*source)
 	if cacheHit {
-		updateInplace(tags, hostname, instance)
+		updateInplace(tags, source, instance)
 	}
 	return cacheHit
 }
@@ -272,10 +272,10 @@ func (ch *CloudHandler) getInstance(ip gostatsd.Source) (*gostatsd.Instance, boo
 	return instance, true
 }
 
-func updateInplace(tags *gostatsd.Tags, hostname *gostatsd.Source, instance *gostatsd.Instance) {
+func updateInplace(tags *gostatsd.Tags, source *gostatsd.Source, instance *gostatsd.Instance) {
 	if instance != nil { // It was a positive cache hit (successful lookup cache, not failed lookup cache)
 		// Update hostname inplace
-		*hostname = instance.ID
+		*source = instance.ID
 		// Update tag list inplace
 		*tags = append(*tags, instance.Tags...)
 	}

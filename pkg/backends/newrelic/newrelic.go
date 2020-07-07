@@ -267,7 +267,7 @@ func (n *Client) EventFormatter(e *gostatsd.Event) interface{} {
 		"Title":          e.Title,
 		"Text":           e.Text,
 		"DateHappened":   e.DateHappened,
-		"Hostname":       e.Hostname,
+		"Hostname":       e.Source,
 		"AggregationKey": e.AggregationKey,
 		"SourceTypeName": e.SourceTypeName,
 		"Priority":       e.Priority.StringWithEmptyDefault(),

@@ -486,7 +486,7 @@ func (hfh *HttpForwarderHandlerV2) dispatchEvent(ctx context.Context, e *gostats
 		Title:          e.Title,
 		Text:           e.Text,
 		DateHappened:   e.DateHappened,
-		Hostname:       string(e.Hostname),
+		Hostname:       string(e.Source),
 		AggregationKey: e.AggregationKey,
 		SourceTypeName: e.SourceTypeName,
 		Tags:           e.Tags,

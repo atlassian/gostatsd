@@ -94,7 +94,7 @@ func TestFilterPassesNoFilters(t *testing.T) {
 			"foo:bar",
 			"host:baz",
 		},
-		Hostname: "baz",
+		Source: "baz",
 	}
 	expected := []*gostatsd.Metric{
 		{
@@ -103,7 +103,7 @@ func TestFilterPassesNoFilters(t *testing.T) {
 				"foo:bar",
 				"host:baz",
 			},
-			Hostname: "baz",
+			Source: "baz",
 		},
 	}
 	th.DispatchMetrics(context.Background(), []*gostatsd.Metric{m})
@@ -120,7 +120,7 @@ func TestFilterPassesEmptyFilters(t *testing.T) {
 			"foo:bar",
 			"host:baz",
 		},
-		Hostname: "baz",
+		Source: "baz",
 	}
 	expected := []*gostatsd.Metric{
 		{
@@ -129,7 +129,7 @@ func TestFilterPassesEmptyFilters(t *testing.T) {
 				"foo:bar",
 				"host:baz",
 			},
-			Hostname: "baz",
+			Source: "baz",
 		},
 	}
 	th.DispatchMetrics(context.Background(), []*gostatsd.Metric{m})
@@ -151,7 +151,7 @@ func TestFilterKeepNonMatch(t *testing.T) {
 			"foo:bar",
 			"host:baz",
 		},
-		Hostname: "baz",
+		Source: "baz",
 	}
 	th.DispatchMetrics(context.Background(), []*gostatsd.Metric{m})
 	expected := []*gostatsd.Metric{
@@ -161,7 +161,7 @@ func TestFilterKeepNonMatch(t *testing.T) {
 				"foo:bar",
 				"host:baz",
 			},
-			Hostname: "baz",
+			Source: "baz",
 		},
 	}
 	assert.Equal(t, expected, tch.m)
@@ -182,7 +182,7 @@ func TestFilterDropsBadName(t *testing.T) {
 			"foo:bar",
 			"host:baz",
 		},
-		Hostname: "baz",
+		Source: "baz",
 	}
 	th.DispatchMetrics(context.Background(), []*gostatsd.Metric{m})
 	assert.Equal(t, 0, len(tch.m))
@@ -203,7 +203,7 @@ func TestFilterDropsBadPrefix(t *testing.T) {
 			"foo:bar",
 			"host:baz",
 		},
-		Hostname: "baz",
+		Source: "baz",
 	}
 	th.DispatchMetrics(context.Background(), []*gostatsd.Metric{m})
 	assert.Equal(t, 0, len(tch.m))
@@ -226,7 +226,7 @@ func TestFilterKeepsWhitelist(t *testing.T) {
 			"foo:bar",
 			"host:baz",
 		},
-		Hostname: "baz",
+		Source: "baz",
 	}
 	th.DispatchMetrics(context.Background(), []*gostatsd.Metric{m})
 
@@ -236,7 +236,7 @@ func TestFilterKeepsWhitelist(t *testing.T) {
 			"foo:bar",
 			"host:baz",
 		},
-		Hostname: "baz",
+		Source: "baz",
 	}
 	th.DispatchMetrics(context.Background(), []*gostatsd.Metric{m})
 
@@ -247,7 +247,7 @@ func TestFilterKeepsWhitelist(t *testing.T) {
 				"foo:bar",
 				"host:baz",
 			},
-			Hostname: "baz",
+			Source: "baz",
 		},
 	}
 	assert.Equal(t, expected, tch.m)
@@ -269,7 +269,7 @@ func TestFilterDropsTag(t *testing.T) {
 			"foo:bar",
 			"host:baz",
 		},
-		Hostname: "baz",
+		Source: "baz",
 	}
 	th.DispatchMetrics(context.Background(), []*gostatsd.Metric{m})
 
@@ -279,7 +279,7 @@ func TestFilterDropsTag(t *testing.T) {
 			Tags: gostatsd.Tags{
 				"host:baz",
 			},
-			Hostname: "baz",
+			Source: "baz",
 		},
 	}
 	assert.Equal(t, expected, tch.m)
@@ -301,7 +301,7 @@ func TestFilterDropsHost(t *testing.T) {
 			"foo:bar",
 			"host:baz",
 		},
-		Hostname: "baz",
+		Source: "baz",
 	}
 	th.DispatchMetrics(context.Background(), []*gostatsd.Metric{m})
 
@@ -312,7 +312,7 @@ func TestFilterDropsHost(t *testing.T) {
 				"foo:bar",
 				"host:baz",
 			},
-			Hostname: "",
+			Source: "",
 		},
 	}
 	assert.Equal(t, expected, tch.m)
@@ -415,7 +415,7 @@ func TestTagMetricHandlerAddsNoTags(t *testing.T) {
 	th.DispatchMetrics(context.Background(), []*gostatsd.Metric{m})
 	assert.Equal(t, 1, len(tch.m)) // Metric tracked
 	assertHasAllTags(t, tch.m[0].Tags)
-	assert.Equal(t, gostatsd.UnknownSource, tch.m[0].Hostname) // No hostname added
+	assert.Equal(t, gostatsd.UnknownSource, tch.m[0].Source) // No hostname added
 }
 
 func TestTagMetricHandlerAddsSingleTag(t *testing.T) {
@@ -425,7 +425,7 @@ func TestTagMetricHandlerAddsSingleTag(t *testing.T) {
 	th.DispatchMetrics(context.Background(), []*gostatsd.Metric{m})
 	assert.Equal(t, 1, len(tch.m)) // Metric tracked
 	assertHasAllTags(t, tch.m[0].Tags, "tag1")
-	assert.Equal(t, gostatsd.UnknownSource, tch.m[0].Hostname) // No hostname added
+	assert.Equal(t, gostatsd.UnknownSource, tch.m[0].Source) // No hostname added
 }
 
 func TestTagMetricHandlerAddsMultipleTags(t *testing.T) {
@@ -435,7 +435,7 @@ func TestTagMetricHandlerAddsMultipleTags(t *testing.T) {
 	th.DispatchMetrics(context.Background(), []*gostatsd.Metric{m})
 	assert.Equal(t, 1, len(tch.m)) // Metric tracked
 	assertHasAllTags(t, tch.m[0].Tags, "tag1", "tag2")
-	assert.Equal(t, gostatsd.UnknownSource, tch.m[0].Hostname) // No hostname added
+	assert.Equal(t, gostatsd.UnknownSource, tch.m[0].Source) // No hostname added
 }
 
 func TestTagMetricHandlerAddsHostname(t *testing.T) {
@@ -445,9 +445,9 @@ func TestTagMetricHandlerAddsHostname(t *testing.T) {
 		Source: "1.2.3.4",
 	}
 	th.DispatchMetrics(context.Background(), []*gostatsd.Metric{m})
-	assert.Equal(t, 1, len(tch.m))                                 // Metric tracked
-	assert.Equal(t, 0, len(tch.m[0].Tags))                         // No tags added
-	assert.Equal(t, gostatsd.Source("1.2.3.4"), tch.m[0].Hostname) // Hostname injected
+	assert.Equal(t, 1, len(tch.m))                               // Metric tracked
+	assert.Equal(t, 0, len(tch.m[0].Tags))                       // No tags added
+	assert.Equal(t, gostatsd.Source("1.2.3.4"), tch.m[0].Source) // Hostname injected
 }
 
 func TestTagMetricHandlerAddsDuplicateTags(t *testing.T) {
@@ -457,7 +457,7 @@ func TestTagMetricHandlerAddsDuplicateTags(t *testing.T) {
 	th.DispatchMetrics(context.Background(), []*gostatsd.Metric{m})
 	assert.Equal(t, 1, len(tch.m)) // Metric tracked
 	assertHasAllTags(t, tch.m[0].Tags, "tag1", "tag2", "tag3")
-	assert.Equal(t, gostatsd.UnknownSource, tch.m[0].Hostname) // No hostname added
+	assert.Equal(t, gostatsd.UnknownSource, tch.m[0].Source) // No hostname added
 }
 
 func TestTagEventHandlerAddsNoTags(t *testing.T) {
@@ -467,7 +467,7 @@ func TestTagEventHandlerAddsNoTags(t *testing.T) {
 	th.DispatchEvent(context.Background(), e)
 	assert.Equal(t, 1, len(tch.e)) // Metric tracked
 	assertHasAllTags(t, tch.e[0].Tags)
-	assert.Equal(t, gostatsd.UnknownSource, tch.e[0].Hostname) // No hostname added
+	assert.Equal(t, gostatsd.UnknownSource, tch.e[0].Source) // No hostname added
 }
 
 func TestTagEventHandlerAddsSingleTag(t *testing.T) {
@@ -477,7 +477,7 @@ func TestTagEventHandlerAddsSingleTag(t *testing.T) {
 	th.DispatchEvent(context.Background(), e)
 	assert.Equal(t, 1, len(tch.e)) // Metric tracked
 	assertHasAllTags(t, tch.e[0].Tags, "tag1")
-	assert.Equal(t, gostatsd.UnknownSource, tch.e[0].Hostname) // No hostname added
+	assert.Equal(t, gostatsd.UnknownSource, tch.e[0].Source) // No hostname added
 }
 
 func TestTagEventHandlerAddsMultipleTags(t *testing.T) {
@@ -487,7 +487,7 @@ func TestTagEventHandlerAddsMultipleTags(t *testing.T) {
 	th.DispatchEvent(context.Background(), e)
 	assert.Equal(t, 1, len(tch.e)) // Metric tracked
 	assertHasAllTags(t, tch.e[0].Tags, "tag1", "tag2")
-	assert.Equal(t, gostatsd.UnknownSource, tch.e[0].Hostname) // No hostname added
+	assert.Equal(t, gostatsd.UnknownSource, tch.e[0].Source) // No hostname added
 }
 
 func TestTagEventHandlerAddsHostname(t *testing.T) {
@@ -499,7 +499,7 @@ func TestTagEventHandlerAddsHostname(t *testing.T) {
 	th.DispatchEvent(context.Background(), e)
 	assert.Equal(t, 1, len(tch.e)) // Metric tracked
 	assertHasAllTags(t, tch.e[0].Tags)
-	assert.Equal(t, gostatsd.Source("1.2.3.4"), tch.e[0].Hostname) // Hostname injected
+	assert.Equal(t, gostatsd.Source("1.2.3.4"), tch.e[0].Source) // Hostname injected
 }
 
 func TestTagEventHandlerAddsDuplicateTags(t *testing.T) {
@@ -509,7 +509,7 @@ func TestTagEventHandlerAddsDuplicateTags(t *testing.T) {
 	th.DispatchEvent(context.Background(), e)
 	assert.Equal(t, 1, len(tch.e)) // Metric tracked
 	assertHasAllTags(t, tch.e[0].Tags, "tag1", "tag2", "tag3")
-	assert.Equal(t, gostatsd.UnknownSource, tch.e[0].Hostname) // No hostname added
+	assert.Equal(t, gostatsd.UnknownSource, tch.e[0].Source) // No hostname added
 }
 
 func BenchmarkTagMetricHandlerAddsDuplicateTagsSmall(b *testing.B) {

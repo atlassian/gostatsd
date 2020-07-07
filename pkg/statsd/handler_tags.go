@@ -55,9 +55,6 @@ func (th *TagHandler) DispatchMetrics(ctx context.Context, metrics []*gostatsd.M
 	var toDispatch []*gostatsd.Metric
 
 	for _, m := range metrics {
-		if m.Hostname == "" {
-			m.Hostname = m.Source
-		}
 		if th.uniqueFilterMetricAndAddTags(m) {
 			toDispatch = append(toDispatch, m)
 		}
@@ -209,14 +206,11 @@ func (th *TagHandler) uniqueFilterAndAddTags(mName string, mHostname *gostatsd.S
 }
 
 func (th *TagHandler) uniqueFilterMetricAndAddTags(m *gostatsd.Metric) bool {
-	return th.uniqueFilterAndAddTags(m.Name, &m.Hostname, &m.Tags)
+	return th.uniqueFilterAndAddTags(m.Name, &m.Source, &m.Tags)
 }
 
 // DispatchEvent adds the unique tags from the TagHandler to the event and passes it to the next stage in the pipeline
 func (th *TagHandler) DispatchEvent(ctx context.Context, e *gostatsd.Event) {
-	if e.Hostname == "" {
-		e.Hostname = e.Source
-	}
 	e.Tags = uniqueTags(e.Tags, th.tags)
 	th.handler.DispatchEvent(ctx, e)
 }

@@ -512,11 +512,11 @@ func BenchmarkHotMetric(b *testing.B) {
 		stage.Start(func() {
 			for n := 0; n < b.N; n++ {
 				m := &gostatsd.Metric{
-					Name:     "metric.name",
-					Value:    5,
-					Tags:     gostatsd.Tags{"aaaa:aaaa", "aaab:aaab", "aaac:aaac", "aaad:aaad", "aaae:aaae", "aaaf:aaaf"},
-					Hostname: "local",
-					Type:     gostatsd.GAUGE,
+					Name:   "metric.name",
+					Value:  5,
+					Tags:   gostatsd.Tags{"aaaa:aaaa", "aaab:aaab", "aaac:aaac", "aaad:aaad", "aaae:aaae", "aaaf:aaaf"},
+					Source: "local",
+					Type:   gostatsd.GAUGE,
 				}
 				beh.DispatchMetrics(ctx, []*gostatsd.Metric{m})
 			}

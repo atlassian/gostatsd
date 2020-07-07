@@ -393,7 +393,7 @@ func TestEventFormatter(t *testing.T) {
 				defaultMetricsPerBatch, defaultMaxRequests, 2*time.Second, 1*time.Second, gostatsd.TimerSubtypes{}, logrus.New(), p)
 			require.NoError(t, err)
 
-			gostatsdEvent := gostatsd.Event{Title: "EventTitle", Text: "hi", Hostname: "blah", Priority: 1}
+			gostatsdEvent := gostatsd.Event{Title: "EventTitle", Text: "hi", Source: "blah", Priority: 1}
 			formattedEvent := client.EventFormatter(&gostatsdEvent)
 			fevent, err := json.Marshal(formattedEvent)
 			require.NoError(t, err)

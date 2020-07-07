@@ -413,9 +413,9 @@ func TestSendEvent(t *testing.T) {
 	mux := http.NewServeMux()
 
 	expectedEvents := []string{
-		"events,alerttype=info,host=test-host,priority=normal,sourcetypename=test-sourcename title=\"test-title\",text=\"test-text\" 100\n",
+		"events,alerttype=info,host=test-source,priority=normal,sourcetypename=test-sourcename title=\"test-title\",text=\"test-text\" 100\n",
 		"events,alerttype=info,host=tag-host,priority=normal,sourcetypename=test-sourcename title=\"test-title\",text=\"test-text\" 100\n",
-		"events,alerttype=info,host=test-host,priority=normal,sourcetypename=test-sourcename title=\"test-title\",text=\"test-text\",tags=\"abc,def\" 100\n",
+		"events,alerttype=info,host=test-source,priority=normal,sourcetypename=test-sourcename title=\"test-title\",text=\"test-text\",tags=\"abc,def\" 100\n",
 	}
 
 	mux.HandleFunc("/write", func(w http.ResponseWriter, r *http.Request) {
@@ -477,11 +477,10 @@ func TestSendEvent(t *testing.T) {
 		Title:          "test-title",
 		Text:           "test-text",
 		DateHappened:   time.Unix(100, 0).Unix(),
-		Hostname:       "test-host",
 		AggregationKey: "test-ak",
 		SourceTypeName: "test-sourcename",
 		Tags:           nil,
-		Source:         "test-sourceip",
+		Source:         "test-source",
 		Priority:       0,
 		AlertType:      0,
 	})
@@ -491,13 +490,12 @@ func TestSendEvent(t *testing.T) {
 		Title:          "test-title",
 		Text:           "test-text",
 		DateHappened:   time.Unix(100, 0).Unix(),
-		Hostname:       "test-host",
 		AggregationKey: "test-ak",
 		SourceTypeName: "test-sourcename",
 		Tags: gostatsd.Tags{
 			"host:tag-host",
 		},
-		Source:    "test-sourceip",
+		Source:    "test-source",
 		Priority:  0,
 		AlertType: 0,
 	})
@@ -507,14 +505,13 @@ func TestSendEvent(t *testing.T) {
 		Title:          "test-title",
 		Text:           "test-text",
 		DateHappened:   time.Unix(100, 0).Unix(),
-		Hostname:       "test-host",
 		AggregationKey: "test-ak",
 		SourceTypeName: "test-sourcename",
 		Tags: gostatsd.Tags{
 			"eventtags:abc",
 			"eventtags:def",
 		},
-		Source:    "test-sourceip",
+		Source:    "test-source",
 		Priority:  0,
 		AlertType: 0,
 	})
