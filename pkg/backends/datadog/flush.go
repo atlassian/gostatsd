@@ -45,14 +45,14 @@ type metric struct {
 type point [2]float64
 
 // addMetricf adds a metric to the series.
-func (f *flush) addMetricf(metricType metricType, value float64, hostname string, tags gostatsd.Tags, nameFormat string, a ...interface{}) {
-	f.addMetric(metricType, value, hostname, tags, fmt.Sprintf(nameFormat, a...))
+func (f *flush) addMetricf(metricType metricType, value float64, source gostatsd.Source, tags gostatsd.Tags, nameFormat string, a ...interface{}) {
+	f.addMetric(metricType, value, source, tags, fmt.Sprintf(nameFormat, a...))
 }
 
 // addMetric adds a metric to the series.
-func (f *flush) addMetric(metricType metricType, value float64, hostname string, tags gostatsd.Tags, name string) {
+func (f *flush) addMetric(metricType metricType, value float64, source gostatsd.Source, tags gostatsd.Tags, name string) {
 	f.ts.Series = append(f.ts.Series, metric{
-		Host:     hostname,
+		Host:     string(source),
 		Interval: f.flushIntervalSec,
 		Metric:   name,
 		Points:   [1]point{{f.timestamp, value}},

@@ -226,7 +226,7 @@ func (p *Provider) instanceFromInformer(ip gostatsd.Source) *gostatsd.Instance {
 		"tags":     tags,
 	}).Debug("Added tags")
 	return &gostatsd.Instance{
-		ID:   instanceID,
+		ID:   gostatsd.Source(instanceID),
 		Tags: tags,
 	}
 }

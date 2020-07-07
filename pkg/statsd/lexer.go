@@ -199,7 +199,7 @@ func lexEventAttribute(l *lexer) stateFn {
 		}))
 	case 'h':
 		return lexAssert(':', lexUntil('|', func(l *lexer, data []byte) stateFn {
-			l.e.Hostname = string(data)
+			l.e.Hostname = gostatsd.Source(data)
 			return lexEventAttributes
 		}))
 	case 'k':

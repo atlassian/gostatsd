@@ -254,7 +254,7 @@ func (d *Client) SendEvent(ctx context.Context, e *gostatsd.Event) error {
 			Title:          e.Title,
 			Text:           e.Text,
 			DateHappened:   e.DateHappened,
-			Hostname:       e.Hostname,
+			Hostname:       string(e.Hostname),
 			AggregationKey: e.AggregationKey,
 			SourceTypeName: e.SourceTypeName,
 			Tags:           e.Tags,

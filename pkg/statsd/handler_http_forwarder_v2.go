@@ -275,7 +275,7 @@ func translateToProtobufV2(metricMap *gostatsd.MetricMap) *pb.RawMessageV2 {
 		for tagsKey, metric := range m {
 			pbMetricMap.Gauges[metricName].TagMap[tagsKey] = &pb.RawGaugeV2{
 				Tags:     metric.Tags,
-				Hostname: metric.Source,
+				Hostname: string(metric.Source),
 				Value:    metric.Value,
 			}
 		}
@@ -287,7 +287,7 @@ func translateToProtobufV2(metricMap *gostatsd.MetricMap) *pb.RawMessageV2 {
 		for tagsKey, metric := range m {
 			pbMetricMap.Counters[metricName].TagMap[tagsKey] = &pb.RawCounterV2{
 				Tags:     metric.Tags,
-				Hostname: metric.Source,
+				Hostname: string(metric.Source),
 				Value:    metric.Value,
 			}
 		}
@@ -303,7 +303,7 @@ func translateToProtobufV2(metricMap *gostatsd.MetricMap) *pb.RawMessageV2 {
 			}
 			pbMetricMap.Sets[metricName].TagMap[tagsKey] = &pb.RawSetV2{
 				Tags:     metric.Tags,
-				Hostname: metric.Source,
+				Hostname: string(metric.Source),
 				Values:   values,
 			}
 		}
@@ -315,7 +315,7 @@ func translateToProtobufV2(metricMap *gostatsd.MetricMap) *pb.RawMessageV2 {
 		for tagsKey, metric := range m {
 			pbMetricMap.Timers[metricName].TagMap[tagsKey] = &pb.RawTimerV2{
 				Tags:        metric.Tags,
-				Hostname:    metric.Source,
+				Hostname:    string(metric.Source),
 				SampleCount: metric.SampledCount,
 				Values:      metric.Values,
 			}
@@ -486,7 +486,7 @@ func (hfh *HttpForwarderHandlerV2) dispatchEvent(ctx context.Context, e *gostats
 		Title:          e.Title,
 		Text:           e.Text,
 		DateHappened:   e.DateHappened,
-		Hostname:       e.Hostname,
+		Hostname:       string(e.Hostname),
 		AggregationKey: e.AggregationKey,
 		SourceTypeName: e.SourceTypeName,
 		Tags:           e.Tags,

@@ -63,7 +63,7 @@ func (fp *IP) Instance(ctx context.Context, ips ...gostatsd.Source) (map[gostats
 	instances := make(map[gostatsd.Source]*gostatsd.Instance, len(ips))
 	for _, ip := range ips {
 		instances[ip] = &gostatsd.Instance{
-			ID:   "i-" + string(ip),
+			ID:   "i-" + ip,
 			Tags: fp.Tags,
 		}
 	}
@@ -133,7 +133,7 @@ func (fpt *Transient) Instance(ctx context.Context, ips ...gostatsd.Source) (map
 	case 0:
 		for _, ip := range ips {
 			r[ip] = &gostatsd.Instance{
-				ID:   string(ip),
+				ID:   ip,
 				Tags: gostatsd.Tags{"tag:value"},
 			}
 		}

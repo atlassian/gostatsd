@@ -163,7 +163,7 @@ func (dp *DatagramParser) handleDatagram(ctx context.Context, now gostatsd.Nanot
 			if dp.ignoreHost {
 				for idx, tag := range metric.Tags {
 					if strings.HasPrefix(tag, "host:") {
-						metric.Hostname = tag[5:]
+						metric.Hostname = gostatsd.Source(tag[5:])
 						if len(metric.Tags) > 1 {
 							metric.Tags = append(metric.Tags[:idx], metric.Tags[idx+1:]...)
 						} else {

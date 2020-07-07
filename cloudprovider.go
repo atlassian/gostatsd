@@ -13,7 +13,7 @@ type CloudProviderFactory func(v *viper.Viper, logger logrus.FieldLogger, versio
 
 // Instance represents a cloud instance.
 type Instance struct {
-	ID   string
+	ID   Source
 	Tags Tags
 }
 

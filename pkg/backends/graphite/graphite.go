@@ -111,7 +111,7 @@ func asGraphiteTag(tag string) string {
 
 // prepareName will create a metric name, handling correct prefix, suffixes, and tags, with an optional host tag if
 // not overridden by a tag on the metric.
-func (client *Client) prepareName(namespace, name, suffix, hostname string, tags gostatsd.Tags) string {
+func (client *Client) prepareName(namespace, name, suffix string, source gostatsd.Source, tags gostatsd.Tags) string {
 	buf := bytes.Buffer{}
 	if namespace != "" {
 		buf.WriteString(namespace)
@@ -137,9 +137,9 @@ func (client *Client) prepareName(namespace, name, suffix, hostname string, tags
 				haveHost = true
 			}
 		}
-		if !haveHost && hostname != "" {
+		if !haveHost && source != "" {
 			buf.WriteString(";host=")
-			buf.WriteString(hostname)
+			buf.WriteString(string(source))
 		}
 	}
 

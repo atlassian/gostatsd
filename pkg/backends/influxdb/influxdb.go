@@ -367,7 +367,7 @@ func writeEvent(w io.Writer, e *gostatsd.Event) {
 		tags = append(tags, "sourcetypename:"+e.SourceTypeName)
 	}
 	if e.Hostname != "" && !hasHost {
-		tags = append(tags, "host:"+e.Hostname)
+		tags = append(tags, "host:"+string(e.Hostname))
 	}
 
 	writeName(w, "events", tags)

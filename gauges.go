@@ -4,12 +4,12 @@ package gostatsd
 type Gauge struct {
 	Value     float64  // The numeric value of the metric
 	Timestamp Nanotime // Last time value was updated
-	Source    string   // Source of the metric
+	Source    Source   // Source of the metric
 	Tags      Tags     // The tags for the gauge
 }
 
 // NewGauge initialises a new gauge.
-func NewGauge(timestamp Nanotime, value float64, source string, tags Tags) Gauge {
+func NewGauge(timestamp Nanotime, value float64, source Source, tags Tags) Gauge {
 	return Gauge{Value: value, Timestamp: timestamp, Source: source, Tags: tags.Copy()}
 }
 

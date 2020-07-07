@@ -222,7 +222,7 @@ func TestIPToTags(t *testing.T) {
 				instance, cacheHit := fixtures.provider.Peek(ipAddr)
 				require.True(ttt, cacheHit)
 				require.NotNil(ttt, instance)
-				assert.Equal(ttt, instance.ID, fmt.Sprintf("%s/%s", namespace, podName1))
+				assert.Equal(ttt, instance.ID, gostatsd.Source(fmt.Sprintf("%s/%s", namespace, podName1)))
 				assert.Len(ttt, instance.Tags, testCase.expectedNumTags)
 				for _, expectedTag := range testCase.expectedTagsContains {
 					assert.Contains(ttt, instance.Tags, fmt.Sprintf("%s:%s", expectedTag.expectedKey, expectedTag.value))

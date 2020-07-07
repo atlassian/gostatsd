@@ -251,7 +251,7 @@ func (ch *CloudHandler) updateAndDispatchEvents(ctx context.Context, instance *g
 	}
 }
 
-func (ch *CloudHandler) updateTagsAndHostname(ip gostatsd.Source, tags *gostatsd.Tags, hostname *string) bool /*is a cache hit*/ {
+func (ch *CloudHandler) updateTagsAndHostname(ip gostatsd.Source, tags *gostatsd.Tags, hostname *gostatsd.Source) bool /*is a cache hit*/ {
 	instance, cacheHit := ch.getInstance(ip)
 	if cacheHit {
 		updateInplace(tags, hostname, instance)
@@ -272,7 +272,7 @@ func (ch *CloudHandler) getInstance(ip gostatsd.Source) (*gostatsd.Instance, boo
 	return instance, true
 }
 
-func updateInplace(tags *gostatsd.Tags, hostname *string, instance *gostatsd.Instance) {
+func updateInplace(tags *gostatsd.Tags, hostname *gostatsd.Source, instance *gostatsd.Instance) {
 	if instance != nil { // It was a positive cache hit (successful lookup cache, not failed lookup cache)
 		// Update hostname inplace
 		*hostname = instance.ID

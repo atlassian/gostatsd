@@ -116,7 +116,7 @@ func (p *Provider) Instance(ctx context.Context, IP ...gostatsd.Source) (map[gos
 				}
 				tags[len(tags)-1] = "region:" + region
 				instances[ip] = &gostatsd.Instance{
-					ID:   aws.StringValue(instance.InstanceId),
+					ID:   gostatsd.Source(aws.StringValue(instance.InstanceId)),
 					Tags: tags,
 				}
 				p.logger.WithFields(logrus.Fields{

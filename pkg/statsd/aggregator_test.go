@@ -226,7 +226,7 @@ func TestReset(t *testing.T) {
 	now := time.Now()
 	nowNano := gostatsd.Nanotime(now.UnixNano())
 	nowFn := func() time.Time { return now }
-	host := "hostname"
+	host := gostatsd.Source("hostname")
 
 	// non expired
 	actual := newFakeAggregator()

@@ -5,12 +5,12 @@ type Counter struct {
 	PerSecond float64  // The calculated per second rate
 	Value     int64    // The numeric value of the metric
 	Timestamp Nanotime // Last time value was updated
-	Source    string   // Source of the metric
+	Source    Source   // Source of the metric
 	Tags      Tags     // The tags for the counter
 }
 
 // NewCounter initialises a new counter.
-func NewCounter(timestamp Nanotime, value int64, source string, tags Tags) Counter {
+func NewCounter(timestamp Nanotime, value int64, source Source, tags Tags) Counter {
 	return Counter{Value: value, Timestamp: timestamp, Source: source, Tags: tags.Copy()}
 }
 

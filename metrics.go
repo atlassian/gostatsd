@@ -42,7 +42,7 @@ type Metric struct {
 	Tags        Tags       // The tags for the metric
 	TagsKey     string     // The tags rendered as a string to uniquely identify the tagset in a map.  Sort of a cache.  Will be removed at some point.
 	StringValue string     // The string value for some metrics e.g. Set
-	Hostname    string     // Hostname of the source of the metric
+	Hostname    Source     // Hostname of the source of the metric
 	Source      Source     // Source of the metric
 	Timestamp   Nanotime   // Most accurate known timestamp of this metric
 	Type        MetricType // The type of metric
@@ -68,10 +68,10 @@ func (m *Metric) Bucket(max int) int {
 	return Bucket(m.Name, m.Hostname, max)
 }
 
-func Bucket(metricName, hostname string, max int) int {
+func Bucket(metricName string, source Source, max int) int {
 	// Consider hashing the tags here too
 	bucket := adler32.Checksum([]byte(metricName))
-	bucket += adler32.Checksum([]byte(hostname))
+	bucket += adler32.Checksum([]byte(source))
 	return int(bucket % uint32(max))
 }
 
@@ -93,12 +93,12 @@ func (m *Metric) FormatTagsKey() string {
 	return m.TagsKey
 }
 
-func FormatTagsKey(hostname string, tags Tags) string {
+func FormatTagsKey(source Source, tags Tags) string {
 	t := tags.SortedString()
-	if hostname == "" {
+	if source == "" {
 		return t
 	}
-	return t + "," + StatsdSourceID + ":" + hostname
+	return t + "," + StatsdSourceID + ":" + string(source)
 }
 
 // AggregatedMetrics is an interface for aggregated metrics.

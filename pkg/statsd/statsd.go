@@ -55,7 +55,7 @@ type Server struct {
 	HistogramLimit            uint32
 	BadLineRateLimitPerSecond rate.Limit
 	ServerMode                string
-	Hostname                  string
+	Hostname                  gostatsd.Source
 	SelfIP                    gostatsd.Source
 	LogRawMetric              bool
 	Viper                     *viper.Viper
@@ -213,7 +213,7 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 	return ctx.Err()
 }
 
-func (s *Server) createStatser(hostname string, handler gostatsd.PipelineHandler, logger logrus.FieldLogger) stats.Statser {
+func (s *Server) createStatser(hostname gostatsd.Source, handler gostatsd.PipelineHandler, logger logrus.FieldLogger) stats.Statser {
 	switch s.StatserType {
 	case gostatsd.StatserNull:
 		return stats.NewNullStatser()
@@ -232,7 +232,7 @@ func (s *Server) createStatser(hostname string, handler gostatsd.PipelineHandler
 	}
 }
 
-func sendStartEvent(ctx context.Context, handler gostatsd.PipelineHandler, selfIP gostatsd.Source, hostname string) {
+func sendStartEvent(ctx context.Context, handler gostatsd.PipelineHandler, selfIP, hostname gostatsd.Source) {
 	handler.DispatchEvent(ctx, &gostatsd.Event{
 		Title:        "Gostatsd started",
 		Text:         "Gostatsd started",
@@ -243,7 +243,7 @@ func sendStartEvent(ctx context.Context, handler gostatsd.PipelineHandler, selfI
 	})
 }
 
-func sendStopEvent(handler gostatsd.PipelineHandler, selfIP gostatsd.Source, hostname string) {
+func sendStopEvent(handler gostatsd.PipelineHandler, selfIP, hostname gostatsd.Source) {
 	ctx, cancelFunc := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancelFunc()
 	handler.DispatchEvent(ctx, &gostatsd.Event{

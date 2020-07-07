@@ -79,7 +79,7 @@ type Event struct {
 	// DateHappened of the event. Unix epoch timestamp. Default is now when not specified in incoming metric.
 	DateHappened int64
 	// Hostname of the event. This field contains information that is received in the body of the event (optional).
-	Hostname string
+	Hostname Source
 	// AggregationKey of the event, to group it with some other events.
 	AggregationKey string
 	// SourceTypeName of the event.

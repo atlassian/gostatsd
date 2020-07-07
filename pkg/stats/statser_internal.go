@@ -23,7 +23,7 @@ type InternalStatser struct {
 
 	tags      gostatsd.Tags
 	namespace string
-	hostname  string
+	hostname  gostatsd.Source
 	handler   gostatsd.PipelineHandler
 	dropped   uint64
 }
@@ -32,7 +32,7 @@ const bufferSize = 1000 // estimating this is difficult and tends to cause probl
 
 // NewInternalStatser creates a new Statser which sends metrics to the
 // supplied InternalHandler.
-func NewInternalStatser(tags gostatsd.Tags, namespace, hostname string, handler gostatsd.PipelineHandler) *InternalStatser {
+func NewInternalStatser(tags gostatsd.Tags, namespace string, hostname gostatsd.Source, handler gostatsd.PipelineHandler) *InternalStatser {
 	return &InternalStatser{
 		buffer:    make(chan *gostatsd.Metric, bufferSize),
 		tags:      tags,

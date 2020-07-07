@@ -153,7 +153,7 @@ func constructServer(v *viper.Viper) (*statsd.Server, error) {
 		InternalTags:          v.GetStringSlice(gostatsd.ParamInternalTags),
 		InternalNamespace:     v.GetString(gostatsd.ParamInternalNamespace),
 		DefaultTags:           v.GetStringSlice(gostatsd.ParamDefaultTags),
-		Hostname:              v.GetString(gostatsd.ParamHostname),
+		Hostname:              gostatsd.Source(v.GetString(gostatsd.ParamHostname)),
 		SelfIP:                selfIP,
 		ExpiryIntervalCounter: v.GetDuration(gostatsd.ParamExpiryIntervalCounter),
 		ExpiryIntervalGauge:   v.GetDuration(gostatsd.ParamExpiryIntervalGauge),
