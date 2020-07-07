@@ -442,7 +442,7 @@ func TestTagMetricHandlerAddsHostname(t *testing.T) {
 	tch := &capturingHandler{}
 	th := NewTagHandler(tch, gostatsd.Tags{}, nil)
 	m := &gostatsd.Metric{
-		SourceIP: "1.2.3.4",
+		Source: "1.2.3.4",
 	}
 	th.DispatchMetrics(context.Background(), []*gostatsd.Metric{m})
 	assert.Equal(t, 1, len(tch.m))                // Metric tracked

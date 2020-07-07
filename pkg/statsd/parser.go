@@ -173,7 +173,7 @@ func (dp *DatagramParser) handleDatagram(ctx context.Context, now gostatsd.Nanot
 					}
 				}
 			} else {
-				metric.SourceIP = ip
+				metric.Source = ip
 			}
 			metric.Timestamp = now
 			metrics = append(metrics, metric)

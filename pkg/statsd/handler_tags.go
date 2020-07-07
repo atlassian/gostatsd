@@ -56,7 +56,7 @@ func (th *TagHandler) DispatchMetrics(ctx context.Context, metrics []*gostatsd.M
 
 	for _, m := range metrics {
 		if m.Hostname == "" {
-			m.Hostname = string(m.SourceIP)
+			m.Hostname = string(m.Source)
 		}
 		if th.uniqueFilterMetricAndAddTags(m) {
 			toDispatch = append(toDispatch, m)

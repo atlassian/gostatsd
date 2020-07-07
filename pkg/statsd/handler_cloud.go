@@ -61,7 +61,7 @@ func (ch *CloudHandler) DispatchMetrics(ctx context.Context, metrics []*gostatsd
 	var toDispatch []*gostatsd.Metric
 	var toHandle []*gostatsd.Metric
 	for _, m := range metrics {
-		if ch.updateTagsAndHostname(m.SourceIP, &m.Tags, &m.Hostname) {
+		if ch.updateTagsAndHostname(m.Source, &m.Tags, &m.Hostname) {
 			toDispatch = append(toDispatch, m)
 		} else {
 			toHandle = append(toHandle, m)
@@ -210,11 +210,11 @@ func (ch *CloudHandler) handleInstanceInfo(ctx context.Context, info gostatsd.In
 
 func (ch *CloudHandler) handleIncomingMetrics(metrics []*gostatsd.Metric) {
 	for _, m := range metrics {
-		queue := ch.awaitingMetrics[m.SourceIP]
-		ch.awaitingMetrics[m.SourceIP] = append(queue, m)
-		if len(queue) == 0 && len(ch.awaitingEvents[m.SourceIP]) == 0 {
+		queue := ch.awaitingMetrics[m.Source]
+		ch.awaitingMetrics[m.Source] = append(queue, m)
+		if len(queue) == 0 && len(ch.awaitingEvents[m.Source]) == 0 {
 			// This is the first metric for that IP in the queue. Need to fetch an Instance for this IP.
-			ch.toLookupIPs = append(ch.toLookupIPs, m.SourceIP)
+			ch.toLookupIPs = append(ch.toLookupIPs, m.Source)
 			ch.statsMetricHostsQueued++
 		}
 	}

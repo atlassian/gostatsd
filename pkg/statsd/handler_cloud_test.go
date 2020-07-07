@@ -128,7 +128,7 @@ func TestCloudHandlerDispatch(t *testing.T) {
 			Value:    42.42,
 			Tags:     gostatsd.Tags{"a1", "region:us-west-3", "tag1", "tag2:234"},
 			Hostname: "i-1.2.3.4",
-			SourceIP: "1.2.3.4",
+			Source:   "1.2.3.4",
 			Type:     gostatsd.COUNTER,
 		},
 		{
@@ -136,7 +136,7 @@ func TestCloudHandlerDispatch(t *testing.T) {
 			Value:    45.45,
 			Tags:     gostatsd.Tags{"a4", "region:us-west-3", "tag1", "tag2:234"},
 			Hostname: "i-1.2.3.4",
-			SourceIP: "1.2.3.4",
+			Source:   "1.2.3.4",
 			Type:     gostatsd.COUNTER,
 		},
 	}
@@ -235,7 +235,7 @@ func sm1() gostatsd.Metric {
 		Value:    42.42,
 		Tags:     gostatsd.Tags{"a1"},
 		Hostname: "somehost",
-		SourceIP: "1.2.3.4",
+		Source:   "1.2.3.4",
 		Type:     gostatsd.COUNTER,
 	}
 }
@@ -246,7 +246,7 @@ func sm2() gostatsd.Metric {
 		Value:    45.45,
 		Tags:     gostatsd.Tags{"a4"},
 		Hostname: "somehost",
-		SourceIP: "1.2.3.4",
+		Source:   "1.2.3.4",
 		Type:     gostatsd.COUNTER,
 	}
 }

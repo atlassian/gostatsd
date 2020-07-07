@@ -48,39 +48,39 @@ func TestParseDatagram(t *testing.T) {
 	input := map[string]metricAndEvent{
 		"f:2|c": {
 			metrics: []gostatsd.Metric{
-				{Name: "f", Value: 2, SourceIP: "127.0.0.1", Type: gostatsd.COUNTER, Rate: 1},
+				{Name: "f", Value: 2, Source: "127.0.0.1", Type: gostatsd.COUNTER, Rate: 1},
 			},
 		},
 		"f:2|c\n": {
 			metrics: []gostatsd.Metric{
-				{Name: "f", Value: 2, SourceIP: "127.0.0.1", Type: gostatsd.COUNTER, Rate: 1},
+				{Name: "f", Value: 2, Source: "127.0.0.1", Type: gostatsd.COUNTER, Rate: 1},
 			},
 		},
 		"f:2|c|#t": {
 			metrics: []gostatsd.Metric{
-				{Name: "f", Value: 2, SourceIP: "127.0.0.1", Type: gostatsd.COUNTER, Rate: 1, Tags: gostatsd.Tags{"t"}},
+				{Name: "f", Value: 2, Source: "127.0.0.1", Type: gostatsd.COUNTER, Rate: 1, Tags: gostatsd.Tags{"t"}},
 			},
 		},
 		"f:2|c|#host:h": {
 			metrics: []gostatsd.Metric{
-				{Name: "f", Value: 2, SourceIP: "127.0.0.1", Type: gostatsd.COUNTER, Rate: 1, Tags: gostatsd.Tags{"host:h"}},
+				{Name: "f", Value: 2, Source: "127.0.0.1", Type: gostatsd.COUNTER, Rate: 1, Tags: gostatsd.Tags{"host:h"}},
 			},
 		},
 		"f:2|c\nx:3|c": {
 			metrics: []gostatsd.Metric{
-				{Name: "f", Value: 2, SourceIP: "127.0.0.1", Type: gostatsd.COUNTER, Rate: 1},
-				{Name: "x", Value: 3, SourceIP: "127.0.0.1", Type: gostatsd.COUNTER, Rate: 1},
+				{Name: "f", Value: 2, Source: "127.0.0.1", Type: gostatsd.COUNTER, Rate: 1},
+				{Name: "x", Value: 3, Source: "127.0.0.1", Type: gostatsd.COUNTER, Rate: 1},
 			},
 		},
 		"f:2|c\nx:3|c\n": {
 			metrics: []gostatsd.Metric{
-				{Name: "f", Value: 2, SourceIP: "127.0.0.1", Type: gostatsd.COUNTER, Rate: 1},
-				{Name: "x", Value: 3, SourceIP: "127.0.0.1", Type: gostatsd.COUNTER, Rate: 1},
+				{Name: "f", Value: 2, Source: "127.0.0.1", Type: gostatsd.COUNTER, Rate: 1},
+				{Name: "x", Value: 3, Source: "127.0.0.1", Type: gostatsd.COUNTER, Rate: 1},
 			},
 		},
 		"_e{1,1}:a|b\nf:6|c": {
 			metrics: []gostatsd.Metric{
-				{Name: "f", Value: 6, SourceIP: "127.0.0.1", Type: gostatsd.COUNTER, Rate: 1},
+				{Name: "f", Value: 6, Source: "127.0.0.1", Type: gostatsd.COUNTER, Rate: 1},
 			},
 			events: gostatsd.Events{
 				gostatsd.Event{Title: "a", Text: "b", SourceIP: "127.0.0.1"},

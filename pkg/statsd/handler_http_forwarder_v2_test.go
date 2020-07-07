@@ -191,7 +191,7 @@ func BenchmarkHttpForwarderV2TranslateAll(b *testing.B) {
 			StringValue: "123.456",
 			Tags:        gostatsd.Tags{"tag1", "tag2"},
 			Hostname:    "hostname",
-			SourceIP:    "sourceip",
+			Source:      "sourceip",
 			Timestamp:   10,
 			Type:        1 + gostatsd.MetricType(i%4), // Use all types
 		})
