@@ -110,9 +110,13 @@ func (dp *DatagramParser) Run(ctx context.Context) {
 				accumE += eventCount
 				accumB += badLineCount
 			}
+			// TODO: Refactor this to use a MetricConsolidator
+			mm := gostatsd.NewMetricMap()
+			for _, m := range metrics {
+				mm.Receive(m)
+			}
 			if len(metrics) > 0 {
-				dp.handler.DispatchMetrics(ctx, metrics)
-
+				dp.handler.DispatchMetricMap(ctx, mm)
 				dp.doLogRawMetric(metrics)
 			}
 			atomic.AddUint64(&dp.metricsReceived, uint64(len(metrics)))
