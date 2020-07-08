@@ -35,7 +35,7 @@ func (ch *capturingHandler) EstimatedTags() int {
 	return 0
 }
 
-func (ch *capturingHandler) DispatchMetrics(ctx context.Context, metrics []*Metric) {
+func (ch *capturingHandler) dispatchMetrics(ctx context.Context, metrics []*Metric) {
 	ch.mu.Lock()
 	defer ch.mu.Unlock()
 	for _, m := range metrics {
@@ -44,9 +44,14 @@ func (ch *capturingHandler) DispatchMetrics(ctx context.Context, metrics []*Metr
 	}
 }
 
+// Wrapper until we can remove it
+func (ch *capturingHandler) DispatchMetrics(ctx context.Context, metrics []*Metric) {
+	ch.dispatchMetrics(ctx, metrics)
+}
+
 // DispatchMetricMap re-dispatches a metric map through capturingHandler.DispatchMetrics
 func (ch *capturingHandler) DispatchMetricMap(ctx context.Context, mm *MetricMap) {
-	mm.DispatchMetrics(ctx, ch)
+	ch.dispatchMetrics(ctx, mm.AsMetrics())
 }
 
 func (ch *capturingHandler) DispatchEvent(ctx context.Context, e *Event) {

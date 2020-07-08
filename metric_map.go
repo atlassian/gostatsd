@@ -2,7 +2,6 @@ package gostatsd
 
 import (
 	"bytes"
-	"context"
 	"fmt"
 	"strings"
 
@@ -367,8 +366,8 @@ func (mm *MetricMap) String() string {
 	return buf.String()
 }
 
-// DispatchMetrics will synthesize Metrics from the MetricMap and push them to the supplied PipelineHandler
-func (mm *MetricMap) DispatchMetrics(ctx context.Context, handler RawMetricHandler) {
+// AsMetrics will synthesize Metrics from the MetricMap and return them as a slice
+func (mm *MetricMap) AsMetrics() []*Metric {
 	var metrics []*Metric
 
 	mm.Counters.Each(func(metricName string, tagsKey string, c Counter) {
@@ -434,5 +433,5 @@ func (mm *MetricMap) DispatchMetrics(ctx context.Context, handler RawMetricHandl
 		}
 	})
 
-	handler.DispatchMetrics(ctx, metrics)
+	return metrics
 }

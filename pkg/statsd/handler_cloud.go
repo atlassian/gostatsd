@@ -57,7 +57,12 @@ func (ch *CloudHandler) EstimatedTags() int {
 	return ch.estimatedTags
 }
 
+// Wrapper until we can remove it
 func (ch *CloudHandler) DispatchMetrics(ctx context.Context, metrics []*gostatsd.Metric) {
+	ch.dispatchMetrics(ctx, metrics)
+}
+
+func (ch *CloudHandler) dispatchMetrics(ctx context.Context, metrics []*gostatsd.Metric) {
 	var toDispatch []*gostatsd.Metric
 	var toHandle []*gostatsd.Metric
 	for _, m := range metrics {
@@ -85,7 +90,8 @@ func (ch *CloudHandler) DispatchMetrics(ctx context.Context, metrics []*gostatsd
 //  the CloudHandler.  It is also recommended to not use a CloudHandler in an http receiver based
 //  service, as the IP is not propagated.
 func (ch *CloudHandler) DispatchMetricMap(ctx context.Context, mm *gostatsd.MetricMap) {
-	mm.DispatchMetrics(ctx, ch)
+	ms := mm.AsMetrics()
+	ch.dispatchMetrics(ctx, ms)
 }
 
 func (ch *CloudHandler) DispatchEvent(ctx context.Context, e *gostatsd.Event) {

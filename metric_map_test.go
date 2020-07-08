@@ -153,7 +153,7 @@ func TestMetricMapDispatch(t *testing.T) {
 	}
 	ch := &capturingHandler{}
 
-	mm.DispatchMetrics(ctx, ch)
+	ch.dispatchMetrics(ctx, mm.AsMetrics())
 
 	expected := []*Metric{
 		{Name: "abc.def.g", Value: 3, Rate: 1, Type: GAUGE, Timestamp: 10},

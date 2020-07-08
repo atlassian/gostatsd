@@ -111,7 +111,12 @@ func (ch *countingHandler) EstimatedTags() int {
 	return 0
 }
 
+// Wrapper until we can remove it
 func (ch *countingHandler) DispatchMetrics(ctx context.Context, metrics []*gostatsd.Metric) {
+	ch.dispatchMetrics(ctx, metrics)
+}
+
+func (ch *countingHandler) dispatchMetrics(ctx context.Context, metrics []*gostatsd.Metric) {
 	ch.mu.Lock()
 	defer ch.mu.Unlock()
 	for _, m := range metrics {
@@ -122,7 +127,7 @@ func (ch *countingHandler) DispatchMetrics(ctx context.Context, metrics []*gosta
 
 // DispatchMetricMap re-dispatches a metric map through BackendHandler.DispatchMetrics
 func (ch *countingHandler) DispatchMetricMap(ctx context.Context, mm *gostatsd.MetricMap) {
-	mm.DispatchMetrics(ctx, ch)
+	ch.dispatchMetrics(ctx, mm.AsMetrics())
 }
 
 func (ch *countingHandler) DispatchEvent(ctx context.Context, e *gostatsd.Event) {
