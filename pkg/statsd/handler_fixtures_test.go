@@ -87,14 +87,14 @@ func (e *expectingHandler) WaitAll() {
 
 type countingHandler struct {
 	mu      sync.Mutex
-	metrics []gostatsd.Metric
+	metrics []*gostatsd.Metric
 	events  gostatsd.Events
 }
 
-func (ch *countingHandler) Metrics() []gostatsd.Metric {
+func (ch *countingHandler) Metrics() []*gostatsd.Metric {
 	ch.mu.Lock()
 	defer ch.mu.Unlock()
-	result := make([]gostatsd.Metric, len(ch.metrics))
+	result := make([]*gostatsd.Metric, len(ch.metrics))
 	copy(result, ch.metrics)
 	return result
 }
@@ -121,7 +121,7 @@ func (ch *countingHandler) dispatchMetrics(ctx context.Context, metrics []*gosta
 	defer ch.mu.Unlock()
 	for _, m := range metrics {
 		m.DoneFunc = nil // Clear DoneFunc because it contains non-predictable variable data which interferes with the tests
-		ch.metrics = append(ch.metrics, *m)
+		ch.metrics = append(ch.metrics, m)
 	}
 }
 
@@ -133,7 +133,7 @@ func (ch *countingHandler) DispatchMetricMap(ctx context.Context, mm *gostatsd.M
 func (ch *countingHandler) DispatchEvent(ctx context.Context, e *gostatsd.Event) {
 	ch.mu.Lock()
 	defer ch.mu.Unlock()
-	ch.events = append(ch.events, *e)
+	ch.events = append(ch.events, e)
 }
 
 func (ch *countingHandler) WaitForEvents() {

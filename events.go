@@ -93,4 +93,4 @@ type Event struct {
 }
 
 // Events represents a list of events.
-type Events []Event
+type Events []*Event

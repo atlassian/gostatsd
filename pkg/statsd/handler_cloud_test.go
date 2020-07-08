@@ -42,7 +42,7 @@ func BenchmarkCloudHandlerDispatchMetric(b *testing.B) {
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
 			m := sm1()
-			ch.DispatchMetrics(ctxBackground, []*gostatsd.Metric{&m})
+			ch.DispatchMetrics(ctxBackground, []*gostatsd.Metric{m})
 		}
 	})
 }
@@ -88,7 +88,7 @@ func TestTransientInstanceFailure(t *testing.T) {
 
 	// t+0: prime the cache
 	expecting.Expect(1, 0, 0)
-	ch.DispatchMetrics(ctx, []*gostatsd.Metric{&m1})
+	ch.DispatchMetrics(ctx, []*gostatsd.Metric{m1})
 	expecting.WaitAll()
 
 	clck.Add(50 * time.Millisecond)
@@ -97,13 +97,13 @@ func TestTransientInstanceFailure(t *testing.T) {
 
 	// t+100ms: read from cache, must still be valid
 	expecting.Expect(1, 0, 0)
-	ch.DispatchMetrics(ctx, []*gostatsd.Metric{&m2})
+	ch.DispatchMetrics(ctx, []*gostatsd.Metric{m2})
 	expecting.WaitAll()
 
 	cancelFunc()
 	wg.Wait()
 
-	expectedMetrics := []gostatsd.Metric{
+	expectedMetrics := []*gostatsd.Metric{
 		sm1(), sm1(),
 	}
 
@@ -122,7 +122,7 @@ func TestCloudHandlerDispatch(t *testing.T) {
 	}
 
 	expectedIps := []gostatsd.Source{"1.2.3.4", "4.3.2.1"}
-	expectedMetrics := []gostatsd.Metric{
+	expectedMetrics := []*gostatsd.Metric{
 		{
 			Name:   "t1",
 			Value:  42.42,
@@ -139,13 +139,13 @@ func TestCloudHandlerDispatch(t *testing.T) {
 		},
 	}
 	expectedEvents := gostatsd.Events{
-		gostatsd.Event{
+		{
 			Title:  "t12",
 			Text:   "asrasdfasdr",
 			Tags:   gostatsd.Tags{"a2", "region:us-west-3", "tag1", "tag2:234"},
 			Source: "i-4.3.2.1",
 		},
-		gostatsd.Event{
+		{
 			Title:  "t1asdas",
 			Text:   "asdr",
 			Tags:   gostatsd.Tags{"a2-35", "region:us-west-3", "tag1", "tag2:234"},
@@ -159,7 +159,7 @@ func TestCloudHandlerInstanceNotFound(t *testing.T) {
 	t.Parallel()
 	fp := &fakeprovider.NotFound{}
 	expectedIps := []gostatsd.Source{"1.2.3.4", "4.3.2.1"}
-	expectedMetrics := []gostatsd.Metric{
+	expectedMetrics := []*gostatsd.Metric{
 		sm1(),
 		sm2(),
 	}
@@ -174,7 +174,7 @@ func TestCloudHandlerFailingProvider(t *testing.T) {
 	t.Parallel()
 	fp := &fakeprovider.Failing{}
 	expectedIps := []gostatsd.Source{"1.2.3.4", "4.3.2.1"}
-	expectedMetrics := []gostatsd.Metric{
+	expectedMetrics := []*gostatsd.Metric{
 		sm1(),
 		sm2(),
 	}
@@ -185,7 +185,18 @@ func TestCloudHandlerFailingProvider(t *testing.T) {
 	doCheck(t, fp, sm1(), se1(), sm2(), se2(), fp.IPs, expectedIps, expectedMetrics, expectedEvents)
 }
 
-func doCheck(t *testing.T, cloud CountingProvider, m1 gostatsd.Metric, e1 gostatsd.Event, m2 gostatsd.Metric, e2 gostatsd.Event, ipsFunc func() []gostatsd.Source, expectedIps []gostatsd.Source, expectedM []gostatsd.Metric, expectedE gostatsd.Events) {
+func doCheck(
+	t *testing.T,
+	cloud CountingProvider,
+	m1 *gostatsd.Metric,
+	e1 *gostatsd.Event,
+	m2 *gostatsd.Metric,
+	e2 *gostatsd.Event,
+	ipsFunc func() []gostatsd.Source,
+	expectedIps []gostatsd.Source,
+	expectedM []*gostatsd.Metric,
+	expectedE gostatsd.Events,
+) {
 	expecting := &expectingHandler{}
 	ci := cloudprovider.NewCachedCloudProvider(logrus.StandardLogger(), rate.NewLimiter(100, 120), cloud, gostatsd.CacheOptions{
 		CacheRefreshPeriod:        gostatsd.DefaultCacheRefreshPeriod,
@@ -203,13 +214,13 @@ func doCheck(t *testing.T, cloud CountingProvider, m1 gostatsd.Metric, e1 gostat
 	wg.StartWithContext(ctx, ci.Run)
 
 	expecting.Expect(1, 0, 1)
-	ch.DispatchMetrics(ctx, []*gostatsd.Metric{&m1})
-	ch.DispatchEvent(ctx, &e1)
+	ch.DispatchMetrics(ctx, []*gostatsd.Metric{m1})
+	ch.DispatchEvent(ctx, e1)
 	expecting.WaitAll()
 
 	expecting.Expect(1, 0, 1)
-	ch.DispatchMetrics(ctx, []*gostatsd.Metric{&m2})
-	ch.DispatchEvent(ctx, &e2)
+	ch.DispatchMetrics(ctx, []*gostatsd.Metric{m2})
+	ch.DispatchEvent(ctx, e2)
 	expecting.WaitAll()
 
 	cancelFunc()
@@ -225,8 +236,8 @@ func doCheck(t *testing.T, cloud CountingProvider, m1 gostatsd.Metric, e1 gostat
 	assert.LessOrEqual(t, cloud.Invocations(), uint64(2))
 }
 
-func sm1() gostatsd.Metric {
-	return gostatsd.Metric{
+func sm1() *gostatsd.Metric {
+	return &gostatsd.Metric{
 		Name:   "t1",
 		Value:  42.42,
 		Tags:   gostatsd.Tags{"a1"},
@@ -235,8 +246,8 @@ func sm1() gostatsd.Metric {
 	}
 }
 
-func sm2() gostatsd.Metric {
-	return gostatsd.Metric{
+func sm2() *gostatsd.Metric {
+	return &gostatsd.Metric{
 		Name:   "t1",
 		Value:  45.45,
 		Tags:   gostatsd.Tags{"a4"},
@@ -245,8 +256,8 @@ func sm2() gostatsd.Metric {
 	}
 }
 
-func se1() gostatsd.Event {
-	return gostatsd.Event{
+func se1() *gostatsd.Event {
+	return &gostatsd.Event{
 		Title:  "t12",
 		Text:   "asrasdfasdr",
 		Tags:   gostatsd.Tags{"a2"},
@@ -254,8 +265,8 @@ func se1() gostatsd.Event {
 	}
 }
 
-func se2() gostatsd.Event {
-	return gostatsd.Event{
+func se2() *gostatsd.Event {
+	return &gostatsd.Event{
 		Title:  "t1asdas",
 		Text:   "asdr",
 		Tags:   gostatsd.Tags{"a2-35"},

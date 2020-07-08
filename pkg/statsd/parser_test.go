@@ -13,7 +13,7 @@ import (
 )
 
 type metricAndEvent struct {
-	metrics []gostatsd.Metric
+	metrics []*gostatsd.Metric
 	events  gostatsd.Events
 }
 
@@ -47,43 +47,43 @@ func TestParseDatagram(t *testing.T) {
 	t.Parallel()
 	input := map[string]metricAndEvent{
 		"f:2|c": {
-			metrics: []gostatsd.Metric{
+			metrics: []*gostatsd.Metric{
 				{Name: "f", Value: 2, Source: "127.0.0.1", Type: gostatsd.COUNTER, Rate: 1},
 			},
 		},
 		"f:2|c\n": {
-			metrics: []gostatsd.Metric{
+			metrics: []*gostatsd.Metric{
 				{Name: "f", Value: 2, Source: "127.0.0.1", Type: gostatsd.COUNTER, Rate: 1},
 			},
 		},
 		"f:2|c|#t": {
-			metrics: []gostatsd.Metric{
+			metrics: []*gostatsd.Metric{
 				{Name: "f", Value: 2, Source: "127.0.0.1", Type: gostatsd.COUNTER, Rate: 1, Tags: gostatsd.Tags{"t"}},
 			},
 		},
 		"f:2|c|#host:h": {
-			metrics: []gostatsd.Metric{
+			metrics: []*gostatsd.Metric{
 				{Name: "f", Value: 2, Source: "127.0.0.1", Type: gostatsd.COUNTER, Rate: 1, Tags: gostatsd.Tags{"host:h"}},
 			},
 		},
 		"f:2|c\nx:3|c": {
-			metrics: []gostatsd.Metric{
+			metrics: []*gostatsd.Metric{
 				{Name: "f", Value: 2, Source: "127.0.0.1", Type: gostatsd.COUNTER, Rate: 1},
 				{Name: "x", Value: 3, Source: "127.0.0.1", Type: gostatsd.COUNTER, Rate: 1},
 			},
 		},
 		"f:2|c\nx:3|c\n": {
-			metrics: []gostatsd.Metric{
+			metrics: []*gostatsd.Metric{
 				{Name: "f", Value: 2, Source: "127.0.0.1", Type: gostatsd.COUNTER, Rate: 1},
 				{Name: "x", Value: 3, Source: "127.0.0.1", Type: gostatsd.COUNTER, Rate: 1},
 			},
 		},
 		"_e{1,1}:a|b\nf:6|c": {
-			metrics: []gostatsd.Metric{
+			metrics: []*gostatsd.Metric{
 				{Name: "f", Value: 6, Source: "127.0.0.1", Type: gostatsd.COUNTER, Rate: 1},
 			},
 			events: gostatsd.Events{
-				gostatsd.Event{Title: "a", Text: "b", Source: "127.0.0.1"},
+				{Title: "a", Text: "b", Source: "127.0.0.1"},
 			},
 		},
 	}
@@ -111,48 +111,48 @@ func TestParseDatagramIgnoreHost(t *testing.T) {
 	t.Parallel()
 	input := map[string]metricAndEvent{
 		"f:2|c": {
-			metrics: []gostatsd.Metric{
+			metrics: []*gostatsd.Metric{
 				{Name: "f", Value: 2, Type: gostatsd.COUNTER, Rate: 1},
 			},
 		},
 		"f:2|c\n": {
-			metrics: []gostatsd.Metric{
+			metrics: []*gostatsd.Metric{
 				{Name: "f", Value: 2, Type: gostatsd.COUNTER, Rate: 1},
 			},
 		},
 		"f:2|c|#t": {
-			metrics: []gostatsd.Metric{
+			metrics: []*gostatsd.Metric{
 				{Name: "f", Value: 2, Type: gostatsd.COUNTER, Rate: 1, Tags: gostatsd.Tags{"t"}},
 			},
 		},
 		"f:2|c|#host:h": {
-			metrics: []gostatsd.Metric{
+			metrics: []*gostatsd.Metric{
 				{Name: "f", Value: 2, Source: "h", Type: gostatsd.COUNTER, Rate: 1},
 			},
 		},
 		"f:2|c|#host:h1,host:h2": {
-			metrics: []gostatsd.Metric{
+			metrics: []*gostatsd.Metric{
 				{Name: "f", Value: 2, Source: "h1", Type: gostatsd.COUNTER, Rate: 1, Tags: gostatsd.Tags{"host:h2"}},
 			},
 		},
 		"f:2|c\nx:3|c": {
-			metrics: []gostatsd.Metric{
+			metrics: []*gostatsd.Metric{
 				{Name: "f", Value: 2, Type: gostatsd.COUNTER, Rate: 1},
 				{Name: "x", Value: 3, Type: gostatsd.COUNTER, Rate: 1},
 			},
 		},
 		"f:2|c\nx:3|c\n": {
-			metrics: []gostatsd.Metric{
+			metrics: []*gostatsd.Metric{
 				{Name: "f", Value: 2, Type: gostatsd.COUNTER, Rate: 1},
 				{Name: "x", Value: 3, Type: gostatsd.COUNTER, Rate: 1},
 			},
 		},
 		"_e{1,1}:a|b\nf:6|c": {
-			metrics: []gostatsd.Metric{
+			metrics: []*gostatsd.Metric{
 				{Name: "f", Value: 6, Type: gostatsd.COUNTER, Rate: 1},
 			},
 			events: gostatsd.Events{
-				gostatsd.Event{Title: "a", Text: "b", Source: "127.0.0.1"},
+				{Title: "a", Text: "b", Source: "127.0.0.1"},
 			},
 		},
 	}
