@@ -46,6 +46,14 @@ func (mm *MetricMap) Receive(m *Metric) {
 	m.Done()
 }
 
+func MergeMaps(mms []*MetricMap) *MetricMap {
+	mm := NewMetricMap()
+	for _, mmFrom := range mms {
+		mm.Merge(mmFrom)
+	}
+	return mm
+}
+
 func (mm *MetricMap) Merge(mmFrom *MetricMap) {
 	mmFrom.Counters.Each(func(metricName string, tagsKey string, counterFrom Counter) {
 		v, ok := mm.Counters[metricName]

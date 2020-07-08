@@ -2,7 +2,6 @@ package stats
 
 import (
 	"context"
-	"sync/atomic"
 	"time"
 
 	"github.com/atlassian/gostatsd"
@@ -19,16 +18,13 @@ import (
 type InternalStatser struct {
 	flushNotifier
 
-	buffer chan *gostatsd.Metric
-
 	tags      gostatsd.Tags
 	namespace string
 	hostname  gostatsd.Source
 	handler   gostatsd.PipelineHandler
-	dropped   uint64
-}
 
-const bufferSize = 1000 // estimating this is difficult and tends to cause problems if too small
+	consolidator *gostatsd.MetricConsolidator
+}
 
 // NewInternalStatser creates a new Statser which sends metrics to the
 // supplied InternalHandler.
@@ -37,30 +33,26 @@ func NewInternalStatser(tags gostatsd.Tags, namespace string, hostname gostatsd.
 		tags = tags.Concat(gostatsd.Tags{"host:" + string(hostname)})
 	}
 	return &InternalStatser{
-		buffer:    make(chan *gostatsd.Metric, bufferSize),
 		tags:      tags,
 		namespace: namespace,
 		hostname:  hostname,
 		handler:   handler,
+		// We can't just use a MetricMap because everything
+		// that writes to it is on its own goroutine.
+		consolidator: gostatsd.NewMetricConsolidator(10, 0, nil),
 	}
 }
 
-// Run will pull internal metrics off a small buffer, and dispatch them.  It
-// stops running when the context is closed.
-func (is *InternalStatser) Run(ctx context.Context) {
-	flushed, unregister := is.RegisterFlush()
-	defer unregister()
-
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case m := <-is.buffer:
-			is.dispatchMetric(ctx, m)
-		case <-flushed:
-			is.Gauge("internal_dropped", float64(atomic.LoadUint64(&is.dropped)), nil)
-		}
+func (is *InternalStatser) NotifyFlush(ctx context.Context, d time.Duration) {
+	mms := is.consolidator.Drain(ctx)
+	if mms == nil {
+		// context is canceled
+		return
 	}
+	is.consolidator.Fill()
+	is.handler.DispatchMetricMap(ctx, gostatsd.MergeMaps(mms))
+	is.flushNotifier.NotifyFlush(ctx, d)
+
 }
 
 // Gauge sends a gauge metric
@@ -73,7 +65,7 @@ func (is *InternalStatser) Gauge(name string, value float64, tags gostatsd.Tags)
 		Rate:   1,
 		Type:   gostatsd.GAUGE,
 	}
-	is.dispatchInternal(g)
+	is.dispatchMetric(g)
 }
 
 // Count sends a counter metric
@@ -86,7 +78,7 @@ func (is *InternalStatser) Count(name string, amount float64, tags gostatsd.Tags
 		Rate:   1,
 		Type:   gostatsd.COUNTER,
 	}
-	is.dispatchInternal(c)
+	is.dispatchMetric(c)
 }
 
 // Increment sends a counter metric with a value of 1
@@ -104,7 +96,7 @@ func (is *InternalStatser) TimingMS(name string, ms float64, tags gostatsd.Tags)
 		Rate:   1,
 		Type:   gostatsd.TIMER,
 	}
-	is.dispatchInternal(c)
+	is.dispatchMetric(c)
 }
 
 // TimingDuration sends a timing metric from a time.Duration
@@ -122,25 +114,11 @@ func (is *InternalStatser) WithTags(tags gostatsd.Tags) Statser {
 	return NewTaggedStatser(is, tags)
 }
 
-// Attempts to dispatch a metric via the internal buffer.  Non-blocking.
-// Failure to send will be tracked, but not propagated to the caller.
-func (is *InternalStatser) dispatchInternal(metric *gostatsd.Metric) {
-	metric.Timestamp = gostatsd.NanoNow()
-
-	select {
-	case is.buffer <- metric:
-		// great success
-	default:
-		// at least we tried
-		atomic.AddUint64(&is.dropped, 1)
-	}
-}
-
-func (is *InternalStatser) dispatchMetric(ctx context.Context, metric *gostatsd.Metric) {
+func (is *InternalStatser) dispatchMetric(metric *gostatsd.Metric) {
 	// the metric is owned by this file, we can change it freely because we know its origins
 	if is.namespace != "" {
 		metric.Name = is.namespace + "." + metric.Name
 	}
 	metric.Tags = metric.Tags.Concat(is.tags)
-	is.handler.DispatchMetrics(ctx, []*gostatsd.Metric{metric})
+	is.consolidator.ReceiveMetrics([]*gostatsd.Metric{metric})
 }

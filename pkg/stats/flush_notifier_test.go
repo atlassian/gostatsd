@@ -1,6 +1,7 @@
 package stats
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -68,7 +69,7 @@ func TestFlushNotifierFires(t *testing.T) {
 	go func() {
 		// Just enough to be certain that the select below is ready.
 		time.Sleep(10 * time.Millisecond)
-		fn.NotifyFlush(0)
+		fn.NotifyFlush(context.Background(), 0)
 	}()
 
 	ticker := time.NewTicker(100 * time.Millisecond)
@@ -91,7 +92,7 @@ func TestFlushNotifierDoesNotBlock(t *testing.T) {
 	_, unregister := fn.RegisterFlush()
 
 	deadline := time.Now().Add(10 * time.Millisecond)
-	fn.NotifyFlush(0)
+	fn.NotifyFlush(context.Background(), 0)
 	assert.Truef(t, time.Now().Before(deadline), "NotifyFlush ran too long")
 
 	unregister()
