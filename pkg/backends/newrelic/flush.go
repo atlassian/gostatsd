@@ -23,7 +23,7 @@ type timeSeries struct {
 }
 
 // addMetric adds a metric to the series.
-func (f *flush) addMetric(n *Client, metricType string, value float64, persecond float64, hostname string, tags gostatsd.Tags, name string) {
+func (f *flush) addMetric(n *Client, metricType string, value float64, persecond float64, tags gostatsd.Tags, name string) {
 	if n.flushType == flushTypeMetrics {
 		metricName := name
 		if metricType == "counter" {

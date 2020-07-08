@@ -165,9 +165,9 @@ func constructEventMessage(e *gostatsd.Event) *bytes.Buffer {
 		buf.WriteString("|d:")
 		buf.WriteString(strconv.FormatInt(e.DateHappened, 10))
 	}
-	if e.Hostname != "" {
+	if e.Source != "" {
 		buf.WriteString("|h:")
-		buf.WriteString(e.Hostname)
+		buf.WriteString(string(e.Source))
 	}
 	if e.AggregationKey != "" {
 		buf.WriteString("|k:")

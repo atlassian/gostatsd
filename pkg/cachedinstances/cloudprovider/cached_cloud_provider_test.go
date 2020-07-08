@@ -49,7 +49,7 @@ func TestCachedCloudProviderExpirationAndRefresh(t *testing.T) {
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	defer cancelFunc()
 	wg.StartWithContext(ctx, ci.Run)
-	const peekIp gostatsd.IP = "1.2.3.4"
+	const peekIp gostatsd.Source = "1.2.3.4"
 	instance, exists := ci.Peek(peekIp)
 	require.Nil(t, instance)
 	require.False(t, exists)

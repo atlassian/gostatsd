@@ -148,11 +148,10 @@ func (rhh *rawHttpHandlerV2) EventHandler(w http.ResponseWriter, req *http.Reque
 		Title:          msg.Title,
 		Text:           msg.Text,
 		DateHappened:   msg.DateHappened,
-		Hostname:       msg.Hostname,
+		Source:         gostatsd.Source(msg.Hostname),
 		AggregationKey: msg.AggregationKey,
 		SourceTypeName: msg.SourceTypeName,
 		Tags:           msg.Tags,
-		SourceIP:       gostatsd.IP(msg.SourceIP),
 	}
 
 	switch msg.Priority {
@@ -194,7 +193,7 @@ func translateFromProtobufV2(pbMetricMap *pb.RawMessageV2) *gostatsd.MetricMap {
 			mm.Gauges[metricName][tagsKey] = gostatsd.Gauge{
 				Value:     gauge.Value,
 				Timestamp: now,
-				Hostname:  gauge.Hostname,
+				Source:    gostatsd.Source(gauge.Hostname),
 				Tags:      gauge.Tags,
 			}
 		}
@@ -207,7 +206,7 @@ func translateFromProtobufV2(pbMetricMap *pb.RawMessageV2) *gostatsd.MetricMap {
 				Value:     counter.Value,
 				Timestamp: now,
 				Tags:      counter.Tags,
-				Hostname:  counter.Hostname,
+				Source:    gostatsd.Source(counter.Hostname),
 			}
 		}
 	}
@@ -219,7 +218,7 @@ func translateFromProtobufV2(pbMetricMap *pb.RawMessageV2) *gostatsd.MetricMap {
 				Values:       timer.Values,
 				Timestamp:    now,
 				Tags:         timer.Tags,
-				Hostname:     timer.Hostname,
+				Source:       gostatsd.Source(timer.Hostname),
 				SampledCount: timer.SampleCount,
 			}
 		}
@@ -232,7 +231,7 @@ func translateFromProtobufV2(pbMetricMap *pb.RawMessageV2) *gostatsd.MetricMap {
 				Values:    map[string]struct{}{},
 				Timestamp: now,
 				Tags:      set.Tags,
-				Hostname:  set.Hostname,
+				Source:    gostatsd.Source(set.Hostname),
 			}
 			for _, value := range set.Values {
 				mm.Sets[metricName][tagsKey].Values[value] = struct{}{}

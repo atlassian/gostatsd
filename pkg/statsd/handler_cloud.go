@@ -30,9 +30,9 @@ type CloudHandler struct {
 
 	// emitChan triggers a write of all the current stats when it is given a Statser
 	emitChan        chan stats.Statser
-	awaitingEvents  map[gostatsd.IP][]*gostatsd.Event
-	awaitingMetrics map[gostatsd.IP][]*gostatsd.Metric
-	toLookupIPs     []gostatsd.IP
+	awaitingEvents  map[gostatsd.Source][]*gostatsd.Event
+	awaitingMetrics map[gostatsd.Source][]*gostatsd.Metric
+	toLookupIPs     []gostatsd.Source
 	wg              sync.WaitGroup
 
 	estimatedTags int
@@ -46,8 +46,8 @@ func NewCloudHandler(cachedInstances gostatsd.CachedInstances, handler gostatsd.
 		incomingMetrics: make(chan []*gostatsd.Metric),
 		incomingEvents:  make(chan *gostatsd.Event),
 		emitChan:        make(chan stats.Statser),
-		awaitingEvents:  make(map[gostatsd.IP][]*gostatsd.Event),
-		awaitingMetrics: make(map[gostatsd.IP][]*gostatsd.Metric),
+		awaitingEvents:  make(map[gostatsd.Source][]*gostatsd.Event),
+		awaitingMetrics: make(map[gostatsd.Source][]*gostatsd.Metric),
 		estimatedTags:   handler.EstimatedTags() + cachedInstances.EstimatedTags(),
 	}
 }
@@ -61,7 +61,7 @@ func (ch *CloudHandler) DispatchMetrics(ctx context.Context, metrics []*gostatsd
 	var toDispatch []*gostatsd.Metric
 	var toHandle []*gostatsd.Metric
 	for _, m := range metrics {
-		if ch.updateTagsAndHostname(m.SourceIP, &m.Tags, &m.Hostname) {
+		if ch.updateTagsAndHostname(&m.Tags, &m.Source) {
 			toDispatch = append(toDispatch, m)
 		} else {
 			toHandle = append(toHandle, m)
@@ -89,7 +89,7 @@ func (ch *CloudHandler) DispatchMetricMap(ctx context.Context, mm *gostatsd.Metr
 }
 
 func (ch *CloudHandler) DispatchEvent(ctx context.Context, e *gostatsd.Event) {
-	if ch.updateTagsAndHostname(e.SourceIP, &e.Tags, &e.Hostname) {
+	if ch.updateTagsAndHostname(&e.Tags, &e.Source) {
 		ch.handler.DispatchEvent(ctx, e)
 		return
 	}
@@ -158,8 +158,8 @@ func (ch *CloudHandler) emit(statser stats.Statser) {
 
 func (ch *CloudHandler) Run(ctx context.Context) {
 	var (
-		toLookupC  chan<- gostatsd.IP
-		toLookupIP gostatsd.IP
+		toLookupC  chan<- gostatsd.Source
+		toLookupIP gostatsd.Source
 	)
 	infoSource := ch.cachedInstances.InfoSource()
 	ipSink := ch.cachedInstances.IpSink()
@@ -168,8 +168,8 @@ func (ch *CloudHandler) Run(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case toLookupC <- toLookupIP:
-			toLookupIP = gostatsd.UnknownIP // Enable GC
-			toLookupC = nil                 // ip has been sent; if there is nothing to send, will block
+			toLookupIP = gostatsd.UnknownSource // Enable GC
+			toLookupC = nil                     // ip has been sent; if there is nothing to send, will block
 		case info := <-infoSource:
 			ch.handleInstanceInfo(ctx, info)
 		case metrics := <-ch.incomingMetrics:
@@ -184,7 +184,7 @@ func (ch *CloudHandler) Run(ctx context.Context) {
 		if toLookupC == nil && len(ch.toLookupIPs) > 0 {
 			last := len(ch.toLookupIPs) - 1
 			toLookupIP = ch.toLookupIPs[last]
-			ch.toLookupIPs[last] = gostatsd.UnknownIP // Enable GC
+			ch.toLookupIPs[last] = gostatsd.UnknownSource // Enable GC
 			ch.toLookupIPs = ch.toLookupIPs[:last]
 			toLookupC = ipSink
 		}
@@ -210,11 +210,11 @@ func (ch *CloudHandler) handleInstanceInfo(ctx context.Context, info gostatsd.In
 
 func (ch *CloudHandler) handleIncomingMetrics(metrics []*gostatsd.Metric) {
 	for _, m := range metrics {
-		queue := ch.awaitingMetrics[m.SourceIP]
-		ch.awaitingMetrics[m.SourceIP] = append(queue, m)
-		if len(queue) == 0 && len(ch.awaitingEvents[m.SourceIP]) == 0 {
+		queue := ch.awaitingMetrics[m.Source]
+		ch.awaitingMetrics[m.Source] = append(queue, m)
+		if len(queue) == 0 && len(ch.awaitingEvents[m.Source]) == 0 {
 			// This is the first metric for that IP in the queue. Need to fetch an Instance for this IP.
-			ch.toLookupIPs = append(ch.toLookupIPs, m.SourceIP)
+			ch.toLookupIPs = append(ch.toLookupIPs, m.Source)
 			ch.statsMetricHostsQueued++
 		}
 	}
@@ -222,11 +222,11 @@ func (ch *CloudHandler) handleIncomingMetrics(metrics []*gostatsd.Metric) {
 }
 
 func (ch *CloudHandler) handleIncomingEvent(e *gostatsd.Event) {
-	queue := ch.awaitingEvents[e.SourceIP]
-	ch.awaitingEvents[e.SourceIP] = append(queue, e)
-	if len(queue) == 0 && len(ch.awaitingMetrics[e.SourceIP]) == 0 {
+	queue := ch.awaitingEvents[e.Source]
+	ch.awaitingEvents[e.Source] = append(queue, e)
+	if len(queue) == 0 && len(ch.awaitingMetrics[e.Source]) == 0 {
 		// This is the first event for that IP in the queue. Need to fetch an Instance for this IP.
-		ch.toLookupIPs = append(ch.toLookupIPs, e.SourceIP)
+		ch.toLookupIPs = append(ch.toLookupIPs, e.Source)
 		ch.statsEventHostsQueued++
 	}
 	ch.statsEventItemsQueued++
@@ -234,7 +234,7 @@ func (ch *CloudHandler) handleIncomingEvent(e *gostatsd.Event) {
 
 func (ch *CloudHandler) updateAndDispatchMetrics(ctx context.Context, instance *gostatsd.Instance, metrics []*gostatsd.Metric) {
 	for _, m := range metrics {
-		updateInplace(&m.Tags, &m.Hostname, instance)
+		updateInplace(&m.Tags, &m.Source, instance)
 	}
 	ch.handler.DispatchMetrics(ctx, metrics)
 }
@@ -245,22 +245,22 @@ func (ch *CloudHandler) updateAndDispatchEvents(ctx context.Context, instance *g
 		ch.wg.Add(-dispatched)
 	}()
 	for _, e := range events {
-		updateInplace(&e.Tags, &e.Hostname, instance)
+		updateInplace(&e.Tags, &e.Source, instance)
 		dispatched++
 		ch.handler.DispatchEvent(ctx, e)
 	}
 }
 
-func (ch *CloudHandler) updateTagsAndHostname(ip gostatsd.IP, tags *gostatsd.Tags, hostname *string) bool /*is a cache hit*/ {
-	instance, cacheHit := ch.getInstance(ip)
+func (ch *CloudHandler) updateTagsAndHostname(tags *gostatsd.Tags, source *gostatsd.Source) bool /*is a cache hit*/ {
+	instance, cacheHit := ch.getInstance(*source)
 	if cacheHit {
-		updateInplace(tags, hostname, instance)
+		updateInplace(tags, source, instance)
 	}
 	return cacheHit
 }
 
-func (ch *CloudHandler) getInstance(ip gostatsd.IP) (*gostatsd.Instance, bool /*is a cache hit*/) {
-	if ip == gostatsd.UnknownIP {
+func (ch *CloudHandler) getInstance(ip gostatsd.Source) (*gostatsd.Instance, bool /*is a cache hit*/) {
+	if ip == gostatsd.UnknownSource {
 		return nil, true
 	}
 	instance, cacheHit := ch.cachedInstances.Peek(ip)
@@ -272,10 +272,10 @@ func (ch *CloudHandler) getInstance(ip gostatsd.IP) (*gostatsd.Instance, bool /*
 	return instance, true
 }
 
-func updateInplace(tags *gostatsd.Tags, hostname *string, instance *gostatsd.Instance) {
+func updateInplace(tags *gostatsd.Tags, source *gostatsd.Source, instance *gostatsd.Instance) {
 	if instance != nil { // It was a positive cache hit (successful lookup cache, not failed lookup cache)
 		// Update hostname inplace
-		*hostname = instance.ID
+		*source = instance.ID
 		// Update tag list inplace
 		*tags = append(*tags, instance.Tags...)
 	}

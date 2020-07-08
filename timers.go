@@ -17,7 +17,7 @@ type Timer struct {
 	Values       []float64   // The numeric value of the metric
 	Percentiles  Percentiles // The percentile aggregations of the metric
 	Timestamp    Nanotime    // Last time value was updated
-	Hostname     string      // Hostname of the source of the metric
+	Source       Source      // Hostname of the source of the metric
 	Tags         Tags        // The tags for the timer
 
 	// Map bounds to count of measures seen in that bucket.
@@ -28,8 +28,8 @@ type Timer struct {
 type HistogramThreshold float64
 
 // NewTimer initialises a new timer.
-func NewTimer(timestamp Nanotime, values []float64, hostname string, tags Tags) Timer {
-	return Timer{Values: values, Timestamp: timestamp, Hostname: hostname, Tags: tags.Copy(), SampledCount: float64(len(values))}
+func NewTimer(timestamp Nanotime, values []float64, source Source, tags Tags) Timer {
+	return Timer{Values: values, Timestamp: timestamp, Source: source, Tags: tags.Copy(), SampledCount: float64(len(values))}
 }
 
 // NewTimerValues initialises a new timer only from Values array

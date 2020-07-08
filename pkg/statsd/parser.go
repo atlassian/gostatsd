@@ -123,7 +123,7 @@ func (dp *DatagramParser) Run(ctx context.Context) {
 }
 
 // logBadLineRateLimited will log a line which failed to decode, if the current rate limit has not been exceeded.
-func (dp *DatagramParser) logBadLineRateLimited(line []byte, ip gostatsd.IP, err error) {
+func (dp *DatagramParser) logBadLineRateLimited(line []byte, ip gostatsd.Source, err error) {
 	if dp.badLineLimiter.Allow() {
 		logrus.WithFields(logrus.Fields{
 			"line":  string(line),
@@ -135,7 +135,7 @@ func (dp *DatagramParser) logBadLineRateLimited(line []byte, ip gostatsd.IP, err
 
 // handleDatagram handles the contents of a datagram and parsers it in to Metrics (which are returned), or
 // Events (which are sent to the pipeline via DispatchEvent).
-func (dp *DatagramParser) handleDatagram(ctx context.Context, now gostatsd.Nanotime, ip gostatsd.IP, msg []byte) (metrics []*gostatsd.Metric, eventCount uint64, badLineCount uint64) {
+func (dp *DatagramParser) handleDatagram(ctx context.Context, now gostatsd.Nanotime, ip gostatsd.Source, msg []byte) (metrics []*gostatsd.Metric, eventCount uint64, badLineCount uint64) {
 	var numEvents, numBad uint64
 	for {
 		idx := bytes.IndexByte(msg, '\n')
@@ -163,7 +163,7 @@ func (dp *DatagramParser) handleDatagram(ctx context.Context, now gostatsd.Nanot
 			if dp.ignoreHost {
 				for idx, tag := range metric.Tags {
 					if strings.HasPrefix(tag, "host:") {
-						metric.Hostname = tag[5:]
+						metric.Source = gostatsd.Source(tag[5:])
 						if len(metric.Tags) > 1 {
 							metric.Tags = append(metric.Tags[:idx], metric.Tags[idx+1:]...)
 						} else {
@@ -173,13 +173,13 @@ func (dp *DatagramParser) handleDatagram(ctx context.Context, now gostatsd.Nanot
 					}
 				}
 			} else {
-				metric.SourceIP = ip
+				metric.Source = ip
 			}
 			metric.Timestamp = now
 			metrics = append(metrics, metric)
 		} else if event != nil {
 			numEvents++
-			event.SourceIP = ip // Always keep the source ip for events
+			event.Source = ip // Always keep the source ip for events
 			if event.DateHappened == 0 {
 				event.DateHappened = time.Now().Unix()
 			}

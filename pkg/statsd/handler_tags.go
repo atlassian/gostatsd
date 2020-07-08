@@ -55,9 +55,6 @@ func (th *TagHandler) DispatchMetrics(ctx context.Context, metrics []*gostatsd.M
 	var toDispatch []*gostatsd.Metric
 
 	for _, m := range metrics {
-		if m.Hostname == "" {
-			m.Hostname = string(m.SourceIP)
-		}
 		if th.uniqueFilterMetricAndAddTags(m) {
 			toDispatch = append(toDispatch, m)
 		}
@@ -76,8 +73,8 @@ func (th *TagHandler) DispatchMetricMap(ctx context.Context, mm *gostatsd.Metric
 	mmNew := gostatsd.NewMetricMap()
 
 	mm.Counters.Each(func(metricName, _ string, cOriginal gostatsd.Counter) {
-		if th.uniqueFilterAndAddTags(metricName, &cOriginal.Hostname, &cOriginal.Tags) {
-			newTagsKey := gostatsd.FormatTagsKey(cOriginal.Hostname, cOriginal.Tags)
+		if th.uniqueFilterAndAddTags(metricName, &cOriginal.Source, &cOriginal.Tags) {
+			newTagsKey := gostatsd.FormatTagsKey(cOriginal.Source, cOriginal.Tags)
 			if cs, ok := mmNew.Counters[metricName]; ok {
 				if cNew, ok := cs[newTagsKey]; ok {
 					cNew.Value += cOriginal.Value
@@ -93,8 +90,8 @@ func (th *TagHandler) DispatchMetricMap(ctx context.Context, mm *gostatsd.Metric
 	})
 
 	mm.Gauges.Each(func(metricName, _ string, gOriginal gostatsd.Gauge) {
-		if th.uniqueFilterAndAddTags(metricName, &gOriginal.Hostname, &gOriginal.Tags) {
-			newTagsKey := gostatsd.FormatTagsKey(gOriginal.Hostname, gOriginal.Tags)
+		if th.uniqueFilterAndAddTags(metricName, &gOriginal.Source, &gOriginal.Tags) {
+			newTagsKey := gostatsd.FormatTagsKey(gOriginal.Source, gOriginal.Tags)
 			if gs, ok := mmNew.Gauges[metricName]; ok {
 				if gNew, ok := gs[newTagsKey]; ok {
 					if gOriginal.Timestamp > gNew.Timestamp {
@@ -112,8 +109,8 @@ func (th *TagHandler) DispatchMetricMap(ctx context.Context, mm *gostatsd.Metric
 	})
 
 	mm.Timers.Each(func(metricName, _ string, tOriginal gostatsd.Timer) {
-		if th.uniqueFilterAndAddTags(metricName, &tOriginal.Hostname, &tOriginal.Tags) {
-			newTagsKey := gostatsd.FormatTagsKey(tOriginal.Hostname, tOriginal.Tags)
+		if th.uniqueFilterAndAddTags(metricName, &tOriginal.Source, &tOriginal.Tags) {
+			newTagsKey := gostatsd.FormatTagsKey(tOriginal.Source, tOriginal.Tags)
 			if ts, ok := mmNew.Timers[metricName]; ok {
 				if tNew, ok := ts[newTagsKey]; ok {
 					tNew.Values = append(tNew.Values, tOriginal.Values...)
@@ -130,8 +127,8 @@ func (th *TagHandler) DispatchMetricMap(ctx context.Context, mm *gostatsd.Metric
 	})
 
 	mm.Sets.Each(func(metricName, _ string, sOriginal gostatsd.Set) {
-		if th.uniqueFilterAndAddTags(metricName, &sOriginal.Hostname, &sOriginal.Tags) {
-			newTagsKey := gostatsd.FormatTagsKey(sOriginal.Hostname, sOriginal.Tags)
+		if th.uniqueFilterAndAddTags(metricName, &sOriginal.Source, &sOriginal.Tags) {
+			newTagsKey := gostatsd.FormatTagsKey(sOriginal.Source, sOriginal.Tags)
 			if ss, ok := mmNew.Sets[metricName]; ok {
 				if sNew, ok := ss[newTagsKey]; ok {
 					for key := range sOriginal.Values {
@@ -162,7 +159,7 @@ func (th *TagHandler) DispatchMetricMap(ctx context.Context, mm *gostatsd.Metric
 // hot code path.
 //
 // Returns true if the metric should be processed further, or false to drop it.
-func (th *TagHandler) uniqueFilterAndAddTags(mName string, mHostname *string, mTags *gostatsd.Tags) bool {
+func (th *TagHandler) uniqueFilterAndAddTags(mName string, mHostname *gostatsd.Source, mTags *gostatsd.Tags) bool {
 	if len(th.filters) == 0 {
 		*mTags = uniqueTags(*mTags, th.tags)
 		return true
@@ -209,14 +206,11 @@ func (th *TagHandler) uniqueFilterAndAddTags(mName string, mHostname *string, mT
 }
 
 func (th *TagHandler) uniqueFilterMetricAndAddTags(m *gostatsd.Metric) bool {
-	return th.uniqueFilterAndAddTags(m.Name, &m.Hostname, &m.Tags)
+	return th.uniqueFilterAndAddTags(m.Name, &m.Source, &m.Tags)
 }
 
 // DispatchEvent adds the unique tags from the TagHandler to the event and passes it to the next stage in the pipeline
 func (th *TagHandler) DispatchEvent(ctx context.Context, e *gostatsd.Event) {
-	if e.Hostname == "" {
-		e.Hostname = string(e.SourceIP)
-	}
 	e.Tags = uniqueTags(e.Tags, th.tags)
 	th.handler.DispatchEvent(ctx, e)
 }

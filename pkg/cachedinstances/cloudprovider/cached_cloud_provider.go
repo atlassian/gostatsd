@@ -21,10 +21,10 @@ func NewCachedCloudProvider(logger logrus.FieldLogger, limiter *rate.Limiter, cl
 		limiter:        limiter,
 		cloudProvider:  cloudProvider,
 		cacheOpts:      cacheOpts,
-		ipSinkSource:   make(chan gostatsd.IP),
+		ipSinkSource:   make(chan gostatsd.Source),
 		infoSinkSource: make(chan gostatsd.InstanceInfo),
 		emitChan:       make(chan stats.Statser),
-		cache:          make(map[gostatsd.IP]*instanceHolder),
+		cache:          make(map[gostatsd.Source]*instanceHolder),
 	}
 }
 
@@ -39,22 +39,22 @@ type CachedCloudProvider struct {
 	limiter        *rate.Limiter
 	cloudProvider  gostatsd.CloudProvider
 	cacheOpts      gostatsd.CacheOptions
-	ipSinkSource   chan gostatsd.IP
+	ipSinkSource   chan gostatsd.Source
 	infoSinkSource chan gostatsd.InstanceInfo
 
 	// emitChan triggers a write of all the current stats when it is given a Statser
 	emitChan     chan stats.Statser
 	rw           sync.RWMutex // Protects cache
-	cache        map[gostatsd.IP]*instanceHolder
-	toLookupIPs  []gostatsd.IP
+	cache        map[gostatsd.Source]*instanceHolder
+	toLookupIPs  []gostatsd.Source
 	toReturnInfo []gostatsd.InstanceInfo
 }
 
 func (ccp *CachedCloudProvider) Run(ctx context.Context) {
 	clck := clock.FromContext(ctx)
 	var (
-		toLookupC     chan<- gostatsd.IP
-		toLookupIP    gostatsd.IP
+		toLookupC     chan<- gostatsd.Source
+		toLookupIP    gostatsd.Source
 		toReturnInfoC chan<- gostatsd.InstanceInfo
 		toReturnInfo  gostatsd.InstanceInfo
 		wg            wait.Group
@@ -89,8 +89,8 @@ func (ccp *CachedCloudProvider) Run(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case toLookupC <- toLookupIP:
-			toLookupIP = gostatsd.UnknownIP // enable GC
-			toLookupC = nil                 // ip has been sent; if there is nothing to send, the case is disabled
+			toLookupIP = gostatsd.UnknownSource // enable GC
+			toLookupC = nil                     // ip has been sent; if there is nothing to send, the case is disabled
 		case toReturnInfoC <- toReturnInfo:
 			toReturnInfo = gostatsd.InstanceInfo{} // enable GC
 			toReturnInfoC = nil                    // info has been sent; if there is nothing to send, the case is disabled
@@ -104,7 +104,7 @@ func (ccp *CachedCloudProvider) Run(ctx context.Context) {
 		if toLookupC == nil && len(ccp.toLookupIPs) > 0 {
 			last := len(ccp.toLookupIPs) - 1
 			toLookupIP = ccp.toLookupIPs[last]
-			ccp.toLookupIPs[last] = gostatsd.UnknownIP // enable GC
+			ccp.toLookupIPs[last] = gostatsd.UnknownSource // enable GC
 			ccp.toLookupIPs = ccp.toLookupIPs[:last]
 			toLookupC = ccp.ipSinkSource
 		}
@@ -118,7 +118,7 @@ func (ccp *CachedCloudProvider) Run(ctx context.Context) {
 	}
 }
 
-func (ccp *CachedCloudProvider) Peek(ip gostatsd.IP) (*gostatsd.Instance, bool /*is a cache hit*/) {
+func (ccp *CachedCloudProvider) Peek(ip gostatsd.Source) (*gostatsd.Instance, bool /*is a cache hit*/) {
 	ccp.rw.RLock()
 	holder, existsInCache := ccp.cache[ip]
 	ccp.rw.RUnlock()
@@ -129,7 +129,7 @@ func (ccp *CachedCloudProvider) Peek(ip gostatsd.IP) (*gostatsd.Instance, bool /
 	return holder.instance, true // can be nil, true
 }
 
-func (ccp *CachedCloudProvider) IpSink() chan<- gostatsd.IP {
+func (ccp *CachedCloudProvider) IpSink() chan<- gostatsd.Source {
 	return ccp.ipSinkSource
 }
 
@@ -179,7 +179,7 @@ func (ccp *CachedCloudProvider) emit(statser stats.Statser) {
 }
 
 func (ccp *CachedCloudProvider) doRefresh(t time.Time) {
-	var toDelete []gostatsd.IP
+	var toDelete []gostatsd.Source
 	now := t.UnixNano()
 	idleNano := ccp.cacheOpts.CacheEvictAfterIdlePeriod.Nanoseconds()
 

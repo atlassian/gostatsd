@@ -109,14 +109,14 @@ type Provider struct {
 	annotationRegex *regexp.Regexp // can be nil to disable annotation matching
 	labelRegex      *regexp.Regexp // can be nil to disable label matching
 
-	ipSinkSource   chan gostatsd.IP
+	ipSinkSource   chan gostatsd.Source
 	infoSinkSource chan gostatsd.InstanceInfo
 
 	rw    sync.RWMutex // Protects cache
-	cache map[gostatsd.IP]*gostatsd.Instance
+	cache map[gostatsd.Source]*gostatsd.Instance
 }
 
-func (p *Provider) IpSink() chan<- gostatsd.IP {
+func (p *Provider) IpSink() chan<- gostatsd.Source {
 	return p.ipSinkSource
 }
 
@@ -129,7 +129,7 @@ func (p *Provider) EstimatedTags() int {
 	return 0
 }
 
-func (p *Provider) Peek(ip gostatsd.IP) (*gostatsd.Instance, bool /*is a cache hit*/) {
+func (p *Provider) Peek(ip gostatsd.Source) (*gostatsd.Instance, bool /*is a cache hit*/) {
 	// it's always a cache hit
 	return p.instanceFromCache(ip), true
 }
@@ -165,7 +165,7 @@ func (p *Provider) Run(ctx context.Context) {
 	}
 }
 
-func (p *Provider) instanceFromCache(ip gostatsd.IP) *gostatsd.Instance {
+func (p *Provider) instanceFromCache(ip gostatsd.Source) *gostatsd.Instance {
 	p.rw.RLock()
 	instance := p.cache[ip]
 	p.rw.RUnlock()
@@ -184,7 +184,7 @@ func (p *Provider) instanceFromCache(ip gostatsd.IP) *gostatsd.Instance {
 	return instance
 }
 
-func (p *Provider) instanceFromInformer(ip gostatsd.IP) *gostatsd.Instance {
+func (p *Provider) instanceFromInformer(ip gostatsd.Source) *gostatsd.Instance {
 	logger := p.logger.WithField("ip", ip)
 	// Instance not found in cache. Fetch it from informer's cache and post-process.
 	objs, err := p.podsInf.GetIndexer().ByIndex(PodsByIPIndexName, string(ip))
@@ -226,7 +226,7 @@ func (p *Provider) instanceFromInformer(ip gostatsd.IP) *gostatsd.Instance {
 		"tags":     tags,
 	}).Debug("Added tags")
 	return &gostatsd.Instance{
-		ID:   instanceID,
+		ID:   gostatsd.Source(instanceID),
 		Tags: tags,
 	}
 }
@@ -317,9 +317,9 @@ func NewProvider(logger logrus.FieldLogger, clientset kubernetes.Interface, podI
 		factory:         factory,
 		annotationRegex: annotationRegex,
 		labelRegex:      labelRegex,
-		ipSinkSource:    make(chan gostatsd.IP),
+		ipSinkSource:    make(chan gostatsd.Source),
 		infoSinkSource:  make(chan gostatsd.InstanceInfo),
-		cache:           make(map[gostatsd.IP]*gostatsd.Instance),
+		cache:           make(map[gostatsd.Source]*gostatsd.Instance),
 	}
 	podsInf.AddEventHandler(cacheInvalidationHandler{p: p})
 
@@ -463,6 +463,6 @@ func (e cacheInvalidationHandler) maybeInvalidateCacheForPod(pod *core_v1.Pod) {
 		return
 	}
 	e.p.rw.Lock()
-	delete(e.p.cache, gostatsd.IP(pod.Status.PodIP))
+	delete(e.p.cache, gostatsd.Source(pod.Status.PodIP))
 	e.p.rw.Unlock()
 }

@@ -55,8 +55,7 @@ type Server struct {
 	HistogramLimit            uint32
 	BadLineRateLimitPerSecond rate.Limit
 	ServerMode                string
-	Hostname                  string
-	SelfIP                    gostatsd.IP
+	Hostname                  gostatsd.Source
 	LogRawMetric              bool
 	Viper                     *viper.Viper
 	TransportPool             *transport.TransportPool
@@ -205,15 +204,15 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 
 	// Send events on start and on stop
 	// TODO: Push these in to statser
-	defer sendStopEvent(handler, s.SelfIP, hostname)
-	sendStartEvent(runCtx, handler, s.SelfIP, hostname)
+	defer sendStopEvent(handler, hostname)
+	sendStartEvent(runCtx, handler, hostname)
 
 	// Listen until done
 	<-ctx.Done()
 	return ctx.Err()
 }
 
-func (s *Server) createStatser(hostname string, handler gostatsd.PipelineHandler, logger logrus.FieldLogger) stats.Statser {
+func (s *Server) createStatser(hostname gostatsd.Source, handler gostatsd.PipelineHandler, logger logrus.FieldLogger) stats.Statser {
 	switch s.StatserType {
 	case gostatsd.StatserNull:
 		return stats.NewNullStatser()
@@ -232,26 +231,24 @@ func (s *Server) createStatser(hostname string, handler gostatsd.PipelineHandler
 	}
 }
 
-func sendStartEvent(ctx context.Context, handler gostatsd.PipelineHandler, selfIP gostatsd.IP, hostname string) {
+func sendStartEvent(ctx context.Context, handler gostatsd.PipelineHandler, hostname gostatsd.Source) {
 	handler.DispatchEvent(ctx, &gostatsd.Event{
 		Title:        "Gostatsd started",
 		Text:         "Gostatsd started",
 		DateHappened: time.Now().Unix(),
-		Hostname:     hostname,
-		SourceIP:     selfIP,
+		Source:       hostname,
 		Priority:     gostatsd.PriLow,
 	})
 }
 
-func sendStopEvent(handler gostatsd.PipelineHandler, selfIP gostatsd.IP, hostname string) {
+func sendStopEvent(handler gostatsd.PipelineHandler, hostname gostatsd.Source) {
 	ctx, cancelFunc := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancelFunc()
 	handler.DispatchEvent(ctx, &gostatsd.Event{
 		Title:        "Gostatsd stopped",
 		Text:         "Gostatsd stopped",
 		DateHappened: time.Now().Unix(),
-		Hostname:     hostname,
-		SourceIP:     selfIP,
+		Source:       hostname,
 		Priority:     gostatsd.PriLow,
 	})
 	handler.WaitForEvents()

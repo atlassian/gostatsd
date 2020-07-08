@@ -17,7 +17,7 @@ type metricAndEvent struct {
 	events  gostatsd.Events
 }
 
-const fakeIP = gostatsd.IP("127.0.0.1")
+const fakeIP = gostatsd.Source("127.0.0.1")
 
 func newTestParser(ignoreHost bool) (*DatagramParser, *countingHandler) {
 	ch := &countingHandler{}
@@ -36,7 +36,7 @@ func TestParseEmptyDatagram(t *testing.T) {
 		t.Run(strconv.Itoa(pos), func(t *testing.T) {
 			t.Parallel()
 			mr, ch := newTestParser(false)
-			_, _, _ = mr.handleDatagram(context.Background(), 0, gostatsd.UnknownIP, inp)
+			_, _, _ = mr.handleDatagram(context.Background(), 0, gostatsd.UnknownSource, inp)
 			assert.Zero(t, len(ch.events), ch.events)
 			assert.Zero(t, len(ch.metrics), ch.metrics)
 		})
@@ -48,42 +48,42 @@ func TestParseDatagram(t *testing.T) {
 	input := map[string]metricAndEvent{
 		"f:2|c": {
 			metrics: []gostatsd.Metric{
-				{Name: "f", Value: 2, SourceIP: "127.0.0.1", Type: gostatsd.COUNTER, Rate: 1},
+				{Name: "f", Value: 2, Source: "127.0.0.1", Type: gostatsd.COUNTER, Rate: 1},
 			},
 		},
 		"f:2|c\n": {
 			metrics: []gostatsd.Metric{
-				{Name: "f", Value: 2, SourceIP: "127.0.0.1", Type: gostatsd.COUNTER, Rate: 1},
+				{Name: "f", Value: 2, Source: "127.0.0.1", Type: gostatsd.COUNTER, Rate: 1},
 			},
 		},
 		"f:2|c|#t": {
 			metrics: []gostatsd.Metric{
-				{Name: "f", Value: 2, SourceIP: "127.0.0.1", Type: gostatsd.COUNTER, Rate: 1, Tags: gostatsd.Tags{"t"}},
+				{Name: "f", Value: 2, Source: "127.0.0.1", Type: gostatsd.COUNTER, Rate: 1, Tags: gostatsd.Tags{"t"}},
 			},
 		},
 		"f:2|c|#host:h": {
 			metrics: []gostatsd.Metric{
-				{Name: "f", Value: 2, SourceIP: "127.0.0.1", Type: gostatsd.COUNTER, Rate: 1, Tags: gostatsd.Tags{"host:h"}},
+				{Name: "f", Value: 2, Source: "127.0.0.1", Type: gostatsd.COUNTER, Rate: 1, Tags: gostatsd.Tags{"host:h"}},
 			},
 		},
 		"f:2|c\nx:3|c": {
 			metrics: []gostatsd.Metric{
-				{Name: "f", Value: 2, SourceIP: "127.0.0.1", Type: gostatsd.COUNTER, Rate: 1},
-				{Name: "x", Value: 3, SourceIP: "127.0.0.1", Type: gostatsd.COUNTER, Rate: 1},
+				{Name: "f", Value: 2, Source: "127.0.0.1", Type: gostatsd.COUNTER, Rate: 1},
+				{Name: "x", Value: 3, Source: "127.0.0.1", Type: gostatsd.COUNTER, Rate: 1},
 			},
 		},
 		"f:2|c\nx:3|c\n": {
 			metrics: []gostatsd.Metric{
-				{Name: "f", Value: 2, SourceIP: "127.0.0.1", Type: gostatsd.COUNTER, Rate: 1},
-				{Name: "x", Value: 3, SourceIP: "127.0.0.1", Type: gostatsd.COUNTER, Rate: 1},
+				{Name: "f", Value: 2, Source: "127.0.0.1", Type: gostatsd.COUNTER, Rate: 1},
+				{Name: "x", Value: 3, Source: "127.0.0.1", Type: gostatsd.COUNTER, Rate: 1},
 			},
 		},
 		"_e{1,1}:a|b\nf:6|c": {
 			metrics: []gostatsd.Metric{
-				{Name: "f", Value: 6, SourceIP: "127.0.0.1", Type: gostatsd.COUNTER, Rate: 1},
+				{Name: "f", Value: 6, Source: "127.0.0.1", Type: gostatsd.COUNTER, Rate: 1},
 			},
 			events: gostatsd.Events{
-				gostatsd.Event{Title: "a", Text: "b", SourceIP: "127.0.0.1"},
+				gostatsd.Event{Title: "a", Text: "b", Source: "127.0.0.1"},
 			},
 		},
 	}
@@ -127,12 +127,12 @@ func TestParseDatagramIgnoreHost(t *testing.T) {
 		},
 		"f:2|c|#host:h": {
 			metrics: []gostatsd.Metric{
-				{Name: "f", Value: 2, Hostname: "h", Type: gostatsd.COUNTER, Rate: 1},
+				{Name: "f", Value: 2, Source: "h", Type: gostatsd.COUNTER, Rate: 1},
 			},
 		},
 		"f:2|c|#host:h1,host:h2": {
 			metrics: []gostatsd.Metric{
-				{Name: "f", Value: 2, Hostname: "h1", Type: gostatsd.COUNTER, Rate: 1, Tags: gostatsd.Tags{"host:h2"}},
+				{Name: "f", Value: 2, Source: "h1", Type: gostatsd.COUNTER, Rate: 1, Tags: gostatsd.Tags{"host:h2"}},
 			},
 		},
 		"f:2|c\nx:3|c": {
@@ -152,7 +152,7 @@ func TestParseDatagramIgnoreHost(t *testing.T) {
 				{Name: "f", Value: 6, Type: gostatsd.COUNTER, Rate: 1},
 			},
 			events: gostatsd.Events{
-				gostatsd.Event{Title: "a", Text: "b", SourceIP: "127.0.0.1"},
+				gostatsd.Event{Title: "a", Text: "b", Source: "127.0.0.1"},
 			},
 		},
 	}

@@ -295,7 +295,7 @@ func metricsOneOfEach() *gostatsd.MetricMap {
 	return &gostatsd.MetricMap{
 		Counters: gostatsd.Counters{
 			"c1": map[string]gostatsd.Counter{
-				"tag1": {PerSecond: 1.1, Value: 5, Timestamp: 0, Hostname: "h1", Tags: gostatsd.Tags{"tag1"}},
+				"tag1": {PerSecond: 1.1, Value: 5, Timestamp: 0, Source: "h1", Tags: gostatsd.Tags{"tag1"}},
 			},
 		},
 		Timers: gostatsd.Timers{
@@ -315,14 +315,14 @@ func metricsOneOfEach() *gostatsd.MetricMap {
 						gostatsd.Percentile{Float: 0.1, Str: "count_90"},
 					},
 					Timestamp: 0,
-					Hostname:  "h2",
+					Source:    "h2",
 					Tags:      gostatsd.Tags{"tag2"},
 				},
 			},
 		},
 		Gauges: gostatsd.Gauges{
 			"g1": map[string]gostatsd.Gauge{
-				"tag3": {Value: 3, Timestamp: 0, Hostname: "h3", Tags: gostatsd.Tags{"tag3"}},
+				"tag3": {Value: 3, Timestamp: 0, Source: "h3", Tags: gostatsd.Tags{"tag3"}},
 			},
 		},
 		Sets: gostatsd.Sets{
@@ -334,7 +334,7 @@ func metricsOneOfEach() *gostatsd.MetricMap {
 						"john": {},
 					},
 					Timestamp: 0,
-					Hostname:  "h4",
+					Source:    "h4",
 					Tags:      gostatsd.Tags{"tag4"},
 				},
 			},
@@ -393,7 +393,7 @@ func TestEventFormatter(t *testing.T) {
 				defaultMetricsPerBatch, defaultMaxRequests, 2*time.Second, 1*time.Second, gostatsd.TimerSubtypes{}, logrus.New(), p)
 			require.NoError(t, err)
 
-			gostatsdEvent := gostatsd.Event{Title: "EventTitle", Text: "hi", Hostname: "blah", Priority: 1}
+			gostatsdEvent := gostatsd.Event{Title: "EventTitle", Text: "hi", Source: "blah", Priority: 1}
 			formattedEvent := client.EventFormatter(&gostatsdEvent)
 			fevent, err := json.Marshal(formattedEvent)
 			require.NoError(t, err)

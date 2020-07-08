@@ -34,7 +34,7 @@ type Aggregator interface {
 
 // Datagram is a received UDP datagram that has not been parsed into Metric/Event(s)
 type Datagram struct {
-	IP        gostatsd.IP
+	IP        gostatsd.Source
 	Msg       []byte
 	Timestamp gostatsd.Nanotime
 	DoneFunc  func() // to be called once the datagram has been parsed and msg can be freed

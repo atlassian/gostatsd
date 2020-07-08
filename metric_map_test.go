@@ -270,32 +270,32 @@ func TestMetricMapMerge(t *testing.T) {
 func TestMetricMapSplit(t *testing.T) {
 	mmOriginal := NewMetricMap()
 	mmOriginal.Counters["m"] = map[string]Counter{
-		"t.s.h1": {Tags: Tags{"t"}, Hostname: "h1", Value: 10},
-		"t.s.h2": {Tags: Tags{"t"}, Hostname: "h2", Value: 20},
-		"t.s.h3": {Tags: Tags{"t"}, Hostname: "h3", Value: 30},
-		"t.s.h4": {Tags: Tags{"t"}, Hostname: "h4", Value: 40},
-		"t.s.h5": {Tags: Tags{"t"}, Hostname: "h5", Value: 50},
+		"t.s.h1": {Tags: Tags{"t"}, Source: "h1", Value: 10},
+		"t.s.h2": {Tags: Tags{"t"}, Source: "h2", Value: 20},
+		"t.s.h3": {Tags: Tags{"t"}, Source: "h3", Value: 30},
+		"t.s.h4": {Tags: Tags{"t"}, Source: "h4", Value: 40},
+		"t.s.h5": {Tags: Tags{"t"}, Source: "h5", Value: 50},
 	}
 	mmOriginal.Gauges["m"] = map[string]Gauge{
-		"t.s.h1": {Tags: Tags{"t"}, Hostname: "h1", Value: 10},
-		"t.s.h2": {Tags: Tags{"t"}, Hostname: "h2", Value: 20},
-		"t.s.h3": {Tags: Tags{"t"}, Hostname: "h3", Value: 30},
-		"t.s.h4": {Tags: Tags{"t"}, Hostname: "h4", Value: 40},
-		"t.s.h5": {Tags: Tags{"t"}, Hostname: "h5", Value: 50},
+		"t.s.h1": {Tags: Tags{"t"}, Source: "h1", Value: 10},
+		"t.s.h2": {Tags: Tags{"t"}, Source: "h2", Value: 20},
+		"t.s.h3": {Tags: Tags{"t"}, Source: "h3", Value: 30},
+		"t.s.h4": {Tags: Tags{"t"}, Source: "h4", Value: 40},
+		"t.s.h5": {Tags: Tags{"t"}, Source: "h5", Value: 50},
 	}
 	mmOriginal.Timers["m"] = map[string]Timer{
-		"t.s.h1": {Tags: Tags{"t"}, Hostname: "h1", Values: []float64{10, 50}},
-		"t.s.h2": {Tags: Tags{"t"}, Hostname: "h2", Values: []float64{20, 40}},
-		"t.s.h3": {Tags: Tags{"t"}, Hostname: "h3", Values: []float64{30, 30}},
-		"t.s.h4": {Tags: Tags{"t"}, Hostname: "h4", Values: []float64{40, 20}},
-		"t.s.h5": {Tags: Tags{"t"}, Hostname: "h5", Values: []float64{50, 10}},
+		"t.s.h1": {Tags: Tags{"t"}, Source: "h1", Values: []float64{10, 50}},
+		"t.s.h2": {Tags: Tags{"t"}, Source: "h2", Values: []float64{20, 40}},
+		"t.s.h3": {Tags: Tags{"t"}, Source: "h3", Values: []float64{30, 30}},
+		"t.s.h4": {Tags: Tags{"t"}, Source: "h4", Values: []float64{40, 20}},
+		"t.s.h5": {Tags: Tags{"t"}, Source: "h5", Values: []float64{50, 10}},
 	}
 	mmOriginal.Sets["m"] = map[string]Set{
-		"t.s.h1": {Tags: Tags{"t"}, Hostname: "h1", Values: map[string]struct{}{"10": {}, "50": {}}},
-		"t.s.h2": {Tags: Tags{"t"}, Hostname: "h2", Values: map[string]struct{}{"20": {}, "40": {}}},
-		"t.s.h3": {Tags: Tags{"t"}, Hostname: "h3", Values: map[string]struct{}{"30": {}, "3.0": {}}},
-		"t.s.h4": {Tags: Tags{"t"}, Hostname: "h4", Values: map[string]struct{}{"40": {}, "20": {}}},
-		"t.s.h5": {Tags: Tags{"t"}, Hostname: "h5", Values: map[string]struct{}{"50": {}, "10": {}}},
+		"t.s.h1": {Tags: Tags{"t"}, Source: "h1", Values: map[string]struct{}{"10": {}, "50": {}}},
+		"t.s.h2": {Tags: Tags{"t"}, Source: "h2", Values: map[string]struct{}{"20": {}, "40": {}}},
+		"t.s.h3": {Tags: Tags{"t"}, Source: "h3", Values: map[string]struct{}{"30": {}, "3.0": {}}},
+		"t.s.h4": {Tags: Tags{"t"}, Source: "h4", Values: map[string]struct{}{"40": {}, "20": {}}},
+		"t.s.h5": {Tags: Tags{"t"}, Source: "h5", Values: map[string]struct{}{"50": {}, "10": {}}},
 	}
 
 	mmMerged := NewMetricMap()
@@ -317,25 +317,25 @@ func TestMetricMapIsEmpty(t *testing.T) {
 	require.True(t, mm.IsEmpty())
 
 	// Counter
-	mm.Counters["m"] = map[string]Counter{"t.s.h1": {Tags: Tags{"t"}, Hostname: "h1", Value: 10}}
+	mm.Counters["m"] = map[string]Counter{"t.s.h1": {Tags: Tags{"t"}, Source: "h1", Value: 10}}
 	require.False(t, mm.IsEmpty())
 	mm.Counters.Delete("m")
 	require.True(t, mm.IsEmpty())
 
 	// Gauge
-	mm.Gauges["m"] = map[string]Gauge{"t.s.h1": {Tags: Tags{"t"}, Hostname: "h1", Value: 10}}
+	mm.Gauges["m"] = map[string]Gauge{"t.s.h1": {Tags: Tags{"t"}, Source: "h1", Value: 10}}
 	require.False(t, mm.IsEmpty())
 	mm.Gauges.Delete("m")
 	require.True(t, mm.IsEmpty())
 
 	// Timer
-	mm.Timers["m"] = map[string]Timer{"t.s.h1": {Tags: Tags{"t"}, Hostname: "h1", Values: []float64{10}}}
+	mm.Timers["m"] = map[string]Timer{"t.s.h1": {Tags: Tags{"t"}, Source: "h1", Values: []float64{10}}}
 	require.False(t, mm.IsEmpty())
 	mm.Timers.Delete("m")
 	require.True(t, mm.IsEmpty())
 
 	// Set
-	mm.Sets["m"] = map[string]Set{"t.s.h1": {Tags: Tags{"t"}, Hostname: "h5", Values: map[string]struct{}{"10": {}}}}
+	mm.Sets["m"] = map[string]Set{"t.s.h1": {Tags: Tags{"t"}, Source: "h5", Values: map[string]struct{}{"10": {}}}}
 	require.False(t, mm.IsEmpty())
 	mm.Sets.Delete("m")
 	require.True(t, mm.IsEmpty())
@@ -352,32 +352,32 @@ func TestTagsMatch(t *testing.T) {
 func TestMetricMapSplitByTags(t *testing.T) {
 	mmOriginal := NewMetricMap()
 	mmOriginal.Counters["m"] = map[string]Counter{
-		"t:x,s:h1":     {Tags: Tags{"t:x"}, Hostname: "h1", Value: 10},
-		"t:x,s:h2":     {Tags: Tags{"t:x"}, Hostname: "h2", Value: 20},
-		"t:x,v:1,s:h3": {Tags: Tags{"t:x", "v:1"}, Hostname: "h3", Value: 30},
-		"t:y,v:2,s:h4": {Tags: Tags{"t:y", "v:2"}, Hostname: "h4", Value: 40},
-		"t:y,x,s:h5":   {Tags: Tags{"t:y", "x"}, Hostname: "h5", Value: 50},
+		"t:x,s:h1":     {Tags: Tags{"t:x"}, Source: "h1", Value: 10},
+		"t:x,s:h2":     {Tags: Tags{"t:x"}, Source: "h2", Value: 20},
+		"t:x,v:1,s:h3": {Tags: Tags{"t:x", "v:1"}, Source: "h3", Value: 30},
+		"t:y,v:2,s:h4": {Tags: Tags{"t:y", "v:2"}, Source: "h4", Value: 40},
+		"t:y,x,s:h5":   {Tags: Tags{"t:y", "x"}, Source: "h5", Value: 50},
 	}
 	mmOriginal.Gauges["m"] = map[string]Gauge{
-		"t:x,s:h1":     {Tags: Tags{"t:x"}, Hostname: "h1", Value: 10},
-		"t:x,s:h2":     {Tags: Tags{"t:x"}, Hostname: "h2", Value: 20},
-		"t:x,v:1,s:h3": {Tags: Tags{"t:x", "v:1"}, Hostname: "h3", Value: 30},
-		"t:y,v:2,s:h4": {Tags: Tags{"t:y", "v:2"}, Hostname: "h4", Value: 40},
-		"t:y,x,s:h5":   {Tags: Tags{"t:y", "x"}, Hostname: "h5", Value: 50},
+		"t:x,s:h1":     {Tags: Tags{"t:x"}, Source: "h1", Value: 10},
+		"t:x,s:h2":     {Tags: Tags{"t:x"}, Source: "h2", Value: 20},
+		"t:x,v:1,s:h3": {Tags: Tags{"t:x", "v:1"}, Source: "h3", Value: 30},
+		"t:y,v:2,s:h4": {Tags: Tags{"t:y", "v:2"}, Source: "h4", Value: 40},
+		"t:y,x,s:h5":   {Tags: Tags{"t:y", "x"}, Source: "h5", Value: 50},
 	}
 	mmOriginal.Timers["m"] = map[string]Timer{
-		"t:x,s:h1":     {Values: []float64{10, 50}, Tags: Tags{"t:x"}, Hostname: "h1"},
-		"t:x,s:h2":     {Values: []float64{20, 40}, Tags: Tags{"t:x"}, Hostname: "h2"},
-		"t:x,v:1,s:h3": {Values: []float64{30, 30}, Tags: Tags{"t:x", "v:1"}, Hostname: "h3"},
-		"t:y,v:2,s:h4": {Values: []float64{40, 20}, Tags: Tags{"t:y", "v:2"}, Hostname: "h4"},
-		"t:y,x,s:h5":   {Values: []float64{50, 10}, Tags: Tags{"t:y", "x"}, Hostname: "h5"},
+		"t:x,s:h1":     {Values: []float64{10, 50}, Tags: Tags{"t:x"}, Source: "h1"},
+		"t:x,s:h2":     {Values: []float64{20, 40}, Tags: Tags{"t:x"}, Source: "h2"},
+		"t:x,v:1,s:h3": {Values: []float64{30, 30}, Tags: Tags{"t:x", "v:1"}, Source: "h3"},
+		"t:y,v:2,s:h4": {Values: []float64{40, 20}, Tags: Tags{"t:y", "v:2"}, Source: "h4"},
+		"t:y,x,s:h5":   {Values: []float64{50, 10}, Tags: Tags{"t:y", "x"}, Source: "h5"},
 	}
 	mmOriginal.Sets["m"] = map[string]Set{
-		"t:x,s:h1":     {Values: map[string]struct{}{"10": {}, "50": {}}, Tags: Tags{"t:x"}, Hostname: "h1"},
-		"t:x,s:h2":     {Values: map[string]struct{}{"20": {}, "40": {}}, Tags: Tags{"t:x"}, Hostname: "h2"},
-		"t:x,v:1,s:h3": {Values: map[string]struct{}{"30": {}, "3.0": {}}, Tags: Tags{"t:x", "v:1"}, Hostname: "h3"},
-		"t:y,v:2,s:h4": {Values: map[string]struct{}{"40": {}, "20": {}}, Tags: Tags{"t:y", "v:2"}, Hostname: "h4"},
-		"t:y,x,s:h5":   {Values: map[string]struct{}{"50": {}, "10": {}}, Tags: Tags{"t:y", "x"}, Hostname: "h5"},
+		"t:x,s:h1":     {Values: map[string]struct{}{"10": {}, "50": {}}, Tags: Tags{"t:x"}, Source: "h1"},
+		"t:x,s:h2":     {Values: map[string]struct{}{"20": {}, "40": {}}, Tags: Tags{"t:x"}, Source: "h2"},
+		"t:x,v:1,s:h3": {Values: map[string]struct{}{"30": {}, "3.0": {}}, Tags: Tags{"t:x", "v:1"}, Source: "h3"},
+		"t:y,v:2,s:h4": {Values: map[string]struct{}{"40": {}, "20": {}}, Tags: Tags{"t:y", "v:2"}, Source: "h4"},
+		"t:y,x,s:h5":   {Values: map[string]struct{}{"50": {}, "10": {}}, Tags: Tags{"t:y", "x"}, Source: "h5"},
 	}
 
 	// no-op if given empty tagNames

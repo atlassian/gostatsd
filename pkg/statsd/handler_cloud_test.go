@@ -108,9 +108,9 @@ func TestTransientInstanceFailure(t *testing.T) {
 	}
 
 	expectedMetrics[0].Tags = gostatsd.Tags{"a1", "tag:value"}
-	expectedMetrics[0].Hostname = "1.2.3.4"
+	expectedMetrics[0].Source = "1.2.3.4"
 	expectedMetrics[1].Tags = gostatsd.Tags{"a1", "tag:value"}
-	expectedMetrics[1].Hostname = "1.2.3.4"
+	expectedMetrics[1].Source = "1.2.3.4"
 
 	assert.Equal(t, expectedMetrics, expecting.Metrics())
 }
@@ -121,39 +121,35 @@ func TestCloudHandlerDispatch(t *testing.T) {
 		Tags: gostatsd.Tags{"region:us-west-3", "tag1", "tag2:234"},
 	}
 
-	expectedIps := []gostatsd.IP{"1.2.3.4", "4.3.2.1"}
+	expectedIps := []gostatsd.Source{"1.2.3.4", "4.3.2.1"}
 	expectedMetrics := []gostatsd.Metric{
 		{
-			Name:     "t1",
-			Value:    42.42,
-			Tags:     gostatsd.Tags{"a1", "region:us-west-3", "tag1", "tag2:234"},
-			Hostname: "i-1.2.3.4",
-			SourceIP: "1.2.3.4",
-			Type:     gostatsd.COUNTER,
+			Name:   "t1",
+			Value:  42.42,
+			Tags:   gostatsd.Tags{"a1", "region:us-west-3", "tag1", "tag2:234"},
+			Source: "i-1.2.3.4",
+			Type:   gostatsd.COUNTER,
 		},
 		{
-			Name:     "t1",
-			Value:    45.45,
-			Tags:     gostatsd.Tags{"a4", "region:us-west-3", "tag1", "tag2:234"},
-			Hostname: "i-1.2.3.4",
-			SourceIP: "1.2.3.4",
-			Type:     gostatsd.COUNTER,
+			Name:   "t1",
+			Value:  45.45,
+			Tags:   gostatsd.Tags{"a4", "region:us-west-3", "tag1", "tag2:234"},
+			Source: "i-1.2.3.4",
+			Type:   gostatsd.COUNTER,
 		},
 	}
 	expectedEvents := gostatsd.Events{
 		gostatsd.Event{
-			Title:    "t12",
-			Text:     "asrasdfasdr",
-			Tags:     gostatsd.Tags{"a2", "region:us-west-3", "tag1", "tag2:234"},
-			Hostname: "i-4.3.2.1",
-			SourceIP: "4.3.2.1",
+			Title:  "t12",
+			Text:   "asrasdfasdr",
+			Tags:   gostatsd.Tags{"a2", "region:us-west-3", "tag1", "tag2:234"},
+			Source: "i-4.3.2.1",
 		},
 		gostatsd.Event{
-			Title:    "t1asdas",
-			Text:     "asdr",
-			Tags:     gostatsd.Tags{"a2-35", "region:us-west-3", "tag1", "tag2:234"},
-			Hostname: "i-4.3.2.1",
-			SourceIP: "4.3.2.1",
+			Title:  "t1asdas",
+			Text:   "asdr",
+			Tags:   gostatsd.Tags{"a2-35", "region:us-west-3", "tag1", "tag2:234"},
+			Source: "i-4.3.2.1",
 		},
 	}
 	doCheck(t, fp, sm1(), se1(), sm2(), se2(), fp.IPs, expectedIps, expectedMetrics, expectedEvents)
@@ -162,7 +158,7 @@ func TestCloudHandlerDispatch(t *testing.T) {
 func TestCloudHandlerInstanceNotFound(t *testing.T) {
 	t.Parallel()
 	fp := &fakeprovider.NotFound{}
-	expectedIps := []gostatsd.IP{"1.2.3.4", "4.3.2.1"}
+	expectedIps := []gostatsd.Source{"1.2.3.4", "4.3.2.1"}
 	expectedMetrics := []gostatsd.Metric{
 		sm1(),
 		sm2(),
@@ -177,7 +173,7 @@ func TestCloudHandlerInstanceNotFound(t *testing.T) {
 func TestCloudHandlerFailingProvider(t *testing.T) {
 	t.Parallel()
 	fp := &fakeprovider.Failing{}
-	expectedIps := []gostatsd.IP{"1.2.3.4", "4.3.2.1"}
+	expectedIps := []gostatsd.Source{"1.2.3.4", "4.3.2.1"}
 	expectedMetrics := []gostatsd.Metric{
 		sm1(),
 		sm2(),
@@ -189,7 +185,7 @@ func TestCloudHandlerFailingProvider(t *testing.T) {
 	doCheck(t, fp, sm1(), se1(), sm2(), se2(), fp.IPs, expectedIps, expectedMetrics, expectedEvents)
 }
 
-func doCheck(t *testing.T, cloud CountingProvider, m1 gostatsd.Metric, e1 gostatsd.Event, m2 gostatsd.Metric, e2 gostatsd.Event, ipsFunc func() []gostatsd.IP, expectedIps []gostatsd.IP, expectedM []gostatsd.Metric, expectedE gostatsd.Events) {
+func doCheck(t *testing.T, cloud CountingProvider, m1 gostatsd.Metric, e1 gostatsd.Event, m2 gostatsd.Metric, e2 gostatsd.Event, ipsFunc func() []gostatsd.Source, expectedIps []gostatsd.Source, expectedM []gostatsd.Metric, expectedE gostatsd.Events) {
 	expecting := &expectingHandler{}
 	ci := cloudprovider.NewCachedCloudProvider(logrus.StandardLogger(), rate.NewLimiter(100, 120), cloud, gostatsd.CacheOptions{
 		CacheRefreshPeriod:        gostatsd.DefaultCacheRefreshPeriod,
@@ -231,43 +227,39 @@ func doCheck(t *testing.T, cloud CountingProvider, m1 gostatsd.Metric, e1 gostat
 
 func sm1() gostatsd.Metric {
 	return gostatsd.Metric{
-		Name:     "t1",
-		Value:    42.42,
-		Tags:     gostatsd.Tags{"a1"},
-		Hostname: "somehost",
-		SourceIP: "1.2.3.4",
-		Type:     gostatsd.COUNTER,
+		Name:   "t1",
+		Value:  42.42,
+		Tags:   gostatsd.Tags{"a1"},
+		Source: "1.2.3.4",
+		Type:   gostatsd.COUNTER,
 	}
 }
 
 func sm2() gostatsd.Metric {
 	return gostatsd.Metric{
-		Name:     "t1",
-		Value:    45.45,
-		Tags:     gostatsd.Tags{"a4"},
-		Hostname: "somehost",
-		SourceIP: "1.2.3.4",
-		Type:     gostatsd.COUNTER,
+		Name:   "t1",
+		Value:  45.45,
+		Tags:   gostatsd.Tags{"a4"},
+		Source: "1.2.3.4",
+		Type:   gostatsd.COUNTER,
 	}
 }
 
 func se1() gostatsd.Event {
 	return gostatsd.Event{
-		Title:    "t12",
-		Text:     "asrasdfasdr",
-		Tags:     gostatsd.Tags{"a2"},
-		Hostname: "some_random_host",
-		SourceIP: "4.3.2.1",
+		Title:  "t12",
+		Text:   "asrasdfasdr",
+		Tags:   gostatsd.Tags{"a2"},
+		Source: "4.3.2.1",
 	}
 }
 
 func se2() gostatsd.Event {
 	return gostatsd.Event{
-		Title:    "t1asdas",
-		Text:     "asdr",
-		Tags:     gostatsd.Tags{"a2-35"},
-		Hostname: "some_random_host",
-		SourceIP: "4.3.2.1",
+		Title:  "t1asdas",
+		Text:   "asdr",
+		Tags:   gostatsd.Tags{"a2-35"},
+		Source: "4.3.2.1",
 	}
 }
 

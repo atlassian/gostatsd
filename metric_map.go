@@ -142,7 +142,7 @@ func (mm *MetricMap) Split(count int) []*MetricMap {
 	}
 
 	mm.Counters.Each(func(metricName string, tagsKey string, c Counter) {
-		mmSplit := maps[Bucket(metricName, c.Hostname, count)]
+		mmSplit := maps[Bucket(metricName, c.Source, count)]
 		if v, ok := mmSplit.Counters[metricName]; ok {
 			v[tagsKey] = c
 		} else {
@@ -150,7 +150,7 @@ func (mm *MetricMap) Split(count int) []*MetricMap {
 		}
 	})
 	mm.Gauges.Each(func(metricName string, tagsKey string, g Gauge) {
-		mmSplit := maps[Bucket(metricName, g.Hostname, count)]
+		mmSplit := maps[Bucket(metricName, g.Source, count)]
 		if v, ok := mmSplit.Gauges[metricName]; ok {
 			v[tagsKey] = g
 		} else {
@@ -158,7 +158,7 @@ func (mm *MetricMap) Split(count int) []*MetricMap {
 		}
 	})
 	mm.Timers.Each(func(metricName string, tagsKey string, t Timer) {
-		mmSplit := maps[Bucket(metricName, t.Hostname, count)]
+		mmSplit := maps[Bucket(metricName, t.Source, count)]
 		if v, ok := mmSplit.Timers[metricName]; ok {
 			v[tagsKey] = t
 		} else {
@@ -166,7 +166,7 @@ func (mm *MetricMap) Split(count int) []*MetricMap {
 		}
 	})
 	mm.Sets.Each(func(metricName string, tagsKey string, s Set) {
-		mmSplit := maps[Bucket(metricName, s.Hostname, count)]
+		mmSplit := maps[Bucket(metricName, s.Source, count)]
 		if v, ok := mmSplit.Sets[metricName]; ok {
 			v[tagsKey] = s
 		} else {
@@ -265,12 +265,12 @@ func (mm *MetricMap) receiveCounter(m *Metric, tagsKey string) {
 				c.Timestamp = m.Timestamp
 			}
 		} else {
-			c = NewCounter(m.Timestamp, value, m.Hostname, m.Tags)
+			c = NewCounter(m.Timestamp, value, m.Source, m.Tags)
 		}
 		v[tagsKey] = c
 	} else {
 		mm.Counters[m.Name] = map[string]Counter{
-			tagsKey: NewCounter(m.Timestamp, value, m.Hostname, m.Tags),
+			tagsKey: NewCounter(m.Timestamp, value, m.Source, m.Tags),
 		}
 	}
 }
@@ -285,12 +285,12 @@ func (mm *MetricMap) receiveGauge(m *Metric, tagsKey string) {
 				g.Timestamp = m.Timestamp
 			}
 		} else {
-			g = NewGauge(m.Timestamp, m.Value, m.Hostname, m.Tags)
+			g = NewGauge(m.Timestamp, m.Value, m.Source, m.Tags)
 		}
 		v[tagsKey] = g
 	} else {
 		mm.Gauges[m.Name] = map[string]Gauge{
-			tagsKey: NewGauge(m.Timestamp, m.Value, m.Hostname, m.Tags),
+			tagsKey: NewGauge(m.Timestamp, m.Value, m.Source, m.Tags),
 		}
 	}
 }
@@ -306,12 +306,12 @@ func (mm *MetricMap) receiveTimer(m *Metric, tagsKey string) {
 			}
 			t.SampledCount += 1.0 / m.Rate
 		} else {
-			t = NewTimer(m.Timestamp, []float64{m.Value}, m.Hostname, m.Tags)
+			t = NewTimer(m.Timestamp, []float64{m.Value}, m.Source, m.Tags)
 			t.SampledCount = 1.0 / m.Rate
 		}
 		v[tagsKey] = t
 	} else {
-		t := NewTimer(m.Timestamp, []float64{m.Value}, m.Hostname, m.Tags)
+		t := NewTimer(m.Timestamp, []float64{m.Value}, m.Source, m.Tags)
 		t.SampledCount = 1.0 / m.Rate
 
 		mm.Timers[m.Name] = map[string]Timer{
@@ -330,12 +330,12 @@ func (mm *MetricMap) receiveSet(m *Metric, tagsKey string) {
 				s.Timestamp = m.Timestamp
 			}
 		} else {
-			s = NewSet(m.Timestamp, map[string]struct{}{m.StringValue: {}}, m.Hostname, m.Tags)
+			s = NewSet(m.Timestamp, map[string]struct{}{m.StringValue: {}}, m.Source, m.Tags)
 		}
 		v[tagsKey] = s
 	} else {
 		mm.Sets[m.Name] = map[string]Set{
-			tagsKey: NewSet(m.Timestamp, map[string]struct{}{m.StringValue: {}}, m.Hostname, m.Tags),
+			tagsKey: NewSet(m.Timestamp, map[string]struct{}{m.StringValue: {}}, m.Source, m.Tags),
 		}
 	}
 }
@@ -372,7 +372,7 @@ func (mm *MetricMap) DispatchMetrics(ctx context.Context, handler RawMetricHandl
 			Tags:      c.Tags.Copy(),
 			TagsKey:   tagsKey,
 			Timestamp: c.Timestamp,
-			Hostname:  c.Hostname,
+			Source:    c.Source,
 		}
 		metrics = append(metrics, m)
 	})
@@ -386,7 +386,7 @@ func (mm *MetricMap) DispatchMetrics(ctx context.Context, handler RawMetricHandl
 			Tags:      g.Tags.Copy(),
 			TagsKey:   tagsKey,
 			Timestamp: g.Timestamp,
-			Hostname:  g.Hostname,
+			Source:    g.Source,
 		}
 		metrics = append(metrics, m)
 	})
@@ -404,7 +404,7 @@ func (mm *MetricMap) DispatchMetrics(ctx context.Context, handler RawMetricHandl
 				Tags:      t.Tags.Copy(),
 				TagsKey:   tagsKey,
 				Timestamp: t.Timestamp,
-				Hostname:  t.Hostname,
+				Source:    t.Source,
 			}
 			metrics = append(metrics, m)
 		}
@@ -420,7 +420,7 @@ func (mm *MetricMap) DispatchMetrics(ctx context.Context, handler RawMetricHandl
 				Tags:        s.Tags.Copy(),
 				TagsKey:     tagsKey,
 				Timestamp:   s.Timestamp,
-				Hostname:    s.Hostname,
+				Source:      s.Source,
 			}
 			metrics = append(metrics, m)
 		}

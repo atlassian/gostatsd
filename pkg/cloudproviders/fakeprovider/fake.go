@@ -11,14 +11,14 @@ import (
 
 type Counting struct {
 	mu          sync.Mutex
-	ips         []gostatsd.IP
+	ips         []gostatsd.Source
 	invocations uint64
 }
 
-func (fp *Counting) IPs() []gostatsd.IP {
+func (fp *Counting) IPs() []gostatsd.Source {
 	fp.mu.Lock()
 	defer fp.mu.Unlock()
-	result := make([]gostatsd.IP, len(fp.ips))
+	result := make([]gostatsd.Source, len(fp.ips))
 	copy(result, fp.ips)
 	return result
 }
@@ -37,15 +37,11 @@ func (fp *Counting) Invocations() uint64 {
 	return fp.invocations
 }
 
-func (fp *Counting) count(ips ...gostatsd.IP) {
+func (fp *Counting) count(ips ...gostatsd.Source) {
 	fp.mu.Lock()
 	defer fp.mu.Unlock()
 	fp.ips = append(fp.ips, ips...)
 	fp.invocations++
-}
-
-func (fp *Counting) SelfIP() (gostatsd.IP, error) {
-	return gostatsd.UnknownIP, nil
 }
 
 type IP struct {
@@ -58,12 +54,12 @@ func (fp *IP) Name() string {
 	return "FakeProviderIP"
 }
 
-func (fp *IP) Instance(ctx context.Context, ips ...gostatsd.IP) (map[gostatsd.IP]*gostatsd.Instance, error) {
+func (fp *IP) Instance(ctx context.Context, ips ...gostatsd.Source) (map[gostatsd.Source]*gostatsd.Instance, error) {
 	fp.count(ips...)
-	instances := make(map[gostatsd.IP]*gostatsd.Instance, len(ips))
+	instances := make(map[gostatsd.Source]*gostatsd.Instance, len(ips))
 	for _, ip := range ips {
 		instances[ip] = &gostatsd.Instance{
-			ID:   "i-" + string(ip),
+			ID:   "i-" + ip,
 			Tags: fp.Tags,
 		}
 	}
@@ -78,7 +74,7 @@ func (fp *NotFound) Name() string {
 	return "FakeProviderNotFound"
 }
 
-func (fp *NotFound) Instance(ctx context.Context, ips ...gostatsd.IP) (map[gostatsd.IP]*gostatsd.Instance, error) {
+func (fp *NotFound) Instance(ctx context.Context, ips ...gostatsd.Source) (map[gostatsd.Source]*gostatsd.Instance, error) {
 	fp.count(ips...)
 	return nil, nil
 }
@@ -91,7 +87,7 @@ func (fp *Failing) Name() string {
 	return "FakeFailingProvider"
 }
 
-func (fp *Failing) Instance(ctx context.Context, ips ...gostatsd.IP) (map[gostatsd.IP]*gostatsd.Instance, error) {
+func (fp *Failing) Instance(ctx context.Context, ips ...gostatsd.Source) (map[gostatsd.Source]*gostatsd.Instance, error) {
 	fp.count(ips...)
 	return nil, errors.New("clear skies, no clouds available")
 }
@@ -113,17 +109,13 @@ func (fpt *Transient) MaxInstancesBatch() int {
 	return 1
 }
 
-func (fpt *Transient) SelfIP() (gostatsd.IP, error) {
-	return gostatsd.UnknownIP, nil
-}
-
 // Instance emulates a lookup based on the supplied criteria.
 // A failure mode of 0 is a successful lookup
 // A failure mode of 1 is nil instance, no error (lookup failure)
 // A failure mode of 2 is nil instance, with error
 // Repeats the last specified failure mode
-func (fpt *Transient) Instance(ctx context.Context, ips ...gostatsd.IP) (map[gostatsd.IP]*gostatsd.Instance, error) {
-	r := make(map[gostatsd.IP]*gostatsd.Instance)
+func (fpt *Transient) Instance(ctx context.Context, ips ...gostatsd.Source) (map[gostatsd.Source]*gostatsd.Instance, error) {
+	r := make(map[gostatsd.Source]*gostatsd.Instance)
 
 	c := atomic.AddUint64(&fpt.call, 1) - 1
 	if c >= uint64(len(fpt.FailureMode)) {
@@ -133,7 +125,7 @@ func (fpt *Transient) Instance(ctx context.Context, ips ...gostatsd.IP) (map[gos
 	case 0:
 		for _, ip := range ips {
 			r[ip] = &gostatsd.Instance{
-				ID:   string(ip),
+				ID:   ip,
 				Tags: gostatsd.Tags{"tag:value"},
 			}
 		}

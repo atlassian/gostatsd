@@ -266,7 +266,7 @@ func metricsOneOfEach() *gostatsd.MetricMap {
 	return &gostatsd.MetricMap{
 		Counters: gostatsd.Counters{
 			"c1": map[string]gostatsd.Counter{
-				"tag1": {PerSecond: 1.1, Value: 5, Timestamp: gostatsd.Nanotime(100), Hostname: "h1", Tags: gostatsd.Tags{"tag1"}},
+				"tag1": {PerSecond: 1.1, Value: 5, Timestamp: gostatsd.Nanotime(100), Source: "h1", Tags: gostatsd.Tags{"tag1"}},
 			},
 		},
 		Timers: gostatsd.Timers{
@@ -286,14 +286,14 @@ func metricsOneOfEach() *gostatsd.MetricMap {
 						gostatsd.Percentile{Float: 0.1, Str: "count_90"},
 					},
 					Timestamp: gostatsd.Nanotime(200),
-					Hostname:  "h2",
+					Source:    "h2",
 					Tags:      gostatsd.Tags{"tag2"},
 				},
 			},
 		},
 		Gauges: gostatsd.Gauges{
 			"g1": map[string]gostatsd.Gauge{
-				"tag3": {Value: 3, Timestamp: gostatsd.Nanotime(300), Hostname: "h3", Tags: gostatsd.Tags{"tag3"}},
+				"tag3": {Value: 3, Timestamp: gostatsd.Nanotime(300), Source: "h3", Tags: gostatsd.Tags{"tag3"}},
 			},
 		},
 		Sets: gostatsd.Sets{
@@ -305,7 +305,7 @@ func metricsOneOfEach() *gostatsd.MetricMap {
 						"john": {},
 					},
 					Timestamp: gostatsd.Nanotime(400),
-					Hostname:  "h4",
+					Source:    "h4",
 					Tags:      gostatsd.Tags{"tag4"},
 				},
 			},
@@ -392,7 +392,7 @@ func metricsWithHistogram() *gostatsd.MetricMap {
 				"tag2": {
 					Values:    []float64{0, 1},
 					Timestamp: gostatsd.Nanotime(200),
-					Hostname:  "h2",
+					Source:    "h2",
 					Tags:      gostatsd.Tags{"tag2", "gsd_histogram:20_30_40_50_60"},
 					Histogram: map[gostatsd.HistogramThreshold]int{
 						20:                                       5,
@@ -413,9 +413,9 @@ func TestSendEvent(t *testing.T) {
 	mux := http.NewServeMux()
 
 	expectedEvents := []string{
-		"events,alerttype=info,host=test-host,priority=normal,sourcetypename=test-sourcename title=\"test-title\",text=\"test-text\" 100\n",
+		"events,alerttype=info,host=test-source,priority=normal,sourcetypename=test-sourcename title=\"test-title\",text=\"test-text\" 100\n",
 		"events,alerttype=info,host=tag-host,priority=normal,sourcetypename=test-sourcename title=\"test-title\",text=\"test-text\" 100\n",
-		"events,alerttype=info,host=test-host,priority=normal,sourcetypename=test-sourcename title=\"test-title\",text=\"test-text\",tags=\"abc,def\" 100\n",
+		"events,alerttype=info,host=test-source,priority=normal,sourcetypename=test-sourcename title=\"test-title\",text=\"test-text\",tags=\"abc,def\" 100\n",
 	}
 
 	mux.HandleFunc("/write", func(w http.ResponseWriter, r *http.Request) {
@@ -477,11 +477,10 @@ func TestSendEvent(t *testing.T) {
 		Title:          "test-title",
 		Text:           "test-text",
 		DateHappened:   time.Unix(100, 0).Unix(),
-		Hostname:       "test-host",
 		AggregationKey: "test-ak",
 		SourceTypeName: "test-sourcename",
 		Tags:           nil,
-		SourceIP:       "test-sourceip",
+		Source:         "test-source",
 		Priority:       0,
 		AlertType:      0,
 	})
@@ -491,13 +490,12 @@ func TestSendEvent(t *testing.T) {
 		Title:          "test-title",
 		Text:           "test-text",
 		DateHappened:   time.Unix(100, 0).Unix(),
-		Hostname:       "test-host",
 		AggregationKey: "test-ak",
 		SourceTypeName: "test-sourcename",
 		Tags: gostatsd.Tags{
 			"host:tag-host",
 		},
-		SourceIP:  "test-sourceip",
+		Source:    "test-source",
 		Priority:  0,
 		AlertType: 0,
 	})
@@ -507,14 +505,13 @@ func TestSendEvent(t *testing.T) {
 		Title:          "test-title",
 		Text:           "test-text",
 		DateHappened:   time.Unix(100, 0).Unix(),
-		Hostname:       "test-host",
 		AggregationKey: "test-ak",
 		SourceTypeName: "test-sourcename",
 		Tags: gostatsd.Tags{
 			"eventtags:abc",
 			"eventtags:def",
 		},
-		SourceIP:  "test-sourceip",
+		Source:    "test-source",
 		Priority:  0,
 		AlertType: 0,
 	})
