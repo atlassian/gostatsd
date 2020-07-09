@@ -180,11 +180,7 @@ func (hfh *HttpForwarderHandlerV2) EstimatedTags() int {
 	return 0
 }
 
-func (hfh *HttpForwarderHandlerV2) DispatchMetrics(ctx context.Context, metrics []*gostatsd.Metric) {
-	hfh.consolidator.ReceiveMetrics(metrics)
-}
-
-// DispatchMetricMap re-dispatches a metric map through HttpForwarderHandlerV2.DispatchMetrics
+// DispatchMetricMap dispatches a metric map to the MetricConsolidator
 func (hfh *HttpForwarderHandlerV2) DispatchMetricMap(ctx context.Context, mm *gostatsd.MetricMap) {
 	hfh.consolidator.ReceiveMetricMap(mm)
 }

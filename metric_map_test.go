@@ -143,17 +143,13 @@ func BenchmarkReceives(b *testing.B) {
 }
 
 func TestMetricMapDispatch(t *testing.T) {
-	ctx, done := testContext(t)
-	defer done()
-
 	mm := NewMetricMap()
 	metrics := metricsFixtures()
 	for _, metric := range metrics {
 		mm.Receive(metric)
 	}
-	ch := &capturingHandler{}
 
-	ch.dispatchMetrics(ctx, mm.AsMetrics())
+	actual := mm.AsMetrics()
 
 	expected := []*Metric{
 		{Name: "abc.def.g", Value: 3, Rate: 1, Type: GAUGE, Timestamp: 10},
@@ -172,8 +168,6 @@ func TestMetricMapDispatch(t *testing.T) {
 		{Name: "uniq.usr", StringValue: "john", Rate: 1, Type: SET, Timestamp: 10},
 		{Name: "uniq.usr", StringValue: "john", Rate: 1, TagsKey: "baz,foo:bar", Tags: Tags{"baz", "foo:bar"}, Type: SET, Timestamp: 10},
 	}
-
-	actual := ch.GetMetrics()
 
 	sort.Slice(actual, SortCompare(actual))
 	sort.Slice(expected, SortCompare(expected))
