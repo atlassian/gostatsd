@@ -72,7 +72,6 @@ func MaybeAppendRunnable(runnables []Runnable, maybeRunner interface{}) []Runnab
 // RawMetricHandler is an interface that accepts a Metric for processing.  Raw refers to pre-aggregation, not
 // pre-consolidation.
 type RawMetricHandler interface {
-	DispatchMetrics(ctx context.Context, m []*Metric)
 	DispatchMetricMap(ctx context.Context, mm *MetricMap)
 }
 

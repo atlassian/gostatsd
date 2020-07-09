@@ -1,3 +1,7 @@
+PENDING
+-------
+- Internal pipeline refactor removes two internal metrics
+
 27.0.0
 ------
 - Simplify internal tracking of the source address of a metric.  The current rules are:

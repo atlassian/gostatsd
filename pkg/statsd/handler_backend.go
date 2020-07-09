@@ -45,7 +45,6 @@ func NewBackendHandler(backends []gostatsd.Backend, maxConcurrentEvents uint, nu
 		workers[i] = &worker{
 			aggr: af.Create(),
 			// TODO: Reassess the defaults
-			metricsQueue:   make(chan []*gostatsd.Metric, perWorkerBufferSize),
 			metricMapQueue: make(chan *gostatsd.MetricMap, perWorkerBufferSize),
 			processChan:    make(chan *processCommand),
 			id:             i,
@@ -66,7 +65,6 @@ func (bh *BackendHandler) Run(ctx context.Context) {
 	var wg wait.Group
 	defer func() {
 		for _, worker := range bh.workers {
-			close(worker.metricsQueue)   // Close channel to terminate worker
 			close(worker.metricMapQueue) // Close channel to terminate worker
 		}
 		wg.Wait() // Wait for all workers to finish
@@ -121,25 +119,6 @@ func (bh *BackendHandler) RunMetrics(ctx context.Context, statser stats.Statser)
 // EstimatedTags returns a guess for how many tags to pre-allocate
 func (bh *BackendHandler) EstimatedTags() int {
 	return 0
-}
-
-// DispatchMetrics dispatches metric to a corresponding Aggregator.
-func (bh *BackendHandler) DispatchMetrics(ctx context.Context, metrics []*gostatsd.Metric) {
-	metricsByAggr := make([][]*gostatsd.Metric, bh.numWorkers)
-
-	for _, m := range metrics {
-		m.TagsKey = m.FormatTagsKey() // this is expensive, so do it with no aggregator affinity
-		bucket := m.Bucket(bh.numWorkers)
-		metricsByAggr[bucket] = append(metricsByAggr[bucket], m)
-	}
-
-	for aggrIdx, bucketedMetrics := range metricsByAggr {
-		w := bh.workers[aggrIdx]
-		select {
-		case <-ctx.Done():
-		case w.metricsQueue <- bucketedMetrics:
-		}
-	}
 }
 
 // DispatchMetricMap re-dispatches a metric map through BackendHandler.DispatchMetrics

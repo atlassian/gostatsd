@@ -23,9 +23,8 @@ type ProcessFunc func(*gostatsd.MetricMap)
 // Aggregator is an object that aggregates statsd metrics.
 // The function NewAggregator should be used to create the objects.
 //
-// Incoming metrics should be passed via Receive function.
+// Incoming metrics should be passed via ReceiveMap function.
 type Aggregator interface {
-	Receive(metrics ...*gostatsd.Metric)
 	ReceiveMap(mm *gostatsd.MetricMap)
 	Flush(interval time.Duration)
 	Process(ProcessFunc)

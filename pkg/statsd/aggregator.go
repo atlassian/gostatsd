@@ -23,7 +23,6 @@ type percentStruct struct {
 
 // MetricAggregator aggregates metrics.
 type MetricAggregator struct {
-	metricsReceived       uint64
 	metricMapsReceived    uint64
 	expiryIntervalCounter time.Duration // How often to expire counters
 	expiryIntervalGauge   time.Duration // How often to expire gauges
@@ -82,7 +81,6 @@ func round(v float64) float64 {
 
 // Flush prepares the contents of a MetricAggregator for sending via the Sender.
 func (a *MetricAggregator) Flush(flushInterval time.Duration) {
-	a.statser.Gauge("aggregator.metrics_received", float64(a.metricsReceived), nil)
 	a.statser.Gauge("aggregator.metricmaps_received", float64(a.metricMapsReceived), nil)
 
 	flushInSeconds := float64(flushInterval) / float64(time.Second)
@@ -215,7 +213,6 @@ func deleteMetric(key, tagsKey string, metrics gostatsd.AggregatedMetrics) {
 
 // Reset clears the contents of a MetricAggregator.
 func (a *MetricAggregator) Reset() {
-	a.metricsReceived = 0
 	a.metricMapsReceived = 0
 	nowNano := gostatsd.Nanotime(a.now().UnixNano())
 
@@ -273,15 +270,6 @@ func (a *MetricAggregator) Reset() {
 			}
 		}
 	})
-}
-
-// Receive takes a batched metrics and will put them on the internal aggregator
-// queue to be processed
-func (a *MetricAggregator) Receive(ms ...*gostatsd.Metric) {
-	a.metricsReceived += uint64(len(ms))
-	for _, m := range ms {
-		a.metricMap.Receive(m)
-	}
 }
 
 // ReceiveMap takes a single metric map and will aggregate the values

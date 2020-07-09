@@ -16,7 +16,6 @@ Metrics:
 
 | Name                                        | type                | tags                         | description
 | ------------------------------------------- | ------------------- | ---------------------------- | -----------
-| aggregator.metrics_received                 | gauge (flush)       | aggregator_id                | The number of datapoints received during the flush interval
 | aggregator.metricmaps_received              | gauge (flush)       | aggregator_id                | The number of datapoint batches received during the flush interval
 | aggregator.aggregation_time                 | gauge (time)        | aggregator_id                | The time taken (in ms) to aggregate all counter and timer
 |                                             |                     |                              | datapoints in this flush interval
@@ -84,7 +83,6 @@ the samples are reset.
 
 | Channel name              | Additional tags | Description
 | ------------------------- | --------------- | -----------
-| dispatch_aggregator_batch | aggregator_id   | Channel to dispatch metrics to a specific aggregator.
 | dispatch_aggregator_map   | aggregator_id   | Channel to dispatch metric maps to a given aggregator.
 | backend_events_sem        |                 | Semaphore limiting the number of events in flight at once.  Corresponds to
 |                           |                 | the `--max-concurrent-events` flag.

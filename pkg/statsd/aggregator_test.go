@@ -1,13 +1,10 @@
 package statsd
 
 import (
-	"context"
 	"math"
-	"runtime"
 	"testing"
 	"time"
 
-	"github.com/ash2k/stager"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/atlassian/gostatsd"
@@ -23,12 +20,6 @@ func newFakeAggregator() *MetricAggregator {
 		gostatsd.TimerSubtypes{},
 		math.MaxUint32,
 	)
-}
-
-type fakeAggregatorFactory struct{}
-
-func (faf *fakeAggregatorFactory) Create() Aggregator {
-	return newFakeAggregator()
 }
 
 func TestNewAggregator(t *testing.T) {
@@ -408,7 +399,9 @@ func TestDisabledCount(t *testing.T) {
 	t.Parallel()
 	ma := newFakeAggregator()
 	ma.disabledSubtypes.CountPct = true
-	ma.Receive(&gostatsd.Metric{Name: "x", Value: 1, Type: gostatsd.TIMER})
+	mm := gostatsd.NewMetricMap()
+	mm.Receive(&gostatsd.Metric{Name: "x", Value: 1, Type: gostatsd.TIMER})
+	ma.ReceiveMap(mm)
 	ma.Flush(1 * time.Second)
 	for _, pct := range ma.metricMap.Timers["x"][""].Percentiles {
 		if pct.Str == "count_90" {
@@ -421,7 +414,9 @@ func TestDisabledMean(t *testing.T) {
 	t.Parallel()
 	ma := newFakeAggregator()
 	ma.disabledSubtypes.MeanPct = true
-	ma.Receive(&gostatsd.Metric{Name: "x", Value: 1, Type: gostatsd.TIMER})
+	mm := gostatsd.NewMetricMap()
+	mm.Receive(&gostatsd.Metric{Name: "x", Value: 1, Type: gostatsd.TIMER})
+	ma.ReceiveMap(mm)
 	ma.Flush(1 * time.Second)
 	for _, pct := range ma.metricMap.Timers["x"][""].Percentiles {
 		if pct.Str == "mean_90" {
@@ -434,7 +429,9 @@ func TestDisabledSum(t *testing.T) {
 	t.Parallel()
 	ma := newFakeAggregator()
 	ma.disabledSubtypes.SumPct = true
-	ma.Receive(&gostatsd.Metric{Name: "x", Value: 1, Type: gostatsd.TIMER})
+	mm := gostatsd.NewMetricMap()
+	mm.Receive(&gostatsd.Metric{Name: "x", Value: 1, Type: gostatsd.TIMER})
+	ma.ReceiveMap(mm)
 	ma.Flush(1 * time.Second)
 	for _, pct := range ma.metricMap.Timers["x"][""].Percentiles {
 		if pct.Str == "sum_90" {
@@ -447,7 +444,9 @@ func TestDisabledSumSquares(t *testing.T) {
 	t.Parallel()
 	ma := newFakeAggregator()
 	ma.disabledSubtypes.SumSquaresPct = true
-	ma.Receive(&gostatsd.Metric{Name: "x", Value: 1, Type: gostatsd.TIMER})
+	mm := gostatsd.NewMetricMap()
+	mm.Receive(&gostatsd.Metric{Name: "x", Value: 1, Type: gostatsd.TIMER})
+	ma.ReceiveMap(mm)
 	ma.Flush(1 * time.Second)
 	for _, pct := range ma.metricMap.Timers["x"][""].Percentiles {
 		if pct.Str == "sum_squares_90" {
@@ -460,7 +459,9 @@ func TestDisabledUpper(t *testing.T) {
 	t.Parallel()
 	ma := newFakeAggregator()
 	ma.disabledSubtypes.UpperPct = true
-	ma.Receive(&gostatsd.Metric{Name: "x", Value: 1, Type: gostatsd.TIMER})
+	mm := gostatsd.NewMetricMap()
+	mm.Receive(&gostatsd.Metric{Name: "x", Value: 1, Type: gostatsd.TIMER})
+	ma.ReceiveMap(mm)
 	ma.Flush(1 * time.Second)
 	for _, pct := range ma.metricMap.Timers["x"][""].Percentiles {
 		if pct.Str == "upper_90" {
@@ -481,47 +482,13 @@ func TestDisabledLower(t *testing.T) {
 		math.MaxUint32,
 	)
 	ma.disabledSubtypes.LowerPct = true
-	ma.Receive(&gostatsd.Metric{Name: "x", Value: 1, Type: gostatsd.TIMER})
+	mm := gostatsd.NewMetricMap()
+	mm.Receive(&gostatsd.Metric{Name: "x", Value: 1, Type: gostatsd.TIMER})
+	ma.ReceiveMap(mm)
 	ma.Flush(1 * time.Second)
 	for _, pct := range ma.metricMap.Timers["x"][""].Percentiles {
 		if pct.Str == "lower_-90" { // lower_-90?
 			t.Error("lower not disabled")
 		}
 	}
-}
-
-func BenchmarkHotMetric(b *testing.B) {
-	beh := NewBackendHandler(
-		nil,
-		1000,
-		runtime.NumCPU(),
-		10000,
-		&fakeAggregatorFactory{},
-	)
-
-	stgr := stager.New()
-	stage := stgr.NextStage()
-	stage.StartWithContext(beh.Run)
-	stage = stgr.NextStage()
-
-	ctx := context.Background()
-	b.ReportAllocs()
-	b.ResetTimer()
-
-	for i := 0; i < runtime.NumCPU(); i++ {
-		stage.Start(func() {
-			for n := 0; n < b.N; n++ {
-				m := &gostatsd.Metric{
-					Name:   "metric.name",
-					Value:  5,
-					Tags:   gostatsd.Tags{"aaaa:aaaa", "aaab:aaab", "aaac:aaac", "aaad:aaad", "aaae:aaae", "aaaf:aaaf"},
-					Source: "local",
-					Type:   gostatsd.GAUGE,
-				}
-				beh.DispatchMetrics(ctx, []*gostatsd.Metric{m})
-			}
-		})
-	}
-
-	stgr.Shutdown()
 }
