@@ -9,10 +9,12 @@ import (
 	"github.com/ash2k/stager/wait"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/tilinna/clock"
 	"golang.org/x/time/rate"
 
 	"github.com/atlassian/gostatsd"
+	"github.com/atlassian/gostatsd/internal/fixtures"
 	"github.com/atlassian/gostatsd/pkg/cachedinstances/cloudprovider"
 	"github.com/atlassian/gostatsd/pkg/cloudproviders/fakeprovider"
 )
@@ -41,8 +43,7 @@ func BenchmarkCloudHandlerDispatchMetric(b *testing.B) {
 	ctxBackground := context.Background()
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
-			m := sm1()
-			ch.DispatchMetrics(ctxBackground, []*gostatsd.Metric{m})
+			ch.DispatchMetrics(ctxBackground, []*gostatsd.Metric{sm1()})
 		}
 	})
 }
@@ -79,7 +80,7 @@ func TestTransientInstanceFailure(t *testing.T) {
 	wg.StartWithContext(ctx, ch.Run)
 	wg.StartWithContext(ctx, ci.Run)
 	m1 := sm1()
-	m2 := sm1()
+	m2 := sm2()
 
 	// There's no good way to tell when the Ticker has been created, so we use a hard loop
 	for _, d := clck.AddNext(); d == 0 && ctx.Err() == nil; _, d = clck.AddNext() {
@@ -87,7 +88,7 @@ func TestTransientInstanceFailure(t *testing.T) {
 	}
 
 	// t+0: prime the cache
-	expecting.Expect(1, 0, 0)
+	expecting.Expect(0, 1, 0)
 	ch.DispatchMetrics(ctx, []*gostatsd.Metric{m1})
 	expecting.WaitAll()
 
@@ -96,23 +97,29 @@ func TestTransientInstanceFailure(t *testing.T) {
 	clck.Add(50 * time.Millisecond)
 
 	// t+100ms: read from cache, must still be valid
-	expecting.Expect(1, 0, 0)
+	expecting.Expect(0, 1, 0)
 	ch.DispatchMetrics(ctx, []*gostatsd.Metric{m2})
 	expecting.WaitAll()
 
 	cancelFunc()
 	wg.Wait()
 
-	expectedMetrics := []*gostatsd.Metric{
-		sm1(), sm1(),
-	}
+	expectedMetrics := []*gostatsd.Metric{sm1(), sm2()}
 
 	expectedMetrics[0].Tags = gostatsd.Tags{"a1", "tag:value"}
 	expectedMetrics[0].Source = "1.2.3.4"
-	expectedMetrics[1].Tags = gostatsd.Tags{"a1", "tag:value"}
+	expectedMetrics[1].Tags = gostatsd.Tags{"a4", "tag:value"}
 	expectedMetrics[1].Source = "1.2.3.4"
 
-	assert.Equal(t, expectedMetrics, expecting.Metrics())
+	actual := gostatsd.MergeMaps(expecting.MetricMaps()).AsMetrics()
+
+	sort.Slice(expectedMetrics, fixtures.SortCompare(expectedMetrics))
+	sort.Slice(actual, fixtures.SortCompare(actual))
+	for _, em := range expectedMetrics {
+		em.FormatTagsKey()
+	}
+
+	require.Equal(t, expectedMetrics, actual)
 }
 
 func TestCloudHandlerDispatch(t *testing.T) {
@@ -125,14 +132,16 @@ func TestCloudHandlerDispatch(t *testing.T) {
 	expectedMetrics := []*gostatsd.Metric{
 		{
 			Name:   "t1",
-			Value:  42.42,
+			Value:  42,
+			Rate:   1,
 			Tags:   gostatsd.Tags{"a1", "region:us-west-3", "tag1", "tag2:234"},
 			Source: "i-1.2.3.4",
 			Type:   gostatsd.COUNTER,
 		},
 		{
 			Name:   "t1",
-			Value:  45.45,
+			Value:  45,
+			Rate:   1,
 			Tags:   gostatsd.Tags{"a4", "region:us-west-3", "tag1", "tag2:234"},
 			Source: "i-1.2.3.4",
 			Type:   gostatsd.COUNTER,
@@ -213,13 +222,17 @@ func doCheck(
 	wg.StartWithContext(ctx, ch.Run)
 	wg.StartWithContext(ctx, ci.Run)
 
-	expecting.Expect(1, 0, 1)
-	ch.DispatchMetrics(ctx, []*gostatsd.Metric{m1})
+	expecting.Expect(0, 1, 1)
+	mm := gostatsd.NewMetricMap()
+	mm.Receive(m1)
+	ch.DispatchMetricMap(ctx, mm)
 	ch.DispatchEvent(ctx, e1)
 	expecting.WaitAll()
 
-	expecting.Expect(1, 0, 1)
-	ch.DispatchMetrics(ctx, []*gostatsd.Metric{m2})
+	expecting.Expect(0, 1, 1)
+	mm = gostatsd.NewMetricMap()
+	mm.Receive(m2)
+	ch.DispatchMetricMap(ctx, mm)
 	ch.DispatchEvent(ctx, e2)
 	expecting.WaitAll()
 
@@ -231,7 +244,13 @@ func doCheck(
 		return ips[i] < ips[j]
 	})
 	assert.Equal(t, expectedIps, ips)
-	assert.Equal(t, expectedM, expecting.Metrics())
+	actual := gostatsd.MergeMaps(expecting.MetricMaps()).AsMetrics()
+	sort.Slice(expectedM, fixtures.SortCompare(expectedM))
+	sort.Slice(actual, fixtures.SortCompare(actual))
+	for _, em := range expectedM {
+		em.FormatTagsKey()
+	}
+	assert.Equal(t, expectedM, actual)
 	assert.Equal(t, expectedE, expecting.Events())
 	assert.LessOrEqual(t, cloud.Invocations(), uint64(2))
 }
@@ -239,7 +258,8 @@ func doCheck(
 func sm1() *gostatsd.Metric {
 	return &gostatsd.Metric{
 		Name:   "t1",
-		Value:  42.42,
+		Value:  42,
+		Rate:   1,
 		Tags:   gostatsd.Tags{"a1"},
 		Source: "1.2.3.4",
 		Type:   gostatsd.COUNTER,
@@ -249,7 +269,8 @@ func sm1() *gostatsd.Metric {
 func sm2() *gostatsd.Metric {
 	return &gostatsd.Metric{
 		Name:   "t1",
-		Value:  45.45,
+		Value:  45,
+		Rate:   1,
 		Tags:   gostatsd.Tags{"a4"},
 		Source: "1.2.3.4",
 		Type:   gostatsd.COUNTER,

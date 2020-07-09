@@ -88,6 +88,7 @@ func (e *expectingHandler) WaitAll() {
 type countingHandler struct {
 	mu      sync.Mutex
 	metrics []*gostatsd.Metric
+	maps    []*gostatsd.MetricMap
 	events  gostatsd.Events
 }
 
@@ -96,6 +97,14 @@ func (ch *countingHandler) Metrics() []*gostatsd.Metric {
 	defer ch.mu.Unlock()
 	result := make([]*gostatsd.Metric, len(ch.metrics))
 	copy(result, ch.metrics)
+	return result
+}
+
+func (ch *countingHandler) MetricMaps() []*gostatsd.MetricMap {
+	ch.mu.Lock()
+	defer ch.mu.Unlock()
+	result := make([]*gostatsd.MetricMap, len(ch.maps))
+	copy(result, ch.maps)
 	return result
 }
 
@@ -125,9 +134,10 @@ func (ch *countingHandler) dispatchMetrics(ctx context.Context, metrics []*gosta
 	}
 }
 
-// DispatchMetricMap re-dispatches a metric map through BackendHandler.DispatchMetrics
 func (ch *countingHandler) DispatchMetricMap(ctx context.Context, mm *gostatsd.MetricMap) {
-	ch.dispatchMetrics(ctx, mm.AsMetrics())
+	ch.mu.Lock()
+	defer ch.mu.Unlock()
+	ch.maps = append(ch.maps, mm)
 }
 
 func (ch *countingHandler) DispatchEvent(ctx context.Context, e *gostatsd.Event) {

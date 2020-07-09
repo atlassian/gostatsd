@@ -63,18 +63,21 @@ func (ch *CloudHandler) DispatchMetrics(ctx context.Context, metrics []*gostatsd
 }
 
 func (ch *CloudHandler) dispatchMetrics(ctx context.Context, metrics []*gostatsd.Metric) {
-	var toDispatch []*gostatsd.Metric
+	mmToDispatch := gostatsd.NewMetricMap()
 	var toHandle []*gostatsd.Metric
 	for _, m := range metrics {
 		if ch.updateTagsAndHostname(&m.Tags, &m.Source) {
-			toDispatch = append(toDispatch, m)
+			// Changing the tags requires invalidating the TagsKey.
+			// TODO: Reassess this when we get rid of DispatchMetrics properly.
+			m.TagsKey = ""
+			mmToDispatch.Receive(m)
 		} else {
 			toHandle = append(toHandle, m)
 		}
 	}
 
-	if len(toDispatch) > 0 {
-		ch.handler.DispatchMetrics(ctx, toDispatch)
+	if !mmToDispatch.IsEmpty() {
+		ch.handler.DispatchMetricMap(ctx, mmToDispatch)
 	}
 
 	if len(toHandle) > 0 {
@@ -239,10 +242,14 @@ func (ch *CloudHandler) handleIncomingEvent(e *gostatsd.Event) {
 }
 
 func (ch *CloudHandler) updateAndDispatchMetrics(ctx context.Context, instance *gostatsd.Instance, metrics []*gostatsd.Metric) {
+	mm := gostatsd.NewMetricMap()
 	for _, m := range metrics {
 		updateInplace(&m.Tags, &m.Source, instance)
+		// Updating the tags requires invaliding the TagsKey
+		m.TagsKey = ""
+		mm.Receive(m)
 	}
-	ch.handler.DispatchMetrics(ctx, metrics)
+	ch.handler.DispatchMetricMap(ctx, mm)
 }
 
 func (ch *CloudHandler) updateAndDispatchEvents(ctx context.Context, instance *gostatsd.Instance, events []*gostatsd.Event) {
