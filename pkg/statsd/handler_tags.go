@@ -50,20 +50,6 @@ func (th *TagHandler) EstimatedTags() int {
 	return th.estimatedTags
 }
 
-// DispatchMetrics adds the unique tags from the TagHandler to the metric and passes it to the next stage in the
-// pipeline as a MetricMap.
-//
-// TODO: Remove this after all dependencies are gone.
-func (th *TagHandler) DispatchMetrics(ctx context.Context, metrics []*gostatsd.Metric) {
-	mm := gostatsd.NewMetricMap()
-	for _, m := range metrics {
-		mm.Receive(m)
-	}
-	if !mm.IsEmpty() {
-		th.DispatchMetricMap(ctx, mm)
-	}
-}
-
 // DispatchMetricMap adds the unique tags from the TagHandler to each consolidated metric in the map and passes it to
 // the next stage in the pipeline
 //
