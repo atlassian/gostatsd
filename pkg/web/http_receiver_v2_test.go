@@ -144,7 +144,12 @@ func TestForwardingEndToEndV2(t *testing.T) {
 		{Name: "set", Type: gostatsd.SET, StringValue: "def", Rate: 1},
 	}
 
-	actual := ch.GetMetrics()
+	actual := gostatsd.MergeMaps(ch.MetricMaps()).AsMetrics()
+
+	for _, m := range expected {
+		m.FormatTagsKey()
+	}
+
 	for _, metric := range actual {
 		metric.Timestamp = 0 // This isn't propagated through v2, and is set to the time of receive
 	}

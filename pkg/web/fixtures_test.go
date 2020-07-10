@@ -12,31 +12,19 @@ import (
 )
 
 type capturingHandler struct {
-	mu sync.Mutex
-	m  []*gostatsd.Metric
-	e  []*gostatsd.Event
+	mu   sync.Mutex
+	maps []*gostatsd.MetricMap
+	e    []*gostatsd.Event
 }
 
 func (ch *capturingHandler) EstimatedTags() int {
 	return 0
 }
 
-// Wrapper until we can remove it
-func (ch *capturingHandler) DispatchMetrics(ctx context.Context, metrics []*gostatsd.Metric) {
-	ch.dispatchMetrics(ctx, metrics)
-}
-
-func (ch *capturingHandler) dispatchMetrics(ctx context.Context, metrics []*gostatsd.Metric) {
+func (ch *capturingHandler) DispatchMetricMap(ctx context.Context, mm *gostatsd.MetricMap) {
 	ch.mu.Lock()
 	defer ch.mu.Unlock()
-	for _, m := range metrics {
-		m.DoneFunc = nil // Clear DoneFunc because it contains non-predictable variable data which interferes with the tests
-		ch.m = append(ch.m, m)
-	}
-}
-
-func (ch *capturingHandler) DispatchMetricMap(ctx context.Context, mm *gostatsd.MetricMap) {
-	ch.dispatchMetrics(ctx, mm.AsMetrics())
+	ch.maps = append(ch.maps, mm)
 }
 
 func (ch *capturingHandler) DispatchEvent(ctx context.Context, e *gostatsd.Event) {
@@ -48,12 +36,12 @@ func (ch *capturingHandler) DispatchEvent(ctx context.Context, e *gostatsd.Event
 func (ch *capturingHandler) WaitForEvents() {
 }
 
-func (ch *capturingHandler) GetMetrics() []*gostatsd.Metric {
+func (ch *capturingHandler) MetricMaps() []*gostatsd.MetricMap {
 	ch.mu.Lock()
 	defer ch.mu.Unlock()
-	m := make([]*gostatsd.Metric, len(ch.m))
-	copy(m, ch.m)
-	return m
+	mms := make([]*gostatsd.MetricMap, len(ch.maps))
+	copy(mms, ch.maps)
+	return mms
 }
 
 func testContext(t *testing.T) (context.Context, func()) {

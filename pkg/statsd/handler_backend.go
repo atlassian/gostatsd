@@ -121,7 +121,7 @@ func (bh *BackendHandler) EstimatedTags() int {
 	return 0
 }
 
-// DispatchMetricMap re-dispatches a metric map through BackendHandler.DispatchMetrics
+// DispatchMetricMap splits a MetricMap in to per-aggregator buckets and distributes it.
 func (bh *BackendHandler) DispatchMetricMap(ctx context.Context, mm *gostatsd.MetricMap) {
 	maps := mm.Split(bh.numWorkers)
 
