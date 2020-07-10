@@ -44,3 +44,10 @@ type Datagram struct {
 type MetricEmitter interface {
 	RunMetrics(ctx context.Context, statser stats.Statser)
 }
+
+// TagChanger is an interface that Metric/Event can implement to update their tags
+// and source.  It is so the CloudHandler can change the tags without worrying about
+// the TagsKey cache.
+type TagChanger interface {
+	AddTagsSetSource(additionalTags gostatsd.Tags, newSource gostatsd.Source)
+}

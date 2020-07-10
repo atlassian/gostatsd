@@ -92,5 +92,10 @@ type Event struct {
 	AlertType AlertType
 }
 
+func (e *Event) AddTagsSetSource(additionalTags Tags, newSource Source) {
+	e.Tags = e.Tags.Concat(additionalTags)
+	e.Source = newSource
+}
+
 // Events represents a list of events.
 type Events []*Event

@@ -57,19 +57,11 @@ func (ch *CloudHandler) EstimatedTags() int {
 	return ch.estimatedTags
 }
 
-// Wrapper until we can remove it
-func (ch *CloudHandler) DispatchMetrics(ctx context.Context, metrics []*gostatsd.Metric) {
-	ch.dispatchMetrics(ctx, metrics)
-}
-
-func (ch *CloudHandler) dispatchMetrics(ctx context.Context, metrics []*gostatsd.Metric) {
+func (ch *CloudHandler) processMetrics(ctx context.Context, metrics []*gostatsd.Metric) {
 	mmToDispatch := gostatsd.NewMetricMap()
 	var toHandle []*gostatsd.Metric
 	for _, m := range metrics {
-		if ch.updateTagsAndHostname(&m.Tags, &m.Source) {
-			// Changing the tags requires invalidating the TagsKey.
-			// TODO: Reassess this when we get rid of DispatchMetrics properly.
-			m.TagsKey = ""
+		if ch.updateTagsAndHostname(m, m.Source) {
 			mmToDispatch.Receive(m)
 		} else {
 			toHandle = append(toHandle, m)
@@ -88,17 +80,16 @@ func (ch *CloudHandler) dispatchMetrics(ctx context.Context, metrics []*gostatsd
 	}
 }
 
-// DispatchMetricMap re-dispatches a metric map through CloudHandler.DispatchMetrics
+// DispatchMetricMap re-dispatches a MetricMap through CloudHandler.processMetrics
 // TODO: This is inefficient, and should be handled first class, however that is a major re-factor of
 //  the CloudHandler.  It is also recommended to not use a CloudHandler in an http receiver based
 //  service, as the IP is not propagated.
 func (ch *CloudHandler) DispatchMetricMap(ctx context.Context, mm *gostatsd.MetricMap) {
-	ms := mm.AsMetrics()
-	ch.dispatchMetrics(ctx, ms)
+	ch.processMetrics(ctx, mm.AsMetrics())
 }
 
 func (ch *CloudHandler) DispatchEvent(ctx context.Context, e *gostatsd.Event) {
-	if ch.updateTagsAndHostname(&e.Tags, &e.Source) {
+	if ch.updateTagsAndHostname(e, e.Source) {
 		ch.handler.DispatchEvent(ctx, e)
 		return
 	}
@@ -244,9 +235,7 @@ func (ch *CloudHandler) handleIncomingEvent(e *gostatsd.Event) {
 func (ch *CloudHandler) updateAndDispatchMetrics(ctx context.Context, instance *gostatsd.Instance, metrics []*gostatsd.Metric) {
 	mm := gostatsd.NewMetricMap()
 	for _, m := range metrics {
-		updateInplace(&m.Tags, &m.Source, instance)
-		// Updating the tags requires invaliding the TagsKey
-		m.TagsKey = ""
+		updateInplace(m, instance)
 		mm.Receive(m)
 	}
 	ch.handler.DispatchMetricMap(ctx, mm)
@@ -258,16 +247,16 @@ func (ch *CloudHandler) updateAndDispatchEvents(ctx context.Context, instance *g
 		ch.wg.Add(-dispatched)
 	}()
 	for _, e := range events {
-		updateInplace(&e.Tags, &e.Source, instance)
+		updateInplace(e, instance)
 		dispatched++
 		ch.handler.DispatchEvent(ctx, e)
 	}
 }
 
-func (ch *CloudHandler) updateTagsAndHostname(tags *gostatsd.Tags, source *gostatsd.Source) bool /*is a cache hit*/ {
-	instance, cacheHit := ch.getInstance(*source)
+func (ch *CloudHandler) updateTagsAndHostname(obj TagChanger, source gostatsd.Source) bool /*is a cache hit*/ {
+	instance, cacheHit := ch.getInstance(source)
 	if cacheHit {
-		updateInplace(tags, source, instance)
+		updateInplace(obj, instance)
 	}
 	return cacheHit
 }
@@ -285,11 +274,8 @@ func (ch *CloudHandler) getInstance(ip gostatsd.Source) (*gostatsd.Instance, boo
 	return instance, true
 }
 
-func updateInplace(tags *gostatsd.Tags, source *gostatsd.Source, instance *gostatsd.Instance) {
+func updateInplace(obj TagChanger, instance *gostatsd.Instance) {
 	if instance != nil { // It was a positive cache hit (successful lookup cache, not failed lookup cache)
-		// Update hostname inplace
-		*source = instance.ID
-		// Update tag list inplace
-		*tags = append(*tags, instance.Tags...)
+		obj.AddTagsSetSource(instance.Tags, instance.ID)
 	}
 }

@@ -19,9 +19,9 @@ import (
 	"github.com/atlassian/gostatsd/pkg/cloudproviders/fakeprovider"
 )
 
-// BenchmarkCloudHandlerDispatchMetric is a benchmark intended to (manually) test
+// BenchmarkCloudHandlerDispatchMetricMap is a benchmark intended to (manually) test
 // the impact of the CloudHandler.statsCacheHit field.
-func BenchmarkCloudHandlerDispatchMetric(b *testing.B) {
+func BenchmarkCloudHandlerDispatchMetricMap(b *testing.B) {
 	fp := &fakeprovider.IP{}
 	nh := &nopHandler{}
 	ci := cloudprovider.NewCachedCloudProvider(logrus.StandardLogger(), rate.NewLimiter(100, 120), fp, gostatsd.CacheOptions{
@@ -42,8 +42,11 @@ func BenchmarkCloudHandlerDispatchMetric(b *testing.B) {
 
 	ctxBackground := context.Background()
 	b.RunParallel(func(pb *testing.PB) {
+		mm := gostatsd.NewMetricMap()
+		mm.Receive(sm1())
+
 		for pb.Next() {
-			ch.DispatchMetrics(ctxBackground, []*gostatsd.Metric{sm1()})
+			ch.DispatchMetricMap(ctxBackground, mm)
 		}
 	})
 }
@@ -89,7 +92,9 @@ func TestTransientInstanceFailure(t *testing.T) {
 
 	// t+0: prime the cache
 	expecting.Expect(1, 0)
-	ch.DispatchMetrics(ctx, []*gostatsd.Metric{m1})
+	mm := gostatsd.NewMetricMap()
+	mm.Receive(m1)
+	ch.DispatchMetricMap(ctx, mm)
 	expecting.WaitAll()
 
 	clck.Add(50 * time.Millisecond)
@@ -98,7 +103,10 @@ func TestTransientInstanceFailure(t *testing.T) {
 
 	// t+100ms: read from cache, must still be valid
 	expecting.Expect(1, 0)
-	ch.DispatchMetrics(ctx, []*gostatsd.Metric{m2})
+
+	mm = gostatsd.NewMetricMap()
+	mm.Receive(m2)
+	ch.DispatchMetricMap(ctx, mm)
 	expecting.WaitAll()
 
 	cancelFunc()
