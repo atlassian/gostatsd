@@ -8,17 +8,12 @@ import (
 )
 
 type capturingHandler struct {
-	m  []*gostatsd.Metric
 	mm []*gostatsd.MetricMap
 	e  []*gostatsd.Event
 }
 
 func (tch *capturingHandler) EstimatedTags() int {
 	return 0
-}
-
-func (tch *capturingHandler) DispatchMetrics(ctx context.Context, metrics []*gostatsd.Metric) {
-	tch.m = append(tch.m, metrics...)
 }
 
 func (tch *capturingHandler) DispatchMetricMap(ctx context.Context, metrics *gostatsd.MetricMap) {
@@ -38,9 +33,6 @@ func (nh *nopHandler) EstimatedTags() int {
 	return 0
 }
 
-func (nh *nopHandler) DispatchMetrics(ctx context.Context, m []*gostatsd.Metric) {
-}
-
 func (nh *nopHandler) DispatchMetricMap(ctx context.Context, mm *gostatsd.MetricMap) {
 }
 
@@ -53,14 +45,8 @@ func (nh *nopHandler) WaitForEvents() {
 type expectingHandler struct {
 	countingHandler
 
-	wgMetrics    sync.WaitGroup
 	wgMetricMaps sync.WaitGroup
 	wgEvents     sync.WaitGroup
-}
-
-func (e *expectingHandler) DispatchMetrics(ctx context.Context, m []*gostatsd.Metric) {
-	e.countingHandler.DispatchMetrics(ctx, m)
-	e.wgMetrics.Add(-len(m))
 }
 
 func (e *expectingHandler) DispatchMetricMap(ctx context.Context, mm *gostatsd.MetricMap) {
@@ -73,14 +59,12 @@ func (e *expectingHandler) DispatchEvent(ctx context.Context, event *gostatsd.Ev
 	e.wgEvents.Done()
 }
 
-func (e *expectingHandler) Expect(ms, mms, es int) {
-	e.wgMetrics.Add(ms)
+func (e *expectingHandler) Expect(mms, es int) {
 	e.wgMetricMaps.Add(mms)
 	e.wgEvents.Add(es)
 }
 
 func (e *expectingHandler) WaitAll() {
-	e.wgMetrics.Wait()
 	e.wgMetricMaps.Wait()
 	e.wgEvents.Wait()
 }
@@ -118,20 +102,6 @@ func (ch *countingHandler) Events() gostatsd.Events {
 
 func (ch *countingHandler) EstimatedTags() int {
 	return 0
-}
-
-// Wrapper until we can remove it
-func (ch *countingHandler) DispatchMetrics(ctx context.Context, metrics []*gostatsd.Metric) {
-	ch.dispatchMetrics(ctx, metrics)
-}
-
-func (ch *countingHandler) dispatchMetrics(ctx context.Context, metrics []*gostatsd.Metric) {
-	ch.mu.Lock()
-	defer ch.mu.Unlock()
-	for _, m := range metrics {
-		m.DoneFunc = nil // Clear DoneFunc because it contains non-predictable variable data which interferes with the tests
-		ch.metrics = append(ch.metrics, m)
-	}
 }
 
 func (ch *countingHandler) DispatchMetricMap(ctx context.Context, mm *gostatsd.MetricMap) {

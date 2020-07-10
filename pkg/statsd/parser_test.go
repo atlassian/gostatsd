@@ -2,6 +2,7 @@ package statsd
 
 import (
 	"context"
+	"sort"
 	"strconv"
 	"testing"
 
@@ -10,6 +11,7 @@ import (
 	"golang.org/x/time/rate"
 
 	"github.com/atlassian/gostatsd"
+	"github.com/atlassian/gostatsd/internal/fixtures"
 )
 
 type metricAndEvent struct {
@@ -94,15 +96,27 @@ func TestParseDatagram(t *testing.T) {
 			t.Parallel()
 			mr, ch := newTestParser(false)
 			metrics, _, _ := mr.handleDatagram(context.Background(), 0, fakeIP, []byte(datagram))
-			ch.DispatchMetrics(context.Background(), metrics)
+			mm := gostatsd.NewMetricMap()
+			for _, m := range metrics {
+				mm.Receive(m)
+			}
 			for i, e := range ch.events {
 				if e.DateHappened <= 0 {
 					t.Errorf("%q: DateHappened should be positive", e)
 				}
 				ch.events[i].DateHappened = 0
 			}
+
+			ch.DispatchMetricMap(context.Background(), mm)
+			actual := gostatsd.MergeMaps(ch.MetricMaps()).AsMetrics()
+			for _, m := range mAndE.metrics {
+				m.FormatTagsKey()
+			}
+			sort.Slice(actual, fixtures.SortCompare(actual))
+			sort.Slice(mAndE.metrics, fixtures.SortCompare(mAndE.metrics))
+
 			assert.Equal(t, mAndE.events, ch.events)
-			assert.Equal(t, mAndE.metrics, ch.metrics)
+			assert.Equal(t, mAndE.metrics, actual)
 		})
 	}
 }
@@ -169,9 +183,21 @@ func TestParseDatagramIgnoreHost(t *testing.T) {
 				}
 				ch.events[i].DateHappened = 0
 			}
-			ch.DispatchMetrics(context.Background(), metrics)
+			mm := gostatsd.NewMetricMap()
+			for _, m := range metrics {
+				mm.Receive(m)
+			}
+			ch.DispatchMetricMap(context.Background(), mm)
+			actual := gostatsd.MergeMaps(ch.MetricMaps()).AsMetrics()
+			for _, m := range mAndE.metrics {
+				m.FormatTagsKey()
+			}
+
+			sort.Slice(actual, fixtures.SortCompare(actual))
+			sort.Slice(mAndE.metrics, fixtures.SortCompare(mAndE.metrics))
+
 			assert.Equal(t, mAndE.events, ch.events)
-			assert.Equal(t, mAndE.metrics, ch.metrics)
+			assert.Equal(t, mAndE.metrics, actual)
 		})
 	}
 }

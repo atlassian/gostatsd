@@ -88,7 +88,7 @@ func TestTransientInstanceFailure(t *testing.T) {
 	}
 
 	// t+0: prime the cache
-	expecting.Expect(0, 1, 0)
+	expecting.Expect(1, 0)
 	ch.DispatchMetrics(ctx, []*gostatsd.Metric{m1})
 	expecting.WaitAll()
 
@@ -97,7 +97,7 @@ func TestTransientInstanceFailure(t *testing.T) {
 	clck.Add(50 * time.Millisecond)
 
 	// t+100ms: read from cache, must still be valid
-	expecting.Expect(0, 1, 0)
+	expecting.Expect(1, 0)
 	ch.DispatchMetrics(ctx, []*gostatsd.Metric{m2})
 	expecting.WaitAll()
 
@@ -222,14 +222,14 @@ func doCheck(
 	wg.StartWithContext(ctx, ch.Run)
 	wg.StartWithContext(ctx, ci.Run)
 
-	expecting.Expect(0, 1, 1)
+	expecting.Expect(1, 1)
 	mm := gostatsd.NewMetricMap()
 	mm.Receive(m1)
 	ch.DispatchMetricMap(ctx, mm)
 	ch.DispatchEvent(ctx, e1)
 	expecting.WaitAll()
 
-	expecting.Expect(0, 1, 1)
+	expecting.Expect(1, 1)
 	mm = gostatsd.NewMetricMap()
 	mm.Receive(m2)
 	ch.DispatchMetricMap(ctx, mm)
