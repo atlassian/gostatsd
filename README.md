@@ -308,6 +308,16 @@ Incorrect meta tag values will be handled in best effort manner, i.e.
 
 This is an experimental feature and it may be removed or changed in future versions.
 
+
+Load testing
+------------
+There is a tool under `cmd/loader` with support for a number of options which can be used to generate synthetic statsd
+load.  There is also another load generation tool under `cmd/tester` which is deprecated and will be removed in a
+future release.
+
+Help for the loader tool can be found through `--help`.
+
+
 Sending metrics
 ---------------
 The server listens for UDP packets on the address given by the `--metrics-addr` flag,
@@ -316,12 +326,13 @@ flag (space separated list of backend names).
 
 Currently supported backends are:
 
-* graphite
+* cloudwatch
 * datadog
+* graphite
+* influxdb
+* newrelic
 * statsdaemon
 * stdout
-* cloudwatch
-* newrelic
 
 The format of each metric is:
 
