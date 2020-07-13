@@ -101,7 +101,7 @@ func sendMetricsWorker(
 	sb := &strings.Builder{}
 	for generator.next(sb) {
 		if uint(b.Len()+sb.Len()) > bufSize {
-			timeToFlush := next.Sub(time.Now())
+			timeToFlush := time.Until(next)
 			if timeToFlush > 0 {
 				time.Sleep(timeToFlush)
 			}
