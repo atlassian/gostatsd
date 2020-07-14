@@ -107,7 +107,8 @@ func sendMetricsWorker(
 			}
 			_, err := s.Write(b.Bytes())
 			if err != nil {
-				panic(err)
+				fmt.Printf("Pausing for 1 second, error sending packet: %v\n", err)
+				time.Sleep(1*time.Second)
 			}
 			b.Reset()
 			next = next.Add(interval)
