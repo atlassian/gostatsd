@@ -50,20 +50,6 @@ func (th *TagHandler) EstimatedTags() int {
 	return th.estimatedTags
 }
 
-// DispatchMetrics adds the unique tags from the TagHandler to the metric and passes it to the next stage in the pipeline
-func (th *TagHandler) DispatchMetrics(ctx context.Context, metrics []*gostatsd.Metric) {
-	var toDispatch []*gostatsd.Metric
-
-	for _, m := range metrics {
-		if th.uniqueFilterMetricAndAddTags(m) {
-			toDispatch = append(toDispatch, m)
-		}
-	}
-	if len(toDispatch) > 0 {
-		th.handler.DispatchMetrics(ctx, toDispatch)
-	}
-}
-
 // DispatchMetricMap adds the unique tags from the TagHandler to each consolidated metric in the map and passes it to
 // the next stage in the pipeline
 //
@@ -203,10 +189,6 @@ func (th *TagHandler) uniqueFilterAndAddTags(mName string, mHostname *gostatsd.S
 
 	*mTags = uniqueTagsWithSeen(dropTags, *mTags, th.tags)
 	return true
-}
-
-func (th *TagHandler) uniqueFilterMetricAndAddTags(m *gostatsd.Metric) bool {
-	return th.uniqueFilterAndAddTags(m.Name, &m.Source, &m.Tags)
 }
 
 // DispatchEvent adds the unique tags from the TagHandler to the event and passes it to the next stage in the pipeline

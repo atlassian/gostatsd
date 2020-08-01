@@ -23,9 +23,8 @@ type ProcessFunc func(*gostatsd.MetricMap)
 // Aggregator is an object that aggregates statsd metrics.
 // The function NewAggregator should be used to create the objects.
 //
-// Incoming metrics should be passed via Receive function.
+// Incoming metrics should be passed via ReceiveMap function.
 type Aggregator interface {
-	Receive(metrics ...*gostatsd.Metric)
 	ReceiveMap(mm *gostatsd.MetricMap)
 	Flush(interval time.Duration)
 	Process(ProcessFunc)
@@ -44,4 +43,11 @@ type Datagram struct {
 // after initialization, as Statsers may be created after MetricEmitters
 type MetricEmitter interface {
 	RunMetrics(ctx context.Context, statser stats.Statser)
+}
+
+// TagChanger is an interface that Metric/Event can implement to update their tags
+// and source.  It is so the CloudHandler can change the tags without worrying about
+// the TagsKey cache.
+type TagChanger interface {
+	AddTagsSetSource(additionalTags gostatsd.Tags, newSource gostatsd.Source)
 }

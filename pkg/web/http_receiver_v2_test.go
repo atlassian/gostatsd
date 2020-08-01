@@ -13,6 +13,7 @@ import (
 	"github.com/tilinna/clock"
 
 	"github.com/atlassian/gostatsd"
+	"github.com/atlassian/gostatsd/internal/fixtures"
 	"github.com/atlassian/gostatsd/pkg/statsd"
 	"github.com/atlassian/gostatsd/pkg/transport"
 	"github.com/atlassian/gostatsd/pkg/web"
@@ -111,17 +112,24 @@ func TestForwardingEndToEndV2(t *testing.T) {
 		Rate:        0.1,
 	}
 
+	mm := gostatsd.NewMetricMap()
+
 	for i := 0; i < 100; i++ {
-		hfh.DispatchMetrics(ctxTest, []*gostatsd.Metric{m1, m2, m5, m6, m7, m8})
+		mm.Receive(m1)
+		mm.Receive(m2)
+		mm.Receive(m5)
+		mm.Receive(m6)
+		mm.Receive(m7)
+		mm.Receive(m8)
 	}
 	// only do timers once, because they're very noisy in the output.
-	hfh.DispatchMetrics(ctxTest, []*gostatsd.Metric{m3, m4})
+	mm.Receive(m3)
+	mm.Receive(m4)
+	hfh.DispatchMetricMap(ctxTest, mm)
 
-	// There's no good way to tell when the Ticker has been created, so we use a hard loop
-	for _, d := mockClock.AddNext(); d == 0 && ctxTest.Err() == nil; _, d = mockClock.AddNext() {
-		time.Sleep(time.Millisecond) // Allows the system to actually idle, runtime.Gosched() does not.
-	}
-	mockClock.Add(1 * time.Second)    // Make sure everything gets scheduled
+	fixtures.NextStep(ctxTest, mockClock)
+	mockClock.Add(1 * time.Second) // Make sure everything gets scheduled
+
 	time.Sleep(50 * time.Millisecond) // Give the http call time to actually occur
 
 	expected := []*gostatsd.Metric{
@@ -136,29 +144,18 @@ func TestForwardingEndToEndV2(t *testing.T) {
 		{Name: "set", Type: gostatsd.SET, StringValue: "def", Rate: 1},
 	}
 
-	actual := ch.GetMetrics()
+	actual := gostatsd.MergeMaps(ch.MetricMaps()).AsMetrics()
+
+	for _, m := range expected {
+		m.FormatTagsKey()
+	}
+
 	for _, metric := range actual {
 		metric.Timestamp = 0 // This isn't propagated through v2, and is set to the time of receive
 	}
 
-	cmpSort := func(slice []*gostatsd.Metric) func(i, j int) bool {
-		return func(i, j int) bool {
-			if slice[i].Name == slice[j].Name {
-				if len(slice[i].Tags) == len(slice[j].Tags) { // This is not exactly accurate, but close enough with our data
-					if slice[i].Type == gostatsd.SET {
-						return slice[i].StringValue < slice[j].StringValue
-					} else {
-						return slice[i].Value < slice[j].Value
-					}
-				}
-				return len(slice[i].Tags) < len(slice[j].Tags)
-			}
-			return slice[i].Name < slice[j].Name
-		}
-	}
-
-	sort.Slice(actual, cmpSort(actual))
-	sort.Slice(expected, cmpSort(expected))
+	sort.Slice(actual, fixtures.SortCompare(actual))
+	sort.Slice(expected, fixtures.SortCompare(expected))
 
 	require.EqualValues(t, expected, actual)
 	testDone()

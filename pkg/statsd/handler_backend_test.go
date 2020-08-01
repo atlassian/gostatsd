@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"math/rand"
-	"runtime"
 	"sync"
 	"testing"
 	"time"
@@ -115,47 +114,6 @@ func TestRunShouldReturnWhenContextCancelled(t *testing.T) {
 	h.Run(ctx)
 }
 
-func TestDispatchMetricsShouldDistributeMetrics(t *testing.T) {
-	t.Parallel()
-	r := rand.New(rand.NewSource(time.Now().UnixNano()))
-	n := r.Intn(5) + 1
-	factory := newTestFactory()
-	// use a sync channel (perWorkerBufferSize = 0) to force the workers to process events before the context is cancelled
-	h := NewBackendHandler(nil, 0, n, 0, factory)
-	ctx, cancelFunc := context.WithCancel(context.Background())
-	defer cancelFunc()
-	var wgFinish wait.Group
-	wgFinish.StartWithContext(ctx, h.Run)
-	numMetrics := r.Intn(1000) + n*10
-	var wg sync.WaitGroup
-	wg.Add(numMetrics)
-	for i := 0; i < numMetrics; i++ {
-		m := &gostatsd.Metric{
-			Type:  gostatsd.COUNTER,
-			Name:  fmt.Sprintf("counter.metric.%d", r.Int63()),
-			Tags:  nil,
-			Value: r.Float64(),
-		}
-		go func() {
-			defer wg.Done()
-			h.DispatchMetrics(ctx, []*gostatsd.Metric{m})
-		}()
-	}
-	wg.Wait()       // Wait for all metrics to be dispatched
-	cancelFunc()    // After all metrics have been dispatched, we signal dispatcher to shut down
-	wgFinish.Wait() // Wait for dispatcher to shutdown
-
-	receiveInvocations := getTotalInvocations(factory.receiveInvocations)
-	assert.Equal(t, numMetrics, receiveInvocations)
-	for agrNum, count := range factory.receiveInvocations {
-		if count == 0 {
-			t.Errorf("aggregator %d was never invoked", agrNum)
-		} else {
-			t.Logf("aggregator %d was invoked %d time(s)", agrNum, count)
-		}
-	}
-}
-
 func TestDispatchMetricMapShouldDistributeMetrics(t *testing.T) {
 	t.Parallel()
 	r := rand.New(rand.NewSource(time.Now().UnixNano()))
@@ -196,37 +154,4 @@ func TestDispatchMetricMapShouldDistributeMetrics(t *testing.T) {
 			t.Logf("aggregator %d was invoked %d time(s)", agrNum, count)
 		}
 	}
-}
-
-func getTotalInvocations(inv map[int]int) int {
-	var counter int
-	for _, i := range inv {
-		counter += i
-	}
-	return counter
-}
-
-func BenchmarkBackendHandler(b *testing.B) {
-	rand.Seed(time.Now().UnixNano())
-	factory := newTestFactory()
-	h := NewBackendHandler(nil, 0, runtime.NumCPU(), 10, factory)
-	ctx, cancelFunc := context.WithCancel(context.Background())
-	defer cancelFunc()
-	var wgFinish wait.Group
-	wgFinish.StartWithContext(ctx, h.Run)
-	b.ReportAllocs()
-	b.ResetTimer()
-	b.RunParallel(func(pb *testing.PB) {
-		for pb.Next() {
-			m := &gostatsd.Metric{
-				Type:  gostatsd.COUNTER,
-				Name:  fmt.Sprintf("counter.metric.%d", rand.Int63()),
-				Tags:  nil,
-				Value: rand.Float64(),
-			}
-			h.DispatchMetrics(ctx, []*gostatsd.Metric{m})
-		}
-	})
-	cancelFunc()    // After all metrics have been dispatched, we signal dispatcher to shut down
-	wgFinish.Wait() // Wait for dispatcher to shutdown
 }

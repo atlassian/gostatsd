@@ -143,17 +143,13 @@ func BenchmarkReceives(b *testing.B) {
 }
 
 func TestMetricMapDispatch(t *testing.T) {
-	ctx, done := testContext(t)
-	defer done()
-
 	mm := NewMetricMap()
 	metrics := metricsFixtures()
 	for _, metric := range metrics {
 		mm.Receive(metric)
 	}
-	ch := &capturingHandler{}
 
-	mm.DispatchMetrics(ctx, ch)
+	actual := mm.AsMetrics()
 
 	expected := []*Metric{
 		{Name: "abc.def.g", Value: 3, Rate: 1, Type: GAUGE, Timestamp: 10},
@@ -173,28 +169,27 @@ func TestMetricMapDispatch(t *testing.T) {
 		{Name: "uniq.usr", StringValue: "john", Rate: 1, TagsKey: "baz,foo:bar", Tags: Tags{"baz", "foo:bar"}, Type: SET, Timestamp: 10},
 	}
 
-	cmpSort := func(slice []*Metric) func(i, j int) bool {
-		return func(i, j int) bool {
-			if slice[i].Name == slice[j].Name {
-				if len(slice[i].Tags) == len(slice[j].Tags) { // This is not exactly accurate, but close enough with our data
-					if slice[i].Type == SET {
-						return slice[i].StringValue < slice[j].StringValue
-					} else {
-						return slice[i].Value < slice[j].Value
-					}
-				}
-				return len(slice[i].Tags) < len(slice[j].Tags)
-			}
-			return slice[i].Name < slice[j].Name
-		}
-	}
-
-	actual := ch.GetMetrics()
-
-	sort.Slice(actual, cmpSort(actual))
-	sort.Slice(expected, cmpSort(expected))
+	sort.Slice(actual, SortCompare(actual))
+	sort.Slice(expected, SortCompare(expected))
 
 	require.EqualValues(t, expected, actual)
+}
+
+// Copied from internal/fixtures because dependency loops
+func SortCompare(ms []*Metric) func(i, j int) bool {
+	return func(i, j int) bool {
+		if ms[i].Name == ms[j].Name {
+			if len(ms[i].Tags) == len(ms[j].Tags) { // This is not exactly accurate, but close enough with our data
+				if ms[i].Type == SET {
+					return ms[i].StringValue < ms[j].StringValue
+				} else {
+					return ms[i].Value < ms[j].Value
+				}
+			}
+			return len(ms[i].Tags) < len(ms[j].Tags)
+		}
+		return ms[i].Name < ms[j].Name
+	}
 }
 
 func TestMetricMapMerge(t *testing.T) {

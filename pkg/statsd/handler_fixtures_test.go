@@ -8,17 +8,12 @@ import (
 )
 
 type capturingHandler struct {
-	m  []*gostatsd.Metric
 	mm []*gostatsd.MetricMap
 	e  []*gostatsd.Event
 }
 
 func (tch *capturingHandler) EstimatedTags() int {
 	return 0
-}
-
-func (tch *capturingHandler) DispatchMetrics(ctx context.Context, metrics []*gostatsd.Metric) {
-	tch.m = append(tch.m, metrics...)
 }
 
 func (tch *capturingHandler) DispatchMetricMap(ctx context.Context, metrics *gostatsd.MetricMap) {
@@ -38,9 +33,6 @@ func (nh *nopHandler) EstimatedTags() int {
 	return 0
 }
 
-func (nh *nopHandler) DispatchMetrics(ctx context.Context, m []*gostatsd.Metric) {
-}
-
 func (nh *nopHandler) DispatchMetricMap(ctx context.Context, mm *gostatsd.MetricMap) {
 }
 
@@ -53,14 +45,8 @@ func (nh *nopHandler) WaitForEvents() {
 type expectingHandler struct {
 	countingHandler
 
-	wgMetrics    sync.WaitGroup
 	wgMetricMaps sync.WaitGroup
 	wgEvents     sync.WaitGroup
-}
-
-func (e *expectingHandler) DispatchMetrics(ctx context.Context, m []*gostatsd.Metric) {
-	e.countingHandler.DispatchMetrics(ctx, m)
-	e.wgMetrics.Add(-len(m))
 }
 
 func (e *expectingHandler) DispatchMetricMap(ctx context.Context, mm *gostatsd.MetricMap) {
@@ -73,29 +59,36 @@ func (e *expectingHandler) DispatchEvent(ctx context.Context, event *gostatsd.Ev
 	e.wgEvents.Done()
 }
 
-func (e *expectingHandler) Expect(ms, mms, es int) {
-	e.wgMetrics.Add(ms)
+func (e *expectingHandler) Expect(mms, es int) {
 	e.wgMetricMaps.Add(mms)
 	e.wgEvents.Add(es)
 }
 
 func (e *expectingHandler) WaitAll() {
-	e.wgMetrics.Wait()
 	e.wgMetricMaps.Wait()
 	e.wgEvents.Wait()
 }
 
 type countingHandler struct {
 	mu      sync.Mutex
-	metrics []gostatsd.Metric
+	metrics []*gostatsd.Metric
+	maps    []*gostatsd.MetricMap
 	events  gostatsd.Events
 }
 
-func (ch *countingHandler) Metrics() []gostatsd.Metric {
+func (ch *countingHandler) Metrics() []*gostatsd.Metric {
 	ch.mu.Lock()
 	defer ch.mu.Unlock()
-	result := make([]gostatsd.Metric, len(ch.metrics))
+	result := make([]*gostatsd.Metric, len(ch.metrics))
 	copy(result, ch.metrics)
+	return result
+}
+
+func (ch *countingHandler) MetricMaps() []*gostatsd.MetricMap {
+	ch.mu.Lock()
+	defer ch.mu.Unlock()
+	result := make([]*gostatsd.MetricMap, len(ch.maps))
+	copy(result, ch.maps)
 	return result
 }
 
@@ -111,24 +104,16 @@ func (ch *countingHandler) EstimatedTags() int {
 	return 0
 }
 
-func (ch *countingHandler) DispatchMetrics(ctx context.Context, metrics []*gostatsd.Metric) {
+func (ch *countingHandler) DispatchMetricMap(ctx context.Context, mm *gostatsd.MetricMap) {
 	ch.mu.Lock()
 	defer ch.mu.Unlock()
-	for _, m := range metrics {
-		m.DoneFunc = nil // Clear DoneFunc because it contains non-predictable variable data which interferes with the tests
-		ch.metrics = append(ch.metrics, *m)
-	}
-}
-
-// DispatchMetricMap re-dispatches a metric map through BackendHandler.DispatchMetrics
-func (ch *countingHandler) DispatchMetricMap(ctx context.Context, mm *gostatsd.MetricMap) {
-	mm.DispatchMetrics(ctx, ch)
+	ch.maps = append(ch.maps, mm)
 }
 
 func (ch *countingHandler) DispatchEvent(ctx context.Context, e *gostatsd.Event) {
 	ch.mu.Lock()
 	defer ch.mu.Unlock()
-	ch.events = append(ch.events, *e)
+	ch.events = append(ch.events, e)
 }
 
 func (ch *countingHandler) WaitForEvents() {

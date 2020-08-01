@@ -18,7 +18,6 @@ type processCommand struct {
 
 type worker struct {
 	aggr           Aggregator
-	metricsQueue   chan []*gostatsd.Metric // Batches
 	metricMapQueue chan *gostatsd.MetricMap
 	processChan    chan *processCommand
 	id             int
@@ -27,11 +26,6 @@ type worker struct {
 func (w *worker) work() {
 	for {
 		select {
-		case metrics, ok := <-w.metricsQueue:
-			if !ok {
-				return
-			}
-			w.aggr.Receive(metrics...)
 		case mm, ok := <-w.metricMapQueue:
 			if !ok {
 				return
@@ -50,14 +44,6 @@ func (w *worker) executeProcess(cmd *processCommand) {
 
 func (w *worker) RunMetrics(ctx context.Context, statser stats.Statser) {
 	wg := &wait.Group{}
-	wg.StartWithContext(ctx, stats.NewChannelStatsWatcher(
-		statser,
-		"dispatch_aggregator_batch",
-		gostatsd.Tags{fmt.Sprintf("aggregator_id:%d", w.id)},
-		cap(w.metricsQueue),
-		func() int { return len(w.metricsQueue) },
-		1000*time.Millisecond, // TODO: Make configurable
-	).Run)
 	wg.StartWithContext(ctx, stats.NewChannelStatsWatcher(
 		statser,
 		"dispatch_aggregator_map",

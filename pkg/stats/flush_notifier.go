@@ -1,6 +1,7 @@
 package stats
 
 import (
+	"context"
 	"sync"
 	"time"
 )
@@ -35,7 +36,7 @@ func (fn *flushNotifier) RegisterFlush() (ch <-chan time.Duration, unregister fu
 
 // NotifyFlush will notify any registered channels that a flush has completed.
 // Non-blocking, thread-safe.
-func (fn *flushNotifier) NotifyFlush(d time.Duration) {
+func (fn *flushNotifier) NotifyFlush(ctx context.Context, d time.Duration) {
 	fn.lock.RLock()
 	defer fn.lock.RUnlock()
 	for _, hook := range fn.flushTargets {

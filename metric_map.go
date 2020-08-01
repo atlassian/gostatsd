@@ -2,7 +2,6 @@ package gostatsd
 
 import (
 	"bytes"
-	"context"
 	"fmt"
 	"strings"
 
@@ -44,6 +43,14 @@ func (mm *MetricMap) Receive(m *Metric) {
 		logrus.StandardLogger().Errorf("Unknown metric type %s for %s", m.Type, m.Name)
 	}
 	m.Done()
+}
+
+func MergeMaps(mms []*MetricMap) *MetricMap {
+	mm := NewMetricMap()
+	for _, mmFrom := range mms {
+		mm.Merge(mmFrom)
+	}
+	return mm
 }
 
 func (mm *MetricMap) Merge(mmFrom *MetricMap) {
@@ -359,8 +366,8 @@ func (mm *MetricMap) String() string {
 	return buf.String()
 }
 
-// DispatchMetrics will synthesize Metrics from the MetricMap and push them to the supplied PipelineHandler
-func (mm *MetricMap) DispatchMetrics(ctx context.Context, handler RawMetricHandler) {
+// AsMetrics will synthesize Metrics from the MetricMap and return them as a slice
+func (mm *MetricMap) AsMetrics() []*Metric {
 	var metrics []*Metric
 
 	mm.Counters.Each(func(metricName string, tagsKey string, c Counter) {
@@ -426,5 +433,5 @@ func (mm *MetricMap) DispatchMetrics(ctx context.Context, handler RawMetricHandl
 		}
 	})
 
-	handler.DispatchMetrics(ctx, metrics)
+	return metrics
 }

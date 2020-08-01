@@ -1,6 +1,7 @@
 package stats
 
 import (
+	"context"
 	"time"
 
 	"github.com/atlassian/gostatsd"
@@ -25,8 +26,8 @@ func NewTaggedStatser(statser Statser, tags gostatsd.Tags) Statser {
 	}
 }
 
-func (ts *TaggedStatser) NotifyFlush(d time.Duration) {
-	ts.statser.NotifyFlush(d)
+func (ts *TaggedStatser) NotifyFlush(ctx context.Context, d time.Duration) {
+	ts.statser.NotifyFlush(ctx, d)
 }
 
 func (ts *TaggedStatser) RegisterFlush() (<-chan time.Duration, func()) {
