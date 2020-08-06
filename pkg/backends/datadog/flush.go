@@ -2,6 +2,7 @@ package datadog
 
 import (
 	"fmt"
+	"math"
 
 	"github.com/atlassian/gostatsd"
 )
@@ -51,6 +52,10 @@ func (f *flush) addMetricf(metricType metricType, value float64, source gostatsd
 
 // addMetric adds a metric to the series.
 func (f *flush) addMetric(metricType metricType, value float64, source gostatsd.Source, tags gostatsd.Tags, name string) {
+	if math.IsInf(value, 1) || math.IsInf(value, -1) || math.IsNaN(value) {
+		// The value can not be represented within the JSON payload so it is to be discarded.
+		return
+	}
 	f.ts.Series = append(f.ts.Series, metric{
 		Host:     string(source),
 		Interval: f.flushIntervalSec,
