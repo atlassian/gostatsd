@@ -1,3 +1,7 @@
+28.1.0
+------
+- The Datadog backend will discard values that result in NaN or ±Inf since they can not be used with our JSON processing.
+
 28.0.0
 ------
 - Internal pipeline refactor removes two internal metrics
