@@ -63,12 +63,12 @@ var (
 
 // Client represents an InfluxDB client.
 type Client struct {
-	batchesCreated      uint64 // Accumulated number of batches created
-	batchesRetried      uint64 // Accumulated number of batches retried (first send is not a retry)
-	batchesDropped      uint64 // Accumulated number of batches aborted (data loss)
-	batchesCreateFailed uint64 // Accumulated number of batches which failed to serialize (data loss, no retry is possible)
-	batchesSent         uint64 // Accumulated number of batches successfully sent
-	seriesSent          uint64 // Accumulated number of series successfully sent
+	batchesCreated      uint64            // Accumulated number of batches created
+	batchesDropped      uint64            // Accumulated number of batches aborted (data loss)
+	batchesCreateFailed uint64            // Accumulated number of batches which failed to serialize (data loss, no retry is possible)
+	batchesSent         uint64            // Accumulated number of batches successfully sent
+	seriesSent          uint64            // Accumulated number of series successfully sent
+	batchesRetried      stats.ChangeGauge // Accumulated number of batches retried (first send is not a retry)
 
 	logger logrus.FieldLogger
 
@@ -267,7 +267,7 @@ func (idb *Client) Run(ctx context.Context) {
 		case <-flushed:
 			statser.Gauge("backend.created", float64(atomic.LoadUint64(&idb.batchesCreated)), nil)
 			statser.Gauge("backend.create.failed", float64(atomic.LoadUint64(&idb.batchesCreateFailed)), nil)
-			statser.Gauge("backend.retried", float64(atomic.LoadUint64(&idb.batchesRetried)), nil)
+			idb.batchesRetried.SendIfChanged(statser, "backend.retried", nil)
 			statser.Gauge("backend.dropped", float64(atomic.LoadUint64(&idb.batchesDropped)), nil)
 			statser.Gauge("backend.sent", float64(atomic.LoadUint64(&idb.batchesSent)), nil)
 			statser.Gauge("backend.series.sent", float64(atomic.LoadUint64(&idb.seriesSent)), nil)
@@ -455,7 +455,7 @@ func (idb *Client) post(ctx context.Context, buffer *bytes.Buffer) error {
 		case <-timer.C:
 		}
 
-		atomic.AddUint64(&idb.batchesRetried, 1)
+		atomic.AddUint64(&idb.batchesRetried.Cur, 1)
 	}
 }
 
