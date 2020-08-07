@@ -25,7 +25,7 @@ type DatagramParser struct {
 	// Counter fields below must be read/written only using atomic instructions.
 	// 64-bit fields must be the first fields in the struct to guarantee proper memory alignment.
 	// See https://golang.org/pkg/sync/atomic/#pkg-note-BUG
-	badLines        uint64
+	badLines        stats.ChangeGauge
 	metricsReceived uint64
 	eventsReceived  uint64
 
@@ -86,7 +86,7 @@ func (dp *DatagramParser) RunMetricsContext(ctx context.Context) {
 		case <-flushed:
 			statser.Gauge("parser.metrics_received", float64(atomic.LoadUint64(&dp.metricsReceived)), nil)
 			statser.Gauge("parser.events_received", float64(atomic.LoadUint64(&dp.eventsReceived)), nil)
-			statser.Gauge("parser.bad_lines_seen", float64(atomic.LoadUint64(&dp.badLines)), nil)
+			dp.badLines.SendIfChanged(statser, "parser.bad_lines_seen", nil)
 		}
 	}
 }
@@ -121,7 +121,7 @@ func (dp *DatagramParser) Run(ctx context.Context) {
 			}
 			atomic.AddUint64(&dp.metricsReceived, uint64(len(metrics)))
 			atomic.AddUint64(&dp.eventsReceived, accumE)
-			atomic.AddUint64(&dp.badLines, accumB)
+			atomic.AddUint64(&dp.badLines.Cur, accumB)
 		}
 	}
 }

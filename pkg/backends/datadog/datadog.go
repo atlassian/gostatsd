@@ -56,11 +56,11 @@ var (
 
 // Client represents a Datadog client.
 type Client struct {
-	batchesCreated uint64 // Accumulated number of batches created
-	batchesRetried uint64 // Accumulated number of batches retried (first send is not a retry)
-	batchesDropped uint64 // Accumulated number of batches aborted (data loss)
-	batchesSent    uint64 // Accumulated number of batches successfully sent
-	seriesSent     uint64 // Accumulated number of series successfully sent
+	batchesCreated uint64            // Accumulated number of batches created
+	batchesDropped uint64            // Accumulated number of batches aborted (data loss)
+	batchesSent    uint64            // Accumulated number of batches successfully sent
+	seriesSent     uint64            // Accumulated number of series successfully sent
+	batchesRetried stats.ChangeGauge // Accumulated number of batches retried (first send is not a retry)
 
 	logger                logrus.FieldLogger
 	apiKey                string
@@ -148,7 +148,7 @@ func (d *Client) Run(ctx context.Context) {
 			return
 		case <-flushed:
 			statser.Gauge("backend.created", float64(atomic.LoadUint64(&d.batchesCreated)), nil)
-			statser.Gauge("backend.retried", float64(atomic.LoadUint64(&d.batchesRetried)), nil)
+			d.batchesRetried.SendIfChanged(statser, "backend.retried", nil)
 			statser.Gauge("backend.dropped", float64(atomic.LoadUint64(&d.batchesDropped)), nil)
 			statser.Gauge("backend.sent", float64(atomic.LoadUint64(&d.batchesSent)), nil)
 			statser.Gauge("backend.series.sent", float64(atomic.LoadUint64(&d.seriesSent)), nil)
@@ -307,7 +307,7 @@ func (d *Client) post(ctx context.Context, buffer *bytes.Buffer, path, typeOfPos
 		case <-timer.C:
 		}
 
-		atomic.AddUint64(&d.batchesRetried, 1)
+		atomic.AddUint64(&d.batchesRetried.Cur, 1)
 	}
 }
 

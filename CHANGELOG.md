@@ -1,3 +1,7 @@
+28.2.0
+------
+- Changes how `parser.bad_lines_seen` and `backend.retried` metrics are sent.  They are now only sent on change.
+
 28.1.0
 ------
 - The Datadog backend will discard values that result in NaN or ±Inf since they can not be used with our JSON processing.
