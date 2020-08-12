@@ -1,3 +1,7 @@
+28.2.1
+------
+- Document how semver is used in the codebase.
+
 28.2.0
 ------
 - Changes how `parser.bad_lines_seen` and `backend.retried` metrics are sent.  They are now only sent on change.

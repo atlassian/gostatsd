@@ -374,6 +374,13 @@ Note that this project uses Go modules for dependency management.
 Documentation can be found via `go doc github.com/atlassian/gostatsd/pkg/statsd` or at
 https://godoc.org/github.com/atlassian/gostatsd/pkg/statsd
 
+Versioning
+----------
+Gostatsd uses semver versioning for both API and configuration settings, however it does not use it for packages.
+
+This is due to gostatsd being an application first and a library second.  Breaking API changes occur regularly, and
+the overhead of managing this is too burdensome.
+
 Contributors
 ------------
 
