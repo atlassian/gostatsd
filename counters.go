@@ -14,6 +14,11 @@ func NewCounter(timestamp Nanotime, value int64, source Source, tags Tags) Count
 	return Counter{Value: value, Timestamp: timestamp, Source: source, Tags: tags.Copy()}
 }
 
+func (c *Counter) AddTagsSetSource(additionalTags Tags, newSource Source) {
+	c.Tags = c.Tags.Concat(additionalTags)
+	c.Source = newSource
+}
+
 // Counters stores a map of counters by tags.
 type Counters map[string]map[string]Counter
 
