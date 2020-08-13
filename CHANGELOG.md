@@ -1,3 +1,8 @@
+Next
+----
+- Breaking internal metrics: This removes the `cloudprovider.items_queued` metric, and now tracks
+  the absolute number of hosts to look up, regardless of type.
+
 34.0.1
 ------
 - Forcing a new tag release to allow for docker release

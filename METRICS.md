@@ -53,8 +53,7 @@ Metrics:
 | cloudprovider.cache_refresh_negative        | gauge (cumulative)  |                              | The cumulative number of refreshes which had an error refreshing and used old data
 | cloudprovider.cache_hit                     | gauge (cumulative)  |                              | The cumulative number of cache hits (host was in the cache)
 | cloudprovider.cache_miss                    | gauge (cumulative)  |                              | The cumulative number of cache misses
-| cloudprovider.hosts_queued                  | gauge (flush)       | type                         | The absolute number of hosts waiting to be looked up
-| cloudprovider.items_queued                  | gauge (flush)       | type                         | The absolute number of metrics or events waiting for a host lookup to complete
+| cloudprovider.hosts_queued                  | gauge (flush)       |                              | The absolute number of hosts waiting to be looked up
 | http.forwarder.invalid                      | counter             |                              | The number of failures to prepare a batch of metrics to forward
 | http.forwarder.created                      | counter             |                              | The number of batches prepared for forwarding
 | http.forwarder.sent                         | counter             |                              | The number of batches successfully forwarded
@@ -70,7 +69,6 @@ Metrics:
 | version       | The git tag of the build
 | commit        | The short git commit of the build
 | backend       | The backend sending a particular metric
-| type          | Either metric or event for cloudprovider.hosts_queued, or event for cloudprovider.items_queued
 | result        | Success to indicate a batch of metrics was successfully processed, failure to indicate a batch of metrics was not processed, with additional failure tag for why)
 | failure       | The reason a batch of metrics was not processed
 | server-name   | The name of an http-server as specified in the config file
