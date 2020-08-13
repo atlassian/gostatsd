@@ -12,9 +12,6 @@ There are currently two supported cloud providers:
 
 All configuration is in a stanza named after the backend, and takes simple key value pairs.
 
-**Cloud providers should be disabled on the aggregation server when using http forwarding, as the source IP isn't
-propagated, and that information should be collected on the ingestion server.**
-
 aws
 ---
 ### TODO
