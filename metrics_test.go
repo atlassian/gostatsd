@@ -36,20 +36,20 @@ func TestMetricString(t *testing.T) {
 	}
 }
 
-func TestUpdateTags(t *testing.T) {
-	m := &Metric{}
-	m.FormatTagsKey()
-	require.EqualValues(t, "", m.TagsKey)
-	m.AddTagsSetSource(Tags{"foo"}, "source")
-	require.EqualValues(t, Tags{"foo"}, m.Tags)
-	require.EqualValues(t, "source", m.Source)
-	require.EqualValues(t, "", m.TagsKey)
-	m.FormatTagsKey()
-	require.EqualValues(t, "foo,s:source", m.TagsKey) // It's set
-	m.AddTagsSetSource(Tags{"foo2"}, "source2")
-	require.EqualValues(t, Tags{"foo", "foo2"}, m.Tags)
-	require.EqualValues(t, "source2", m.Source)
-	require.EqualValues(t, "", m.TagsKey) // It's cleared
-	m.FormatTagsKey()
-	require.EqualValues(t, "foo,foo2,s:source2", m.TagsKey)
+func TestAddTagsSetSource(t *testing.T) {
+	mCounter := Counter{}
+	mCounter.AddTagsSetSource(Tags{"foo"}, "source")
+	require.Equal(t, Tags{"foo"}, mCounter.Tags)
+
+	mGauge := Gauge{}
+	mGauge.AddTagsSetSource(Tags{"foo"}, "source")
+	require.Equal(t, Tags{"foo"}, mGauge.Tags)
+
+	mSet := Set{}
+	mSet.AddTagsSetSource(Tags{"foo"}, "source")
+	require.Equal(t, Tags{"foo"}, mSet.Tags)
+
+	mTimer := Timer{}
+	mTimer.AddTagsSetSource(Tags{"foo"}, "source")
+	require.Equal(t, Tags{"foo"}, mTimer.Tags)
 }

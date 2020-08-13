@@ -70,7 +70,7 @@ Metrics:
 | version       | The git tag of the build
 | commit        | The short git commit of the build
 | backend       | The backend sending a particular metric
-| type          | Either metric or event
+| type          | Either metric or event for cloudprovider.hosts_queued, or event for cloudprovider.items_queued
 | result        | Success to indicate a batch of metrics was successfully processed, failure to indicate a batch of metrics was not processed, with additional failure tag for why)
 | failure       | The reason a batch of metrics was not processed
 | server-name   | The name of an http-server as specified in the config file

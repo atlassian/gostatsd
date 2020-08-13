@@ -373,6 +373,7 @@ func (mm *MetricMap) String() string {
 }
 
 // AsMetrics will synthesize Metrics from the MetricMap and return them as a slice
+// TODO: Remove this function, it only supports tests now
 func (mm *MetricMap) AsMetrics() []*Metric {
 	var metrics []*Metric
 
