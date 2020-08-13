@@ -18,20 +18,19 @@ type CloudHandler struct {
 	statsCacheMiss uint64 // Cumulative number of cache misses
 
 	// All other stats fields may only be read or written by the main CloudHandler.Run goroutine
-	statsMetricItemsQueued uint64 // Absolute number of metrics queued, waiting for a CP to respond
 	statsMetricHostsQueued uint64 // Absolute number of IPs waiting for a CP to respond for metrics
 	statsEventItemsQueued  uint64 // Absolute number of events queued, waiting for a CP to respond
 	statsEventHostsQueued  uint64 // Absolute number of IPs waiting for a CP to respond for events
 
 	cachedInstances gostatsd.CachedInstances
 	handler         gostatsd.PipelineHandler
-	incomingMetrics chan []*gostatsd.Metric
+	incomingMetrics chan *gostatsd.MetricMap
 	incomingEvents  chan *gostatsd.Event
 
 	// emitChan triggers a write of all the current stats when it is given a Statser
 	emitChan        chan stats.Statser
 	awaitingEvents  map[gostatsd.Source][]*gostatsd.Event
-	awaitingMetrics map[gostatsd.Source][]*gostatsd.Metric
+	awaitingMetrics map[gostatsd.Source]*gostatsd.MetricMap
 	toLookupIPs     []gostatsd.Source
 	wg              sync.WaitGroup
 
@@ -43,11 +42,11 @@ func NewCloudHandler(cachedInstances gostatsd.CachedInstances, handler gostatsd.
 	return &CloudHandler{
 		cachedInstances: cachedInstances,
 		handler:         handler,
-		incomingMetrics: make(chan []*gostatsd.Metric),
+		incomingMetrics: make(chan *gostatsd.MetricMap),
 		incomingEvents:  make(chan *gostatsd.Event),
 		emitChan:        make(chan stats.Statser),
 		awaitingEvents:  make(map[gostatsd.Source][]*gostatsd.Event),
-		awaitingMetrics: make(map[gostatsd.Source][]*gostatsd.Metric),
+		awaitingMetrics: make(map[gostatsd.Source]*gostatsd.MetricMap),
 		estimatedTags:   handler.EstimatedTags() + cachedInstances.EstimatedTags(),
 	}
 }
@@ -57,35 +56,48 @@ func (ch *CloudHandler) EstimatedTags() int {
 	return ch.estimatedTags
 }
 
-func (ch *CloudHandler) processMetrics(ctx context.Context, metrics []*gostatsd.Metric) {
+func (ch *CloudHandler) DispatchMetricMap(ctx context.Context, mm *gostatsd.MetricMap) {
 	mmToDispatch := gostatsd.NewMetricMap()
-	var toHandle []*gostatsd.Metric
-	for _, m := range metrics {
-		if ch.updateTagsAndHostname(m, m.Source) {
-			mmToDispatch.Receive(m)
+	mmToHandle := gostatsd.NewMetricMap()
+	mm.Counters.Each(func(metricName string, tagsKey string, c gostatsd.Counter) {
+		if ch.updateTagsAndHostname(&c, c.Source) {
+			mmToDispatch.MergeCounter(metricName, gostatsd.FormatTagsKey(c.Source, c.Tags), c)
 		} else {
-			toHandle = append(toHandle, m)
+			mmToHandle.MergeCounter(metricName, tagsKey, c)
 		}
-	}
+	})
+	mm.Gauges.Each(func(metricName string, tagsKey string, g gostatsd.Gauge) {
+		if ch.updateTagsAndHostname(&g, g.Source) {
+			mmToDispatch.MergeGauge(metricName, gostatsd.FormatTagsKey(g.Source, g.Tags), g)
+		} else {
+			mmToHandle.MergeGauge(metricName, tagsKey, g)
+		}
+	})
+	mm.Timers.Each(func(metricName string, tagsKey string, t gostatsd.Timer) {
+		if ch.updateTagsAndHostname(&t, t.Source) {
+			mmToDispatch.MergeTimer(metricName, gostatsd.FormatTagsKey(t.Source, t.Tags), t)
+		} else {
+			mmToHandle.MergeTimer(metricName, tagsKey, t)
+		}
+	})
+	mm.Sets.Each(func(metricName string, tagsKey string, s gostatsd.Set) {
+		if ch.updateTagsAndHostname(&s, s.Source) {
+			mmToDispatch.MergeSet(metricName, gostatsd.FormatTagsKey(s.Source, s.Tags), s)
+		} else {
+			mmToHandle.MergeSet(metricName, tagsKey, s)
+		}
+	})
 
 	if !mmToDispatch.IsEmpty() {
 		ch.handler.DispatchMetricMap(ctx, mmToDispatch)
 	}
 
-	if len(toHandle) > 0 {
+	if !mmToHandle.IsEmpty() {
 		select {
 		case <-ctx.Done():
-		case ch.incomingMetrics <- toHandle:
+		case ch.incomingMetrics <- mmToHandle:
 		}
 	}
-}
-
-// DispatchMetricMap re-dispatches a MetricMap through CloudHandler.processMetrics
-// TODO: This is inefficient, and should be handled first class, however that is a major re-factor of
-//  the CloudHandler.  It is also recommended to not use a CloudHandler in an http receiver based
-//  service, as the IP is not propagated.
-func (ch *CloudHandler) DispatchMetricMap(ctx context.Context, mm *gostatsd.MetricMap) {
-	ch.processMetrics(ctx, mm.AsMetrics())
 }
 
 func (ch *CloudHandler) DispatchEvent(ctx context.Context, e *gostatsd.Event) {
@@ -150,7 +162,6 @@ func (ch *CloudHandler) emit(statser stats.Statser) {
 	statser.Gauge("cloudprovider.cache_miss", float64(atomic.LoadUint64(&ch.statsCacheMiss)), nil)
 	t := gostatsd.Tags{"type:metric"}
 	statser.Gauge("cloudprovider.hosts_queued", float64(ch.statsMetricHostsQueued), t)
-	statser.Gauge("cloudprovider.items_queued", float64(ch.statsMetricItemsQueued), t)
 	t = gostatsd.Tags{"type:event"}
 	statser.Gauge("cloudprovider.hosts_queued", float64(ch.statsEventHostsQueued), t)
 	statser.Gauge("cloudprovider.items_queued", float64(ch.statsEventItemsQueued), t)
@@ -192,12 +203,11 @@ func (ch *CloudHandler) Run(ctx context.Context) {
 }
 
 func (ch *CloudHandler) handleInstanceInfo(ctx context.Context, info gostatsd.InstanceInfo) {
-	metrics := ch.awaitingMetrics[info.IP]
-	if len(metrics) > 0 {
+	mm := ch.awaitingMetrics[info.IP]
+	if mm != nil {
 		delete(ch.awaitingMetrics, info.IP)
-		ch.statsMetricItemsQueued -= uint64(len(metrics))
 		ch.statsMetricHostsQueued--
-		go ch.updateAndDispatchMetrics(ctx, info.Instance, metrics)
+		go ch.updateAndDispatchMetrics(ctx, info.Instance, mm)
 	}
 	events := ch.awaitingEvents[info.IP]
 	if len(events) > 0 {
@@ -208,23 +218,41 @@ func (ch *CloudHandler) handleInstanceInfo(ctx context.Context, info gostatsd.In
 	}
 }
 
-func (ch *CloudHandler) handleIncomingMetrics(metrics []*gostatsd.Metric) {
-	for _, m := range metrics {
-		queue := ch.awaitingMetrics[m.Source]
-		ch.awaitingMetrics[m.Source] = append(queue, m)
-		if len(queue) == 0 && len(ch.awaitingEvents[m.Source]) == 0 {
-			// This is the first metric for that IP in the queue. Need to fetch an Instance for this IP.
-			ch.toLookupIPs = append(ch.toLookupIPs, m.Source)
-			ch.statsMetricHostsQueued++
-		}
+// prepareMetricQueue will ensure that ch.awaitingMetrics has a matching MetricMap for
+// source, and return it.  If it did not have one initially, it will also enqueue source
+// for lookup.  The functionality is overloaded to minimize code duplication.
+func (ch *CloudHandler) prepareMetricQueue(source gostatsd.Source) *gostatsd.MetricMap {
+	if queue, ok := ch.awaitingMetrics[source]; ok {
+		return queue
 	}
-	ch.statsMetricItemsQueued += uint64(len(metrics))
+	if len(ch.awaitingEvents[source]) == 0 {
+		ch.toLookupIPs = append(ch.toLookupIPs, source)
+		ch.statsMetricHostsQueued++
+	}
+	queue := gostatsd.NewMetricMap()
+	ch.awaitingMetrics[source] = queue
+	return queue
+}
+
+func (ch *CloudHandler) handleIncomingMetrics(mm *gostatsd.MetricMap) {
+	mm.Counters.Each(func(metricName string, tagsKey string, c gostatsd.Counter) {
+		ch.prepareMetricQueue(c.Source).MergeCounter(metricName, tagsKey, c)
+	})
+	mm.Gauges.Each(func(metricName string, tagsKey string, g gostatsd.Gauge) {
+		ch.prepareMetricQueue(g.Source).MergeGauge(metricName, tagsKey, g)
+	})
+	mm.Sets.Each(func(metricName string, tagsKey string, s gostatsd.Set) {
+		ch.prepareMetricQueue(s.Source).MergeSet(metricName, tagsKey, s)
+	})
+	mm.Timers.Each(func(metricName string, tagsKey string, t gostatsd.Timer) {
+		ch.prepareMetricQueue(t.Source).MergeTimer(metricName, tagsKey, t)
+	})
 }
 
 func (ch *CloudHandler) handleIncomingEvent(e *gostatsd.Event) {
 	queue := ch.awaitingEvents[e.Source]
 	ch.awaitingEvents[e.Source] = append(queue, e)
-	if len(queue) == 0 && len(ch.awaitingMetrics[e.Source]) == 0 {
+	if len(queue) == 0 && ch.awaitingMetrics[e.Source] == nil {
 		// This is the first event for that IP in the queue. Need to fetch an Instance for this IP.
 		ch.toLookupIPs = append(ch.toLookupIPs, e.Source)
 		ch.statsEventHostsQueued++
@@ -232,13 +260,25 @@ func (ch *CloudHandler) handleIncomingEvent(e *gostatsd.Event) {
 	ch.statsEventItemsQueued++
 }
 
-func (ch *CloudHandler) updateAndDispatchMetrics(ctx context.Context, instance *gostatsd.Instance, metrics []*gostatsd.Metric) {
-	mm := gostatsd.NewMetricMap()
-	for _, m := range metrics {
-		updateInplace(m, instance)
-		mm.Receive(m)
-	}
-	ch.handler.DispatchMetricMap(ctx, mm)
+func (ch *CloudHandler) updateAndDispatchMetrics(ctx context.Context, instance *gostatsd.Instance, mmIn *gostatsd.MetricMap) {
+	mmOut := gostatsd.NewMetricMap()
+	mmIn.Counters.Each(func(metricName string, tagsKey string, c gostatsd.Counter) {
+		updateInplace(&c, instance)
+		mmOut.MergeCounter(metricName, gostatsd.FormatTagsKey(c.Source, c.Tags), c)
+	})
+	mmIn.Gauges.Each(func(metricName string, tagsKey string, g gostatsd.Gauge) {
+		updateInplace(&g, instance)
+		mmOut.MergeGauge(metricName, gostatsd.FormatTagsKey(g.Source, g.Tags), g)
+	})
+	mmIn.Sets.Each(func(metricName string, tagsKey string, s gostatsd.Set) {
+		updateInplace(&s, instance)
+		mmOut.MergeSet(metricName, gostatsd.FormatTagsKey(s.Source, s.Tags), s)
+	})
+	mmIn.Timers.Each(func(metricName string, tagsKey string, t gostatsd.Timer) {
+		updateInplace(&t, instance)
+		mmOut.MergeTimer(metricName, gostatsd.FormatTagsKey(t.Source, t.Tags), t)
+	})
+	ch.handler.DispatchMetricMap(ctx, mmOut)
 }
 
 func (ch *CloudHandler) updateAndDispatchEvents(ctx context.Context, instance *gostatsd.Instance, events []*gostatsd.Event) {
