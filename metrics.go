@@ -53,17 +53,6 @@ type Metric struct {
 	DoneFunc  func()     // Returns the metric to the pool. May be nil. Call Metric.Done(), not this.
 }
 
-func (m *Metric) AddTagsSetSource(additionalTags Tags, newSource Source) {
-	if len(additionalTags) > 0 {
-		m.Tags = m.Tags.Concat(additionalTags)
-		m.TagsKey = ""
-	}
-	if newSource != m.Source {
-		m.Source = newSource
-		m.TagsKey = ""
-	}
-}
-
 // Reset is used to reset a metric to as clean state, called on re-use from the pool.
 func (m *Metric) Reset() {
 	m.Name = ""
