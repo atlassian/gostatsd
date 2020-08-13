@@ -1,3 +1,7 @@
+28.3.0
+------
+- Refactor the cloud handler to use the modern pipeline.  This removes the `cloudprovider.items_queued` metric with `type:metric` tag.
+
 28.2.1
 ------
 - Document how semver is used in the codebase.
