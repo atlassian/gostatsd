@@ -1,6 +1,8 @@
 package gostatsd
 
-import "github.com/spf13/viper"
+import (
+	"github.com/spf13/viper"
+)
 
 // Timer is used for storing aggregated values for timers.
 type Timer struct {
@@ -35,6 +37,11 @@ func NewTimer(timestamp Nanotime, values []float64, source Source, tags Tags) Ti
 // NewTimerValues initialises a new timer only from Values array
 func NewTimerValues(values []float64) Timer {
 	return NewTimer(Nanotime(0), values, "", nil)
+}
+
+func (t *Timer) AddTagsSetSource(additionalTags Tags, newSource Source) {
+	t.Tags = t.Tags.Concat(additionalTags)
+	t.Source = newSource
 }
 
 // Timers stores a map of timers by tags.
@@ -108,5 +115,4 @@ func DisabledSubMetrics(viper *viper.Viper) TimerSubtypes {
 		SumSquares:     subViper.GetBool("sum-squares"),
 		SumSquaresPct:  subViper.GetBool("sum-squares-pct"),
 	}
-
 }

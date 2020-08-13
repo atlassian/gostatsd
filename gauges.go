@@ -13,6 +13,11 @@ func NewGauge(timestamp Nanotime, value float64, source Source, tags Tags) Gauge
 	return Gauge{Value: value, Timestamp: timestamp, Source: source, Tags: tags.Copy()}
 }
 
+func (g *Gauge) AddTagsSetSource(additionalTags Tags, newSource Source) {
+	g.Tags = g.Tags.Concat(additionalTags)
+	g.Source = newSource
+}
+
 // Gauges stores a map of gauges by tags.
 type Gauges map[string]map[string]Gauge
 
