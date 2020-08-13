@@ -13,6 +13,11 @@ func NewSet(timestamp Nanotime, values map[string]struct{}, source Source, tags 
 	return Set{Values: values, Timestamp: timestamp, Source: source, Tags: tags.Copy()}
 }
 
+func (s *Set) AddTagsSetSource(additionalTags Tags, newSource Source) {
+	s.Tags = s.Tags.Concat(additionalTags)
+	s.Source = newSource
+}
+
 // Sets stores a map of sets by tags.
 type Sets map[string]map[string]Set
 
