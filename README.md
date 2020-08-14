@@ -216,9 +216,6 @@ Cloud providers are a way to automatically enrich metrics with metadata from a c
 
 Refer to [cloud providers](CLOUDPROVIDERS.md) for configuration options for the cloud providers.
 
-They should be disabled on the aggregation server when using http forwarding, as the source IP isn't propagated, and
-that information should be collected on the ingestion server.
-
 
 Configuring timer sub-metrics
 -----------------------------
