@@ -13,6 +13,7 @@ import (
 	"github.com/ash2k/stager/wait"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestSend(t *testing.T) {
@@ -140,6 +141,22 @@ func TestSendCallsCallbackOnCtxDone1(t *testing.T) {
 		Buf: make(<-chan *bytes.Buffer),
 	}
 	cbWg.Wait()
+}
+
+func TestSenderCleanup(t *testing.T) {
+	s := Sender{
+		Sink: make(chan Stream, 1),
+	}
+	called := false
+	s.Sink <- Stream{
+		Cb: func(errs []error) {
+			called = true
+		},
+	}
+	cancelledCtx, cancelFunc := context.WithCancel(context.Background())
+	cancelFunc()
+	s.cleanup(cancelledCtx)
+	require.True(t, called)
 }
 
 func TestSendCallsCallbackOnCtxDone2(t *testing.T) {

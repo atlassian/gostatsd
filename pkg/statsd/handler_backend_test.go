@@ -155,3 +155,32 @@ func TestDispatchMetricMapShouldDistributeMetrics(t *testing.T) {
 		}
 	}
 }
+
+func TestBackendHandlerDispatchMetricMapTerminates(t *testing.T) {
+	t.Parallel()
+	h := NewBackendHandler(nil, 0, 1, 0, newTestFactory())
+	cancelledCtx, cancelFunc := context.WithCancel(context.Background())
+	cancelFunc()
+	mm := gostatsd.NewMetricMap()
+	mm.Receive(&gostatsd.Metric{
+		Name:        "metric",
+		Value:       1,
+		Rate:        1,
+		Timestamp:   1,
+		Type:        gostatsd.COUNTER,
+	})
+	// perWorkerBufferSize is 0 (blocking channel), and we never call BackendHandler.Run, so we can be sure to
+	// hit the "context has cancelled" code path.
+	h.DispatchMetricMap(cancelledCtx, mm)
+}
+
+func TestBackendHandlerProcessTerminates(t *testing.T) {
+	t.Parallel()
+	h := NewBackendHandler(nil, 0, 1, 0, newTestFactory())
+	cancelledCtx, cancelFunc := context.WithCancel(context.Background())
+	cancelFunc()
+	// perWorkerBufferSize is 0 (blocking channel), and we never call BackendHandler.Run, so we can be sure to
+	// hit the "context has cancelled" code path.
+	waitFunc := h.Process(cancelledCtx, nil)
+	waitFunc()
+}

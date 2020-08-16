@@ -21,16 +21,25 @@ func TestTagStripMergesCounters(t *testing.T) {
 	th := NewTagHandler(tch, gostatsd.Tags{}, []Filter{
 		{DropTags: gostatsd.StringMatchList{gostatsd.NewStringMatch("key2:*")}},
 	})
+
 	mm := gostatsd.NewMetricMap()
-	mm.Receive(&gostatsd.Metric{Type: gostatsd.COUNTER, Name: "metric", Timestamp: 20, Tags: gostatsd.Tags{"key:value", "key2:value2"}, Value: 1, Rate: 0.1})
-	mm.Receive(&gostatsd.Metric{Type: gostatsd.COUNTER, Name: "metric", Timestamp: 10, Tags: gostatsd.Tags{"key:value"}, Value: 20, Rate: 1})
-	th.DispatchMetricMap(context.Background(), mm)
+	mm.Receive(&gostatsd.Metric{Type: gostatsd.COUNTER, Name: "metric", Timestamp: 10, Tags: gostatsd.Tags{"key:value"}, Value: 20, Rate: 1})                              // Will merge in to metric with TS 20
+	mm.Receive(&gostatsd.Metric{Type: gostatsd.COUNTER, Name: "metric", Timestamp: 20, Tags: gostatsd.Tags{"key:value", "key2:value2"}, Value: 1, Rate: 0.1})              // key2:value2 will be dropped, and TS 10 will merge in to it
+	mm.Receive(&gostatsd.Metric{Type: gostatsd.COUNTER, Name: "metric", Timestamp: 30, Tags: gostatsd.Tags{"key:value", "key2:value2", "key3:value3"}, Value: 1, Rate: 1}) // key2:value2 will be dropped, but it won't merge in to anything
 
 	expected := gostatsd.NewMetricMap()
 	expected.Counters["metric"] = map[string]gostatsd.Counter{
-		"key:value": {Timestamp: 20, Value: 30, Tags: gostatsd.Tags{"key:value"}},
+		"key:value":             {Timestamp: 20, Value: 30, Tags: gostatsd.Tags{"key:value"}},
+		"key3:value3,key:value": {Timestamp: 30, Value: 1, Tags: gostatsd.Tags{"key3:value3", "key:value"}},
 	}
-	require.EqualValues(t, expected, tch.mm[0])
+
+	// TagHandler.DispatchMetricMap has 2 possible executing orderings when resolving a conflicting, depending on map
+	// traversal order which is random by design, so we run the core of the test a few times, validating every iteration.
+	for i := 0; i < 50; i++ {
+		th.DispatchMetricMap(context.Background(), mm)
+		require.EqualValues(t, expected, tch.mm[0])
+		tch.mm = nil
+	}
 }
 
 func TestTagStripMergesGauges(t *testing.T) {
@@ -39,16 +48,25 @@ func TestTagStripMergesGauges(t *testing.T) {
 	th := NewTagHandler(tch, gostatsd.Tags{}, []Filter{
 		{DropTags: gostatsd.StringMatchList{gostatsd.NewStringMatch("key2:*")}},
 	})
+
 	mm := gostatsd.NewMetricMap()
-	mm.Receive(&gostatsd.Metric{Type: gostatsd.GAUGE, Name: "metric", Timestamp: 10, Tags: gostatsd.Tags{"key:value", "key2:value2"}, Value: 10})
-	mm.Receive(&gostatsd.Metric{Type: gostatsd.GAUGE, Name: "metric", Timestamp: 20, Tags: gostatsd.Tags{"key:value"}, Value: 20})
-	th.DispatchMetricMap(context.Background(), mm)
+	mm.Receive(&gostatsd.Metric{Type: gostatsd.GAUGE, Name: "metric", Timestamp: 10, Tags: gostatsd.Tags{"key:value"}, Value: 10})                               // Will merge in to metric with TS 20
+	mm.Receive(&gostatsd.Metric{Type: gostatsd.GAUGE, Name: "metric", Timestamp: 20, Tags: gostatsd.Tags{"key:value", "key2:value2"}, Value: 20})                // key2:value2 will be dropped, and TS 10 will merge in to it
+	mm.Receive(&gostatsd.Metric{Type: gostatsd.GAUGE, Name: "metric", Timestamp: 30, Tags: gostatsd.Tags{"key:value", "key2:value2", "key3:value3"}, Value: 30}) // key2:value2 will be dropped, but it won't merge in to anything
 
 	expected := gostatsd.NewMetricMap()
 	expected.Gauges["metric"] = map[string]gostatsd.Gauge{
-		"key:value": {Timestamp: 20, Value: 20, Tags: gostatsd.Tags{"key:value"}},
+		"key:value":             {Timestamp: 20, Value: 20, Tags: gostatsd.Tags{"key:value"}},
+		"key3:value3,key:value": {Timestamp: 30, Value: 30, Tags: gostatsd.Tags{"key3:value3", "key:value"}},
 	}
-	require.EqualValues(t, expected, tch.mm[0])
+
+	// TagHandler.DispatchMetricMap has 2 possible executing orderings when resolving a conflicting, depending on map
+	// traversal order which is random by design, so we run the core of the test a few times, validating every iteration.
+	for i := 0; i < 50; i++ {
+		th.DispatchMetricMap(context.Background(), mm)
+		require.EqualValues(t, expected, tch.mm[0])
+		tch.mm = nil
+	}
 }
 
 func TestTagStripMergesTimers(t *testing.T) {
@@ -57,19 +75,27 @@ func TestTagStripMergesTimers(t *testing.T) {
 	th := NewTagHandler(tch, gostatsd.Tags{}, []Filter{
 		{DropTags: gostatsd.StringMatchList{gostatsd.NewStringMatch("key2:*")}},
 	})
-	mm := gostatsd.NewMetricMap()
-	mm.Receive(&gostatsd.Metric{Type: gostatsd.TIMER, Name: "metric", Timestamp: 10, Tags: gostatsd.Tags{"key:value", "key2:value2"}, Value: 10, Rate: 1})
-	mm.Receive(&gostatsd.Metric{Type: gostatsd.TIMER, Name: "metric", Timestamp: 20, Tags: gostatsd.Tags{"key:value"}, Value: 20, Rate: 1})
-	th.DispatchMetricMap(context.Background(), mm)
 
-	// Make sure the actual values are deterministic
-	sort.Float64s(tch.mm[0].Timers["metric"]["key:value"].Values)
+	mm := gostatsd.NewMetricMap()
+	mm.Receive(&gostatsd.Metric{Type: gostatsd.TIMER, Name: "metric", Timestamp: 10, Tags: gostatsd.Tags{"key:value"}, Value: 10, Rate: 1})                               // Will merge in to metric with TS 20
+	mm.Receive(&gostatsd.Metric{Type: gostatsd.TIMER, Name: "metric", Timestamp: 20, Tags: gostatsd.Tags{"key:value", "key2:value2"}, Value: 20, Rate: 1})                // key2:value2 will be dropped, and TS 10 will merge in to it
+	mm.Receive(&gostatsd.Metric{Type: gostatsd.TIMER, Name: "metric", Timestamp: 30, Tags: gostatsd.Tags{"key:value", "key2:value2", "key3:value3"}, Value: 30, Rate: 1}) // key2:value2 will be dropped, but it won't merge in to anything
 
 	expected := gostatsd.NewMetricMap()
 	expected.Timers["metric"] = map[string]gostatsd.Timer{
-		"key:value": {Timestamp: 20, Values: []float64{10, 20}, Tags: gostatsd.Tags{"key:value"}, SampledCount: 2},
+		"key:value":             {Timestamp: 20, Values: []float64{10, 20}, Tags: gostatsd.Tags{"key:value"}, SampledCount: 2},
+		"key3:value3,key:value": {Timestamp: 30, Values: []float64{30}, Tags: gostatsd.Tags{"key3:value3", "key:value"}, SampledCount: 1},
 	}
-	require.EqualValues(t, expected, tch.mm[0])
+
+	// TagHandler.DispatchMetricMap has 2 possible executing orderings when resolving a conflicting, depending on map
+	// traversal order which is random by design, so we run the core of the test a few times, validating every iteration.
+	for i := 0; i < 50; i++ {
+		th.DispatchMetricMap(context.Background(), mm)
+		// Make sure the actual values are deterministic
+		sort.Float64s(tch.mm[0].Timers["metric"]["key:value"].Values)
+		require.EqualValues(t, expected, tch.mm[0])
+		tch.mm = nil
+	}
 }
 
 func TestTagStripMergesSets(t *testing.T) {
@@ -78,16 +104,25 @@ func TestTagStripMergesSets(t *testing.T) {
 	th := NewTagHandler(tch, gostatsd.Tags{}, []Filter{
 		{DropTags: gostatsd.StringMatchList{gostatsd.NewStringMatch("key2:*")}},
 	})
+
 	mm := gostatsd.NewMetricMap()
-	mm.Receive(&gostatsd.Metric{Type: gostatsd.SET, Name: "metric", Timestamp: 10, Tags: gostatsd.Tags{"key:value", "key2:value2"}, StringValue: "abc"})
-	mm.Receive(&gostatsd.Metric{Type: gostatsd.SET, Name: "metric", Timestamp: 20, Tags: gostatsd.Tags{"key:value"}, StringValue: "def"})
-	th.DispatchMetricMap(context.Background(), mm)
+	mm.Receive(&gostatsd.Metric{Type: gostatsd.SET, Name: "metric", Timestamp: 10, Tags: gostatsd.Tags{"key:value"}, StringValue: "abc"})                               // Will merge in to metric with TS 20
+	mm.Receive(&gostatsd.Metric{Type: gostatsd.SET, Name: "metric", Timestamp: 20, Tags: gostatsd.Tags{"key:value", "key2:value2"}, StringValue: "def"})                // key2:value2 will be dropped, and TS 10 will merge in to it
+	mm.Receive(&gostatsd.Metric{Type: gostatsd.SET, Name: "metric", Timestamp: 30, Tags: gostatsd.Tags{"key:value", "key2:value2", "key3:value3"}, StringValue: "ghi"}) // key2:value2 will be dropped, but it won't merge in to anything
 
 	expected := gostatsd.NewMetricMap()
 	expected.Sets["metric"] = map[string]gostatsd.Set{
 		"key:value": {Timestamp: 20, Values: map[string]struct{}{"abc": {}, "def": {}}, Tags: gostatsd.Tags{"key:value"}},
+		"key3:value3,key:value": {Timestamp: 30, Values: map[string]struct{}{"ghi": {}}, Tags: gostatsd.Tags{"key3:value3", "key:value"}},
 	}
-	require.EqualValues(t, expected, tch.mm[0])
+
+	// TagHandler.DispatchMetricMap has 2 possible executing orderings when resolving a conflicting, depending on map
+	// traversal order which is random by design, so we run the core of the test a few times, validating every iteration.
+	for i := 0; i < 50; i++ {
+		th.DispatchMetricMap(context.Background(), mm)
+		require.EqualValues(t, expected, tch.mm[0])
+		tch.mm = nil
+	}
 }
 
 func TestFilterPassesNoFilters(t *testing.T) {
