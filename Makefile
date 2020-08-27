@@ -8,7 +8,9 @@ GIT_HASH ?= $$(git rev-parse --short HEAD)
 GOBUILD_VERSION_ARGS := -ldflags "-s -X $(VERSION_VAR)=$(REPO_VERSION) -X $(GIT_VAR)=$(GIT_HASH) -X $(BUILD_DATE_VAR)=$(BUILD_DATE)"
 GOBUILD_VERSION_ARGS_WITH_SYMS := -ldflags "-X $(VERSION_VAR)=$(REPO_VERSION) -X $(GIT_VAR)=$(GIT_HASH) -X $(BUILD_DATE_VAR)=$(BUILD_DATE)"
 BINARY_NAME := gostatsd
-IMAGE_NAME := atlassianlabs/$(BINARY_NAME)
+CPU_ARCH ?= amd64
+MANIFEST_NAME := atlassianlabs/$(BINARY_NAME)
+IMAGE_NAME := $(MANIFEST_NAME)-$(CPU_ARCH)
 ARCH ?= $$(uname -s | tr A-Z a-z)
 GOVERSION := 1.13.6  # Keep in sync with .travis.yml and README.md
 GP := /gopath
@@ -140,23 +142,35 @@ docker-symbols: pb/gostatsd.pb.go
 
 release-hash: docker
 	docker push $(IMAGE_NAME):$(GIT_HASH)
+	DOCKER_CLI_EXPERIMENTAL=enabled docker manifest create -a $(MANIFEST_NAME):$(GIT_HASH) $(IMAGE_NAME):$(GIT_HASH)
+	DOCKER_CLI_EXPERIMENTAL=enabled docker manifest push $(MANIFEST_NAME):$(GIT_HASH)
 
 release-normal: release-hash
 	docker tag $(IMAGE_NAME):$(GIT_HASH) $(IMAGE_NAME):latest
 	docker push $(IMAGE_NAME):latest
+	DOCKER_CLI_EXPERIMENTAL=enabled docker manifest create -a $(MANIFEST_NAME):latest $(IMAGE_NAME):latest
+	DOCKER_CLI_EXPERIMENTAL=enabled docker manifest push $(MANIFEST_NAME):latest
 	docker tag $(IMAGE_NAME):$(GIT_HASH) $(IMAGE_NAME):$(REPO_VERSION)
 	docker push $(IMAGE_NAME):$(REPO_VERSION)
+	DOCKER_CLI_EXPERIMENTAL=enabled docker manifest create -a $(MANIFEST_NAME):$(REPO_VERSION) $(IMAGE_NAME):$(REPO_VERSION)
+	DOCKER_CLI_EXPERIMENTAL=enabled docker manifest push $(MANIFEST_NAME):$(REPO_VERSION)
 
 release-hash-race: docker-race
 	docker push $(IMAGE_NAME):$(GIT_HASH)-race
+	DOCKER_CLI_EXPERIMENTAL=enabled docker manifest create -a $(MANIFEST_NAME):$(GIT_HASH)-race $(IMAGE_NAME):$(GIT_HASH)-race
+	DOCKER_CLI_EXPERIMENTAL=enabled docker manifest push $(MANIFEST_NAME):$(GIT_HASH)-race
 
 release-race: docker-race
 	docker tag $(IMAGE_NAME):$(GIT_HASH)-race $(IMAGE_NAME):$(REPO_VERSION)-race
 	docker push $(IMAGE_NAME):$(REPO_VERSION)-race
+	DOCKER_CLI_EXPERIMENTAL=enabled docker manifest create -a $(MANIFEST_NAME):$(REPO_VERSION)-race $(IMAGE_NAME):$(REPO_VERSION)-race
+	DOCKER_CLI_EXPERIMENTAL=enabled docker manifest push $(MANIFEST_NAME):$(REPO_VERSION)-race
 
 release-symbols: docker-symbols
 	docker tag $(IMAGE_NAME):$(GIT_HASH)-syms $(IMAGE_NAME):$(REPO_VERSION)-syms
 	docker push $(IMAGE_NAME):$(REPO_VERSION)-syms
+	DOCKER_CLI_EXPERIMENTAL=enabled docker manifest create -a $(MANIFEST_NAME):$(REPO_VERSION)-syms $(IMAGE_NAME):$(REPO_VERSION)-syms
+	DOCKER_CLI_EXPERIMENTAL=enabled docker manifest push $(MANIFEST_NAME):$(REPO_VERSION)-syms
 
 release: release-normal release-race release-symbols
 
