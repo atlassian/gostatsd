@@ -51,19 +51,29 @@ func (f *flush) addMetricf(metricType metricType, value float64, source gostatsd
 }
 
 // addMetric adds a metric to the series.
+// If the value is non-numeric (in the case of NaN and Inf values), the value is coerced into a numeric value.
 func (f *flush) addMetric(metricType metricType, value float64, source gostatsd.Source, tags gostatsd.Tags, name string) {
-	if math.IsInf(value, 1) || math.IsInf(value, -1) || math.IsNaN(value) {
-		// The value can not be represented within the JSON payload so it is to be discarded.
-		return
-	}
 	f.ts.Series = append(f.ts.Series, metric{
 		Host:     string(source),
 		Interval: f.flushIntervalSec,
 		Metric:   name,
-		Points:   [1]point{{f.timestamp, value}},
+		Points:   [1]point{{f.timestamp, coerceToNumeric(value)}},
 		Tags:     tags,
 		Type:     metricType,
 	})
+}
+
+// coerceToNumeric will convert non-numeric NaN and Inf values to a numeric value.
+// If v is a numeric, the same value is returned.
+func coerceToNumeric(v float64) float64 {
+	if math.IsNaN(v) {
+		return -1
+	} else if math.IsInf(v, 1) {
+		return math.MaxFloat64
+	} else if math.IsInf(v, -1) {
+		return -math.MaxFloat64
+	}
+	return v
 }
 
 func (f *flush) maybeFlush() {
