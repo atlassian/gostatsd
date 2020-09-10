@@ -1,3 +1,8 @@
+28.3.0
+------
+- Rather than dropping data points, the Datadog backend will coerce non-numeric values resulting from aggregation to numeric.
+`NaN` is converted to -1, `+Inf` to float64 maximum, and `-Inf` to float64 minimum.
+
 28.2.1
 ------
 - Document how semver is used in the codebase.
