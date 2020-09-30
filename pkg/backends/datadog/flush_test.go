@@ -19,7 +19,7 @@ func TestCoerceToNumeric(t *testing.T) {
 		{"Numeric value should return unchanged", 12_345, 12_345},
 		{"Numeric value should return unchanged", -12_345, -12_345},
 		{"Numeric value should return unchanged", math.MaxFloat64, math.MaxFloat64},
-		{"-Inf should return minimum float value", -math.MaxFloat64, -math.MaxFloat64},
+		{"Numeric value should return unchanged", -math.MaxFloat64, -math.MaxFloat64},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
