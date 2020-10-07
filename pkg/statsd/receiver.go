@@ -10,8 +10,8 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"github.com/atlassian/gostatsd"
+	"github.com/atlassian/gostatsd/internal/pool"
 	"github.com/atlassian/gostatsd/pkg/fakesocket"
-	"github.com/atlassian/gostatsd/pkg/pool"
 	"github.com/atlassian/gostatsd/pkg/stats"
 )
 

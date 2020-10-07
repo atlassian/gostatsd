@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/atlassian/gostatsd"
-	"github.com/atlassian/gostatsd/pkg/pool"
+	"github.com/atlassian/gostatsd/internal/pool"
 )
 
 func TestMetricsLexer(t *testing.T) {
