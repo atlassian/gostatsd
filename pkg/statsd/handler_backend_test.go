@@ -163,11 +163,11 @@ func TestBackendHandlerDispatchMetricMapTerminates(t *testing.T) {
 	cancelFunc()
 	mm := gostatsd.NewMetricMap()
 	mm.Receive(&gostatsd.Metric{
-		Name:        "metric",
-		Value:       1,
-		Rate:        1,
-		Timestamp:   1,
-		Type:        gostatsd.COUNTER,
+		Name:      "metric",
+		Value:     1,
+		Rate:      1,
+		Timestamp: 1,
+		Type:      gostatsd.COUNTER,
 	})
 	// perWorkerBufferSize is 0 (blocking channel), and we never call BackendHandler.Run, so we can be sure to
 	// hit the "context has cancelled" code path.

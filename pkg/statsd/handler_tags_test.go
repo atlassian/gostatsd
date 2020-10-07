@@ -112,7 +112,7 @@ func TestTagStripMergesSets(t *testing.T) {
 
 	expected := gostatsd.NewMetricMap()
 	expected.Sets["metric"] = map[string]gostatsd.Set{
-		"key:value": {Timestamp: 20, Values: map[string]struct{}{"abc": {}, "def": {}}, Tags: gostatsd.Tags{"key:value"}},
+		"key:value":             {Timestamp: 20, Values: map[string]struct{}{"abc": {}, "def": {}}, Tags: gostatsd.Tags{"key:value"}},
 		"key3:value3,key:value": {Timestamp: 30, Values: map[string]struct{}{"ghi": {}}, Tags: gostatsd.Tags{"key3:value3", "key:value"}},
 	}
 
