@@ -1,6 +1,6 @@
 module github.com/atlassian/gostatsd
 
-go 1.13
+go 1.15
 
 require (
 	github.com/ash2k/stager v0.0.0-20170622123058-6e9c7b0eacd4
