@@ -67,7 +67,7 @@ func TestSendCallsCallbacksOnMainCtxDone(t *testing.T) {
 		ConnFactory: func() (net.Conn, error) {
 			return nil, errors.New("(donotwant)")
 		},
-		Sink: make(chan Stream, 1),
+		Sink: make(chan Stream),
 		BufPool: sync.Pool{
 			New: func() interface{} {
 				return new(bytes.Buffer)
