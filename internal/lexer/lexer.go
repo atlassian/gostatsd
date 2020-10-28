@@ -1,4 +1,4 @@
-package statsd
+package lexer
 
 import (
 	"bytes"
@@ -10,7 +10,7 @@ import (
 	"github.com/atlassian/gostatsd/internal/pool"
 )
 
-type lexer struct {
+type Lexer struct {
 	input         []byte
 	len           uint32
 	start         uint32
@@ -24,7 +24,7 @@ type lexer struct {
 	err           error
 	sampling      float64
 
-	metricPool *pool.MetricPool
+	MetricPool *pool.MetricPool
 }
 
 // assumes we don't have \x00 bytes in input.
@@ -54,7 +54,7 @@ var alertError = []byte("error")
 var alertWarning = []byte("warning")
 var alertSuccess = []byte("success")
 
-func (l *lexer) next() byte {
+func (l *Lexer) next() byte {
 	if l.pos >= l.len {
 		return eof
 	}
@@ -63,7 +63,7 @@ func (l *lexer) next() byte {
 	return b
 }
 
-func (l *lexer) run(input []byte, namespace string) (*gostatsd.Metric, *gostatsd.Event, error) {
+func (l *Lexer) Run(input []byte, namespace string) (*gostatsd.Metric, *gostatsd.Event, error) {
 	l.input = input
 	l.namespace = namespace
 	l.len = uint32(len(l.input))
@@ -95,10 +95,10 @@ func (l *lexer) run(input []byte, namespace string) (*gostatsd.Metric, *gostatsd
 	return l.m, l.e, nil
 }
 
-type stateFn func(*lexer) stateFn
+type stateFn func(*Lexer) stateFn
 
 // check the first byte for special Datadog type.
-func lexSpecial(l *lexer) stateFn {
+func lexSpecial(l *Lexer) stateFn {
 	switch b := l.next(); b {
 	case '_':
 		return lexDatadogSpecial
@@ -107,7 +107,7 @@ func lexSpecial(l *lexer) stateFn {
 		return nil
 	default:
 		l.pos--
-		l.m = l.metricPool.Get()
+		l.m = l.MetricPool.Get()
 		// Pull the tags from the metric, because it may have an empty buffer we can reuse.
 		l.tags = l.m.Tags
 		return lexKeySep
@@ -115,7 +115,7 @@ func lexSpecial(l *lexer) stateFn {
 }
 
 // lex until we find the colon separator between key and value.
-func lexKeySep(l *lexer) stateFn {
+func lexKeySep(l *Lexer) stateFn {
 	for {
 		switch b := l.next(); b {
 		case '/':
@@ -142,7 +142,7 @@ func lexKeySep(l *lexer) stateFn {
 }
 
 // lex Datadog special type.
-func lexDatadogSpecial(l *lexer) stateFn {
+func lexDatadogSpecial(l *Lexer) stateFn {
 	switch b := l.next(); b {
 	// _e{title.length,text.length}:title|text|d:date_happened|h:hostname|p:priority|t:alert_type|#tag1,tag2
 	case 'e':
@@ -158,7 +158,7 @@ func lexDatadogSpecial(l *lexer) stateFn {
 	}
 }
 
-func lexEventBody(l *lexer) stateFn {
+func lexEventBody(l *Lexer) stateFn {
 	if l.len-l.pos < l.eventTitleLen+1+l.eventTextLen {
 		l.err = errNotEnoughData
 		return nil
@@ -174,7 +174,7 @@ func lexEventBody(l *lexer) stateFn {
 	return lexEventAttributes
 }
 
-func lexEventAttributes(l *lexer) stateFn {
+func lexEventAttributes(l *Lexer) stateFn {
 	switch b := l.next(); b {
 	case '|':
 		return lexEventAttribute
@@ -185,11 +185,11 @@ func lexEventAttributes(l *lexer) stateFn {
 	return nil
 }
 
-func lexEventAttribute(l *lexer) stateFn {
+func lexEventAttribute(l *Lexer) stateFn {
 	// d:date_happened|h:hostname|p:priority|t:alert_type|#tag1,tag2
 	switch b := l.next(); b {
 	case 'd':
-		return lexAssert(':', lexUint(func(l *lexer, value uint64) stateFn {
+		return lexAssert(':', lexUint(func(l *Lexer, value uint64) stateFn {
 			if value > math.MaxInt64 {
 				l.err = errOverflow
 				return nil
@@ -198,17 +198,17 @@ func lexEventAttribute(l *lexer) stateFn {
 			return lexEventAttributes
 		}))
 	case 'h':
-		return lexAssert(':', lexUntil('|', func(l *lexer, data []byte) stateFn {
+		return lexAssert(':', lexUntil('|', func(l *Lexer, data []byte) stateFn {
 			l.e.Source = gostatsd.Source(data)
 			return lexEventAttributes
 		}))
 	case 'k':
-		return lexAssert(':', lexUntil('|', func(l *lexer, data []byte) stateFn {
+		return lexAssert(':', lexUntil('|', func(l *Lexer, data []byte) stateFn {
 			l.e.AggregationKey = string(data)
 			return lexEventAttributes
 		}))
 	case 'p':
-		return lexAssert(':', lexUntil('|', func(l *lexer, data []byte) stateFn {
+		return lexAssert(':', lexUntil('|', func(l *Lexer, data []byte) stateFn {
 			if bytes.Equal(data, priorityLow) {
 				l.e.Priority = gostatsd.PriLow
 			} else if bytes.Equal(data, priorityNormal) {
@@ -220,12 +220,12 @@ func lexEventAttribute(l *lexer) stateFn {
 			return lexEventAttributes
 		}))
 	case 's':
-		return lexAssert(':', lexUntil('|', func(l *lexer, data []byte) stateFn {
+		return lexAssert(':', lexUntil('|', func(l *Lexer, data []byte) stateFn {
 			l.e.SourceTypeName = string(data)
 			return lexEventAttributes
 		}))
 	case 't':
-		return lexAssert(':', lexUntil('|', func(l *lexer, data []byte) stateFn {
+		return lexAssert(':', lexUntil('|', func(l *Lexer, data []byte) stateFn {
 			if bytes.Equal(data, alertError) {
 				l.e.AlertType = gostatsd.AlertError
 			} else if bytes.Equal(data, alertWarning) {
@@ -250,7 +250,7 @@ func lexEventAttribute(l *lexer) stateFn {
 }
 
 func lexUint32(target *uint32, next stateFn) stateFn {
-	return lexUint(func(l *lexer, value uint64) stateFn {
+	return lexUint(func(l *Lexer, value uint64) stateFn {
 		if value > math.MaxUint32 {
 			l.err = errOverflow
 			return nil
@@ -260,8 +260,8 @@ func lexUint32(target *uint32, next stateFn) stateFn {
 	})
 }
 
-func lexUint(handler func(*lexer, uint64) stateFn) stateFn {
-	return func(l *lexer) stateFn {
+func lexUint(handler func(*Lexer, uint64) stateFn) stateFn {
+	return func(l *Lexer) stateFn {
 		var value uint64
 		start := l.pos
 	loop:
@@ -291,7 +291,7 @@ func lexUint(handler func(*lexer, uint64) stateFn) stateFn {
 
 // lexAssert returns a function that checks if the next byte matches the provided byte and returns next in that case.
 func lexAssert(nextByte byte, next stateFn) stateFn {
-	return func(l *lexer) stateFn {
+	return func(l *Lexer) stateFn {
 		switch b := l.next(); b {
 		case nextByte:
 			return next
@@ -304,8 +304,8 @@ func lexAssert(nextByte byte, next stateFn) stateFn {
 
 // lexUntil invokes handler with all bytes up to the stop byte or an eof.
 // The stop byte is not consumed.
-func lexUntil(stop byte, handler func(*lexer, []byte) stateFn) stateFn {
-	return func(l *lexer) stateFn {
+func lexUntil(stop byte, handler func(*Lexer, []byte) stateFn) stateFn {
+	return func(l *Lexer) stateFn {
 		start := l.pos
 		p := bytes.IndexByte(l.input[l.pos:], stop)
 		switch p {
@@ -319,7 +319,7 @@ func lexUntil(stop byte, handler func(*lexer, []byte) stateFn) stateFn {
 }
 
 // lex the key.
-func lexKey(l *lexer) stateFn {
+func lexKey(l *Lexer) stateFn {
 	if l.start == l.pos-1 {
 		l.err = errEmptyKey
 		return nil
@@ -333,7 +333,7 @@ func lexKey(l *lexer) stateFn {
 }
 
 // lex until we find the pipe separator between value and modifier.
-func lexValueSep(l *lexer) stateFn {
+func lexValueSep(l *Lexer) stateFn {
 	for {
 		// cheap check here. ParseFloat will do it.
 		switch b := l.next(); b {
@@ -347,14 +347,14 @@ func lexValueSep(l *lexer) stateFn {
 }
 
 // lex the value.
-func lexValue(l *lexer) stateFn {
+func lexValue(l *Lexer) stateFn {
 	l.m.StringValue = string(l.input[l.start : l.pos-1])
 	l.start = l.pos
 	return lexType
 }
 
 // lex the type.
-func lexType(l *lexer) stateFn {
+func lexType(l *Lexer) stateFn {
 	b := l.next()
 	switch b {
 	case 'c':
@@ -389,7 +389,7 @@ func lexType(l *lexer) stateFn {
 }
 
 // lex the possible separator between type and sampling rate.
-func lexTypeSep(l *lexer) stateFn {
+func lexTypeSep(l *Lexer) stateFn {
 	b := l.next()
 	switch b {
 	case eof:
@@ -403,7 +403,7 @@ func lexTypeSep(l *lexer) stateFn {
 }
 
 // lex the sample rate or the tags.
-func lexSampleRateOrTags(l *lexer) stateFn {
+func lexSampleRateOrTags(l *Lexer) stateFn {
 	b := l.next()
 	switch b {
 	case '@':
@@ -426,7 +426,7 @@ func lexSampleRateOrTags(l *lexer) stateFn {
 }
 
 // lex the sample rate.
-func lexSampleRate(l *lexer) stateFn {
+func lexSampleRate(l *Lexer) stateFn {
 	v, err := strconv.ParseFloat(string(l.input[l.start:l.pos-1]), 64)
 	if err != nil {
 		l.err = err
@@ -440,8 +440,8 @@ func lexSampleRate(l *lexer) stateFn {
 }
 
 // lex the tags.
-func lexTags(l *lexer) stateFn {
-	return lexUntil(',', func(l *lexer, data []byte) stateFn {
+func lexTags(l *Lexer) stateFn {
+	return lexUntil(',', func(l *Lexer, data []byte) stateFn {
 		if len(data) > 0 {
 			l.tags = append(l.tags, string(data))
 		}

@@ -12,6 +12,7 @@ import (
 	"golang.org/x/time/rate"
 
 	"github.com/atlassian/gostatsd"
+	"github.com/atlassian/gostatsd/internal/lexer"
 	"github.com/atlassian/gostatsd/internal/pool"
 	"github.com/atlassian/gostatsd/pkg/stats"
 )
@@ -198,10 +199,10 @@ func (dp *DatagramParser) handleDatagram(ctx context.Context, now gostatsd.Nanot
 
 // parseLine with lexer.
 func (dp *DatagramParser) parseLine(line []byte) (*gostatsd.Metric, *gostatsd.Event, error) {
-	l := lexer{
-		metricPool: dp.metricPool,
+	l := lexer.Lexer{
+		MetricPool: dp.metricPool,
 	}
-	return l.run(line, dp.namespace)
+	return l.Run(line, dp.namespace)
 }
 
 func (dp *DatagramParser) initLogRawMetric(ctx context.Context) {

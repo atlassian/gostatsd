@@ -1,13 +1,13 @@
 // +build gofuzz
 
-package statsd
+package lexer
 
 import (
 	"fmt"
 )
 
 func Fuzz(data []byte) int {
-	l := lexer{}
+	l := Lexer{}
 	metric, event, err := l.run(data, "")
 	if err != nil {
 		return 0
