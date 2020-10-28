@@ -168,14 +168,13 @@ func benchmarkLexer(ns string, input string, b *testing.B) {
 	slice := []byte(input)
 	var r *gostatsd.Metric
 
-	metricPool := pool.NewMetricPool(0)
+	l := &Lexer{
+		MetricPool: pool.NewMetricPool(0),
+	}
 
 	b.ReportAllocs()
 	b.ResetTimer()
 	for n := 0; n < b.N; n++ {
-		l := Lexer{
-			MetricPool: metricPool,
-		}
 		r, _, _ = l.Run(slice, ns)
 		r.Done()
 	}

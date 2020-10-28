@@ -12,6 +12,8 @@ import (
 
 	"github.com/atlassian/gostatsd"
 	"github.com/atlassian/gostatsd/internal/fixtures"
+	"github.com/atlassian/gostatsd/internal/lexer"
+	"github.com/atlassian/gostatsd/internal/pool"
 )
 
 type metricAndEvent struct {
@@ -20,6 +22,12 @@ type metricAndEvent struct {
 }
 
 const fakeIP = gostatsd.Source("127.0.0.1")
+
+func lex() *lexer.Lexer {
+	return &lexer.Lexer{
+		MetricPool: pool.NewMetricPool(0),
+	}
+}
 
 func newTestParser(ignoreHost bool) (*DatagramParser, *countingHandler) {
 	ch := &countingHandler{}
@@ -38,7 +46,7 @@ func TestParseEmptyDatagram(t *testing.T) {
 		t.Run(strconv.Itoa(pos), func(t *testing.T) {
 			t.Parallel()
 			mr, ch := newTestParser(false)
-			_, _, _ = mr.handleDatagram(context.Background(), 0, gostatsd.UnknownSource, inp)
+			_, _, _ = mr.handleDatagram(context.Background(), lex(), 0, gostatsd.UnknownSource, inp)
 			assert.Zero(t, len(ch.events), ch.events)
 			assert.Zero(t, len(ch.metrics), ch.metrics)
 		})
@@ -95,7 +103,7 @@ func TestParseDatagram(t *testing.T) {
 		t.Run(datagram, func(t *testing.T) {
 			t.Parallel()
 			mr, ch := newTestParser(false)
-			metrics, _, _ := mr.handleDatagram(context.Background(), 0, fakeIP, []byte(datagram))
+			metrics, _, _ := mr.handleDatagram(context.Background(), lex(), 0, fakeIP, []byte(datagram))
 			mm := gostatsd.NewMetricMap()
 			for _, m := range metrics {
 				mm.Receive(m)
@@ -176,7 +184,7 @@ func TestParseDatagramIgnoreHost(t *testing.T) {
 		t.Run(datagram, func(t *testing.T) {
 			t.Parallel()
 			mr, ch := newTestParser(true)
-			metrics, _, _ := mr.handleDatagram(context.Background(), 0, fakeIP, []byte(datagram))
+			metrics, _, _ := mr.handleDatagram(context.Background(), lex(), 0, fakeIP, []byte(datagram))
 			for i, e := range ch.events {
 				if e.DateHappened <= 0 {
 					t.Errorf("%q: DateHappened should be positive", e)

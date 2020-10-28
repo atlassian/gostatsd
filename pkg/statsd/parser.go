@@ -95,6 +95,10 @@ func (dp *DatagramParser) RunMetricsContext(ctx context.Context) {
 func (dp *DatagramParser) Run(ctx context.Context) {
 	dp.initLogRawMetric(ctx)
 
+	l := &lexer.Lexer{
+		MetricPool: dp.metricPool,
+	}
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -105,7 +109,7 @@ func (dp *DatagramParser) Run(ctx context.Context) {
 			accumB, accumE := uint64(0), uint64(0)
 			for _, dg := range dgs {
 				// TODO: Dispatch Events in Run, not handleDatagram, so it's consistent with Metrics
-				parsedMetrics, eventCount, badLineCount := dp.handleDatagram(ctx, dg.Timestamp, dg.IP, dg.Msg)
+				parsedMetrics, eventCount, badLineCount := dp.handleDatagram(ctx, l, dg.Timestamp, dg.IP, dg.Msg)
 				dg.DoneFunc()
 				metrics = append(metrics, parsedMetrics...)
 				accumE += eventCount
@@ -140,7 +144,7 @@ func (dp *DatagramParser) logBadLineRateLimited(line []byte, ip gostatsd.Source,
 
 // handleDatagram handles the contents of a datagram and parsers it in to Metrics (which are returned), or
 // Events (which are sent to the pipeline via DispatchEvent).
-func (dp *DatagramParser) handleDatagram(ctx context.Context, now gostatsd.Nanotime, ip gostatsd.Source, msg []byte) (metrics []*gostatsd.Metric, eventCount uint64, badLineCount uint64) {
+func (dp *DatagramParser) handleDatagram(ctx context.Context, l *lexer.Lexer, now gostatsd.Nanotime, ip gostatsd.Source, msg []byte) (metrics []*gostatsd.Metric, eventCount uint64, badLineCount uint64) {
 	var numEvents, numBad uint64
 	for {
 		idx := bytes.IndexByte(msg, '\n')
@@ -156,7 +160,7 @@ func (dp *DatagramParser) handleDatagram(ctx context.Context, now gostatsd.Nanot
 			line = msg[:idx]
 			msg = msg[idx+1:]
 		}
-		metric, event, err := dp.parseLine(line)
+		metric, event, err := dp.parseLine(l, line)
 		if err != nil {
 			// logging as debug to avoid spamming logs when a bad actor sends
 			// badly formatted messages
@@ -198,10 +202,7 @@ func (dp *DatagramParser) handleDatagram(ctx context.Context, now gostatsd.Nanot
 }
 
 // parseLine with lexer.
-func (dp *DatagramParser) parseLine(line []byte) (*gostatsd.Metric, *gostatsd.Event, error) {
-	l := lexer.Lexer{
-		MetricPool: dp.metricPool,
-	}
+func (dp *DatagramParser) parseLine(l *lexer.Lexer, line []byte) (*gostatsd.Metric, *gostatsd.Event, error) {
 	return l.Run(line, dp.namespace)
 }
 

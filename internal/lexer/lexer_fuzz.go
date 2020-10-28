@@ -4,10 +4,14 @@ package lexer
 
 import (
 	"fmt"
+
+	"github.com/atlassian/gostatsd/internal/pool"
 )
 
 func Fuzz(data []byte) int {
-	l := Lexer{}
+	l := Lexer{
+		MetricPool: pool.NewMetricPool(0),
+	}
 	metric, event, err := l.run(data, "")
 	if err != nil {
 		return 0

@@ -11,6 +11,7 @@ import (
 )
 
 type Lexer struct {
+	// any field added must be considered in Lexer.reset
 	input         []byte
 	len           uint32
 	start         uint32
@@ -63,7 +64,24 @@ func (l *Lexer) next() byte {
 	return b
 }
 
+func (l *Lexer) reset() {
+	// l.input = nil       // re-initialized by Run
+	// l.len = 0           // re-initialized by Run
+	// l.eventTitleLen = 0 // re-initialized by lexDatadogSpecial before lexEventBody
+	// l.eventTextLen = 0  // re-initialized by lexDatadogSpecial before lexEventBody
+	// l.namespace = ""    // re-initialized by Run
+	// l.sampling = 1      // re-initialized by Run
+
+	l.start = 0
+	l.pos = 0
+	l.m = nil
+	l.e = nil
+	l.tags = nil
+	l.err = nil
+}
+
 func (l *Lexer) Run(input []byte, namespace string) (*gostatsd.Metric, *gostatsd.Event, error) {
+	l.reset()
 	l.input = input
 	l.namespace = namespace
 	l.len = uint32(len(l.input))
