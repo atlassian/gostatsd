@@ -1,13 +1,17 @@
 // +build gofuzz
 
-package statsd
+package lexer
 
 import (
 	"fmt"
+
+	"github.com/atlassian/gostatsd/internal/pool"
 )
 
 func Fuzz(data []byte) int {
-	l := lexer{}
+	l := Lexer{
+		MetricPool: pool.NewMetricPool(0),
+	}
 	metric, event, err := l.run(data, "")
 	if err != nil {
 		return 0
