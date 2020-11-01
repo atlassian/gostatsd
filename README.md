@@ -24,7 +24,7 @@ server based on load.
 
 Building the server
 -------------------
-Gostatsd currently targets Go 1.13.6.  If you are compiling from source, please ensure you are running this version.
+Gostatsd currently targets Go 1.15.3.  If you are compiling from source, please ensure you are running this version.
 
 From the `gostatsd` directory run `make build`. The binary will be built in `build/bin/<arch>/gostatsd`.
 
