@@ -8,6 +8,13 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 )
 
+// NOTE: is using a collector/vec of gauges/counters reasonable? Or does
+// using only a single gauge/counter suffice?
+
+// this depends on the metrics being collected, if they are the same thing
+// but can be partitioned into different types/groups, e.g. http requests partitioned
+// by user age and demographics, then using a collector makes sense. (is this correct?)
+
 // PrometheusStatser is a Statser that monitors gostasd's internal metrics from
 // Prometheus, it is useful when there is a large number of ephemeral hosts.
 type PrometheusStatser struct {

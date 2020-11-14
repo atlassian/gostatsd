@@ -42,6 +42,8 @@ const (
 	StatserNull = "null"
 	// StatserTagged is the name used to indicate the use of the tagged statser.
 	StatserTagged = "tagged"
+	// StatserPrometheus is the name used to indicate the use of the prometheus statser
+	StatserPrometheus = "prometheus"
 )
 
 const (

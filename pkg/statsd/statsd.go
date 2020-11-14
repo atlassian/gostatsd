@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/prometheus/client_golang/prometheus"
 	"net"
 	"time"
 
@@ -218,6 +219,19 @@ func (s *Server) createStatser(hostname gostatsd.Source, handler gostatsd.Pipeli
 		return stats.NewNullStatser()
 	case gostatsd.StatserLogging:
 		return stats.NewLoggingStatser(s.InternalTags, logger)
+	case gostatsd.StatserPrometheus:
+		// TODO: move the initializations to the top level
+		promStatserCounterVec := prometheus.NewCounterVec(prometheus.CounterOpts{
+			Name: "prom_statser_counter_vec",
+			Help: "Help text coming soon...",
+		}, []string{"counters"})
+
+		promStatserGaugeVec := prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: "prom_statser_gauge_vec",
+			Help: "Help text coming soon...",
+		}, []string{"gauges"})
+
+		return stats.NewPrometheusStatser(*promStatserGaugeVec, *promStatserCounterVec)
 	default:
 		namespace := s.Namespace
 		if s.InternalNamespace != "" {
