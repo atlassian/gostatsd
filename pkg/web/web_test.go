@@ -17,6 +17,7 @@ func TestHttpServerShutsdown(t *testing.T) {
 	hs, err := web.NewHttpServer(
 		logrus.StandardLogger(),
 		nil,
+		nil,
 		"TestHttpServerShutsdown",
 		"127.0.0.1:0", // should pick a random port to bind to
 		false,

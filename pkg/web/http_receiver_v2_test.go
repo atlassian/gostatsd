@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/atlassian/gostatsd/pkg/stats"
+
 	"github.com/ash2k/stager/wait"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
@@ -31,6 +33,7 @@ func TestForwardingEndToEndV2(t *testing.T) {
 	hs, err := web.NewHttpServer(
 		logrus.StandardLogger(),
 		ch,
+		stats.NewNullStatser(),
 		"TestForwardingEndToEndV2",
 		"",
 		false,

@@ -9,6 +9,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/atlassian/gostatsd/pkg/stats"
+
 	"github.com/ash2k/stager/wait"
 	"github.com/gorilla/mux"
 	"github.com/sirupsen/logrus"
@@ -34,11 +36,11 @@ type route struct {
 
 var done = struct{}{}
 
-func NewHttpServersFromViper(v *viper.Viper, logger logrus.FieldLogger, handler gostatsd.PipelineHandler) ([]*httpServer, error) {
+func NewHttpServersFromViper(v *viper.Viper, logger logrus.FieldLogger, handler gostatsd.PipelineHandler, statser stats.Statser) ([]*httpServer, error) {
 	httpServerNames := v.GetStringSlice("http-servers")
 	servers := make([]*httpServer, 0, len(httpServerNames))
 	for _, httpServerName := range httpServerNames {
-		server, err := newHttpServerFromViper(logger, v, httpServerName, handler)
+		server, err := newHttpServerFromViper(logger, v, httpServerName, handler, statser)
 		if err != nil {
 			return nil, fmt.Errorf("failed to make http-server %s: %v", httpServerName, err)
 		}
@@ -52,6 +54,7 @@ func newHttpServerFromViper(
 	vMain *viper.Viper,
 	serverName string,
 	handler gostatsd.PipelineHandler,
+	statser stats.Statser,
 ) (*httpServer, error) {
 	vSub := util.GetSubViper(vMain, "http."+serverName)
 	vSub.SetDefault("address", "127.0.0.1:8080")
@@ -63,6 +66,7 @@ func newHttpServerFromViper(
 	return NewHttpServer(
 		logger.WithField("http-server", serverName),
 		handler,
+		statser,
 		serverName,
 		vSub.GetString("address"),
 		vSub.GetBool("enable-prof"),
@@ -75,6 +79,7 @@ func newHttpServerFromViper(
 func NewHttpServer(
 	logger logrus.FieldLogger,
 	handler gostatsd.PipelineHandler,
+	statser stats.Statser,
 	serverName, address string,
 	enableProf,
 	enableExpVar,
@@ -86,6 +91,10 @@ func NewHttpServer(
 	server := &httpServer{
 		logger:  logger,
 		address: address,
+	}
+
+	if _, enablePromStatser := statser.(*stats.PrometheusStatser); enablePromStatser {
+		// TODO: append the route and the corresponding handler(s)
 	}
 
 	if enableProf {

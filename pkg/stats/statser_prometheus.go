@@ -4,8 +4,9 @@ import (
 	"context"
 	"time"
 
-	"github.com/atlassian/gostatsd"
 	"github.com/prometheus/client_golang/prometheus"
+
+	"github.com/atlassian/gostatsd"
 )
 
 // NOTE: is using a collector/vec of gauges/counters reasonable? Or does
@@ -28,9 +29,9 @@ type PrometheusStatser struct {
 
 // NewPrometheusStatser creates a new Statser which
 // sends internal metrics to prometheus
-func NewPrometheusStatser(gaugeVec prometheus.GaugeVec, counterVec prometheus.CounterVec) Statser {
+func NewPrometheusStatser(gaugeVec prometheus.GaugeVec, counterVec prometheus.CounterVec) *PrometheusStatser {
 	return &PrometheusStatser{
-		gaugeVec: gaugeVec,
+		gaugeVec:   gaugeVec,
 		counterVec: counterVec,
 	}
 }
@@ -63,7 +64,7 @@ func (ps *PrometheusStatser) TimingMS(name string, ms float64, tags gostatsd.Tag
 
 // TimingDuration sends a timing metric from a time.Duration
 func (ps *PrometheusStatser) TimingDuration(name string, d time.Duration, tags gostatsd.Tags) {
-	ps.TimingMS(name, float64(d) / float64(time.Millisecond), tags)
+	ps.TimingMS(name, float64(d)/float64(time.Millisecond), tags)
 }
 
 // NewTimer returns a new timer with time set to now

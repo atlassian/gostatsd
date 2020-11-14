@@ -4,9 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/prometheus/client_golang/prometheus"
 	"net"
 	"time"
+
+	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/ash2k/stager"
 	"github.com/libp2p/go-reuseport"
@@ -187,7 +188,7 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 	runnables = gostatsd.MaybeAppendRunnable(runnables, statser)
 
 	// Create any http servers
-	httpServers, err := web.NewHttpServersFromViper(s.Viper, logger, handler)
+	httpServers, err := web.NewHttpServersFromViper(s.Viper, logger, handler, statser)
 	if err != nil {
 		return err
 	}
