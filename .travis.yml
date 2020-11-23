@@ -7,8 +7,9 @@ go:
   - "1.13.6"  # Keep in sync with Makefile and README.md
 
 arch:
- - amd64
- - arm64
+  - amd64
+  - arm64
+
 
 dist: bionic
 os: linux
@@ -19,13 +20,22 @@ jobs:
      arch: amd64
    - os: linux
      arch: arm64
+   - stage: Push Docker manifest
+     env:
+       - DOCKER_CLI_EXPERIMENTAL=enabled
+     script:
+       - curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
+       - sudo add-apt-repository "deb [arch=$TRAVIS_CPU_ARCH] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
+       - sudo apt-get update
+       - sudo apt-get -y -o Dpkg::Options::="--force-confnew" install docker-ce
+       - if [ "$TRAVIS_OS_NAME" == "linux" -a ! -z "$TRAVIS_TAG" ]; then
+           echo "Executing release-manifest on tag build $TRAVIS_TAG";
+           docker login -u="$DOCKER_USERNAME" -p="$DOCKER_PASSWORD";
+           make release-manifest;
+         fi
 
 before_install:
   - go get -v github.com/mattn/goveralls
-  - curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
-  - sudo add-apt-repository "deb [arch=$TRAVIS_CPU_ARCH] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
-  - sudo apt-get update
-  - sudo apt-get -y -o Dpkg::Options::="--force-confnew" install docker-ce
 
 install:
   - make setup-ci
@@ -38,7 +48,7 @@ script:
   - make bench-race
 
 after_success:
-  - if [ "$TRAVIS_OS_NAME" == "linux" -a ! -z "$TRAVIS_TAG" ]; then
+  - if [ "$TRAVIS_BUILD_STAGE_NAME" == "test" -a "$TRAVIS_OS_NAME" == "linux" -a ! -z "$TRAVIS_TAG" ]; then
     echo "Executing release on tag build $TRAVIS_TAG";
     docker login -u="$DOCKER_USERNAME" -p="$DOCKER_PASSWORD";
     ARCH=linux CPU_ARCH="$TRAVIS_CPU_ARCH" make release;

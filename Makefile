@@ -142,37 +142,36 @@ docker-symbols: pb/gostatsd.pb.go
 
 release-hash: docker
 	docker push $(IMAGE_NAME):$(GIT_HASH)
-	DOCKER_CLI_EXPERIMENTAL=enabled docker manifest create -a $(MANIFEST_NAME):$(GIT_HASH) $(IMAGE_NAME):$(GIT_HASH)
-	DOCKER_CLI_EXPERIMENTAL=enabled docker manifest push $(MANIFEST_NAME):$(GIT_HASH)
 
 release-normal: release-hash
 	docker tag $(IMAGE_NAME):$(GIT_HASH) $(IMAGE_NAME):latest
 	docker push $(IMAGE_NAME):latest
-	DOCKER_CLI_EXPERIMENTAL=enabled docker manifest create -a $(MANIFEST_NAME):latest $(IMAGE_NAME):latest
-	DOCKER_CLI_EXPERIMENTAL=enabled docker manifest push $(MANIFEST_NAME):latest
 	docker tag $(IMAGE_NAME):$(GIT_HASH) $(IMAGE_NAME):$(REPO_VERSION)
 	docker push $(IMAGE_NAME):$(REPO_VERSION)
-	DOCKER_CLI_EXPERIMENTAL=enabled docker manifest create -a $(MANIFEST_NAME):$(REPO_VERSION) $(IMAGE_NAME):$(REPO_VERSION)
-	DOCKER_CLI_EXPERIMENTAL=enabled docker manifest push $(MANIFEST_NAME):$(REPO_VERSION)
 
 release-hash-race: docker-race
 	docker push $(IMAGE_NAME):$(GIT_HASH)-race
-	DOCKER_CLI_EXPERIMENTAL=enabled docker manifest create -a $(MANIFEST_NAME):$(GIT_HASH)-race $(IMAGE_NAME):$(GIT_HASH)-race
-	DOCKER_CLI_EXPERIMENTAL=enabled docker manifest push $(MANIFEST_NAME):$(GIT_HASH)-race
 
 release-race: docker-race
 	docker tag $(IMAGE_NAME):$(GIT_HASH)-race $(IMAGE_NAME):$(REPO_VERSION)-race
 	docker push $(IMAGE_NAME):$(REPO_VERSION)-race
-	DOCKER_CLI_EXPERIMENTAL=enabled docker manifest create -a $(MANIFEST_NAME):$(REPO_VERSION)-race $(IMAGE_NAME):$(REPO_VERSION)-race
-	DOCKER_CLI_EXPERIMENTAL=enabled docker manifest push $(MANIFEST_NAME):$(REPO_VERSION)-race
 
 release-symbols: docker-symbols
 	docker tag $(IMAGE_NAME):$(GIT_HASH)-syms $(IMAGE_NAME):$(REPO_VERSION)-syms
 	docker push $(IMAGE_NAME):$(REPO_VERSION)-syms
-	DOCKER_CLI_EXPERIMENTAL=enabled docker manifest create -a $(MANIFEST_NAME):$(REPO_VERSION)-syms $(IMAGE_NAME):$(REPO_VERSION)-syms
-	DOCKER_CLI_EXPERIMENTAL=enabled docker manifest push $(MANIFEST_NAME):$(REPO_VERSION)-syms
 
 release: release-normal release-race release-symbols
+
+release-manifest:
+	for tag in latest $(REPO_VERSION) $(GIT_HASH)-race $(REPO_VERSION)-race $(REPO_VERSION)-syms; do \
+	  for arch in amd64 arm64; do \
+		  docker pull $(MANIFEST_NAME)-$$arch:$$tag; \
+		done; \
+	  docker manifest create $(MANIFEST_NAME):$$tag --amend \
+		  $(MANIFEST_NAME)-amd64:$$tag \
+		  $(MANIFEST_NAME)-arm64:$$tag; \
+	  docker manifest push $(MANIFEST_NAME):$$tag; \
+	done
 
 run: build
 	./build/bin/$(ARCH)/$(BINARY_NAME) --backends=stdout --verbose --flush-interval=2s
