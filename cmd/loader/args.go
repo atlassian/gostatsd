@@ -42,7 +42,7 @@ type commandOptions struct {
 
 func parseArgs(args []string) commandOptions {
 	var opts commandOptions
-	parser := flags.NewParser(&opts, flags.HelpFlag | flags.PassDoubleDash)
+	parser := flags.NewParser(&opts, flags.HelpFlag|flags.PassDoubleDash)
 	parser.LongDescription = "" + // because gofmt
 		"When specifying cardinality, the tag cardinality can be specified multiple times,\n" +
 		"and each tag will be named tagN:M.  The maximum total cardinality will be:\n\n" +
