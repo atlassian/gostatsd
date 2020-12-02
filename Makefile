@@ -8,7 +8,9 @@ GIT_HASH ?= $$(git rev-parse --short HEAD)
 GOBUILD_VERSION_ARGS := -ldflags "-s -X $(VERSION_VAR)=$(REPO_VERSION) -X $(GIT_VAR)=$(GIT_HASH) -X $(BUILD_DATE_VAR)=$(BUILD_DATE)"
 GOBUILD_VERSION_ARGS_WITH_SYMS := -ldflags "-X $(VERSION_VAR)=$(REPO_VERSION) -X $(GIT_VAR)=$(GIT_HASH) -X $(BUILD_DATE_VAR)=$(BUILD_DATE)"
 BINARY_NAME := gostatsd
-IMAGE_NAME := atlassianlabs/$(BINARY_NAME)
+CPU_ARCH ?= amd64
+MANIFEST_NAME := atlassianlabs/$(BINARY_NAME)
+IMAGE_NAME := $(MANIFEST_NAME)-$(CPU_ARCH)
 ARCH ?= $$(uname -s | tr A-Z a-z)
 GOVERSION := 1.13.6  # Keep in sync with .travis.yml and README.md
 GP := /gopath
@@ -159,6 +161,17 @@ release-symbols: docker-symbols
 	docker push $(IMAGE_NAME):$(REPO_VERSION)-syms
 
 release: release-normal release-race release-symbols
+
+release-manifest:
+	for tag in latest $(REPO_VERSION) $(GIT_HASH)-race $(REPO_VERSION)-race $(REPO_VERSION)-syms; do \
+	  for arch in amd64 arm64; do \
+		  docker pull $(MANIFEST_NAME)-$$arch:$$tag; \
+		done; \
+	  docker manifest create $(MANIFEST_NAME):$$tag --amend \
+		  $(MANIFEST_NAME)-amd64:$$tag \
+		  $(MANIFEST_NAME)-arm64:$$tag; \
+	  docker manifest push $(MANIFEST_NAME):$$tag; \
+	done
 
 run: build
 	./build/bin/$(ARCH)/$(BINARY_NAME) --backends=stdout --verbose --flush-interval=2s
