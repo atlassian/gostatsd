@@ -12,6 +12,7 @@ type countingStatser struct {
 	gauges   uint64
 	counters uint64
 	timers   uint64
+	events   uint64
 }
 
 func (cs *countingStatser) NotifyFlush(ctx context.Context, d time.Duration) {}
@@ -47,3 +48,9 @@ func (cs *countingStatser) NewTimer(name string, tags gostatsd.Tags) *Timer {
 func (cs *countingStatser) WithTags(tags gostatsd.Tags) Statser {
 	return cs
 }
+
+func (cs *countingStatser) Event(ctx context.Context, e *gostatsd.Event) {
+	atomic.AddUint64(&cs.events, 1)
+}
+
+func (cs *countingStatser) WaitForEvents() {}

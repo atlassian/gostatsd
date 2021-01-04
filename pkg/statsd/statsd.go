@@ -202,10 +202,9 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 		stgr.NextStageWithContext(runCtx).StartWithContext(runnable)
 	}
 
-	// Send events on start and on stop
-	// TODO: Push these in to statser
-	defer sendStopEvent(handler, hostname)
-	sendStartEvent(runCtx, handler, hostname)
+	// sendStopEvent uses its own context with a timeout, because the system is shutting down
+	defer sendStopEvent(statser, hostname)
+	sendStartEvent(runCtx, statser, hostname)
 
 	// Listen until done
 	<-ctx.Done()
@@ -231,8 +230,8 @@ func (s *Server) createStatser(hostname gostatsd.Source, handler gostatsd.Pipeli
 	}
 }
 
-func sendStartEvent(ctx context.Context, handler gostatsd.PipelineHandler, hostname gostatsd.Source) {
-	handler.DispatchEvent(ctx, &gostatsd.Event{
+func sendStartEvent(ctx context.Context, statser stats.Statser, hostname gostatsd.Source) {
+	statser.Event(ctx, &gostatsd.Event{
 		Title:        "Gostatsd started",
 		Text:         "Gostatsd started",
 		DateHappened: time.Now().Unix(),
@@ -241,17 +240,17 @@ func sendStartEvent(ctx context.Context, handler gostatsd.PipelineHandler, hostn
 	})
 }
 
-func sendStopEvent(handler gostatsd.PipelineHandler, hostname gostatsd.Source) {
+func sendStopEvent(statser stats.Statser, hostname gostatsd.Source) {
 	ctx, cancelFunc := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancelFunc()
-	handler.DispatchEvent(ctx, &gostatsd.Event{
+	statser.Event(ctx, &gostatsd.Event{
 		Title:        "Gostatsd stopped",
 		Text:         "Gostatsd stopped",
 		DateHappened: time.Now().Unix(),
 		Source:       hostname,
 		Priority:     gostatsd.PriLow,
 	})
-	handler.WaitForEvents()
+	statser.WaitForEvents()
 }
 
 type agrFactory struct {

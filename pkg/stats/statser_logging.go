@@ -1,6 +1,7 @@
 package stats
 
 import (
+	"context"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -74,3 +75,18 @@ func (ls *LoggingStatser) NewTimer(name string, tags gostatsd.Tags) *Timer {
 func (ls *LoggingStatser) WithTags(tags gostatsd.Tags) Statser {
 	return NewTaggedStatser(ls, tags)
 }
+
+func (ls *LoggingStatser) Event(ctx context.Context, e *gostatsd.Event) {
+	ls.logger.WithFields(logrus.Fields{
+		"title":            e.Title,
+		"text":             e.Text,
+		"date-happened":    e.DateHappened,
+		"aggregation-key":  e.AggregationKey,
+		"source-type-name": e.SourceTypeName,
+		"tags":             e.Tags,
+		"priority":         e.Priority.String(),
+		"alert-type":       e.AlertType.String(),
+	}).Info("event")
+}
+
+func (ls *LoggingStatser) WaitForEvents() {}

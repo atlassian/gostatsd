@@ -1,6 +1,7 @@
 package stats
 
 import (
+	"context"
 	"time"
 
 	"github.com/atlassian/gostatsd"
@@ -41,3 +42,7 @@ func (ns *NullStatser) NewTimer(name string, tags gostatsd.Tags) *Timer {
 func (ns *NullStatser) WithTags(tags gostatsd.Tags) Statser {
 	return ns
 }
+
+func (ns *NullStatser) Event(ctx context.Context, e *gostatsd.Event) {}
+
+func (ns *NullStatser) WaitForEvents() {}

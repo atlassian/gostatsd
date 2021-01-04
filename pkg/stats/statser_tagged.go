@@ -83,3 +83,13 @@ func (ts *TaggedStatser) concatTags(base, extra gostatsd.Tags) gostatsd.Tags {
 	}
 	return base.Concat(extra)
 }
+
+func (ts *TaggedStatser) Event(ctx context.Context, e *gostatsd.Event) {
+	eCopy := *e // Make a deep copy so we can mess with the tags.
+	eCopy.Tags = ts.concatTags(ts.tags, e.Tags)
+	ts.statser.Event(ctx, &eCopy)
+}
+
+func (ts *TaggedStatser) WaitForEvents() {
+	ts.statser.WaitForEvents()
+}
