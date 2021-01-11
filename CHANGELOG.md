@@ -1,3 +1,10 @@
+29.0.0
+------
+- Support for ARM64 docker image
+- Test changes and fixes to improve coverage
+- Internal code refactoring to reduce surface area
+- Refactor lexer to improve memory usage
+
 28.3.0
 ------
 - Rather than dropping data points, the Datadog backend will coerce non-numeric values resulting from aggregation to numeric.
