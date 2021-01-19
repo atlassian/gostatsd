@@ -4,7 +4,7 @@ services:
   - docker
 
 go:
-  - "1.13.6"  # Keep in sync with Makefile and README.md
+  - "1.15.6"  # Keep in sync with Makefile and README.md
 
 arch:
   - amd64
