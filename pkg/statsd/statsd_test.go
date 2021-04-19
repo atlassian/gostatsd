@@ -11,12 +11,56 @@ import (
 	"github.com/ash2k/stager/wait"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
+	"github.com/stretchr/testify/require"
 	"golang.org/x/time/rate"
 
 	"github.com/atlassian/gostatsd"
 	"github.com/atlassian/gostatsd/pkg/cachedinstances/cloudprovider"
 	"github.com/atlassian/gostatsd/pkg/fakesocket"
 )
+
+// TestStatsdStartStopEvents is a somewhat messy test
+// which starts up the entire pipeline, and ensures that
+// both start and stop events make it through to the backend.
+func TestStatsdStartStopEvents(t *testing.T) {
+	backend := &countingBackend{}
+	cloudProvider := &fakeProvider{
+		instance: &gostatsd.Instance{},
+	}
+	cachedInstances := cloudprovider.NewCachedCloudProvider(
+		logrus.StandardLogger(),
+		rate.NewLimiter(gostatsd.DefaultMaxCloudRequests, gostatsd.DefaultBurstCloudRequests),
+		cloudProvider,
+		gostatsd.CacheOptions{
+			CacheRefreshPeriod: gostatsd.DefaultCacheRefreshPeriod,
+		},
+	)
+	s := Server{
+		Backends:            []gostatsd.Backend{backend},
+		CachedInstances:     cachedInstances,
+		DefaultTags:         gostatsd.DefaultTags,
+		FlushInterval:       gostatsd.DefaultFlushInterval,
+		MaxConcurrentEvents: 2,
+		ServerMode:          "standalone",
+		Viper:               viper.New(),
+	}
+	ctxCached, cancelCached := context.WithCancel(context.Background())
+	defer cancelCached()
+	var wg wait.Group
+	wg.StartWithContext(ctxCached, cachedInstances.Run)
+	ctxCancelled, cancelFunc := context.WithCancel(context.Background())
+	cancelFunc()
+	err := s.RunWithCustomSocket(ctxCancelled, fakesocket.Factory)
+	if err != nil && err != context.Canceled && err != context.DeadlineExceeded {
+		t.Errorf("statsd run failed: %v", err)
+	}
+	cancelCached()
+	wg.Wait()
+
+	// Expecting 2 events, one for startup, one for shutdown.
+	require.EqualValues(t, 2, backend.events)
+
+}
 
 // TestStatsdThroughput emulates statsd work using fake network socket and null backend to
 // measure throughput.

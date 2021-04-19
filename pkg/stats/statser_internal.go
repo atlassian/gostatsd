@@ -122,3 +122,11 @@ func (is *InternalStatser) dispatchMetric(metric *gostatsd.Metric) {
 	metric.Tags = metric.Tags.Concat(is.tags)
 	is.consolidator.ReceiveMetrics([]*gostatsd.Metric{metric})
 }
+
+func (is *InternalStatser) Event(ctx context.Context, e *gostatsd.Event) {
+	is.handler.DispatchEvent(ctx, e)
+}
+
+func (is *InternalStatser) WaitForEvents() {
+	is.handler.WaitForEvents()
+}

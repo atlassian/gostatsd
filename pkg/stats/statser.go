@@ -23,4 +23,7 @@ type Statser interface {
 	TimingDuration(name string, d time.Duration, tags gostatsd.Tags)
 	NewTimer(name string, tags gostatsd.Tags) *Timer
 	WithTags(tags gostatsd.Tags) Statser
+
+	Event(ctx context.Context, e *gostatsd.Event)
+	WaitForEvents()
 }
