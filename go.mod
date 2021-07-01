@@ -27,6 +27,7 @@ require (
 	github.com/stretchr/testify v1.4.0
 	github.com/tilinna/clock v1.0.2
 	golang.org/x/net v0.0.0-20200202094626-16171245cfb2
+	golang.org/x/sys v0.0.0-20210630005230-0f9fa26af87c // indirect
 	golang.org/x/time v0.0.0-20191024005414-555d28b269f0
 	golang.org/x/tools v0.0.0-20200207224406-61798d64f025
 	k8s.io/api v0.17.3
