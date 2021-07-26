@@ -1,3 +1,7 @@
+29.0.1
+------
+- Update to Alpine 3.13
+
 29.0.0
 ------
 - Support for ARM64 docker image
