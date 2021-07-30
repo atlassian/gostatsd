@@ -174,10 +174,10 @@ func (n *Client) SendMetricsAsync(ctx context.Context, metrics *gostatsd.MetricM
 	}()
 }
 
-// RunMetrics run metrics
-func (n *Client) RunMetrics(ctx context.Context, statser stats.Statser) {
-	statser = statser.WithTags(gostatsd.Tags{"backend:newrelic"})
-
+// Run will be ran in background until the supplied context is closed.
+// It will register itself to flush events and update internal metrics.
+func (n *Client) Run(ctx context.Context) {
+	statser := stats.FromContext(ctx).WithTags(gostatsd.Tags{"backend:newrelic"})
 	flushed, unregister := statser.RegisterFlush()
 	defer unregister()
 
@@ -186,6 +186,7 @@ func (n *Client) RunMetrics(ctx context.Context, statser stats.Statser) {
 		case <-ctx.Done():
 			return
 		case <-flushed:
+			n.logger.Debugf("[%s] updating internal metrics", BackendName)
 			statser.Gauge("backend.created", float64(atomic.LoadUint64(&n.batchesCreated)), nil)
 			n.batchesRetried.SendIfChanged(statser, "backend.retried", nil)
 			statser.Gauge("backend.dropped", float64(atomic.LoadUint64(&n.batchesDropped)), nil)
