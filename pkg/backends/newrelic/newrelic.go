@@ -93,6 +93,8 @@ type Client struct {
 	flushInterval    time.Duration
 }
 
+var _ = gostatsd.Runner((*Client)(nil))
+
 // NRInfraPayload represents New Relic Infrastructure Payload format
 // https://github.com/newrelic/infra-integrations-sdk/blob/master/docs/v2tov3.md#v2-json-full-sample
 type NRInfraPayload struct {
