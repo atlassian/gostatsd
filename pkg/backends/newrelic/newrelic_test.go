@@ -402,21 +402,6 @@ func TestEventFormatter(t *testing.T) {
 	}
 }
 
-func TestNewRelicFulfillRunnerInterface(t *testing.T) {
-	v := viper.New()
-	v.SetDefault("transport.default.client-timeout", 1*time.Second)
-	p := transport.NewTransportPool(logrus.New(), v)
-	client, err := NewClient("default", "v1/data", "", "GoStatsD", "insights", "api-key", "", "metric_name", "metric_type",
-		"metric_per_second", "metric_value", "samples_min", "samples_max", "samples_count",
-		"samples_mean", "samples_median", "samples_std_dev", "samples_sum", "samples_sum_squares", "agent",
-		defaultMetricsPerBatch, defaultMaxRequests, 2*time.Second, 1*time.Second, gostatsd.TimerSubtypes{}, logrus.New(), p)
-	require.NoError(t, err)
-
-	runnables := []gostatsd.Runnable{}
-	runnables = gostatsd.MaybeAppendRunnable(runnables, client)
-	require.Len(t, runnables, 1)
-}
-
 func countMatches(s string, m string) int {
 	index := suffixarray.New([]byte(s))
 	return len(index.Lookup([]byte(m), -1))
