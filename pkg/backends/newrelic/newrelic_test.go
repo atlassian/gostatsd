@@ -369,15 +369,18 @@ func TestEventFormatter(t *testing.T) {
 		{
 			name: "infra",
 			expected: `{"name":"com.newrelic.gostatsd","protocol_version":"2","integration_version":"2.3.1","data":` +
-				`[{"metrics":[{"AggregationKey":"","AlertType":"","DateHappened":0,"Hostname":"blah","Priority":"low","SourceTypeName":"","Text":"hi","Title":"EventTitle","event_type":"GoStatsD","name":"event"}]}]}`,
+				`[{"metrics":[{"AggregationKey":"","AlertType":"","DateHappened":0,"Hostname":"blah","Priority":"low","SourceTypeName":"","Text":"hi","Title":"EventTitle","event_type":"GoStatsD","name":"event",` +
+				`"tag_1":"-infinity","tag_2":"infinity","tag_3":"+infinity","tag_4":"NaN"}]}]}`,
 		},
 		{
-			name:     "insights",
-			expected: `[{"AggregationKey":"","AlertType":"","DateHappened":0,"Hostname":"blah","Priority":"low","SourceTypeName":"","Text":"hi","Title":"EventTitle","eventType":"GoStatsD","name":"event"}]`,
+			name: "insights",
+			expected: `[{"AggregationKey":"","AlertType":"","DateHappened":0,"Hostname":"blah","Priority":"low","SourceTypeName":"","Text":"hi","Title":"EventTitle","eventType":"GoStatsD","name":"event",` +
+				`"tag_1":"-infinity","tag_2":"infinity","tag_3":"+infinity","tag_4":"NaN"}]`,
 		},
 		{
-			name:     "metrics",
-			expected: `[{"AggregationKey":"","AlertType":"","DateHappened":0,"Hostname":"blah","Priority":"low","SourceTypeName":"","Text":"hi","Title":"EventTitle","eventType":"GoStatsD","name":"event"}]`,
+			name: "metrics",
+			expected: `[{"AggregationKey":"","AlertType":"","DateHappened":0,"Hostname":"blah","Priority":"low","SourceTypeName":"","Text":"hi","Title":"EventTitle","eventType":"GoStatsD","name":"event",` +
+				`"tag_1":"-infinity","tag_2":"infinity","tag_3":"+infinity","tag_4":"NaN"}]`,
 		},
 	}
 
@@ -393,7 +396,8 @@ func TestEventFormatter(t *testing.T) {
 				defaultMetricsPerBatch, defaultMaxRequests, 2*time.Second, 1*time.Second, gostatsd.TimerSubtypes{}, logrus.New(), p)
 			require.NoError(t, err)
 
-			gostatsdEvent := gostatsd.Event{Title: "EventTitle", Text: "hi", Source: "blah", Priority: 1}
+			tags := []string{"tag_1:-infinity", "tag_2:infinity", "tag_3:+infinity", "tag_4:NaN"}
+			gostatsdEvent := gostatsd.Event{Title: "EventTitle", Text: "hi", Source: "blah", Priority: 1, Tags: tags}
 			formattedEvent := client.EventFormatter(&gostatsdEvent)
 			fevent, err := json.Marshal(formattedEvent)
 			require.NoError(t, err)
