@@ -595,12 +595,20 @@ func (n *Client) newMetricsPayload(data []interface{}) NRMetricsPayload {
 	}
 }
 
+// isSpecial returns whether value is special (NaN, -Inf, +Inf) or not.
+// Float representation of those values break JSON marshalling
+// so to make gostatsd more resilient we should avoid those values as Float
+func isSpecial(value float64) bool {
+	return math.IsInf(value, 0) || math.IsNaN(value)
+}
+
 func (n *Client) setTags(tags gostatsd.Tags, data map[string]interface{}) {
 	for _, tag := range tags {
 		if strings.Contains(tag, ":") {
 			keyvalpair := strings.SplitN(tag, ":", 2)
 			parsed, err := strconv.ParseFloat(keyvalpair[1], 64)
-			if err != nil || strings.EqualFold(keyvalpair[1], "infinity") {
+
+			if err != nil || isSpecial(parsed) {
 				data[n.tagPrefix+keyvalpair[0]] = keyvalpair[1]
 			} else {
 				data[n.tagPrefix+keyvalpair[0]] = parsed
