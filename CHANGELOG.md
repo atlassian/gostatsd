@@ -1,3 +1,7 @@
+29.0.2
+------
+- Update to Alpine 3.14.1
+
 29.0.1
 ------
 - Update to Alpine 3.13
