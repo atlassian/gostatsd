@@ -23,6 +23,7 @@ jobs:
    - stage: Push Docker manifest
      env:
        - DOCKER_CLI_EXPERIMENTAL=enabled
+       - secure: "R19TuyhNMgNC8iNF9ttZ1fRknxRJDowkydujTGEoQSyToUyMpA+CYZi3sYv4IHlu8sBJ3fGS99MKg4cMnH2rC1itIx883ar0D78RaUJ7z97iPqkoK5alNzj9n6sr4+wTubDe5DTJsVnLCGyb7V0tZ0kFKWlHctDSE1HE9I9KqkfcXwYDruyyMSpiRxyeTmc8bEzsgdvHu+VqKn7EFV1xvLIJGxjJUe7G3ucDPVWXULz+2TAA0dp0rh9LZakvPhmG/8ENpc6+NukQMqzbjIuvfMHtIHYm768adh7f3epRca2qoQpI0ZntJiGqaVYtmE2MBomRkWv6lrAQPZS0BZT9M9GyXi+hoP1en1ExW5X4T5MxBfaEGTnb9VydeZxjpLP+wJ+WSOGb52Cbldiijivxrjdd9AoJcx0F7i11/PUBqvixhRkMVGBB/1Q4U+WAZS0ZhcaDWSLQrT9NiTT24u3ErmkwgqFQRh+29FrjpoqP89rZhCMf92i1lnFFFKXublLOVQW9SC/eT/TtyeL8v1L3RcdAqiBEjE5gshZwp95R6Iw6gPIxNcYFEiUlBS2nvrD1eoX+qLk8Mg6qd280ze/V+WaOoWRYP2r7HaL67/igh8kzXfZgaZGrM4yW6yls7562KVYaLpnnhHpOC5u//vhXqjxPxr+nV9bj+54nkSYMdm8="
      script:
        - curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
        - sudo add-apt-repository "deb [arch=$TRAVIS_CPU_ARCH] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
