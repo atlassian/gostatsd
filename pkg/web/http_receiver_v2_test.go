@@ -22,7 +22,7 @@ import (
 func TestForwardingEndToEndV2(t *testing.T) {
 	t.Parallel()
 
-	ctxTest, testDone := testContext(t)
+	ctxTest, testDone := testContext()
 	mockClock := clock.NewMock(time.Unix(0, 0))
 	ctxTest = clock.Context(ctxTest, mockClock)
 
