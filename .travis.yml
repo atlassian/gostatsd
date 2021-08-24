@@ -10,9 +10,12 @@ arch:
   - amd64
   - arm64
 
-
 dist: bionic
 os: linux
+
+branches:
+  only:
+    - master
 
 env:
   jobs:
