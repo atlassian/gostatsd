@@ -1,60 +1,50 @@
-package datadog
+package promremotewriter
 
 import (
 	"bytes"
-	"compress/zlib"
 	"context"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"math"
 	"net/http"
-	"net/url"
 	"runtime"
 	"strconv"
-	"strings"
 	"sync/atomic"
 	"time"
 
 	"github.com/cenkalti/backoff"
-	jsoniter "github.com/json-iterator/go"
+	"github.com/golang/protobuf/proto"
+	"github.com/golang/snappy"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"github.com/tilinna/clock"
 
 	"github.com/atlassian/gostatsd"
 	"github.com/atlassian/gostatsd/internal/util"
+	"github.com/atlassian/gostatsd/pb"
 	"github.com/atlassian/gostatsd/pkg/stats"
 	"github.com/atlassian/gostatsd/pkg/transport"
 )
 
 const (
-	apiURL = "https://app.datadoghq.com"
 	// BackendName is the name of this backend.
-	BackendName                  = "datadog"
-	dogstatsdVersion             = "5.6.3"
-	defaultUserAgent             = "gostatsd"
+	BackendName                  = "promremotewriter"
+	defaultUserAgent             = "gostatsd" // TODO: Add version
 	defaultMaxRequestElapsedTime = 15 * time.Second
 	// defaultMetricsPerBatch is the default number of metrics to send in a single batch.
 	defaultMetricsPerBatch = 1000
 	// maxResponseSize is the maximum response size we are willing to read.
-	maxResponseSize     = 1024
-	maxConcurrentEvents = 20
+	maxResponseSize = 1024
 )
 
 var (
-	// defaultMaxRequests is the number of parallel outgoing requests to Datadog.  As this mixes both
-	// CPU (JSON encoding, TLS) and network bound operations, balancing may require some experimentation.
-	defaultMaxRequests = uint(2 * runtime.NumCPU())
-
-	// It already does not sort map keys by default, but it does HTML escaping which we don't need.
-	jsonConfig = jsoniter.Config{
-		EscapeHTML:  false,
-		SortMapKeys: false,
-	}.Froze()
+	// defaultMaxRequests is the number of parallel outgoing requests to prometheus.  As this mixes
+	// both CPU (TLS) and network bound operations, balancing may require some experimentation.
+	defaultMaxRequests = uint(10 * runtime.NumCPU())
 )
 
-// Client represents a Datadog client.
+// Client represents a Prometheus Remote Writer client.
 type Client struct {
 	batchesCreated uint64            // Accumulated number of batches created
 	batchesDropped uint64            // Accumulated number of batches aborted (data loss)
@@ -63,59 +53,38 @@ type Client struct {
 	batchesRetried stats.ChangeGauge // Accumulated number of batches retried (first send is not a retry)
 
 	logger                logrus.FieldLogger
-	apiKey                string
 	apiEndpoint           string
 	userAgent             string
 	maxRequestElapsedTime time.Duration
 	client                *http.Client
 	metricsPerBatch       uint
 	metricsBufferSem      chan *bytes.Buffer // Two in one - a semaphore and a buffer pool
-	eventsBufferSem       chan *bytes.Buffer // Two in one - a semaphore and a buffer pool
-	compressPayload       bool
 
 	disabledSubtypes gostatsd.TimerSubtypes
-	flushInterval    time.Duration
 }
 
-// event represents an event data structure for Datadog.
-type event struct {
-	Title          string   `json:"title"`
-	Text           string   `json:"text"`
-	DateHappened   int64    `json:"date_happened,omitempty"`
-	Hostname       string   `json:"host,omitempty"`
-	AggregationKey string   `json:"aggregation_key,omitempty"`
-	SourceTypeName string   `json:"source_type_name,omitempty"`
-	Tags           []string `json:"tags,omitempty"`
-	Priority       string   `json:"priority,omitempty"`
-	AlertType      string   `json:"alert_type,omitempty"`
-}
-
-// SendMetricsAsync flushes the metrics to Datadog, preparing payload synchronously but doing the send asynchronously.
-func (d *Client) SendMetricsAsync(ctx context.Context, metrics *gostatsd.MetricMap, cb gostatsd.SendCallback) {
+// SendMetricsAsync flushes the metrics to Prometheus, preparing payload synchronously but doing the send asynchronously.
+func (prw *Client) SendMetricsAsync(ctx context.Context, metrics *gostatsd.MetricMap, cb gostatsd.SendCallback) {
 	counter := 0
 	results := make(chan error)
 
-	now := float64(clock.FromContext(ctx).Now().Unix())
-	d.processMetrics(now, metrics, func(ts *timeSeries) {
-		// This section would be likely be better if it pushed all ts's in to a single channel
-		// which n goroutines then read from.  Current behavior still spins up many goroutines
-		// and has them all hit the same channel.
-		atomic.AddUint64(&d.batchesCreated, 1)
+	now := clock.FromContext(ctx).Now().UnixNano() / 1_000_000
+	prw.processMetrics(now, metrics, func(writeReq *pb.PromWriteRequest) {
+		atomic.AddUint64(&prw.batchesCreated, 1)
 		go func() {
 			select {
 			case <-ctx.Done():
 				return
-			case buffer := <-d.metricsBufferSem:
-				defer func() {
-					buffer.Reset()
-					d.metricsBufferSem <- buffer
-				}()
-				err := d.postMetrics(ctx, buffer, ts)
+			case buffer := <-prw.metricsBufferSem:
+				err := prw.postMetrics(ctx, &buffer, writeReq)
 
 				select {
 				case <-ctx.Done():
 				case results <- err:
 				}
+
+				buffer.Reset()
+				prw.metricsBufferSem <- buffer
 			}
 		}()
 		counter++
@@ -136,8 +105,8 @@ func (d *Client) SendMetricsAsync(ctx context.Context, metrics *gostatsd.MetricM
 	}()
 }
 
-func (d *Client) Run(ctx context.Context) {
-	statser := stats.FromContext(ctx).WithTags(gostatsd.Tags{"backend:datadog"})
+func (prw *Client) Run(ctx context.Context) {
+	statser := stats.FromContext(ctx).WithTags(gostatsd.Tags{"backend:promremotewriter"})
 
 	flushed, unregister := statser.RegisterFlush()
 	defer unregister()
@@ -147,29 +116,26 @@ func (d *Client) Run(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-flushed:
-			statser.Gauge("backend.created", float64(atomic.LoadUint64(&d.batchesCreated)), nil)
-			d.batchesRetried.SendIfChanged(statser, "backend.retried", nil)
-			statser.Gauge("backend.dropped", float64(atomic.LoadUint64(&d.batchesDropped)), nil)
-			statser.Gauge("backend.sent", float64(atomic.LoadUint64(&d.batchesSent)), nil)
-			statser.Gauge("backend.series.sent", float64(atomic.LoadUint64(&d.seriesSent)), nil)
+			statser.Gauge("backend.created", float64(atomic.LoadUint64(&prw.batchesCreated)), nil)
+			prw.batchesRetried.SendIfChanged(statser, "backend.retried", nil)
+			statser.Gauge("backend.dropped", float64(atomic.LoadUint64(&prw.batchesDropped)), nil)
+			statser.Gauge("backend.sent", float64(atomic.LoadUint64(&prw.batchesSent)), nil)
+			statser.Gauge("backend.series.sent", float64(atomic.LoadUint64(&prw.seriesSent)), nil)
 		}
 	}
 }
 
-func (d *Client) processMetrics(now float64, metrics *gostatsd.MetricMap, cb func(*timeSeries)) {
+func (prw *Client) processMetrics(now int64, metrics *gostatsd.MetricMap, cb func(request *pb.PromWriteRequest)) {
 	fl := flush{
-		ts: &timeSeries{
-			Series: make([]metric, 0, d.metricsPerBatch),
-		},
-		timestamp:        now,
-		flushIntervalSec: d.flushInterval.Seconds(),
-		metricsPerBatch:  d.metricsPerBatch,
-		cb:               cb,
+		writeRequest:    &pb.PromWriteRequest{},
+		timestamp:       now,
+		metricsPerBatch: prw.metricsPerBatch,
+		cb:              cb,
 	}
 
 	metrics.Counters.Each(func(key, tagsKey string, counter gostatsd.Counter) {
-		fl.addMetric(rate, counter.PerSecond, counter.Source, counter.Tags, key)
-		fl.addMetricf(gauge, float64(counter.Value), counter.Source, counter.Tags, "%s.count", key)
+		fl.addMetric(counter.PerSecond, counter.Tags, key)
+		fl.addMetricf(float64(counter.Value), counter.Tags, "%s.count", key)
 		fl.maybeFlush()
 	})
 
@@ -181,98 +147,79 @@ func (d *Client) processMetrics(now float64, metrics *gostatsd.MetricMap, cb fun
 					bucketTag = "le:" + strconv.FormatFloat(float64(histogramThreshold), 'f', -1, 64)
 				}
 				newTags := timer.Tags.Concat(gostatsd.Tags{bucketTag})
-				fl.addMetricf(counter, float64(count), timer.Source, newTags, "%s.histogram", key)
+				fl.addMetricf(float64(count), newTags, "%s.histogram", key)
 			}
 		} else {
 
-			if !d.disabledSubtypes.Lower {
-				fl.addMetricf(gauge, timer.Min, timer.Source, timer.Tags, "%s.lower", key)
+			if !prw.disabledSubtypes.Lower {
+				fl.addMetricf(timer.Min, timer.Tags, "%s.lower", key)
 			}
-			if !d.disabledSubtypes.Upper {
-				fl.addMetricf(gauge, timer.Max, timer.Source, timer.Tags, "%s.upper", key)
+			if !prw.disabledSubtypes.Upper {
+				fl.addMetricf(timer.Max, timer.Tags, "%s.upper", key)
 			}
-			if !d.disabledSubtypes.Count {
-				fl.addMetricf(gauge, float64(timer.Count), timer.Source, timer.Tags, "%s.count", key)
+			if !prw.disabledSubtypes.Count {
+				fl.addMetricf(float64(timer.Count), timer.Tags, "%s.count", key)
 			}
-			if !d.disabledSubtypes.CountPerSecond {
-				fl.addMetricf(rate, timer.PerSecond, timer.Source, timer.Tags, "%s.count_ps", key)
+			if !prw.disabledSubtypes.CountPerSecond {
+				fl.addMetricf(timer.PerSecond, timer.Tags, "%s.count_ps", key)
 			}
-			if !d.disabledSubtypes.Mean {
-				fl.addMetricf(gauge, timer.Mean, timer.Source, timer.Tags, "%s.mean", key)
+			if !prw.disabledSubtypes.Mean {
+				fl.addMetricf(timer.Mean, timer.Tags, "%s.mean", key)
 			}
-			if !d.disabledSubtypes.Median {
-				fl.addMetricf(gauge, timer.Median, timer.Source, timer.Tags, "%s.median", key)
+			if !prw.disabledSubtypes.Median {
+				fl.addMetricf(timer.Median, timer.Tags, "%s.median", key)
 			}
-			if !d.disabledSubtypes.StdDev {
-				fl.addMetricf(gauge, timer.StdDev, timer.Source, timer.Tags, "%s.std", key)
+			if !prw.disabledSubtypes.StdDev {
+				fl.addMetricf(timer.StdDev, timer.Tags, "%s.std", key)
 			}
-			if !d.disabledSubtypes.Sum {
-				fl.addMetricf(gauge, timer.Sum, timer.Source, timer.Tags, "%s.sum", key)
+			if !prw.disabledSubtypes.Sum {
+				fl.addMetricf(timer.Sum, timer.Tags, "%s.sum", key)
 			}
-			if !d.disabledSubtypes.SumSquares {
-				fl.addMetricf(gauge, timer.SumSquares, timer.Source, timer.Tags, "%s.sum_squares", key)
+			if !prw.disabledSubtypes.SumSquares {
+				fl.addMetricf(timer.SumSquares, timer.Tags, "%s.sum_squares", key)
 			}
 			for _, pct := range timer.Percentiles {
-				fl.addMetricf(gauge, pct.Float, timer.Source, timer.Tags, "%s.%s", key, pct.Str)
+				fl.addMetricf(pct.Float, timer.Tags, "%s.%s", key, pct.Str)
 			}
 		}
 		fl.maybeFlush()
 	})
 
 	metrics.Gauges.Each(func(key, tagsKey string, g gostatsd.Gauge) {
-		fl.addMetric(gauge, g.Value, g.Source, g.Tags, key)
+		fl.addMetric(g.Value, g.Tags, key)
 		fl.maybeFlush()
 	})
 
 	metrics.Sets.Each(func(key, tagsKey string, set gostatsd.Set) {
-		fl.addMetric(gauge, float64(len(set.Values)), set.Source, set.Tags, key)
+		fl.addMetric(float64(len(set.Values)), set.Tags, key)
 		fl.maybeFlush()
 	})
 
 	fl.finish()
 }
 
-func (d *Client) postMetrics(ctx context.Context, buffer *bytes.Buffer, ts *timeSeries) error {
-	if err := d.post(ctx, buffer, "/api/v1/series", "metrics", ts); err != nil {
+func (prw *Client) postMetrics(ctx context.Context, buffer **bytes.Buffer, writeReq *pb.PromWriteRequest) error {
+	if err := prw.post(ctx, buffer, "metrics", writeReq); err != nil {
 		return err
 	}
-	atomic.AddUint64(&d.seriesSent, uint64(len(ts.Series)))
+	atomic.AddUint64(&prw.seriesSent, uint64(len(writeReq.Timeseries)))
 	return nil
 }
 
-// SendEvent sends an event to Datadog.
-func (d *Client) SendEvent(ctx context.Context, e *gostatsd.Event) error {
-	select {
-	case <-ctx.Done():
-		return ctx.Err()
-	case buffer := <-d.eventsBufferSem:
-		defer func() {
-			buffer.Reset()
-			d.eventsBufferSem <- buffer
-		}()
-		return d.post(ctx, buffer, "/api/v1/events", "events", &event{
-			Title:          e.Title,
-			Text:           e.Text,
-			DateHappened:   e.DateHappened,
-			Hostname:       string(e.Source),
-			AggregationKey: e.AggregationKey,
-			SourceTypeName: e.SourceTypeName,
-			Tags:           e.Tags,
-			Priority:       e.Priority.StringWithEmptyDefault(),
-			AlertType:      e.AlertType.StringWithEmptyDefault(),
-		})
-	}
+// SendEvent sends an event to NOWHERE.
+func (prw *Client) SendEvent(ctx context.Context, e *gostatsd.Event) error {
+	return nil
 }
 
 // Name returns the name of the backend.
-func (d *Client) Name() string {
+func (prw *Client) Name() string {
 	return BackendName
 }
 
-func (d *Client) post(ctx context.Context, buffer *bytes.Buffer, path, typeOfPost string, data interface{}) error {
-	post, err := d.constructPost(ctx, buffer, path, typeOfPost, data)
+func (prw *Client) post(ctx context.Context, buffer **bytes.Buffer, typeOfPost string, writeReq *pb.PromWriteRequest) error {
+	post, err := prw.constructPost(ctx, buffer, writeReq)
 	if err != nil {
-		atomic.AddUint64(&d.batchesDropped, 1)
+		atomic.AddUint64(&prw.batchesDropped, 1)
 		return err
 	}
 
@@ -280,20 +227,20 @@ func (d *Client) post(ctx context.Context, buffer *bytes.Buffer, path, typeOfPos
 	clck := clock.FromContext(ctx)
 	b.Clock = clck
 	b.Reset()
-	b.MaxElapsedTime = d.maxRequestElapsedTime
+	b.MaxElapsedTime = prw.maxRequestElapsedTime
 	for {
 		if err = post(); err == nil {
-			atomic.AddUint64(&d.batchesSent, 1)
+			atomic.AddUint64(&prw.batchesSent, 1)
 			return nil
 		}
 
 		next := b.NextBackOff()
 		if next == backoff.Stop {
-			atomic.AddUint64(&d.batchesDropped, 1)
+			atomic.AddUint64(&prw.batchesDropped, 1)
 			return fmt.Errorf("[%s] %v", BackendName, err)
 		}
 
-		d.logger.WithFields(logrus.Fields{
+		prw.logger.WithFields(logrus.Fields{
 			"type":  typeOfPost,
 			"sleep": next,
 			"error": err,
@@ -307,58 +254,48 @@ func (d *Client) post(ctx context.Context, buffer *bytes.Buffer, path, typeOfPos
 		case <-timer.C:
 		}
 
-		atomic.AddUint64(&d.batchesRetried.Cur, 1)
+		atomic.AddUint64(&prw.batchesRetried.Cur, 1)
 	}
 }
 
-func (d *Client) constructPost(ctx context.Context, buffer *bytes.Buffer, path, typeOfPost string, data interface{}) (func() error /*doPost*/, error) {
-	authenticatedURL := d.authenticatedURL(path)
-	// Selectively compress payload based on knowledge of whether the endpoint supports deflate encoding.
-	// The metrics endpoint does, the events endpoint does not.
-	compressPayload := d.compressPayload && typeOfPost == "metrics"
-	marshal := func(w io.Writer) error {
-		stream := jsonConfig.BorrowStream(w)
-		defer jsonConfig.ReturnStream(stream)
-		stream.WriteVal(data)
-		return stream.Flush()
-	}
-	var err error
-	if compressPayload {
-		err = deflate(buffer, marshal)
-	} else {
-		err = marshal(buffer)
-	}
+func (prw *Client) constructPost(ctx context.Context, buffer **bytes.Buffer, writeReq *pb.PromWriteRequest) (func() error /*doPost*/, error) {
+	raw, err := proto.Marshal(writeReq)
 	if err != nil {
-		return nil, fmt.Errorf("[%s] unable to marshal %s: %v", BackendName, typeOfPost, err)
+		return nil, err
 	}
-	body := buffer.Bytes()
+
+	bufBorrowed := (*buffer).Bytes()
+	bufCompressed := snappy.Encode(bufBorrowed, raw)
+	if cap(bufBorrowed) < cap(bufCompressed) {
+		// it overflowed the buffer and had to allocate, so we'll keep the larger buffer for next time
+		*buffer = bytes.NewBuffer(bufCompressed)
+	}
 
 	return func() error {
-		headers := map[string]string{
-			"Content-Type":         "application/json",
-			"DD-Dogstatsd-Version": dogstatsdVersion,
-			"User-Agent":           d.userAgent,
-		}
-		if compressPayload {
-			headers["Content-Encoding"] = "deflate"
-		}
-		req, err := http.NewRequest("POST", authenticatedURL, bytes.NewReader(body))
+		req, err := http.NewRequest("POST", prw.apiEndpoint, bytes.NewReader(bufCompressed))
 		if err != nil {
 			return fmt.Errorf("unable to create http.Request: %v", err)
 		}
 		req = req.WithContext(ctx)
+
+		headers := map[string]string{
+			"Content-type":     "application/x-protobuf",
+			"Content-Encoding": "snappy",
+			"User-Agent":       prw.userAgent,
+		}
 		for header, v := range headers {
 			req.Header.Set(header, v)
 		}
-		resp, err := d.client.Do(req)
+
+		resp, err := prw.client.Do(req)
 		if err != nil {
-			return fmt.Errorf("error POSTing: %s", strings.Replace(err.Error(), d.apiKey, "*****", -1))
+			return fmt.Errorf("error POSTing: %s", err)
 		}
 		defer resp.Body.Close()
 		body := io.LimitReader(resp.Body, maxResponseSize)
 		if resp.StatusCode < http.StatusOK || resp.StatusCode > http.StatusNoContent {
 			b, _ := ioutil.ReadAll(body)
-			d.logger.WithFields(logrus.Fields{
+			prw.logger.WithFields(logrus.Fields{
 				"status": resp.StatusCode,
 				"body":   string(b),
 			}).Info("request failed")
@@ -369,69 +306,51 @@ func (d *Client) constructPost(ctx context.Context, buffer *bytes.Buffer, path, 
 	}, nil
 }
 
-func (d *Client) authenticatedURL(path string) string {
-	q := url.Values{
-		"api_key": []string{d.apiKey},
-	}
-	return fmt.Sprintf("%s%s?%s", d.apiEndpoint, path, q.Encode())
-}
-
-// NewClientFromViper returns a new Datadog API client.
+// NewClientFromViper returns a new Prometheus Remote Writer client.
 func NewClientFromViper(v *viper.Viper, logger logrus.FieldLogger, pool *transport.TransportPool) (gostatsd.Backend, error) {
-	dd := util.GetSubViper(v, "datadog")
-	dd.SetDefault("api_endpoint", apiURL)
-	dd.SetDefault("metrics_per_batch", defaultMetricsPerBatch)
-	dd.SetDefault("compress_payload", true)
-	dd.SetDefault("max_request_elapsed_time", defaultMaxRequestElapsedTime)
-	dd.SetDefault("max_requests", defaultMaxRequests)
-	dd.SetDefault("user-agent", defaultUserAgent)
-	dd.SetDefault("transport", "default")
+	prw := util.GetSubViper(v, "promremotewriter")
+	prw.SetDefault("metrics-per-batch", defaultMetricsPerBatch)
+	prw.SetDefault("max-request-elapsed-time", defaultMaxRequestElapsedTime)
+	prw.SetDefault("max-requests", defaultMaxRequests)
+	prw.SetDefault("user-agent", defaultUserAgent)
+	prw.SetDefault("transport", "default")
 
 	return NewClient(
-		dd.GetString("api_endpoint"),
-		dd.GetString("api_key"),
-		dd.GetString("user-agent"),
-		dd.GetString("transport"),
-		dd.GetInt("metrics_per_batch"),
-		uint(dd.GetInt("max_requests")),
-		dd.GetBool("compress_payload"),
-		dd.GetDuration("max_request_elapsed_time"),
-		v.GetDuration("flush-interval"), // Main viper, not sub-viper
+		prw.GetString("api-endpoint"),
+		prw.GetString("user-agent"),
+		prw.GetString("transport"),
+		prw.GetInt("metrics-per-batch"),
+		uint(prw.GetInt("max-requests")),
+		prw.GetDuration("max-request-elapsed-time"),
 		gostatsd.DisabledSubMetrics(v),
 		logger,
 		pool,
 	)
 }
 
-// NewClient returns a new Datadog API client.
+// NewClient returns a new Prometheus Remote Writer API client.
 func NewClient(
 	apiEndpoint,
-	apiKey,
 	userAgent,
 	transport string,
 	metricsPerBatch int,
 	maxRequests uint,
-	compressPayload bool,
-	maxRequestElapsedTime,
-	flushInterval time.Duration,
+	maxRequestElapsedTime time.Duration,
 	disabled gostatsd.TimerSubtypes,
 	logger logrus.FieldLogger,
 	pool *transport.TransportPool,
 ) (*Client, error) {
 	if apiEndpoint == "" {
-		return nil, fmt.Errorf("[%s] apiEndpoint is required", BackendName)
-	}
-	if apiKey == "" {
-		return nil, fmt.Errorf("[%s] apiKey is required", BackendName)
+		return nil, fmt.Errorf("[%s] api-endpoint is required", BackendName)
 	}
 	if userAgent == "" {
 		return nil, fmt.Errorf("[%s] user-agent is required", BackendName)
 	}
 	if metricsPerBatch <= 0 {
-		return nil, fmt.Errorf("[%s] metricsPerBatch must be positive", BackendName)
+		return nil, fmt.Errorf("[%s] metrics-per-batch must be positive", BackendName)
 	}
 	if maxRequestElapsedTime <= 0 && maxRequestElapsedTime != -1 {
-		return nil, fmt.Errorf("[%s] maxRequestElapsedTime must be positive", BackendName)
+		return nil, fmt.Errorf("[%s] max-request-elapsed-time must be positive", BackendName)
 	}
 
 	httpClient, err := pool.Get(transport)
@@ -443,45 +362,20 @@ func NewClient(
 		"max-request-elapsed-time": maxRequestElapsedTime,
 		"max-requests":             maxRequests,
 		"metrics-per-batch":        metricsPerBatch,
-		"compress-payload":         compressPayload,
 	}).Info("created backend")
 
 	metricsBufferSem := make(chan *bytes.Buffer, maxRequests)
 	for i := uint(0); i < maxRequests; i++ {
 		metricsBufferSem <- &bytes.Buffer{}
 	}
-	eventsBufferSem := make(chan *bytes.Buffer, maxConcurrentEvents)
-	for i := uint(0); i < maxConcurrentEvents; i++ {
-		eventsBufferSem <- &bytes.Buffer{}
-	}
 	return &Client{
 		logger:                logger,
-		apiKey:                apiKey,
 		apiEndpoint:           apiEndpoint,
 		userAgent:             userAgent,
 		maxRequestElapsedTime: maxRequestElapsedTime,
 		client:                httpClient.Client,
 		metricsPerBatch:       uint(metricsPerBatch),
 		metricsBufferSem:      metricsBufferSem,
-		eventsBufferSem:       eventsBufferSem,
-		compressPayload:       compressPayload,
-		flushInterval:         flushInterval,
 		disabledSubtypes:      disabled,
 	}, nil
-}
-
-func deflate(w io.Writer, f func(io.Writer) error) error {
-	compressor, err := zlib.NewWriterLevel(w, zlib.BestCompression)
-	if err != nil {
-		return fmt.Errorf("unable to create zlib writer: %v", err)
-	}
-	err = f(compressor)
-	if err != nil {
-		return fmt.Errorf("unable to write compressed payload: %v", err)
-	}
-	err = compressor.Close()
-	if err != nil {
-		return fmt.Errorf("unable to close compressor: %v", err)
-	}
-	return nil
 }

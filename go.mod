@@ -11,6 +11,7 @@ require (
 	github.com/githubnemo/CompileDaemon v1.0.0
 	github.com/go-redis/redis v6.15.7+incompatible
 	github.com/golang/protobuf v1.3.3
+	github.com/golang/snappy v0.0.4
 	github.com/golangci/golangci-lint v1.23.3
 	github.com/gorilla/mux v1.7.3
 	github.com/howeyc/fsnotify v0.9.0 // indirect
