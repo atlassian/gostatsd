@@ -1,18 +1,18 @@
-package datadog
+package promremotewriter
 
 import (
-	"bytes"
-	"compress/zlib"
 	"context"
-	"index/suffixarray"
 	"io/ioutil"
 	"math"
 	"net/http"
 	"net/http/httptest"
+	"sort"
 	"sync/atomic"
 	"testing"
 	"time"
 
+	"github.com/golang/protobuf/proto"
+	"github.com/golang/snappy"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
@@ -20,6 +20,7 @@ import (
 	"github.com/tilinna/clock"
 
 	"github.com/atlassian/gostatsd"
+	"github.com/atlassian/gostatsd/pb"
 	"github.com/atlassian/gostatsd/pkg/transport"
 )
 
@@ -38,7 +39,7 @@ func TestRetries(t *testing.T) {
 	t.Parallel()
 	var requestNum uint32
 	mux := http.NewServeMux()
-	mux.HandleFunc("/api/v1/series", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/api/push", func(w http.ResponseWriter, r *http.Request) {
 		defer r.Body.Close()
 		n := atomic.AddUint32(&requestNum, 1)
 		data, err := ioutil.ReadAll(r.Body)
@@ -57,7 +58,7 @@ func TestRetries(t *testing.T) {
 	v := viper.New()
 	v.Set("transport.default.client-timeout", 1*time.Second)
 	p := transport.NewTransportPool(logrus.New(), v)
-	client, err := NewClient(ts.URL, "apiKey123", "agent", "default", defaultMetricsPerBatch, defaultMaxRequests, true, 2*time.Second, 1*time.Second, gostatsd.TimerSubtypes{}, logrus.New(), p)
+	client, err := NewClient(ts.URL+"/api/push", "agent", "default", defaultMetricsPerBatch, defaultMaxRequests, 2*time.Second, 1*time.Second, gostatsd.TimerSubtypes{}, logrus.New(), p)
 	require.NoError(t, err)
 	res := make(chan []error, 1)
 	clck := clock.NewMock(time.Unix(0, 0))
@@ -79,7 +80,7 @@ func TestSendMetricsInMultipleBatches(t *testing.T) {
 	t.Parallel()
 	var requestNum uint32
 	mux := http.NewServeMux()
-	mux.HandleFunc("/api/v1/series", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/api/push", func(w http.ResponseWriter, r *http.Request) {
 		defer r.Body.Close()
 		atomic.AddUint32(&requestNum, 1)
 		data, err := ioutil.ReadAll(r.Body)
@@ -94,7 +95,7 @@ func TestSendMetricsInMultipleBatches(t *testing.T) {
 	v := viper.New()
 	v.Set("transport.default.client-timeout", 1*time.Second)
 	p := transport.NewTransportPool(logrus.New(), v)
-	client, err := NewClient(ts.URL, "apiKey123", "agent", "default", 1, defaultMaxRequests, true, 2*time.Second, 1*time.Second, gostatsd.TimerSubtypes{}, logrus.New(), p)
+	client, err := NewClient(ts.URL+"/api/push", "agent", "default", 1, defaultMaxRequests, 2*time.Second, 1*time.Second, gostatsd.TimerSubtypes{}, logrus.New(), p)
 	require.NoError(t, err)
 	res := make(chan []error, 1)
 	client.SendMetricsAsync(context.Background(), twoCounters(), func(errs []error) {
@@ -110,36 +111,36 @@ func TestSendMetricsInMultipleBatches(t *testing.T) {
 func TestSendMetrics(t *testing.T) {
 	t.Parallel()
 	mux := http.NewServeMux()
-	mux.HandleFunc("/api/v1/series", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/api/push", func(w http.ResponseWriter, r *http.Request) {
 		data, err := ioutil.ReadAll(r.Body)
 		if !assert.NoError(t, err) {
 			return
 		}
-		enc := r.Header.Get("Content-Encoding")
-		if enc == "deflate" {
-			decompressor, err := zlib.NewReader(bytes.NewReader(data))
-			if !assert.NoError(t, err) {
-				return
-			}
-			data, err = ioutil.ReadAll(decompressor)
-			assert.NoError(t, err)
+		require.Equal(t, "snappy", r.Header.Get("Content-Encoding"))
+		decoded, err := snappy.Decode(nil, data)
+		require.NoError(t, err)
+		var writeReq pb.PromWriteRequest
+		err = proto.Unmarshal(decoded, &writeReq)
+		require.NoError(t, err)
+		expected := &pb.PromWriteRequest{
+			Timeseries: []*pb.PromTimeSeries{
+				{Labels: []*pb.PromLabel{{Name: "__name__", Value: "c1"}, {Name: "unnamed", Value: "tag1"}}, Samples: []*pb.PromSample{{Value: 1.1, Timestamp: 100000}}},
+				{Labels: []*pb.PromLabel{{Name: "__name__", Value: "c1_count"}, {Name: "unnamed", Value: "tag1"}}, Samples: []*pb.PromSample{{Value: 5, Timestamp: 100000}}},
+				{Labels: []*pb.PromLabel{{Name: "__name__", Value: "t1_lower"}, {Name: "unnamed", Value: "tag2"}}, Samples: []*pb.PromSample{{Value: 0, Timestamp: 100000}}},
+				{Labels: []*pb.PromLabel{{Name: "__name__", Value: "t1_upper"}, {Name: "unnamed", Value: "tag2"}}, Samples: []*pb.PromSample{{Value: 1, Timestamp: 100000}}},
+				{Labels: []*pb.PromLabel{{Name: "__name__", Value: "t1_count"}, {Name: "unnamed", Value: "tag2"}}, Samples: []*pb.PromSample{{Value: 1, Timestamp: 100000}}},
+				{Labels: []*pb.PromLabel{{Name: "__name__", Value: "t1_count_ps"}, {Name: "unnamed", Value: "tag2"}}, Samples: []*pb.PromSample{{Value: 1.1, Timestamp: 100000}}},
+				{Labels: []*pb.PromLabel{{Name: "__name__", Value: "t1_mean"}, {Name: "unnamed", Value: "tag2"}}, Samples: []*pb.PromSample{{Value: 0.5, Timestamp: 100000}}},
+				{Labels: []*pb.PromLabel{{Name: "__name__", Value: "t1_median"}, {Name: "unnamed", Value: "tag2"}}, Samples: []*pb.PromSample{{Value: 0.5, Timestamp: 100000}}},
+				{Labels: []*pb.PromLabel{{Name: "__name__", Value: "t1_std"}, {Name: "unnamed", Value: "tag2"}}, Samples: []*pb.PromSample{{Value: 0.1, Timestamp: 100000}}},
+				{Labels: []*pb.PromLabel{{Name: "__name__", Value: "t1_sum"}, {Name: "unnamed", Value: "tag2"}}, Samples: []*pb.PromSample{{Value: 1, Timestamp: 100000}}},
+				{Labels: []*pb.PromLabel{{Name: "__name__", Value: "t1_sum_squares"}, {Name: "unnamed", Value: "tag2"}}, Samples: []*pb.PromSample{{Value: 1, Timestamp: 100000}}},
+				{Labels: []*pb.PromLabel{{Name: "__name__", Value: "t1_count_90"}, {Name: "unnamed", Value: "tag2"}}, Samples: []*pb.PromSample{{Value: 0.1, Timestamp: 100000}}},
+				{Labels: []*pb.PromLabel{{Name: "__name__", Value: "g1"}, {Name: "unnamed", Value: "tag3"}}, Samples: []*pb.PromSample{{Value: 3, Timestamp: 100000}}},
+				{Labels: []*pb.PromLabel{{Name: "__name__", Value: "users"}, {Name: "unnamed", Value: "tag4"}}, Samples: []*pb.PromSample{{Value: 3, Timestamp: 100000}}},
+			},
 		}
-		expected := `{"series":[` +
-			`{"host":"h1","interval":1.1,"metric":"c1","points":[[100,1.1]],"tags":["tag1"],"type":"rate"},` +
-			`{"host":"h1","interval":1.1,"metric":"c1.count","points":[[100,5]],"tags":["tag1"],"type":"gauge"},` +
-			`{"host":"h2","interval":1.1,"metric":"t1.lower","points":[[100,0]],"tags":["tag2"],"type":"gauge"},` +
-			`{"host":"h2","interval":1.1,"metric":"t1.upper","points":[[100,1]],"tags":["tag2"],"type":"gauge"},` +
-			`{"host":"h2","interval":1.1,"metric":"t1.count","points":[[100,1]],"tags":["tag2"],"type":"gauge"},` +
-			`{"host":"h2","interval":1.1,"metric":"t1.count_ps","points":[[100,1.1]],"tags":["tag2"],"type":"rate"},` +
-			`{"host":"h2","interval":1.1,"metric":"t1.mean","points":[[100,0.5]],"tags":["tag2"],"type":"gauge"},` +
-			`{"host":"h2","interval":1.1,"metric":"t1.median","points":[[100,0.5]],"tags":["tag2"],"type":"gauge"},` +
-			`{"host":"h2","interval":1.1,"metric":"t1.std","points":[[100,0.1]],"tags":["tag2"],"type":"gauge"},` +
-			`{"host":"h2","interval":1.1,"metric":"t1.sum","points":[[100,1]],"tags":["tag2"],"type":"gauge"},` +
-			`{"host":"h2","interval":1.1,"metric":"t1.sum_squares","points":[[100,1]],"tags":["tag2"],"type":"gauge"},` +
-			`{"host":"h2","interval":1.1,"metric":"t1.count_90","points":[[100,0.1]],"tags":["tag2"],"type":"gauge"},` +
-			`{"host":"h3","interval":1.1,"metric":"g1","points":[[100,3]],"tags":["tag3"],"type":"gauge"},` +
-			`{"host":"h4","interval":1.1,"metric":"users","points":[[100,3]],"tags":["tag4"],"type":"gauge"}]}`
-		assert.Equal(t, expected, string(data))
+		assert.Equal(t, expected, &writeReq)
 	})
 	ts := httptest.NewServer(mux)
 	defer ts.Close()
@@ -147,7 +148,7 @@ func TestSendMetrics(t *testing.T) {
 	v := viper.New()
 	v.Set("transport.default.client-timeout", 1*time.Second)
 	p := transport.NewTransportPool(logrus.New(), v)
-	cli, err := NewClient(ts.URL, "apiKey123", "agent", "default", 1000, defaultMaxRequests, true, 2*time.Second, 1100*time.Millisecond, gostatsd.TimerSubtypes{}, logrus.New(), p)
+	cli, err := NewClient(ts.URL+"/api/push", "agent", "default", 1000, defaultMaxRequests, 2*time.Second, 1100*time.Millisecond, gostatsd.TimerSubtypes{}, logrus.New(), p)
 	require.NoError(t, err)
 
 	c := clock.NewMock(time.Unix(100, 0))
@@ -231,33 +232,33 @@ func metricsOneOfEach() *gostatsd.MetricMap {
 func TestSendHistogram(t *testing.T) {
 	t.Parallel()
 	mux := http.NewServeMux()
-	mux.HandleFunc("/api/v1/series", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/api/push", func(w http.ResponseWriter, r *http.Request) {
 		data, err := ioutil.ReadAll(r.Body)
 		if !assert.NoError(t, err) {
 			return
 		}
-		enc := r.Header.Get("Content-Encoding")
-		if enc == "deflate" {
-			decompressor, err := zlib.NewReader(bytes.NewReader(data))
-			if !assert.NoError(t, err) {
-				return
-			}
-			data, err = ioutil.ReadAll(decompressor)
-			assert.NoError(t, err)
+		require.Equal(t, "snappy", r.Header.Get("Content-Encoding"))
+		decoded, err := snappy.Decode(nil, data)
+		require.NoError(t, err)
+		var writeReq pb.PromWriteRequest
+		err = proto.Unmarshal(decoded, &writeReq)
+		require.NoError(t, err)
+		expected := &pb.PromWriteRequest{
+			Timeseries: []*pb.PromTimeSeries{
+				{Labels: []*pb.PromLabel{{Name: "__name__", Value: "t1_histogram"}, {Name: "gsd_histogram", Value: "20_30_40_50_60"}, {Name: "le", Value: "+Inf"}, {Name: "unnamed", Value: "tag2"}}, Samples: []*pb.PromSample{{Value: 19, Timestamp: 100000}}},
+				{Labels: []*pb.PromLabel{{Name: "__name__", Value: "t1_histogram"}, {Name: "gsd_histogram", Value: "20_30_40_50_60"}, {Name: "le", Value: "20"}, {Name: "unnamed", Value: "tag2"}}, Samples: []*pb.PromSample{{Value: 5, Timestamp: 100000}}},
+				{Labels: []*pb.PromLabel{{Name: "__name__", Value: "t1_histogram"}, {Name: "gsd_histogram", Value: "20_30_40_50_60"}, {Name: "le", Value: "30"}, {Name: "unnamed", Value: "tag2"}}, Samples: []*pb.PromSample{{Value: 10, Timestamp: 100000}}},
+				{Labels: []*pb.PromLabel{{Name: "__name__", Value: "t1_histogram"}, {Name: "gsd_histogram", Value: "20_30_40_50_60"}, {Name: "le", Value: "40"}, {Name: "unnamed", Value: "tag2"}}, Samples: []*pb.PromSample{{Value: 10, Timestamp: 100000}}},
+				{Labels: []*pb.PromLabel{{Name: "__name__", Value: "t1_histogram"}, {Name: "gsd_histogram", Value: "20_30_40_50_60"}, {Name: "le", Value: "50"}, {Name: "unnamed", Value: "tag2"}}, Samples: []*pb.PromSample{{Value: 10, Timestamp: 100000}}},
+				{Labels: []*pb.PromLabel{{Name: "__name__", Value: "t1_histogram"}, {Name: "gsd_histogram", Value: "20_30_40_50_60"}, {Name: "le", Value: "60"}, {Name: "unnamed", Value: "tag2"}}, Samples: []*pb.PromSample{{Value: 19, Timestamp: 100000}}},
+			},
 		}
-		expected := []string{
-			`{"host":"h2","interval":1.1,"metric":"t1.histogram","points":[[100,5]],"tags":["tag2","gsd_histogram:20_30_40_50_60","le:20"],"type":"count"}`,
-			`{"host":"h2","interval":1.1,"metric":"t1.histogram","points":[[100,10]],"tags":["tag2","gsd_histogram:20_30_40_50_60","le:30"],"type":"count"}`,
-			`{"host":"h2","interval":1.1,"metric":"t1.histogram","points":[[100,10]],"tags":["tag2","gsd_histogram:20_30_40_50_60","le:40"],"type":"count"}`,
-			`{"host":"h2","interval":1.1,"metric":"t1.histogram","points":[[100,10]],"tags":["tag2","gsd_histogram:20_30_40_50_60","le:50"],"type":"count"}`,
-			`{"host":"h2","interval":1.1,"metric":"t1.histogram","points":[[100,19]],"tags":["tag2","gsd_histogram:20_30_40_50_60","le:60"],"type":"count"}`,
-			`{"host":"h2","interval":1.1,"metric":"t1.histogram","points":[[100,19]],"tags":["tag2","gsd_histogram:20_30_40_50_60","le:+Inf"],"type":"count"}`,
-		}
-
-		for _, e := range expected {
-			assert.Contains(t, string(data), e)
-		}
-		assert.Equal(t, 6, countMatches(string(data), "metric"))
+		sort.Slice(writeReq.Timeseries, func(i, j int) bool {
+			ts1 := writeReq.Timeseries[i]
+			ts2 := writeReq.Timeseries[j]
+			return ts1.Labels[2].Value < ts2.Labels[2].Value
+		})
+		assert.Equal(t, expected, &writeReq)
 	})
 	ts := httptest.NewServer(mux)
 	defer ts.Close()
@@ -265,7 +266,7 @@ func TestSendHistogram(t *testing.T) {
 	v := viper.New()
 	v.Set("transport.default.client-timeout", 1*time.Second)
 	p := transport.NewTransportPool(logrus.New(), v)
-	client, err := NewClient(ts.URL, "apiKey123", "agent", "default", 1000, defaultMaxRequests, true, 2*time.Second, 1100*time.Millisecond, gostatsd.TimerSubtypes{}, logrus.New(), p)
+	client, err := NewClient(ts.URL+"/api/push", "agent", "default", 1000, defaultMaxRequests, 2*time.Second, 1100*time.Millisecond, gostatsd.TimerSubtypes{}, logrus.New(), p)
 	require.NoError(t, err)
 	ctx := clock.Context(context.Background(), clock.NewMock(time.Unix(100, 0)))
 	res := make(chan []error, 1)
@@ -299,9 +300,4 @@ func metricsWithHistogram() *gostatsd.MetricMap {
 			},
 		},
 	}
-}
-
-func countMatches(s string, m string) int {
-	index := suffixarray.New([]byte(s))
-	return len(index.Lookup([]byte(m), -1))
 }

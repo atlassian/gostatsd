@@ -13,6 +13,7 @@ import (
 	"github.com/atlassian/gostatsd/pkg/backends/influxdb"
 	"github.com/atlassian/gostatsd/pkg/backends/newrelic"
 	"github.com/atlassian/gostatsd/pkg/backends/null"
+	"github.com/atlassian/gostatsd/pkg/backends/promremotewriter"
 	"github.com/atlassian/gostatsd/pkg/backends/statsdaemon"
 	"github.com/atlassian/gostatsd/pkg/backends/stdout"
 	"github.com/atlassian/gostatsd/pkg/transport"
@@ -20,14 +21,15 @@ import (
 
 // All known backends.
 var backends = map[string]gostatsd.BackendFactory{
-	datadog.BackendName:     datadog.NewClientFromViper,
-	graphite.BackendName:    graphite.NewClientFromViper,
-	influxdb.BackendName:    influxdb.NewClientFromViper,
-	null.BackendName:        null.NewClientFromViper,
-	statsdaemon.BackendName: statsdaemon.NewClientFromViper,
-	stdout.BackendName:      stdout.NewClientFromViper,
-	cloudwatch.BackendName:  cloudwatch.NewClientFromViper,
-	newrelic.BackendName:    newrelic.NewClientFromViper,
+	cloudwatch.BackendName:       cloudwatch.NewClientFromViper,
+	datadog.BackendName:          datadog.NewClientFromViper,
+	graphite.BackendName:         graphite.NewClientFromViper,
+	influxdb.BackendName:         influxdb.NewClientFromViper,
+	newrelic.BackendName:         newrelic.NewClientFromViper,
+	null.BackendName:             null.NewClientFromViper,
+	promremotewriter.BackendName: promremotewriter.NewClientFromViper,
+	statsdaemon.BackendName:      statsdaemon.NewClientFromViper,
+	stdout.BackendName:           stdout.NewClientFromViper,
 }
 
 // GetBackend creates an instance of the named backend, or nil if
