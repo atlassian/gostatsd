@@ -42,9 +42,9 @@ func (ch *capturingHandler) MetricMaps() []*gostatsd.MetricMap {
 }
 
 func testContext() (context.Context, func()) {
-	ctxTest, completeTest := context.WithTimeout(context.Background(), 1100*time.Millisecond)
+	ctxTest, completeTest := context.WithTimeout(context.Background(), 1500*time.Millisecond)
 	go func() {
-		after := time.NewTimer(1 * time.Second)
+		after := time.NewTimer(1400 * time.Millisecond)
 		select {
 		case <-ctxTest.Done():
 			after.Stop()
