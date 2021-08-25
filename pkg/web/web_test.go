@@ -11,7 +11,7 @@ import (
 )
 
 func TestHttpServerShutsdown(t *testing.T) {
-	testCtx, completed := testContext(t)
+	testCtx, completed := testContext()
 	defer completed()
 
 	hs, err := web.NewHttpServer(

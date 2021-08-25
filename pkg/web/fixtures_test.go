@@ -3,10 +3,7 @@ package web_test
 import (
 	"context"
 	"sync"
-	"testing"
 	"time"
-
-	"github.com/stretchr/testify/require"
 
 	"github.com/atlassian/gostatsd"
 )
@@ -44,15 +41,15 @@ func (ch *capturingHandler) MetricMaps() []*gostatsd.MetricMap {
 	return mms
 }
 
-func testContext(t *testing.T) (context.Context, func()) {
-	ctxTest, completeTest := context.WithTimeout(context.Background(), 1100*time.Millisecond)
+func testContext() (context.Context, func()) {
+	ctxTest, completeTest := context.WithTimeout(context.Background(), 1500*time.Millisecond)
 	go func() {
-		after := time.NewTimer(1 * time.Second)
+		after := time.NewTimer(1400 * time.Millisecond)
 		select {
 		case <-ctxTest.Done():
 			after.Stop()
 		case <-after.C:
-			require.Fail(t, "test timed out")
+			panic("test timed out")
 		}
 	}()
 	return ctxTest, completeTest

@@ -13,7 +13,7 @@ import (
 
 func TestConsolidation(t *testing.T) {
 	t.Parallel()
-	ctxTest, testDone := testContext(t)
+	ctxTest, testDone := testContext()
 	defer testDone()
 
 	mockClock := clock.NewMock(time.Unix(0, 0))
