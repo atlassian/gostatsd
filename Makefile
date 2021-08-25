@@ -34,18 +34,23 @@ setup-ci: tools/bin/protoc
 build-cluster: fmt
 	go build -i -v -o build/bin/$(ARCH)/cluster $(GOBUILD_VERSION_ARGS) $(CLUSTER_PKG)
 
+pb/remote_write.pb.go: pb/remote_write.proto
+	go build -o protoc-gen-go github.com/golang/protobuf/protoc-gen-go/ && \
+	    tools/bin/protoc --go_out=. $< && \
+	    rm protoc-gen-go
+
 pb/gostatsd.pb.go: pb/gostatsd.proto
 	go build -o protoc-gen-go github.com/golang/protobuf/protoc-gen-go/ && \
 	    tools/bin/protoc --go_out=. $< && \
 	    rm protoc-gen-go
 
-build: pb/gostatsd.pb.go fmt
+build: pb/gostatsd.pb.go pb/remote_write.pb.go fmt
 	go build -i -v -o build/bin/$(ARCH)/$(BINARY_NAME) $(GOBUILD_VERSION_ARGS) $(MAIN_PKG)
 
 build-race: fmt
 	go build -i -v -race -o build/bin/$(ARCH)/$(BINARY_NAME) $(GOBUILD_VERSION_ARGS) $(MAIN_PKG)
 
-build-all: pb/gostatsd.pb.go
+build-all: pb/gostatsd.pb.go pb/remote_write.pb.go
 	go install -v ./...
 
 test-all: fmt cover test-race bench bench-race check
@@ -54,37 +59,37 @@ fmt:
 	gofmt -w=true -s $$(find . -type f -name '*.go' -not -path "./vendor/*" -not -path "./pb/*")
 	goimports -w=true -d -local github.com/atlassian/gostatsd $$(find . -type f -name '*.go' -not -path "./vendor/*" -not -path "./pb/*")
 
-test: pb/gostatsd.pb.go
+test: pb/gostatsd.pb.go pb/remote_write.pb.go
 	go test ./...
 
-test-race: pb/gostatsd.pb.go
+test-race: pb/gostatsd.pb.go pb/remote_write.pb.go
 	go test -race ./...
 
-bench: pb/gostatsd.pb.go
+bench: pb/gostatsd.pb.go pb/remote_write.pb.go
 	go test -bench=. -run=XXX ./...
 
-bench-race: pb/gostatsd.pb.go
+bench-race: pb/gostatsd.pb.go pb/remote_write.pb.go
 	go test -race -bench=. -run=XXX ./...
 
-cover: pb/gostatsd.pb.go
+cover: pb/gostatsd.pb.go pb/remote_write.pb.go
 	./cover.sh
 	go tool cover -func=coverage.out
 	go tool cover -html=coverage.out
 
-coveralls: pb/gostatsd.pb.go
+coveralls: pb/gostatsd.pb.go pb/remote_write.pb.go
 	./cover.sh
 	goveralls -coverprofile=coverage.out -service=travis-ci
 
 junit-test: build
 	go test -v ./... | go-junit-report > test-report.xml
 
-check: pb/gostatsd.pb.go
+check: pb/gostatsd.pb.go pb/remote_write.pb.go
 	go install ./cmd/gostatsd
 	go install ./cmd/tester
 	golangci-lint run --deadline=600s --enable=gocyclo --enable=dupl \
 		--disable=interfacer --disable=golint
 
-check-all: pb/gostatsd.pb.go
+check-all: pb/gostatsd.pb.go pb/remote_write.pb.go
 	go install ./cmd/gostatsd
 	go install ./cmd/tester
 	golangci-lint run --deadline=600s --enable=gocyclo --enable=dupl
@@ -103,7 +108,7 @@ git-hook:
 	cp dev/push-hook.sh .git/hooks/pre-push
 
 # Compile a static binary. Cannot be used with -race
-docker: pb/gostatsd.pb.go
+docker: pb/gostatsd.pb.go pb/remote_write.pb.go
 	docker pull golang:$(GOVERSION)
 	docker run \
 		--rm \
@@ -116,7 +121,7 @@ docker: pb/gostatsd.pb.go
 	docker build --pull -t $(IMAGE_NAME):$(GIT_HASH) build
 
 # Compile a binary with -race. Needs to be run on a glibc-based system.
-docker-race: pb/gostatsd.pb.go
+docker-race: pb/gostatsd.pb.go pb/remote_write.pb.go
 	docker pull golang:$(GOVERSION)
 	docker run \
 		--rm \
@@ -128,7 +133,7 @@ docker-race: pb/gostatsd.pb.go
 	docker build --pull -t $(IMAGE_NAME):$(GIT_HASH)-race -f build/Dockerfile-glibc build
 
 # Compile a static binary with symbols. Cannot be used with -race
-docker-symbols: pb/gostatsd.pb.go
+docker-symbols: pb/gostatsd.pb.go pb/remote_write.pb.go
 	docker pull golang:$(GOVERSION)
 	docker run \
 		--rm \

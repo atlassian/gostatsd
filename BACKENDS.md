@@ -285,3 +285,46 @@ Additional options are available to rename attributes if required.
 	timer-sum = "samples_sum"
 	timer-sumsquare = "samples_sum_squares"
 ```
+
+Prometheus Remote Writer Backend
+--------------------------------
+The `promremotewriter` backend supports sending metrics to a Prometheus Remote Writer compatible backend.  It currently
+drops events.  At present there is no authentication supported.
+
+### Settings
+The following settings apply to all versions:
+- `api-endpoint`: the API endpoint to use, should include the full path.  Required with No default.
+- `max-request-elapsed-time`: the maximum amount of time to retry before giving up and dropping data, defaults to `15s`
+- `max-requests`: the maximum number of parallel requests.  This is primarily network I/O, with very little CPU, it
+  should be capped if it is overwhelming the remote server.  Defaults to 10 times the number of logical cores.
+- `metrics-per-batch`: the number of metrics to send per request.  Defaults to `1000`.
+- `transport`: the HTTP transport to use, see [TRANSPORT.md](TRANSPORT.md) for further information.
+- `user-agent`: configures the user-agent, defaults to `gostatsd`
+
+##### Example configuration
+```toml
+[promremotewriter]
+api-endpoint='https://prometheus.local/'
+max-request-elapsed-time='15s'
+max-requests=20
+metrics-per-batch=7500
+transport='default'
+```
+
+### Tag normalization
+As the dogstatsd protocol doesn't have exact parity with Prometheus Remote Write protocol, there is some cleanup
+applied to the tags before sending them.  Specifically:
+- tags with only a value (`value`) are normalized as `unnamed:value`
+- tags with an empty key (`:value`) are normalized as `unnamed:value`
+- tags with an empty value (`key:`) are normalized as `key:__unset__`
+- multiple values for duplicate keys are sorted
+- keys with multiple values have their values concatenated with `__`
+- metric and label names have invalid characters replaced with `_`
+
+For example, given the tags `foo, key:bar, unnamed:baz, key:thing, other:something`, the result will be normalized
+as `key=bar__thing,other=something,unnamed=baz__foo`.
+
+
+### Events
+Events are dropped, as Prometheus Remote Write doesn't support them.  A Grafana specific events backend may be added
+to fill this gap at some point.
