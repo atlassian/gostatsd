@@ -39,6 +39,7 @@ func TestMetricsLexer(t *testing.T) {
 		"a:1|g|#":                       {Name: "a", Value: 1, Type: gostatsd.GAUGE, Rate: 1.0},
 		"a:1|g|#,":                      {Name: "a", Value: 1, Type: gostatsd.GAUGE, Rate: 1.0},
 		"a:1|g|#,,":                     {Name: "a", Value: 1, Type: gostatsd.GAUGE, Rate: 1.0},
+		"foo:10|g|#a:b,c:,:d":           {Name: "foo", Value: 10, Type: gostatsd.GAUGE, Rate: 1.0, Tags: gostatsd.Tags{"a:b", "c:", ":d"}},
 	}
 
 	compareMetric(t, tests, "")
@@ -55,15 +56,6 @@ func TestInvalidMetricsLexer(t *testing.T) {
 			assert.Error(t, err, result)
 		})
 	}
-
-	tests := map[string]gostatsd.Metric{
-		"foo.bar.baz:2|c": {Name: "stats.foo.bar.baz", Value: 2, Type: gostatsd.COUNTER, Rate: 1.0},
-		"abc.def.g:3|g":   {Name: "stats.abc.def.g", Value: 3, Type: gostatsd.GAUGE, Rate: 1.0},
-		"def.g:10|ms":     {Name: "stats.def.g", Value: 10, Type: gostatsd.TIMER, Rate: 1.0},
-		"uniq.usr:joe|s":  {Name: "stats.uniq.usr", StringValue: "joe", Type: gostatsd.SET, Rate: 1.0},
-	}
-
-	compareMetric(t, tests, "stats")
 }
 
 func TestEventsLexer(t *testing.T) {
