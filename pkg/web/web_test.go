@@ -3,6 +3,7 @@ package web_test
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
@@ -11,7 +12,7 @@ import (
 )
 
 func TestHttpServerShutsdown(t *testing.T) {
-	testCtx, completed := testContext()
+	ctxTest, completed := context.WithTimeout(context.Background(), 5000*time.Millisecond)
 	defer completed()
 
 	hs, err := web.NewHttpServer(
@@ -26,16 +27,20 @@ func TestHttpServerShutsdown(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	ctx, cancel := context.WithCancel(testCtx)
+	ctx, cancel := context.WithCancel(ctxTest)
 	chDone := make(chan struct{}, 1)
 	go func() {
 		hs.Run(ctx)
-		chDone <- struct{}{}
+		select {
+		case <-ctxTest.Done():
+		case chDone <- struct{}{}:
+		}
 	}()
 
 	cancel()
 	select {
-	case <-testCtx.Done():
+	case <-ctxTest.Done():
+		t.FailNow()
 	case <-chDone:
 	}
 }
