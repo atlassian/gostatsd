@@ -50,21 +50,35 @@ build-all: pb/gostatsd.pb.go
 
 test-all: fmt cover test-race bench bench-race check
 
+test-all-full: fmt cover test-race-full bench-full bench-race-full check
+
 fmt:
 	gofmt -w=true -s $$(find . -type f -name '*.go' -not -path "./vendor/*" -not -path "./pb/*")
 	goimports -w=true -d -local github.com/atlassian/gostatsd $$(find . -type f -name '*.go' -not -path "./vendor/*" -not -path "./pb/*")
 
-test: pb/gostatsd.pb.go
+test-full: pb/gostatsd.pb.go
 	go test ./...
 
-test-race: pb/gostatsd.pb.go
+test-race-full: pb/gostatsd.pb.go
 	go test -race ./...
 
-bench: pb/gostatsd.pb.go
+bench-full: pb/gostatsd.pb.go
 	go test -bench=. -run=XXX ./...
 
-bench-race: pb/gostatsd.pb.go
+bench-race-full: pb/gostatsd.pb.go
 	go test -race -bench=. -run=XXX ./...
+
+test: pb/gostatsd.pb.go
+	go test -short ./...
+
+test-race: pb/gostatsd.pb.go
+	go test -short -race ./...
+
+bench: pb/gostatsd.pb.go
+	go test -short -bench=. -run=XXX ./...
+
+bench-race: pb/gostatsd.pb.go
+	go test -short -race -bench=. -run=XXX ./...
 
 cover: pb/gostatsd.pb.go
 	./cover.sh
@@ -76,7 +90,7 @@ coveralls: pb/gostatsd.pb.go
 	goveralls -coverprofile=coverage.out -service=travis-ci
 
 junit-test: build
-	go test -v ./... | go-junit-report > test-report.xml
+	go test -short -v ./... | go-junit-report > test-report.xml
 
 check: pb/gostatsd.pb.go
 	go install ./cmd/gostatsd
