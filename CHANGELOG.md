@@ -1,5 +1,10 @@
+29.1.0-rc1
+------
+- Initial Prometheus Remote Write support added
+
 29.0.2
 ------
+- New Relic backend handles infinities and NaN better
 - Update to Alpine 3.14.1
 
 29.0.1
