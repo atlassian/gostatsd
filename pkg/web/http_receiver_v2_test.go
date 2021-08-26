@@ -1,6 +1,7 @@
 package web_test
 
 import (
+	"context"
 	"net/http/httptest"
 	"sort"
 	"testing"
@@ -9,6 +10,7 @@ import (
 	"github.com/ash2k/stager/wait"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/tilinna/clock"
 
@@ -22,11 +24,13 @@ import (
 func TestForwardingEndToEndV2(t *testing.T) {
 	t.Parallel()
 
-	ctxTest, testDone := testContext()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	mockClock := clock.NewMock(time.Unix(0, 0))
-	ctxTest = clock.Context(ctxTest, mockClock)
+	ctx = clock.Context(ctx, mockClock)
 
-	ch := &capturingHandler{}
+	ch := &channeledHandler{
+		chMaps: make(chan *gostatsd.MetricMap),
+	}
 
 	hs, err := web.NewHttpServer(
 		logrus.StandardLogger(),
@@ -60,8 +64,9 @@ func TestForwardingEndToEndV2(t *testing.T) {
 	require.NoError(t, err)
 
 	var wg wait.Group
-	wg.StartWithContext(ctxTest, hfh.Run)
+	wg.StartWithContext(ctx, hfh.Run)
 	defer wg.Wait()
+	defer cancel() // cancel must occur before waiting for the wg
 
 	m1 := &gostatsd.Metric{
 		Name:  "counter",
@@ -125,12 +130,10 @@ func TestForwardingEndToEndV2(t *testing.T) {
 	// only do timers once, because they're very noisy in the output.
 	mm.Receive(m3)
 	mm.Receive(m4)
-	hfh.DispatchMetricMap(ctxTest, mm)
+	hfh.DispatchMetricMap(ctx, mm)
 
-	fixtures.NextStep(ctxTest, mockClock)
+	fixtures.NextStep(ctx, mockClock)
 	mockClock.Add(1 * time.Second) // Make sure everything gets scheduled
-
-	time.Sleep(50 * time.Millisecond) // Give the http call time to actually occur
 
 	expected := []*gostatsd.Metric{
 		{Name: "counter", Type: gostatsd.COUNTER, Value: (100 * 10) + (100 * 10 / 0.1), Rate: 1},
@@ -143,20 +146,31 @@ func TestForwardingEndToEndV2(t *testing.T) {
 		{Name: "set", Type: gostatsd.SET, StringValue: "abc", Rate: 1},
 		{Name: "set", Type: gostatsd.SET, StringValue: "def", Rate: 1},
 	}
-
-	actual := gostatsd.MergeMaps(ch.MetricMaps()).AsMetrics()
-
 	for _, m := range expected {
 		m.FormatTagsKey()
 	}
 
-	for _, metric := range actual {
-		metric.Timestamp = 0 // This isn't propagated through v2, and is set to the time of receive
+	var maps []*gostatsd.MetricMap
+	var actual []*gostatsd.Metric
+	for !assert.ObjectsAreEqualValues(expected, actual) {
+		// Receive another map
+		select {
+		case <-ctx.Done():
+			t.FailNow()
+		case mm := <-ch.chMaps:
+			maps = append(maps, mm)
+		}
+
+		// Merge in to a Metric slice
+		actual = gostatsd.MergeMaps(maps).AsMetrics()
+
+		// Normalize
+		for _, metric := range actual {
+			metric.Timestamp = 0 // This isn't propagated through v2, and is set to the time of receive
+		}
+		sort.Slice(actual, fixtures.SortCompare(actual))
+		sort.Slice(expected, fixtures.SortCompare(expected))
+
+		// Test on next loop iteration
 	}
-
-	sort.Slice(actual, fixtures.SortCompare(actual))
-	sort.Slice(expected, fixtures.SortCompare(expected))
-
-	require.EqualValues(t, expected, actual)
-	testDone()
 }
