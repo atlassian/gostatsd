@@ -66,10 +66,10 @@ func TestTagTranslation(t *testing.T) {
 
 		// Test everything, with some invalid data for good measure
 		{"", gostatsd.Tags{"foo", "foo:unset", "baz:foo", "foo:", "unnamed:foo", "bar", "foo_:rab", "baz:bar", "foo?:bar"}, []*pb.PromLabel{
-			{Name: "baz", Value:"bar__foo"},
-			{Name: "foo", Value:"__unset____unset"},
-			{Name: "foo_", Value:"bar__rab"},
-			{Name: "unnamed", Value:"bar__foo__foo"},
+			{Name: "baz", Value: "bar__foo"},
+			{Name: "foo", Value: "__unset____unset"},
+			{Name: "foo_", Value: "bar__rab"},
+			{Name: "unnamed", Value: "bar__foo__foo"},
 		}},
 	}
 	for _, tt := range tests {
