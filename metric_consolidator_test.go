@@ -13,8 +13,8 @@ import (
 
 func TestConsolidation(t *testing.T) {
 	t.Parallel()
-	ctxTest, testDone := testContext()
-	defer testDone()
+	ctxTest, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
 
 	mockClock := clock.NewMock(time.Unix(0, 0))
 	ctxClock := clock.Context(ctxTest, mockClock)
@@ -40,7 +40,12 @@ func TestConsolidation(t *testing.T) {
 	mc.ReceiveMetrics([]*Metric{m2})
 	mc.Flush(ctxClock)
 
-	mm := <-ch
+	var mm []*MetricMap
+	select {
+	case <-ctxTest.Done():
+		t.FailNow()
+	case mm = <-ch:
+	}
 
 	expected := []*MetricMap{NewMetricMap(), NewMetricMap()}
 	expected[0].Counters["foo"] = map[string]Counter{
