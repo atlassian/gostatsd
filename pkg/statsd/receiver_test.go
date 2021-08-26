@@ -15,6 +15,10 @@ import (
 )
 
 func BenchmarkReceive(b *testing.B) {
+	if testing.Short() {
+		// This currently has trouble on arm64, needs to be investigated per #384
+		b.Skip()
+	}
 	// Small values result in the channel aggressively blocking and causing slowdowns.
 	// Large values result in the channel consuming lots of memory before the scheduler
 	// gets to it, causing GC related slowdowns.
