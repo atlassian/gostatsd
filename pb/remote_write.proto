@@ -2,6 +2,8 @@ syntax = "proto3";
 
 package pb;
 
+// https://docs.google.com/document/d/1LPhVRSFkGNSuU1fBd81ulhsCPR4hkSZyyBj1SZ8fWOM/
+
 message PromWriteRequest {
   repeated PromTimeSeries timeseries = 1;
   // Cortex uses this field to determine the source of the write request.
