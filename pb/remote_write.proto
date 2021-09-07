@@ -1,0 +1,31 @@
+syntax = "proto3";
+
+package pb;
+
+// https://docs.google.com/document/d/1LPhVRSFkGNSuU1fBd81ulhsCPR4hkSZyyBj1SZ8fWOM/
+
+message PromWriteRequest {
+  repeated PromTimeSeries timeseries = 1;
+  // Cortex uses this field to determine the source of the write request.
+  // We reserve it to avoid any compatibility issues.
+  reserved  2;
+
+  // Prometheus uses this field to send metadata, but this is
+  // omitted from v1 of the spec as it is experimental.
+  reserved  3;
+}
+
+message PromTimeSeries {
+  repeated PromLabel labels = 1;
+  repeated PromSample samples = 2;
+}
+
+message PromLabel {
+  string name = 1;
+  string value = 2;
+}
+
+message PromSample {
+  double value = 1;
+  int64 timestamp = 2;
+}

@@ -16,6 +16,11 @@ const (
 	rate metricType = "rate"
 	// counter is a datadog counter type.
 	counter metricType = "count"
+
+	// We want to ensure we don't go over any limits, in case they're
+	// hard limits so we flush when we get *near* the limit, with the
+	// goal of never going *over* the limit.
+	flushBuffer = 20
 )
 
 // flush represents a send operation.
@@ -77,7 +82,7 @@ func coerceToNumeric(v float64) float64 {
 }
 
 func (f *flush) maybeFlush() {
-	if uint(len(f.ts.Series))+20 >= f.metricsPerBatch { // flush before it reaches max size and grows the slice
+	if uint(len(f.ts.Series))+flushBuffer >= f.metricsPerBatch { // flush before it reaches max size and grows the slice
 		f.cb(f.ts)
 		f.ts = &timeSeries{
 			Series: make([]metric, 0, f.metricsPerBatch),
