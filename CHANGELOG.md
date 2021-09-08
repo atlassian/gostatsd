@@ -1,3 +1,7 @@
+30.0.0
+------
+- Change to distroless/static image to reduce dependencies
+
 29.0.2
 ------
 - Update to Alpine 3.14.1
