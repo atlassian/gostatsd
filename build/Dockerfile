@@ -1,7 +1,4 @@
-FROM alpine:3.14.1
-
-RUN apk --no-cache add \
-    ca-certificates
+FROM gcr.io/distroless/static
 
 ADD bin/linux/gostatsd /bin/gostatsd
 
