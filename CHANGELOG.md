@@ -1,3 +1,8 @@
+32.0.0
+------
+- Upgrading Gostatsd to used go 1.17
+- Upgraded dependancies
+
 31.0.0
 ------
 - Change back to alpine, bump to 3.14.2
