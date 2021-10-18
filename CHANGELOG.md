@@ -1,3 +1,7 @@
+32.0.1
+------
+- Removed support for `*-sym` docker image
+
 32.0.0
 ------
 - Upgrading Gostatsd to used go 1.17

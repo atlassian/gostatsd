@@ -141,19 +141,6 @@ docker-race: pb/gostatsd.pb.go
 		go build -race -o build/bin/linux/$(BINARY_NAME) $(GOBUILD_VERSION_ARGS) $(MAIN_PKG)
 	docker build --pull -t $(IMAGE_NAME):$(GIT_HASH)-race -f build/Dockerfile-glibc build
 
-# Compile a static binary with symbols. Cannot be used with -race
-docker-symbols: pb/gostatsd.pb.go
-	docker pull golang:$(GOVERSION)
-	docker run \
-		--rm \
-		-v "$(GOPATH)":"$(GP)" \
-		-w "$(GP)/src/github.com/atlassian/gostatsd" \
-		-e GOPATH="$(GP)" \
-		-e CGO_ENABLED=0 \
-		golang:$(GOVERSION) \
-		go build -o build/bin/linux/$(BINARY_NAME) $(GOBUILD_VERSION_ARGS_WITH_SYMS) $(MAIN_PKG)
-	docker build --pull -t $(IMAGE_NAME):$(GIT_HASH)-syms build
-
 release-hash: docker
 	docker push $(IMAGE_NAME):$(GIT_HASH)
 
@@ -170,11 +157,8 @@ release-race: docker-race
 	docker tag $(IMAGE_NAME):$(GIT_HASH)-race $(IMAGE_NAME):$(REPO_VERSION)-race
 	docker push $(IMAGE_NAME):$(REPO_VERSION)-race
 
-release-symbols: docker-symbols
-	docker tag $(IMAGE_NAME):$(GIT_HASH)-syms $(IMAGE_NAME):$(REPO_VERSION)-syms
-	docker push $(IMAGE_NAME):$(REPO_VERSION)-syms
 
-release: release-normal release-race release-symbols
+release: release-normal release-race 
 
 release-manifest:
 	for tag in latest $(REPO_VERSION) $(GIT_HASH)-race $(REPO_VERSION)-race $(REPO_VERSION)-syms; do \
