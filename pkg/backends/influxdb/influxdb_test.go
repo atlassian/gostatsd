@@ -177,7 +177,7 @@ func TestSendMetricsInMultipleBatches(t *testing.T) {
 	for _, err := range errs {
 		assert.NoError(t, err)
 	}
-	assert.EqualValues(t, 2, requestNum)
+	assert.EqualValues(t, uint32(2), requestNum)
 	assert.EqualValues(t, cap(client.reqBufferSem), len(client.reqBufferSem))
 }
 
