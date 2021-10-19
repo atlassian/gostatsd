@@ -27,8 +27,8 @@ tools/bin/protoc:
 	curl -L -O https://github.com/protocolbuffers/protobuf/releases/download/v$(PROTOBUF_VERSION)/protoc-$(PROTOBUF_VERSION)-linux-x86_64.zip
 	unzip -d tools/ protoc-$(PROTOBUF_VERSION)-linux-x86_64.zip
 	rm protoc-$(PROTOBUF_VERSION)-linux-x86_64.zip
-	go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.26 \
-			   google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.1
+	go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.26
+	go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.1
 
 setup-ci: tools/bin/protoc
 	go install github.com/golangci/golangci-lint/cmd/golangci-lint
