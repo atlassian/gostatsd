@@ -39,7 +39,7 @@ build-cluster: fmt
 pb/gostatsd.pb.go: pb/gostatsd.proto
 	GOPATH="tools/bin/protoc:${GOPATH}" protoc --go_out=.\
 		--go_opt=paths=source_relative \
-	    --go-grpc_out=. \
+		--go-grpc_out=. \
 		--go-grpc_opt=paths=source_relative \
 		$<
 	$(RM) protoc-gen-go
