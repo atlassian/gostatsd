@@ -9,7 +9,6 @@ require (
 	github.com/dvyukov/go-fuzz v0.0.0-20191206100749-a378175e205c
 	github.com/githubnemo/CompileDaemon v1.0.0
 	github.com/go-redis/redis v6.15.7+incompatible
-	github.com/golang/protobuf v1.5.0
 	github.com/golangci/golangci-lint v1.23.3
 	github.com/gorilla/mux v1.7.3
 	github.com/jessevdk/go-flags v1.4.0
@@ -52,6 +51,7 @@ require (
 	github.com/gobwas/glob v0.2.3 // indirect
 	github.com/gofrs/flock v0.0.0-20190320160742-5135e617513b // indirect
 	github.com/gogo/protobuf v1.2.2-0.20190723190241-65acae22fc9d // indirect
+	github.com/golang/protobuf v1.5.0 // indirect
 	github.com/golangci/check v0.0.0-20180506172741-cfe4005ccda2 // indirect
 	github.com/golangci/dupl v0.0.0-20180902072040-3e9179ac440a // indirect
 	github.com/golangci/errcheck v0.0.0-20181223084120-ef45e06d44b6 // indirect
