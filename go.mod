@@ -9,7 +9,7 @@ require (
 	github.com/dvyukov/go-fuzz v0.0.0-20191206100749-a378175e205c
 	github.com/githubnemo/CompileDaemon v1.0.0
 	github.com/go-redis/redis v6.15.7+incompatible
-	github.com/golang/protobuf v1.3.3
+	github.com/golang/protobuf v1.5.0
 	github.com/golangci/golangci-lint v1.23.3
 	github.com/gorilla/mux v1.7.3
 	github.com/jessevdk/go-flags v1.4.0
@@ -25,6 +25,7 @@ require (
 	golang.org/x/net v0.0.0-20210226172049-e18ecbb05110
 	golang.org/x/time v0.0.0-20191024005414-555d28b269f0
 	golang.org/x/tools v0.0.0-20210106214847-113979e3529a
+	google.golang.org/protobuf v1.27.1
 	k8s.io/api v0.17.3
 	k8s.io/apimachinery v0.17.3
 	k8s.io/client-go v0.17.3
@@ -65,7 +66,7 @@ require (
 	github.com/golangci/prealloc v0.0.0-20180630174525-215b22d4de21 // indirect
 	github.com/golangci/revgrep v0.0.0-20180526074752-d9c87f5ffaf0 // indirect
 	github.com/golangci/unconvert v0.0.0-20180507085042-28b1c447d1f4 // indirect
-	github.com/google/go-cmp v0.3.0 // indirect
+	github.com/google/go-cmp v0.5.5 // indirect
 	github.com/google/gofuzz v1.0.0 // indirect
 	github.com/googleapis/gnostic v0.0.0-20170729233727-0c5108395e2d // indirect
 	github.com/gostaticanalysis/analysisutil v0.0.0-20190318220348-4088753ea4d3 // indirect
