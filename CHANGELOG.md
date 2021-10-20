@@ -1,3 +1,7 @@
+33.0.0
+------
+- Upgraded protobuf library from `github.com/golang/protobuf` to `google.golang.org/protobuf`
+
 32.0.1
 ------
 - Removed support for `*-sym` docker image
