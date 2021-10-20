@@ -45,7 +45,7 @@ install:
 
 script:
   - make build-all
-  - make coveralls
+  - make coveralls || true # Failing coveralls check should not break the build
   - make check
   - make test-race
   - make bench-race
