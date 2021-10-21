@@ -27,6 +27,8 @@ tools/bin/protoc:
 	curl -L -O https://github.com/protocolbuffers/protobuf/releases/download/v$(PROTOBUF_VERSION)/protoc-$(PROTOBUF_VERSION)-linux-x86_64.zip
 	unzip -d tools/ protoc-$(PROTOBUF_VERSION)-linux-x86_64.zip
 	rm protoc-$(PROTOBUF_VERSION)-linux-x86_64.zip
+	go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.26
+	go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.1
 
 setup-ci: tools/bin/protoc
 	go install github.com/golangci/golangci-lint/cmd/golangci-lint
@@ -35,9 +37,12 @@ build-cluster: fmt
 	go build -i -v -o build/bin/$(ARCH)/cluster $(GOBUILD_VERSION_ARGS) $(CLUSTER_PKG)
 
 pb/gostatsd.pb.go: pb/gostatsd.proto
-	go build -o protoc-gen-go github.com/golang/protobuf/protoc-gen-go/ && \
-	    tools/bin/protoc --go_out=. $< && \
-	    rm protoc-gen-go
+	GOPATH="tools/bin/protoc:${GOPATH}" protoc --go_out=.\
+		--go_opt=paths=source_relative \
+		--go-grpc_out=. \
+		--go-grpc_opt=paths=source_relative \
+		$<
+	$(RM) protoc-gen-go
 
 build: pb/gostatsd.pb.go fmt
 	go build -i -v -o build/bin/$(ARCH)/$(BINARY_NAME) $(GOBUILD_VERSION_ARGS) $(MAIN_PKG)
@@ -158,7 +163,7 @@ release-race: docker-race
 	docker push $(IMAGE_NAME):$(REPO_VERSION)-race
 
 
-release: release-normal release-race 
+release: release-normal release-race
 
 release-manifest:
 	for tag in latest $(REPO_VERSION) $(GIT_HASH)-race $(REPO_VERSION)-race $(REPO_VERSION)-syms; do \

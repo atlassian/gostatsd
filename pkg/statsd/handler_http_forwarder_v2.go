@@ -15,10 +15,10 @@ import (
 
 	"github.com/ash2k/stager/wait"
 	"github.com/cenkalti/backoff"
-	"github.com/golang/protobuf/proto"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"github.com/tilinna/clock"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/atlassian/gostatsd"
 	"github.com/atlassian/gostatsd/internal/util"
