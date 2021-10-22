@@ -16,6 +16,7 @@ GOVERSION := 1.17.2  # Keep in sync with .travis.yml and README.md
 GP := /gopath
 MAIN_PKG := github.com/atlassian/gostatsd/cmd/gostatsd
 CLUSTER_PKG := github.com/atlassian/gostatsd/cmd/cluster
+LAMBDA_PKG := github.com/atlassian/gostatsd/cmd/lambda-extension
 PROTOBUF_VERSION ?= 3.6.1
 
 setup: setup-ci
@@ -34,7 +35,7 @@ setup-ci: tools/bin/protoc
 	go install github.com/golangci/golangci-lint/cmd/golangci-lint
 
 build-cluster: fmt
-	go build -i -v -o build/bin/$(ARCH)/cluster $(GOBUILD_VERSION_ARGS) $(CLUSTER_PKG)
+	go build -v -o build/bin/$(ARCH)/cluster $(GOBUILD_VERSION_ARGS) $(CLUSTER_PKG)
 
 pb/gostatsd.pb.go: pb/gostatsd.proto
 	GOPATH="tools/bin/protoc:${GOPATH}" protoc --go_out=.\
@@ -45,12 +46,15 @@ pb/gostatsd.pb.go: pb/gostatsd.proto
 	$(RM) protoc-gen-go
 
 build: pb/gostatsd.pb.go fmt
-	go build -i -v -o build/bin/$(ARCH)/$(BINARY_NAME) $(GOBUILD_VERSION_ARGS) $(MAIN_PKG)
+	go build -v -o build/bin/$(ARCH)/$(BINARY_NAME) $(GOBUILD_VERSION_ARGS) $(MAIN_PKG)
+
+build-lambda:
+	go build -v -o build/bin/$(ARCH)/lambda-extension $(GOBUILD_VERSION_ARGS) $(LAMBDA_PKG)
 
 build-race: fmt
-	go build -i -v -race -o build/bin/$(ARCH)/$(BINARY_NAME) $(GOBUILD_VERSION_ARGS) $(MAIN_PKG)
+	go build -v -race -o build/bin/$(ARCH)/$(BINARY_NAME)-race $(GOBUILD_VERSION_ARGS) $(MAIN_PKG)
 
-build-all: pb/gostatsd.pb.go
+install-all: pb/gostatsd.pb.go
 	go install -v ./...
 
 test-all: fmt cover test-race bench bench-race check
@@ -176,6 +180,13 @@ release-manifest:
 	  docker manifest push $(MANIFEST_NAME):$$tag; \
 	done
 
+github-release: build build-cluster build-race build-lambda
+	mkdir -p build/release
+	for bin in build/bin/$(ARCH)/*; do \
+		cp $$bin build/release/`basename $$bin`-$(REPO_VERSION).$(ARCH)-$(CPU_ARCH); \
+		zip -r build/release/`basename $$bin`-$(REPO_VERSION).$(ARCH)-$(CPU_ARCH).zip $$bin; \
+	done
+
 run: build
 	./build/bin/$(ARCH)/$(BINARY_NAME) --backends=stdout --verbose --flush-interval=2s
 
@@ -191,8 +202,8 @@ version:
 	@echo $(REPO_VERSION)
 
 clean:
-	rm -f build/bin/*
+	rm -rf build/bin/* build/release/*
 	-docker rm $(docker ps -a -f 'status=exited' -q)
 	-docker rmi $(docker images -f 'dangling=true' -q)
 
-.PHONY: build
+.PHONY: build github-release
