@@ -8,7 +8,7 @@ require (
 	github.com/cenkalti/backoff v2.2.1+incompatible
 	github.com/dvyukov/go-fuzz v0.0.0-20191206100749-a378175e205c
 	github.com/githubnemo/CompileDaemon v1.0.0
-	github.com/go-redis/redis v6.15.8+incompatible
+	github.com/go-redis/redis v6.15.9+incompatible
 	github.com/golangci/golangci-lint v1.42.1
 	github.com/gorilla/mux v1.8.0
 	github.com/jessevdk/go-flags v1.4.0
