@@ -1,6 +1,7 @@
-unreleased
+33.0.1
 ------
 - Moving bucketing stratergy to use tagKeys instead of Source
+- Bumped several packages to the most recent version
 
 33.0.0
 ------
