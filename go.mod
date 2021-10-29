@@ -12,7 +12,7 @@ require (
 	github.com/golangci/golangci-lint v1.42.1
 	github.com/gorilla/mux v1.8.0
 	github.com/jessevdk/go-flags v1.5.0
-	github.com/json-iterator/go v1.1.11
+	github.com/json-iterator/go v1.1.12
 	github.com/jstemmer/go-junit-report v0.9.1
 	github.com/libp2p/go-reuseport v0.1.0
 	github.com/magiconair/properties v1.8.5
@@ -118,7 +118,7 @@ require (
 	github.com/mitchellh/go-homedir v1.1.0 // indirect
 	github.com/mitchellh/mapstructure v1.4.1 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
-	github.com/modern-go/reflect2 v1.0.1 // indirect
+	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/moricho/tparallel v0.2.1 // indirect
 	github.com/nakabonne/nestif v0.3.0 // indirect
 	github.com/nbutton23/zxcvbn-go v0.0.0-20210217022336-fa2cb2858354 // indirect
