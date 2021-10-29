@@ -66,12 +66,7 @@ func (m *Metric) Reset() {
 	m.Type = 0
 }
 
-// Bucket will pick a distribution bucket for this metric to land in.  max is exclusive.
-func (m *Metric) Bucket(max int) int {
-	return Bucket(m.Name, m.Source, max)
-}
-
-func Bucket(metricName string, source Source, max int) int {
+func Bucket(metricName string, source string, max int) int {
 	// Consider hashing the tags here too
 	bucket := adler32.Checksum([]byte(metricName))
 	bucket += adler32.Checksum([]byte(source))
