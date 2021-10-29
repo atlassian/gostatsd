@@ -1,3 +1,7 @@
+33.0.2
+------
+- Fixing release process after removing `-sym` releases in prior tag
+
 33.0.1
 ------
 - Moving bucketing stratergy to use tagKeys instead of Source

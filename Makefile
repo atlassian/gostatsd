@@ -166,7 +166,7 @@ release-race: docker-race
 release: release-normal release-race
 
 release-manifest:
-	for tag in latest $(REPO_VERSION) $(GIT_HASH)-race $(REPO_VERSION)-race $(REPO_VERSION)-syms; do \
+	for tag in latest $(REPO_VERSION) $(GIT_HASH)-race $(REPO_VERSION)-race; do \
 	  for arch in amd64 arm64; do \
 		  docker pull $(MANIFEST_NAME)-$$arch:$$tag; \
 		done; \
