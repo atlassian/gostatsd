@@ -3,7 +3,6 @@ package extension
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -16,7 +15,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/multierr"
 
 	"github.com/atlassian/gostatsd/internal/awslambda/extension/api"
 	"github.com/atlassian/gostatsd/pkg/fakesocket"
@@ -156,15 +154,6 @@ func EventNextHandler(tb testing.TB, statusCode, shutdownAfter int, delay time.D
 
 		count++
 	})
-}
-
-func IsMultiError(errs, target error) bool {
-	for _, err := range multierr.Errors(errs) {
-		if errors.Is(err, target) {
-			return true
-		}
-	}
-	return target == errs
 }
 
 func TestManagerRegister(t *testing.T) {
