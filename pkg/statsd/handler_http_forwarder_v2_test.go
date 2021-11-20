@@ -1,11 +1,16 @@
 package statsd
 
 import (
+	"context"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 	"time"
 
+	"github.com/ash2k/stager/wait"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/atlassian/gostatsd"
@@ -205,6 +210,69 @@ func BenchmarkHttpForwarderV2TranslateAll(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		translateToProtobufV2(mm)
 	}
+}
+
+func TestForwardingData(t *testing.T) {
+	t.Parallel()
+
+	bh := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
+		// Accept all incoming requests, no need to validate it at this time
+	}))
+	t.Cleanup(bh.Close)
+
+	logger := logrus.New().WithField("test", t.Name())
+	pool := transport.NewTransportPool(logger, viper.New())
+
+	forwarder, err := NewHttpForwarderHandlerV2(
+		logger,
+		"default",
+		bh.URL,
+		1,
+		1,
+		false,
+		100*time.Millisecond,
+		100*time.Millisecond,
+		map[string]string{},
+		[]string{},
+		pool,
+	)
+	require.NoError(t, err, "Must have a valid forwarder")
+	require.NotNil(t, forwarder, "Must have a valid forwarder")
+
+	var wg wait.Group
+
+	ctx, cancel := context.WithTimeout(context.Background(), 300*time.Millisecond)
+	t.Cleanup(cancel)
+
+	wg.StartWithContext(ctx, forwarder.Run)
+	wg.StartWithContext(ctx, forwarder.RunMetricsContext)
+	wg.StartWithContext(ctx, func(c context.Context) {
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			default:
+				// Continue on
+			}
+			forwarder.DispatchMetricMap(ctx, &gostatsd.MetricMap{
+				Counters: gostatsd.Counters{
+					"super-happy": map[string]gostatsd.Counter{
+						"derpinton": gostatsd.NewCounter(
+							gostatsd.Nanotime(time.Now().UnixNano()),
+							1,
+							gostatsd.UnknownSource,
+							gostatsd.Tags{},
+						),
+					},
+				},
+			})
+		}
+	})
+
+	wg.Wait()
+
+	assert.Len(t, forwarder.consolidatedMetrics, 0, "Must have no metrics left inside the consolidator")
+
 }
 
 func TestHttpForwarderV2New(t *testing.T) {

@@ -50,12 +50,14 @@ type HttpForwarderHandlerV2 struct {
 	maxRequestElapsedTime time.Duration
 	metricsSem            chan struct{}
 	client                *http.Client
-	consolidator          *gostatsd.MetricConsolidator
-	consolidatedMetrics   <-chan []*gostatsd.MetricMap
 	eventWg               sync.WaitGroup
 	compress              bool
 	headers               map[string]string
 	dynHeaderNames        []string
+
+	done                chan struct{}
+	consolidator        *gostatsd.MetricConsolidator
+	consolidatedMetrics chan []*gostatsd.MetricMap
 }
 
 // NewHttpForwarderHandlerV2FromViper returns a new http API client.
@@ -173,6 +175,7 @@ func NewHttpForwarderHandlerV2(
 		client:                httpClient.Client,
 		headers:               headers,
 		dynHeaderNames:        dynHeaderNamesWithColon,
+		done:                  make(chan struct{}),
 	}, nil
 }
 
@@ -182,7 +185,14 @@ func (hfh *HttpForwarderHandlerV2) EstimatedTags() int {
 
 // DispatchMetricMap dispatches a metric map to the MetricConsolidator
 func (hfh *HttpForwarderHandlerV2) DispatchMetricMap(ctx context.Context, mm *gostatsd.MetricMap) {
-	hfh.consolidator.ReceiveMetricMap(mm)
+	select {
+	case <-ctx.Done():
+		hfh.logger.WithError(ctx.Err()).Debug("Context is cancelled")
+	case <-hfh.done:
+		hfh.logger.Debug("Forwarder has shutdown and unable to accept metrics")
+	default:
+		hfh.consolidator.ReceiveMetricMap(mm)
+	}
 }
 
 func (hfh *HttpForwarderHandlerV2) RunMetricsContext(ctx context.Context) {
@@ -217,14 +227,9 @@ func (hfh *HttpForwarderHandlerV2) emitMetrics(statser stats.Statser) {
 
 func (hfh *HttpForwarderHandlerV2) Run(ctx context.Context) {
 	var wg wait.Group
-	defer wg.Wait()
 	wg.StartWithContext(ctx, hfh.consolidator.Run)
-
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case metricMaps := <-hfh.consolidatedMetrics:
+	wg.Start(func() {
+		for metricMaps := range hfh.consolidatedMetrics {
 			mergedMetricMap := mergeMaps(metricMaps)
 			mms := mergedMetricMap.SplitByTags(hfh.dynHeaderNames)
 			for dynHeaderTags, mm := range mms {
@@ -238,7 +243,18 @@ func (hfh *HttpForwarderHandlerV2) Run(ctx context.Context) {
 				}(postId, mm, dynHeaderTags)
 			}
 		}
-	}
+	})
+
+	<-ctx.Done()
+	hfh.Close()
+	hfh.logger.Debug("Shutdown http forwarder")
+
+	wg.Wait()
+}
+
+func (hfh *HttpForwarderHandlerV2) Close() {
+	close(hfh.done)
+	close(hfh.consolidatedMetrics)
 }
 
 func mergeMaps(maps []*gostatsd.MetricMap) *gostatsd.MetricMap {
