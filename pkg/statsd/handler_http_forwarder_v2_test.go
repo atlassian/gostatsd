@@ -223,6 +223,7 @@ func TestForwardingData(t *testing.T) {
 
 		buf, err := io.ReadAll(r.Body)
 		require.NoError(t, err, "Must not error when reading request")
+		defer r.Body.Close()
 
 		var data pb.RawMessageV2
 		require.NoError(t, proto.Unmarshal(buf, &data))
