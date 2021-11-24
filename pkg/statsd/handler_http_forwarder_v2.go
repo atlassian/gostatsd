@@ -233,12 +233,10 @@ func (hfh *HttpForwarderHandlerV2) Run(ctx context.Context) {
 			mergedMetricMap := mergeMaps(metricMaps)
 			mms := mergedMetricMap.SplitByTags(hfh.dynHeaderNames)
 			for dynHeaderTags, mm := range mms {
-				if !hfh.acquireSem(ctx) {
-					return
-				}
+				hfh.acquireSem()
 				postId := atomic.AddUint64(&hfh.postId, 1) - 1
 				go func(postId uint64, metricMap *gostatsd.MetricMap, dynHeaderTags string) {
-					hfh.postMetrics(ctx, metricMap, dynHeaderTags, postId)
+					hfh.postMetrics(context.Background(), metricMap, dynHeaderTags, postId)
 					hfh.releaseSem()
 				}(postId, mm, dynHeaderTags)
 			}
@@ -265,13 +263,8 @@ func mergeMaps(maps []*gostatsd.MetricMap) *gostatsd.MetricMap {
 	return mm
 }
 
-func (hfh *HttpForwarderHandlerV2) acquireSem(ctx context.Context) bool {
-	select {
-	case <-ctx.Done():
-		return false
-	case <-hfh.metricsSem:
-		return true
-	}
+func (hfh *HttpForwarderHandlerV2) acquireSem() {
+	<-hfh.metricsSem // will potentially block
 }
 
 func (hfh *HttpForwarderHandlerV2) releaseSem() {

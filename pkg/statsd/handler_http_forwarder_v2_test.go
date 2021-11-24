@@ -2,8 +2,10 @@ package statsd
 
 import (
 	"context"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -12,6 +14,7 @@ import (
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/atlassian/gostatsd"
 	"github.com/atlassian/gostatsd/pb"
@@ -214,19 +217,32 @@ func BenchmarkHttpForwarderV2TranslateAll(b *testing.B) {
 
 func TestForwardingData(t *testing.T) {
 	t.Parallel()
+	var called int64
+	s := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
+		atomic.AddInt64(&called, 1)
 
-	bh := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
-		// Accept all incoming requests, no need to validate it at this time
+		buf, err := io.ReadAll(r.Body)
+		require.NoError(t, err, "Must not error when reading request")
+
+		var data pb.RawMessageV2
+		require.NoError(t, proto.Unmarshal(buf, &data))
+
+		counters, ok := data.GetCounters()["pineapples"]
+		require.True(t, ok, "Must have the expected counters")
+
+		val, ok := counters.GetTagMap()["derpinton"]
+		require.True(t, ok, "Missing counter with tags")
+
+		assert.Equal(t, int64(10), val.GetValue())
 	}))
-	t.Cleanup(bh.Close)
+	t.Cleanup(s.Close)
 
-	logger := logrus.New().WithField("test", t.Name())
-	pool := transport.NewTransportPool(logger, viper.New())
-
+	log := logrus.New().WithField("testcase", t.Name())
+	pool := transport.NewTransportPool(log, viper.New())
 	forwarder, err := NewHttpForwarderHandlerV2(
-		logger,
+		log,
 		"default",
-		bh.URL,
+		s.URL,
 		1,
 		1,
 		false,
@@ -236,43 +252,31 @@ func TestForwardingData(t *testing.T) {
 		[]string{},
 		pool,
 	)
-	require.NoError(t, err, "Must have a valid forwarder")
-	require.NotNil(t, forwarder, "Must have a valid forwarder")
+	require.NoError(t, err, "Must issues creating the forwarder")
 
-	var wg wait.Group
-
-	ctx, cancel := context.WithTimeout(context.Background(), 300*time.Millisecond)
+	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
 	t.Cleanup(cancel)
 
-	wg.StartWithContext(ctx, forwarder.Run)
-	wg.StartWithContext(ctx, forwarder.RunMetricsContext)
-	wg.StartWithContext(ctx, func(c context.Context) {
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			default:
-				// Continue on
-			}
-			forwarder.DispatchMetricMap(ctx, &gostatsd.MetricMap{
-				Counters: gostatsd.Counters{
-					"super-happy": map[string]gostatsd.Counter{
-						"derpinton": gostatsd.NewCounter(
-							gostatsd.Nanotime(time.Now().UnixNano()),
-							1,
-							gostatsd.UnknownSource,
-							gostatsd.Tags{},
-						),
+	for i := 0; i < 10; i++ {
+		forwarder.DispatchMetricMap(ctx, &gostatsd.MetricMap{
+			Counters: gostatsd.Counters{
+				"pineapples": map[string]gostatsd.Counter{
+					"derpinton": {
+						PerSecond: 0.1,
+						Value:     1,
+						Source:    gostatsd.UnknownSource,
+						Timestamp: gostatsd.Nanotime(time.Now().Nanosecond()),
+						Tags:      gostatsd.Tags{},
 					},
 				},
-			})
-		}
-	})
-
+			},
+		})
+	}
+	var wg wait.Group
+	wg.StartWithContext(ctx, forwarder.Run)
 	wg.Wait()
 
-	assert.Len(t, forwarder.consolidatedMetrics, 0, "Must have no metrics left inside the consolidator")
-
+	assert.Equal(t, int64(1), called, "Handler must have been called")
 }
 
 func TestHttpForwarderV2New(t *testing.T) {
