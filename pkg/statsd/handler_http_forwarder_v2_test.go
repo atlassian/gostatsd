@@ -258,7 +258,7 @@ func TestForwardingData(t *testing.T) {
 		[]string{},
 		pool,
 	)
-	require.NoError(t, err, "Must issues creating the forwarder")
+	require.NoError(t, err, "Must not error when creating the forwarder")
 
 	ctx, cancel := context.WithCancel(context.Background())
 	mockClock := clock.NewMock(time.Unix(1000, 0))
@@ -273,7 +273,7 @@ func TestForwardingData(t *testing.T) {
 						PerSecond: 0.1,
 						Value:     1,
 						Source:    gostatsd.UnknownSource,
-						Timestamp: gostatsd.Nanotime(time.Now().Nanosecond()),
+						Timestamp: gostatsd.Nanotime(mockClock.Now().Nanosecond()),
 						Tags:      gostatsd.Tags{},
 					},
 				},
@@ -291,7 +291,7 @@ func TestForwardingData(t *testing.T) {
 	assert.Greater(t, atomic.LoadUint64(&called), uint64(0), "Handler must have been called")
 	assert.EqualValues(t, 1, atomic.LoadUint64(&havePineapples))
 	assert.EqualValues(t, 1, atomic.LoadUint64(&haveDerpinton))
-	assert.Equal(t, 0, mockClock.Len())
+	assert.Equal(t, 0, mockClock.Len(), "Must have closed all event handlers")
 }
 
 func TestHttpForwarderV2New(t *testing.T) {
