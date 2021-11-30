@@ -227,12 +227,14 @@ func (hfh *HttpForwarderHandlerV2) emitMetrics(statser stats.Statser) {
 
 func (hfh *HttpForwarderHandlerV2) Run(ctx context.Context) {
 	var wg wait.Group
-	wg.StartWithContext(ctx, hfh.consolidator.Run)
 	wg.Start(func() {
 		for metricMaps := range hfh.consolidatedMetrics {
 			mergedMetricMap := mergeMaps(metricMaps)
 			mms := mergedMetricMap.SplitByTags(hfh.dynHeaderNames)
 			for dynHeaderTags, mm := range mms {
+				if mm.IsEmpty() {
+					continue
+				}
 				hfh.acquireSem()
 				postId := atomic.AddUint64(&hfh.postId, 1) - 1
 				go func(postId uint64, metricMap *gostatsd.MetricMap, dynHeaderTags string) {
@@ -241,13 +243,18 @@ func (hfh *HttpForwarderHandlerV2) Run(ctx context.Context) {
 				}(postId, mm, dynHeaderTags)
 			}
 		}
+		for i := 0; i < cap(hfh.metricsSem); i++ {
+			hfh.acquireSem()
+		}
+	})
+	wg.StartWithContext(ctx, func(ctx context.Context) {
+		hfh.consolidator.Run(ctx)
+		hfh.Close()
 	})
 
-	<-ctx.Done()
-	hfh.Close()
+	wg.Wait()
 	hfh.logger.Debug("Shutdown http forwarder")
 
-	wg.Wait()
 }
 
 func (hfh *HttpForwarderHandlerV2) Close() {

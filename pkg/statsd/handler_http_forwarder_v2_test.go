@@ -14,9 +14,11 @@ import (
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/tilinna/clock"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/atlassian/gostatsd"
+	"github.com/atlassian/gostatsd/internal/fixtures"
 	"github.com/atlassian/gostatsd/pb"
 	"github.com/atlassian/gostatsd/pkg/transport"
 )
@@ -217,9 +219,9 @@ func BenchmarkHttpForwarderV2TranslateAll(b *testing.B) {
 
 func TestForwardingData(t *testing.T) {
 	t.Parallel()
-	var called int64
+	var called, havePineapples, haveDerpinton uint64
 	s := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
-		atomic.AddInt64(&called, 1)
+		atomic.AddUint64(&called, 1)
 
 		buf, err := io.ReadAll(r.Body)
 		require.NoError(t, err, "Must not error when reading request")
@@ -229,12 +231,15 @@ func TestForwardingData(t *testing.T) {
 		require.NoError(t, proto.Unmarshal(buf, &data))
 
 		counters, ok := data.GetCounters()["pineapples"]
-		require.True(t, ok, "Must have the expected counters")
+		if ok {
+			atomic.AddUint64(&havePineapples, 1)
+			val, ok := counters.GetTagMap()["derpinton"]
+			if ok {
+				atomic.AddUint64(&haveDerpinton, 1)
+				assert.Equal(t, int64(10), val.GetValue())
+			}
+		}
 
-		val, ok := counters.GetTagMap()["derpinton"]
-		require.True(t, ok, "Missing counter with tags")
-
-		assert.Equal(t, int64(10), val.GetValue())
 	}))
 	t.Cleanup(s.Close)
 
@@ -247,15 +252,17 @@ func TestForwardingData(t *testing.T) {
 		1,
 		1,
 		false,
-		100*time.Millisecond,
-		100*time.Millisecond,
+		100*time.Millisecond, // maxRequestElapsedTime
+		100*time.Millisecond, // flushInterval
 		map[string]string{},
 		[]string{},
 		pool,
 	)
 	require.NoError(t, err, "Must issues creating the forwarder")
 
-	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
+	ctx, cancel := context.WithCancel(context.Background())
+	mockClock := clock.NewMock(time.Unix(1000, 0))
+	ctx = clock.Context(ctx, mockClock)
 	t.Cleanup(cancel)
 
 	for i := 0; i < 10; i++ {
@@ -275,9 +282,16 @@ func TestForwardingData(t *testing.T) {
 	}
 	var wg wait.Group
 	wg.StartWithContext(ctx, forwarder.Run)
+	fixtures.NextStep(ctx, mockClock)
+
+	cancel()
+
 	wg.Wait()
 
-	assert.Equal(t, int64(1), called, "Handler must have been called")
+	assert.Greater(t, atomic.LoadUint64(&called), uint64(0), "Handler must have been called")
+	assert.EqualValues(t, 1, atomic.LoadUint64(&havePineapples))
+	assert.EqualValues(t, 1, atomic.LoadUint64(&haveDerpinton))
+	assert.Equal(t, 0, mockClock.Len())
 }
 
 func TestHttpForwarderV2New(t *testing.T) {
