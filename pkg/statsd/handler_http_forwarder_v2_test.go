@@ -1,14 +1,24 @@
 package statsd
 
 import (
+	"context"
+	"io"
+	"net/http"
+	"net/http/httptest"
+	"sync/atomic"
 	"testing"
 	"time"
 
+	"github.com/ash2k/stager/wait"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/tilinna/clock"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/atlassian/gostatsd"
+	"github.com/atlassian/gostatsd/internal/fixtures"
 	"github.com/atlassian/gostatsd/pb"
 	"github.com/atlassian/gostatsd/pkg/transport"
 )
@@ -205,6 +215,83 @@ func BenchmarkHttpForwarderV2TranslateAll(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		translateToProtobufV2(mm)
 	}
+}
+
+func TestForwardingData(t *testing.T) {
+	t.Parallel()
+	var called, havePineapples, haveDerpinton uint64
+	s := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
+		atomic.AddUint64(&called, 1)
+
+		buf, err := io.ReadAll(r.Body)
+		require.NoError(t, err, "Must not error when reading request")
+		defer r.Body.Close()
+
+		var data pb.RawMessageV2
+		require.NoError(t, proto.Unmarshal(buf, &data))
+
+		counters, ok := data.GetCounters()["pineapples"]
+		if ok {
+			atomic.AddUint64(&havePineapples, 1)
+			val, ok := counters.GetTagMap()["derpinton"]
+			if ok {
+				atomic.AddUint64(&haveDerpinton, 1)
+				assert.Equal(t, int64(10), val.GetValue())
+			}
+		}
+
+	}))
+	t.Cleanup(s.Close)
+
+	log := logrus.New().WithField("testcase", t.Name())
+	pool := transport.NewTransportPool(log, viper.New())
+	forwarder, err := NewHttpForwarderHandlerV2(
+		log,
+		"default",
+		s.URL,
+		1,
+		1,
+		false,
+		100*time.Millisecond, // maxRequestElapsedTime
+		100*time.Millisecond, // flushInterval
+		map[string]string{},
+		[]string{},
+		pool,
+	)
+	require.NoError(t, err, "Must not error when creating the forwarder")
+
+	ctx, cancel := context.WithCancel(context.Background())
+	mockClock := clock.NewMock(time.Unix(1000, 0))
+	ctx = clock.Context(ctx, mockClock)
+	t.Cleanup(cancel)
+
+	for i := 0; i < 10; i++ {
+		forwarder.DispatchMetricMap(ctx, &gostatsd.MetricMap{
+			Counters: gostatsd.Counters{
+				"pineapples": map[string]gostatsd.Counter{
+					"derpinton": {
+						PerSecond: 0.1,
+						Value:     1,
+						Source:    gostatsd.UnknownSource,
+						Timestamp: gostatsd.Nanotime(mockClock.Now().Nanosecond()),
+						Tags:      gostatsd.Tags{},
+					},
+				},
+			},
+		})
+	}
+	var wg wait.Group
+	wg.StartWithContext(ctx, forwarder.Run)
+	fixtures.NextStep(ctx, mockClock)
+
+	cancel()
+
+	wg.Wait()
+
+	assert.Greater(t, atomic.LoadUint64(&called), uint64(0), "Handler must have been called")
+	assert.EqualValues(t, 1, atomic.LoadUint64(&havePineapples))
+	assert.EqualValues(t, 1, atomic.LoadUint64(&haveDerpinton))
+	assert.Equal(t, 0, mockClock.Len(), "Must have closed all event handlers")
 }
 
 func TestHttpForwarderV2New(t *testing.T) {

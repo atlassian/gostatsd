@@ -44,7 +44,7 @@ func NewInternalStatser(tags gostatsd.Tags, namespace string, hostname gostatsd.
 }
 
 func (is *InternalStatser) NotifyFlush(ctx context.Context, d time.Duration) {
-	mms := is.consolidator.Drain(ctx)
+	mms := is.consolidator.DrainWithContext(ctx)
 	if mms == nil {
 		// context is canceled
 		return

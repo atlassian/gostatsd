@@ -1,3 +1,7 @@
+unreleased
+------
+- Forces http metrics forwarder to flush all data queued on shutdown
+
 33.0.2
 ------
 - Fixing release process after removing `-sym` releases in prior tag

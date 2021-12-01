@@ -8,16 +8,12 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"github.com/tilinna/clock"
 )
 
 func TestConsolidation(t *testing.T) {
 	t.Parallel()
 	ctxTest, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-
-	mockClock := clock.NewMock(time.Unix(0, 0))
-	ctxClock := clock.Context(ctxTest, mockClock)
 
 	ch := make(chan []*MetricMap, 1)
 	mc := NewMetricConsolidator(2, 1*time.Second, ch)
@@ -38,7 +34,7 @@ func TestConsolidation(t *testing.T) {
 	}
 	mc.ReceiveMetrics([]*Metric{m1})
 	mc.ReceiveMetrics([]*Metric{m2})
-	mc.Flush(ctxClock)
+	mc.Flush()
 
 	var mm []*MetricMap
 	select {
