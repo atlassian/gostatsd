@@ -13,19 +13,29 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"github.com/tilinna/clock"
 
 	"github.com/atlassian/gostatsd/internal/awslambda/extension/api"
+	"github.com/atlassian/gostatsd/internal/fixtures"
 	"github.com/atlassian/gostatsd/pkg/fakesocket"
 )
 
 type mocked struct {
-	mock.Mock
+	delay time.Duration
+	erred error
+
+	start chan<- struct{}
+	done  chan<- struct{}
 }
 
 func (m *mocked) Run(ctx context.Context) error {
-	return m.Mock.Called(ctx).Error(0)
+	m.start <- struct{}{}
+	if m.delay > 0 {
+		<-clock.After(ctx, m.delay)
+	}
+	m.done <- struct{}{}
+	return m.erred
 }
 
 func InitHandler(tb testing.TB, statusCode int) http.Handler {
@@ -116,7 +126,7 @@ func ExitErrorHandler(tb testing.TB, statusCode int) http.Handler {
 	})
 }
 
-func EventNextHandler(tb testing.TB, statusCode, shutdownAfter int, delay time.Duration) http.Handler {
+func EventNextHandler(tb testing.TB, ctx context.Context, statusCode, shutdownAfter int, delay time.Duration) http.Handler {
 	count := 0
 	return http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
 		// Enforcing the correct method is used
@@ -125,14 +135,14 @@ func EventNextHandler(tb testing.TB, statusCode, shutdownAfter int, delay time.D
 		require.Contains(tb, r.Header, api.LambdaExtensionIdentifierHeaderKey)
 
 		if delay > 1 {
-			<-time.After(delay)
+			<-clock.After(ctx, delay)
 		}
 
 		switch statusCode {
 		case http.StatusOK:
 			payload := &api.EventNextPayload{
 				EventType:          api.Invoke,
-				Deadline:           time.Now().UTC().Add(100 * time.Millisecond).UnixMilli(),
+				Deadline:           clock.FromContext(ctx).Now().UTC().Add(100 * time.Millisecond).UnixMilli(),
 				RequestID:          fmt.Sprint(count),
 				InvokedFunctionARN: "local:dev:gostatsd-extention-manager",
 			}
@@ -202,7 +212,7 @@ func TestManagerRegister(t *testing.T) {
 
 			m := &manager{
 				log:    logrus.New().WithField("test-case", t.Name()),
-				client: &http.Client{},
+				client: s.Client(),
 				domain: u.Hostname() + ":" + u.Port(),
 				name:   t.Name(),
 			}
@@ -233,7 +243,7 @@ func TestManagerDo(t *testing.T) {
 			EventStatus:   http.StatusOK,
 			ShutdownAfter: 3,
 			EndpointDelay: 0,
-			MockDelay:     200 * time.Millisecond,
+			MockDelay:     time.Second,
 			MockError:     nil,
 			ExpectError:   nil,
 		},
@@ -277,11 +287,18 @@ func TestManagerDo(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.Scenario, func(t *testing.T) {
+			clck := clock.NewMock(time.Unix(1, 0))
+
+			ctx, cancel := context.WithCancel(
+				clock.Context(context.Background(), clck),
+			)
+			t.Cleanup(cancel)
+
 			r := mux.NewRouter()
 			r.Handle(api.RegisterEndpoint.String(), InitHandler(t, http.StatusOK))
 			r.Handle(api.InitErrorEndpoint.String(), InitErrorHandler(t, http.StatusAccepted))
 			r.Handle(api.ExitErrorEndpoint.String(), ExitErrorHandler(t, http.StatusAccepted))
-			r.Handle(api.EventEndpoint.String(), EventNextHandler(t, tc.EventStatus, tc.ShutdownAfter, tc.EndpointDelay))
+			r.Handle(api.EventEndpoint.String(), EventNextHandler(t, ctx, tc.EventStatus, tc.ShutdownAfter, tc.EndpointDelay))
 			r.PathPrefix("/").HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
 				assert.Fail(t, "Trying to access wrong path", r.RequestURI)
 			})
@@ -293,22 +310,34 @@ func TestManagerDo(t *testing.T) {
 			require.NoError(t, err, "Must be able to parse URL from httptest server")
 
 			m := &manager{
-				log:    logrus.New().WithField("test-case", t.Name()),
-				client: &http.Client{},
+				log:    logrus.New(),
+				client: s.Client(),
 				domain: u.Hostname() + ":" + u.Port(),
 				name:   t.Name(),
 			}
 
-			ctx, cancel := context.WithCancel(context.Background())
-			t.Cleanup(cancel)
+			start := make(chan struct{}, 1)
+			done := make(chan struct{}, 1)
 
-			server := &mocked{}
+			server := &mocked{delay: tc.MockDelay, erred: tc.MockError, start: start, done: done}
 
-			server.On("Run", mock.Anything).Once().After(tc.MockDelay).Return(tc.MockError)
-
+			go func() {
+				<-start
+				close(start)
+				for {
+					select {
+					case <-done:
+						close(done)
+						fixtures.NextStep(ctx, clck)
+						cancel()
+						return
+					default:
+						fixtures.NextStep(ctx, clck)
+					}
+				}
+			}()
 			assert.ErrorIs(t, m.Run(ctx, server), tc.ExpectError)
-
-			server.AssertExpectations(t)
+			assert.Zero(t, clck.Len(), "Must have stopped all timers")
 		})
 	}
 }

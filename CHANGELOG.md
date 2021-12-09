@@ -1,6 +1,7 @@
 unreleased
 ------
 - Forces http metrics forwarder to flush all data queued on shutdown
+- Adding in lambda extension to be use in AWS Cloud
 
 33.0.2
 ------

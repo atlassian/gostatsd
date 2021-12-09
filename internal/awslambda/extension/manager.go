@@ -15,6 +15,7 @@ import (
 
 	"github.com/ash2k/stager/wait"
 	"github.com/sirupsen/logrus"
+	"github.com/tilinna/clock"
 	"go.uber.org/multierr"
 
 	"github.com/atlassian/gostatsd/internal/awslambda/extension/api"
@@ -32,6 +33,9 @@ type Manager interface {
 	Run(ctx context.Context, server Server) error
 }
 
+// Server is an interface to the gostatsd.Server type,
+// the main purpose here is to allow for mocks to be used throughout testing
+// and reduce the amount of set up code to test
 type Server interface {
 	Run(ctx context.Context) error
 }
@@ -120,11 +124,15 @@ func (m *manager) Run(parent context.Context, server Server) error {
 
 	select {
 	case err := <-errs:
+		// In the event that the lambda finished early before
+		// it had started accepting events without error,
+		// It is still considered an error since
+		// it was not correctly shutdown
 		if err == nil {
 			err = ErrServerEarlyExit
 		}
 		return multierr.Combine(err, m.initError(parent, err))
-	case <-time.After(100 * time.Millisecond):
+	case <-clock.After(ctx, 100*time.Millisecond):
 		// In the event that statsd server returns an
 		// error during the allowed start up time
 		// the we can fail the registration
@@ -143,14 +151,19 @@ func (m *manager) Run(parent context.Context, server Server) error {
 	}
 
 	if err != nil {
-		return m.exitError(parent, err)
+		// Since context can be closed here, a seperate context is used
+		// to control sending exit data to the lambda
+		ctx, cancel := clock.TimeoutContext(context.Background(), time.Second)
+		defer cancel()
+
+		return m.exitError(ctx, err)
 	}
 
 	return nil
 }
 
 func (m *manager) heartbeat(ctx context.Context, cancel context.CancelFunc) error {
-	timer := time.NewTimer(100 * time.Millisecond)
+	timer := clock.FromContext(ctx).NewTimer(100 * time.Millisecond)
 	defer timer.Stop()
 
 	for ctx.Err() == nil {
@@ -170,7 +183,7 @@ func (m *manager) heartbeat(ctx context.Context, cancel context.CancelFunc) erro
 		}).Debug("Progressing further with the invocation")
 
 		deadline := time.Unix(0, resp.Deadline*int64(time.Millisecond))
-		waitTil := time.Until(deadline) / 2
+		waitTil := clock.FromContext(ctx).Until(deadline) / 2
 		timer.Reset(waitTil)
 
 		// To ensure we are not constantly sending heart beats to lambda,
