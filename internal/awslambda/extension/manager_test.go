@@ -250,8 +250,8 @@ func TestManagerDo(t *testing.T) {
 		{
 			Scenario:      "Operational failure sending heartbeart",
 			EventStatus:   http.StatusInternalServerError,
-			ShutdownAfter: 1,
-			EndpointDelay: 100 * time.Millisecond,
+			ShutdownAfter: 2,
+			EndpointDelay: 0,
 			MockDelay:     time.Second,
 			MockError:     nil,
 			ExpectError:   ErrIssueProgress,

@@ -151,6 +151,9 @@ func (m *manager) Run(parent context.Context, server Server) error {
 	}
 
 	if err != nil {
+		if errors.Is(err, ErrIssueProgress) {
+			return err
+		}
 		// Since context can be closed here, a seperate context is used
 		// to control sending exit data to the lambda
 		ctx, cancel := clock.TimeoutContext(context.Background(), time.Second)
@@ -229,12 +232,18 @@ func (m *manager) register(ctx context.Context) error {
 	case http.StatusOK:
 		// All things are going well so far
 	default:
-		return fmt.Errorf("issue trying connect extention with status code %d: %w", resp.StatusCode, ErrFailedRegistration)
+		return multierr.Combine(
+			fmt.Errorf("issue trying connect to extension with status code %d", resp.StatusCode),
+			ErrFailedRegistration,
+		)
 	}
 
 	id, exist := resp.Header[api.LambdaExtensionIdentifierHeaderKey]
 	if !exist {
-		return fmt.Errorf("missing required indentifier header in response: %w", ErrFailedRegistration)
+		return multierr.Combine(
+			errors.New("missing required indentifier header in response"),
+			ErrFailedRegistration,
+		)
 	}
 	// Once we have successfully registered to the lambda,
 	// the id assigned to the process needs to be preserved and sent
@@ -273,8 +282,11 @@ func (m *manager) nextEvent(ctx context.Context) (*api.EventNextPayload, error) 
 	switch resp.StatusCode {
 	case http.StatusOK:
 		// All things are good in the world
-	case http.StatusForbidden, http.StatusInternalServerError:
-		return nil, fmt.Errorf("issue handling request with status code %d: %w", resp.StatusCode, ErrIssueProgress)
+	default:
+		return nil, multierr.Combine(
+			fmt.Errorf("issue handling request with status code %d", resp.StatusCode),
+			ErrIssueProgress,
+		)
 	}
 
 	var payload api.EventNextPayload
