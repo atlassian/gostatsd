@@ -23,7 +23,7 @@ require (
 	github.com/tilinna/clock v1.1.0
 	golang.org/x/net v0.0.0-20211216030914-fe4d6282115f
 	golang.org/x/time v0.0.0-20200416051211-89c76fbcd5d1
-	golang.org/x/tools v0.1.7
+	golang.org/x/tools v0.1.8
 	google.golang.org/protobuf v1.27.1
 	k8s.io/api v0.17.3
 	k8s.io/apimachinery v0.17.3
@@ -161,7 +161,7 @@ require (
 	github.com/uudashr/gocognit v1.0.5 // indirect
 	github.com/yeya24/promlinter v0.1.0 // indirect
 	golang.org/x/crypto v0.0.0-20210921155107-089bfa567519 // indirect
-	golang.org/x/mod v0.4.2 // indirect
+	golang.org/x/mod v0.5.1 // indirect
 	golang.org/x/oauth2 v0.0.0-20211104180415-d3ed0bb246c8 // indirect
 	golang.org/x/sys v0.0.0-20211210111614-af8b64212486 // indirect
 	golang.org/x/term v0.0.0-20201126162022-7de9c90e9dd1 // indirect
