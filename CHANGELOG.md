@@ -1,6 +1,7 @@
 unreleased
 ------
 - Forces http metrics forwarder to flush all data queued on shutdown
+- Upgrade from Alpine 3.14.3 -> 3.15.0
 
 33.0.2
 ------
