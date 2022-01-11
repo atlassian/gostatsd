@@ -1,3 +1,8 @@
+34.0.1
+------
+- Forcing a new tag release to allow for docker release
+- Missed release for 34.0.0
+
 34.0.0
 ------
 - (Breaking Change) Forces http metrics forwarder to flush all data queued on shutdown
