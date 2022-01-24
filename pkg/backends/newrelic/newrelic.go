@@ -5,6 +5,7 @@ import (
 	"compress/gzip"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -129,7 +130,6 @@ type NRMetric struct {
 
 // SendMetricsAsync flushes the metrics to New Relic, preparing payload synchronously but doing the send asynchronously.
 func (n *Client) SendMetricsAsync(ctx context.Context, metrics *gostatsd.MetricMap, cb gostatsd.SendCallback) {
-
 	counter := 0
 	results := make(chan error)
 	now := float64(clock.FromContext(ctx).Now().Unix())
@@ -295,6 +295,26 @@ func (n *Client) Name() string {
 	return BackendName
 }
 
+// RetryAfterError indicates if we should wait before retrying
+type RetryAfterError struct {
+	Response *http.Response
+}
+
+// Error returns the error message
+func (r RetryAfterError) Error() string {
+	return fmt.Sprintf("Too many request retry-after=%+v", r.RetryAfter())
+}
+
+// RetryAfter returns a duration to wait before based on response header Retry-After
+// If the header is not present or invalid returns 0
+func (r RetryAfterError) RetryAfter() time.Duration {
+	retryAfterSecs, err := strconv.Atoi(r.Response.Header.Get("Retry-After"))
+	if err != nil || retryAfterSecs <= 0 {
+		return 0
+	}
+	return time.Duration(retryAfterSecs) * time.Second
+}
+
 func (n *Client) post(ctx context.Context, buffer *bytes.Buffer, data interface{}) error {
 	post, err := n.constructPost(ctx, buffer, data)
 	if err != nil {
@@ -307,13 +327,31 @@ func (n *Client) post(ctx context.Context, buffer *bytes.Buffer, data interface{
 	b.Clock = clck
 	b.Reset()
 	b.MaxElapsedTime = n.maxRequestElapsedTime
+
+	var next time.Duration
+	var retryAfterErr *RetryAfterError
+	canRetryRateLimit := true
 	for {
 		if err = post(); err == nil {
 			atomic.AddUint64(&n.batchesSent, 1)
 			return nil
 		}
 
-		next := b.NextBackOff()
+		// If New Relic limitted us we should retry after
+		// waiting. In this case we sleep a constant time and
+		// ignore the MaxElapsedTime from backoff while the number of
+		// maxRateLimitRetries is positive.
+		if errors.As(err, &retryAfterErr) {
+			if canRetryRateLimit {
+				canRetryRateLimit = false
+				next = retryAfterErr.RetryAfter()
+			} else {
+				next = backoff.Stop
+			}
+		} else {
+			next = b.NextBackOff()
+		}
+
 		if next == backoff.Stop {
 			atomic.AddUint64(&n.batchesDropped, 1)
 			return fmt.Errorf("[%s] %v", BackendName, err)
@@ -407,13 +445,20 @@ func (n *Client) postWrapper(ctx context.Context, json []byte, dataType string) 
 		if err != nil {
 			return fmt.Errorf("error POSTing: %s", err.Error())
 		}
+
+		if resp.StatusCode == http.StatusTooManyRequests {
+			return &RetryAfterError{Response: resp}
+		}
+
 		defer resp.Body.Close()
 		body := io.LimitReader(resp.Body, maxResponseSize)
+
 		if resp.StatusCode < http.StatusOK || resp.StatusCode > http.StatusNoContent {
 			b, _ := ioutil.ReadAll(body)
 			n.logger.WithFields(logrus.Fields{
-				"status": resp.StatusCode,
-				"body":   string(b),
+				"status":  resp.StatusCode,
+				"body":    string(b),
+				"address": address,
 			}).Info("request failed")
 			return fmt.Errorf("received bad status code %d", resp.StatusCode)
 		}

@@ -80,6 +80,85 @@ func TestRetries(t *testing.T) {
 	ch <- struct{}{}
 }
 
+func TestRetryAfter(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name             string
+		retryAfterHeader string
+		expectedDuration int64
+	}{
+		{
+			name:             "Positive valid RetryAfter",
+			retryAfterHeader: "42",
+			expectedDuration: 42,
+		},
+		{
+			name:             "Negative invalid RetryAfter",
+			retryAfterHeader: "-10",
+			expectedDuration: 0,
+		},
+		{
+			name:             "Non-numeric invalid RetryAfter",
+			retryAfterHeader: "wrong",
+			expectedDuration: 0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var requestNum uint32
+			var requestTimes []int64
+
+			mux := http.NewServeMux()
+			clck := clock.NewMock(time.Unix(0, 0))
+
+			mux.HandleFunc("/v1/data", func(w http.ResponseWriter, r *http.Request) {
+				requestTimes = append(requestTimes, clck.Now().Unix())
+				defer r.Body.Close()
+				n := atomic.AddUint32(&requestNum, 1)
+				data, err := ioutil.ReadAll(r.Body)
+
+				assert.NoError(t, err)
+				assert.NotEmpty(t, data)
+				if n == 1 {
+					// Return error on first request to trigger a retry after a second
+					w.Header().Add("Retry-After", tt.retryAfterHeader)
+					w.WriteHeader(http.StatusTooManyRequests)
+				}
+			})
+			ts := httptest.NewServer(mux)
+			defer ts.Close()
+
+			v := viper.New()
+			v.SetDefault("transport.default.client-timeout", 1*time.Second)
+			p := transport.NewTransportPool(logrus.New(), v)
+
+			client, err := NewClient("default", ts.URL+"/v1/data", "", "GoStatsD", "", "", "", "metric_name", "metric_type",
+				"metric_per_second", "metric_value", "samples_min", "samples_max", "samples_count",
+				"samples_mean", "samples_median", "samples_std_dev", "samples_sum", "samples_sum_squares", "agent",
+				defaultMetricsPerBatch, defaultMaxRequests, 2*time.Second, 1*time.Second, gostatsd.TimerSubtypes{}, logrus.New(), p)
+
+			require.NoError(t, err)
+			res := make(chan []error, 1)
+			ctx := clock.Context(context.Background(), clck)
+			ch := make(chan struct{})
+			go advanceTime(clck, ch)
+			client.SendMetricsAsync(ctx, twoCounters(), func(errs []error) {
+				res <- errs
+			})
+			errs := <-res
+			for _, err := range errs {
+				assert.NoError(t, err)
+			}
+			assert.EqualValues(t, 2, requestNum)
+			assert.Len(t, requestTimes, 2)
+			assert.Equal(t, int64(tt.expectedDuration), requestTimes[1]-requestTimes[0])
+			ch <- struct{}{}
+		})
+	}
+}
+
 func TestSendMetricsInMultipleBatches(t *testing.T) {
 	t.Parallel()
 	var requestNum uint32
