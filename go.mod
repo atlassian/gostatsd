@@ -184,3 +184,5 @@ require (
 )
 
 replace github.com/gogo/protobuf => github.com/gogo/protobuf v1.3.2
+
+replace github.com/denis-tingajkin/go-header => github.com/denis-tingaikin/go-header v0.4.2
