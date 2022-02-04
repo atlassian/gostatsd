@@ -84,24 +84,34 @@ func TestRetryAfter(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name             string
-		retryAfterHeader string
-		expectedDuration int64
+		name                  string
+		retryAfterHeader      string
+		maxRequestElapsedTime time.Duration
+		expectedDuration      int64
 	}{
 		{
-			name:             "Positive valid RetryAfter",
-			retryAfterHeader: "42",
-			expectedDuration: 42,
+			name:                  "Positive valid RetryAfter less than maxRequestElapsedTime",
+			retryAfterHeader:      "42",
+			maxRequestElapsedTime: 60 * time.Second,
+			expectedDuration:      42,
 		},
 		{
-			name:             "Negative invalid RetryAfter",
-			retryAfterHeader: "-10",
-			expectedDuration: 0,
+			name:                  "Positive valid RetryAfter greather than maxRequestElapsedTime",
+			retryAfterHeader:      "42",
+			maxRequestElapsedTime: 2 * time.Second,
+			expectedDuration:      2,
 		},
 		{
-			name:             "Non-numeric invalid RetryAfter",
-			retryAfterHeader: "wrong",
-			expectedDuration: 0,
+			name:                  "Negative invalid RetryAfter",
+			retryAfterHeader:      "-10",
+			maxRequestElapsedTime: 2 * time.Second,
+			expectedDuration:      0,
+		},
+		{
+			name:                  "Non-numeric invalid RetryAfter",
+			retryAfterHeader:      "wrong",
+			maxRequestElapsedTime: 2 * time.Second,
+			expectedDuration:      0,
 		},
 	}
 
@@ -137,7 +147,7 @@ func TestRetryAfter(t *testing.T) {
 			client, err := NewClient("default", ts.URL+"/v1/data", "", "GoStatsD", "", "", "", "metric_name", "metric_type",
 				"metric_per_second", "metric_value", "samples_min", "samples_max", "samples_count",
 				"samples_mean", "samples_median", "samples_std_dev", "samples_sum", "samples_sum_squares", "agent",
-				defaultMetricsPerBatch, defaultMaxRequests, 2*time.Second, 1*time.Second, gostatsd.TimerSubtypes{}, logrus.New(), p)
+				defaultMetricsPerBatch, defaultMaxRequests, tt.maxRequestElapsedTime, 1*time.Second, gostatsd.TimerSubtypes{}, logrus.New(), p)
 
 			require.NoError(t, err)
 			res := make(chan []error, 1)
