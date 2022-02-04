@@ -297,22 +297,12 @@ func (n *Client) Name() string {
 
 // RetryAfterError indicates if we should wait before retrying
 type RetryAfterError struct {
-	Response *http.Response
+	Duration time.Duration
 }
 
 // Error returns the error message
 func (r RetryAfterError) Error() string {
-	return fmt.Sprintf("Too many request retry-after=%+v", r.RetryAfter())
-}
-
-// RetryAfter returns a duration to wait before based on response header Retry-After
-// If the header is not present or invalid returns 0
-func (r RetryAfterError) RetryAfter() time.Duration {
-	retryAfterSecs, err := strconv.Atoi(r.Response.Header.Get("Retry-After"))
-	if err != nil || retryAfterSecs <= 0 {
-		return 0
-	}
-	return time.Duration(retryAfterSecs) * time.Second
+	return fmt.Sprintf("Too many request retry-after=%+v", r.Duration)
 }
 
 func (n *Client) post(ctx context.Context, buffer *bytes.Buffer, data interface{}) error {
@@ -330,26 +320,19 @@ func (n *Client) post(ctx context.Context, buffer *bytes.Buffer, data interface{
 
 	var next time.Duration
 	var retryAfterErr *RetryAfterError
-	canRetryRateLimit := true
 	for {
 		if err = post(); err == nil {
 			atomic.AddUint64(&n.batchesSent, 1)
 			return nil
 		}
 
-		// If New Relic limitted us we should retry after
-		// waiting. In this case we sleep a constant time and
-		// ignore the MaxElapsedTime from backoff while the number of
-		// maxRateLimitRetries is positive.
-		if errors.As(err, &retryAfterErr) {
-			if canRetryRateLimit {
-				canRetryRateLimit = false
-				next = retryAfterErr.RetryAfter()
-			} else {
-				next = backoff.Stop
+		next = b.NextBackOff()
+		if next != backoff.Stop && errors.As(err, &retryAfterErr) {
+			next = time.Duration(math.Max(float64(next), float64(retryAfterErr.Duration)))
+			if n.maxRequestElapsedTime > 0 {
+				// When maxRequestElapsedTime is specified put an upper-bound limit on the duration
+				next = time.Duration(math.Min(float64(next), float64(n.maxRequestElapsedTime)))
 			}
-		} else {
-			next = b.NextBackOff()
 		}
 
 		if next == backoff.Stop {
@@ -446,15 +429,19 @@ func (n *Client) postWrapper(ctx context.Context, json []byte, dataType string) 
 			return fmt.Errorf("error POSTing: %s", err.Error())
 		}
 
-		if resp.StatusCode == http.StatusTooManyRequests {
-			return &RetryAfterError{Response: resp}
-		}
-
 		defer resp.Body.Close()
 		body := io.LimitReader(resp.Body, maxResponseSize)
 
 		if resp.StatusCode < http.StatusOK || resp.StatusCode > http.StatusNoContent {
 			b, _ := ioutil.ReadAll(body)
+
+			if resp.StatusCode == http.StatusTooManyRequests {
+				retryAfterSecs, err := strconv.Atoi(resp.Header.Get("Retry-After"))
+				if err == nil && retryAfterSecs > 0 {
+					return &RetryAfterError{Duration: time.Duration(retryAfterSecs) * time.Second}
+				}
+			}
+
 			n.logger.WithFields(logrus.Fields{
 				"status":  resp.StatusCode,
 				"body":    string(b),
