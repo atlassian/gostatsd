@@ -167,7 +167,7 @@ func (bh *BackendHandler) DispatchEvent(ctx context.Context, e *gostatsd.Event) 
 	for _, backend := range bh.backends {
 		select {
 		case <-ctx.Done():
-			// Not all backends got the event, should decrement the wg counter
+			// Not all backends got the event, should decrement the wg counter to account for it
 			bh.eventWg.Add(eventsDispatched - len(bh.backends))
 			return
 		case bh.concurrentEvents <- struct{}{}:
