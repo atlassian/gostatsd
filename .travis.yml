@@ -44,6 +44,7 @@ install:
   - make setup-ci
 
 script:
+  - make check-fmt
   - make build-all
   - make coveralls || true # Failing coveralls check should not break the build
   - make check

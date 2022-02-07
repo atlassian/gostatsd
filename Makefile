@@ -20,8 +20,7 @@ PROTOBUF_VERSION ?= 3.6.1
 
 setup: setup-ci
 	go install github.com/githubnemo/CompileDaemon \
-		github.com/jstemmer/go-junit-report \
-		golang.org/x/tools/cmd/goimports
+		github.com/jstemmer/go-junit-report
 
 tools/bin/protoc:
 	curl -L -O https://github.com/protocolbuffers/protobuf/releases/download/v$(PROTOBUF_VERSION)/protoc-$(PROTOBUF_VERSION)-linux-x86_64.zip
@@ -33,7 +32,7 @@ tools/bin/protoc:
 setup-ci: tools/bin/protoc
 	go install github.com/golangci/golangci-lint/cmd/golangci-lint
 
-build-cluster: fmt
+build-cluster:
 	go build -i -v -o build/bin/$(ARCH)/cluster $(GOBUILD_VERSION_ARGS) $(CLUSTER_PKG)
 
 pb/gostatsd.pb.go: pb/gostatsd.proto
@@ -44,22 +43,27 @@ pb/gostatsd.pb.go: pb/gostatsd.proto
 		$<
 	$(RM) protoc-gen-go
 
-build: pb/gostatsd.pb.go fmt
+build: pb/gostatsd.pb.go
 	go build -i -v -o build/bin/$(ARCH)/$(BINARY_NAME) $(GOBUILD_VERSION_ARGS) $(MAIN_PKG)
 
-build-race: fmt
+build-race:
 	go build -i -v -race -o build/bin/$(ARCH)/$(BINARY_NAME) $(GOBUILD_VERSION_ARGS) $(MAIN_PKG)
 
 build-all: pb/gostatsd.pb.go
 	go install -v ./...
 
-test-all: fmt cover test-race bench bench-race check
+test-all: check-fmt cover test-race bench bench-race check
 
-test-all-full: fmt cover test-race-full bench-full bench-race-full check
+test-all-full: check-fmt cover test-race-full bench-full bench-race-full check
 
-fmt:
-	gofmt -w=true -s $$(find . -type f -name '*.go' -not -path "./vendor/*" -not -path "./pb/*")
-	goimports -w=true -d -local github.com/atlassian/gostatsd $$(find . -type f -name '*.go' -not -path "./vendor/*" -not -path "./pb/*")
+check-fmt:
+	@# Since gofmt and goimports dont return 1 on chamges, this !() stuff will trigger a build failure if theres any problems.
+	! (gofmt -l -s $$(find . -type f -name '*.go' -not -path "./vendor/*" -not -path "./pb/*") | grep .)
+	! (go run golang.org/x/tools/cmd/goimports -l -local github.com/atlassian/gostatsd $$(find . -type f -name '*.go' -not -path "./vendor/*" -not -path "./pb/*") | grep .)
+
+fix-fmt:
+	gofmt -w -s $$(find . -type f -name '*.go' -not -path "./vendor/*" -not -path "./pb/*")
+	go run golang.org/x/tools/cmd/goimports -w -l -local github.com/atlassian/gostatsd $$(find . -type f -name '*.go' -not -path "./vendor/*" -not -path "./pb/*")
 
 test-full: pb/gostatsd.pb.go
 	go test ./...
