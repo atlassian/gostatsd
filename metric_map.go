@@ -15,10 +15,14 @@ type MetricMap struct {
 	Timers   Timers
 	Gauges   Gauges
 	Sets     Sets
+
+	Forwarded bool
 }
 
-func NewMetricMap() *MetricMap {
+func NewMetricMap(forwarded bool) *MetricMap {
 	return &MetricMap{
+		Forwarded: forwarded,
+
 		Counters: Counters{},
 		Timers:   Timers{},
 		Gauges:   Gauges{},
@@ -46,7 +50,10 @@ func (mm *MetricMap) Receive(m *Metric) {
 }
 
 func MergeMaps(mms []*MetricMap) *MetricMap {
-	mm := NewMetricMap()
+	if len(mms) == 0 { // garbage in, garbage out
+		return nil
+	}
+	mm := NewMetricMap(mms[0].Forwarded)
 	for _, mmFrom := range mms {
 		mm.Merge(mmFrom)
 	}
@@ -151,7 +158,7 @@ func (mm *MetricMap) IsEmpty() bool {
 func (mm *MetricMap) Split(count int) []*MetricMap {
 	maps := make([]*MetricMap, count)
 	for i := 0; i < count; i++ {
-		maps[i] = NewMetricMap()
+		maps[i] = NewMetricMap(mm.Forwarded)
 	}
 
 	mm.Counters.Each(func(metricName string, tagsKey string, c Counter) {
@@ -215,7 +222,7 @@ func (mm *MetricMap) SplitByTags(tagNames []string) map[string]*MetricMap {
 	mm.Counters.Each(func(metricName string, tagsKey string, c Counter) {
 		key := tagsMatch(tagNames, tagsKey)
 		if _, ok := maps[key]; !ok {
-			maps[key] = NewMetricMap()
+			maps[key] = NewMetricMap(mm.Forwarded)
 		}
 		mmSplit := maps[key]
 		if v, ok := mmSplit.Counters[metricName]; ok {
@@ -228,7 +235,7 @@ func (mm *MetricMap) SplitByTags(tagNames []string) map[string]*MetricMap {
 	mm.Gauges.Each(func(metricName string, tagsKey string, g Gauge) {
 		key := tagsMatch(tagNames, tagsKey)
 		if _, ok := maps[key]; !ok {
-			maps[key] = NewMetricMap()
+			maps[key] = NewMetricMap(mm.Forwarded)
 		}
 		mmSplit := maps[key]
 		if v, ok := mmSplit.Gauges[metricName]; ok {
@@ -241,7 +248,7 @@ func (mm *MetricMap) SplitByTags(tagNames []string) map[string]*MetricMap {
 	mm.Timers.Each(func(metricName string, tagsKey string, t Timer) {
 		key := tagsMatch(tagNames, tagsKey)
 		if _, ok := maps[key]; !ok {
-			maps[key] = NewMetricMap()
+			maps[key] = NewMetricMap(mm.Forwarded)
 		}
 		mmSplit := maps[key]
 		if v, ok := mmSplit.Timers[metricName]; ok {
@@ -254,7 +261,7 @@ func (mm *MetricMap) SplitByTags(tagNames []string) map[string]*MetricMap {
 	mm.Sets.Each(func(metricName string, tagsKey string, s Set) {
 		key := tagsMatch(tagNames, tagsKey)
 		if _, ok := maps[key]; !ok {
-			maps[key] = NewMetricMap()
+			maps[key] = NewMetricMap(mm.Forwarded)
 		}
 		mmSplit := maps[key]
 		if v, ok := mmSplit.Sets[metricName]; ok {

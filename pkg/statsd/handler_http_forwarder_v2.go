@@ -170,7 +170,7 @@ func NewHttpForwarderHandlerV2(
 		maxRequestElapsedTime: maxRequestElapsedTime,
 		metricsSem:            metricsSem,
 		compress:              compress,
-		consolidator:          gostatsd.NewMetricConsolidator(consolidatorSlots, flushInterval, ch),
+		consolidator:          gostatsd.NewMetricConsolidator(consolidatorSlots, false, flushInterval, ch),
 		consolidatedMetrics:   ch,
 		client:                httpClient.Client,
 		headers:               headers,
@@ -229,7 +229,7 @@ func (hfh *HttpForwarderHandlerV2) Run(ctx context.Context) {
 	var wg wait.Group
 	wg.Start(func() {
 		for metricMaps := range hfh.consolidatedMetrics {
-			mergedMetricMap := mergeMaps(metricMaps)
+			mergedMetricMap := gostatsd.MergeMaps(metricMaps)
 			mms := mergedMetricMap.SplitByTags(hfh.dynHeaderNames)
 			for dynHeaderTags, mm := range mms {
 				if mm.IsEmpty() {
@@ -260,14 +260,6 @@ func (hfh *HttpForwarderHandlerV2) Run(ctx context.Context) {
 func (hfh *HttpForwarderHandlerV2) Close() {
 	close(hfh.done)
 	close(hfh.consolidatedMetrics)
-}
-
-func mergeMaps(maps []*gostatsd.MetricMap) *gostatsd.MetricMap {
-	mm := gostatsd.NewMetricMap()
-	for _, m := range maps {
-		mm.Merge(m)
-	}
-	return mm
 }
 
 func (hfh *HttpForwarderHandlerV2) acquireSem() {
