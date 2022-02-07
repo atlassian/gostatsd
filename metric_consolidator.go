@@ -38,21 +38,21 @@ func NewMetricConsolidator(spots int, flushInterval time.Duration, sink chan<- [
 	return mc
 }
 
-	func (mc *MetricConsolidator) Run(ctx context.Context) {
-		clck := clock.FromContext(ctx)
-		t := clck.NewTicker(mc.flushInterval)
-		defer t.Stop()
+func (mc *MetricConsolidator) Run(ctx context.Context) {
+	clck := clock.FromContext(ctx)
+	t := clck.NewTicker(mc.flushInterval)
+	defer t.Stop()
 
-		for {
-			select {
-			case <-ctx.Done():
-				mc.Flush()
-				return
-			case <-t.C:
-				mc.Flush()
-			}
+	for {
+		select {
+		case <-ctx.Done():
+			mc.Flush()
+			return
+		case <-t.C:
+			mc.Flush()
 		}
 	}
+}
 
 // Drain will collect all the MetricMaps in the MetricConsolidator and return them.
 func (mc *MetricConsolidator) Drain() []*MetricMap {
