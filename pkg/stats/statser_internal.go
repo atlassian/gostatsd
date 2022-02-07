@@ -39,7 +39,7 @@ func NewInternalStatser(tags gostatsd.Tags, namespace string, hostname gostatsd.
 		handler:   handler,
 		// We can't just use a MetricMap because everything
 		// that writes to it is on its own goroutine.
-		consolidator: gostatsd.NewMetricConsolidator(10, 0, nil),
+		consolidator: gostatsd.NewMetricConsolidator(10, false, 0, nil),
 	}
 }
 

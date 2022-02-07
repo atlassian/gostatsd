@@ -56,7 +56,7 @@ func (th *TagHandler) EstimatedTags() int {
 // There is potential to optimize here: if the tagsKey doesn't change, we don't need to re-calculate it.  But we're
 // keeping things simple for now.
 func (th *TagHandler) DispatchMetricMap(ctx context.Context, mm *gostatsd.MetricMap) {
-	mmNew := gostatsd.NewMetricMap()
+	mmNew := gostatsd.NewMetricMap(mm.Forwarded)
 
 	mm.Counters.Each(func(metricName, _ string, cOriginal gostatsd.Counter) {
 		if th.uniqueFilterAndAddTags(metricName, &cOriginal.Source, &cOriginal.Tags) {

@@ -117,7 +117,7 @@ func TestForwardingEndToEndV2(t *testing.T) {
 		Rate:        0.1,
 	}
 
-	mm := gostatsd.NewMetricMap()
+	mm := gostatsd.NewMetricMap(false)
 
 	for i := 0; i < 100; i++ {
 		mm.Receive(m1)

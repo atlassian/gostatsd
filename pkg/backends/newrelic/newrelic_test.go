@@ -433,7 +433,7 @@ func metricsOneOfEach() *gostatsd.MetricMap {
 }
 
 func metricsWithHistogram() *gostatsd.MetricMap {
-	mm := gostatsd.NewMetricMap()
+	mm := gostatsd.NewMetricMap(false)
 	mm.Timers["t1"] = map[string]gostatsd.Timer{}
 	mm.Timers["t1"]["gsd_histogram:20_30_40_50_60"] = gostatsd.Timer{
 		Values:    []float64{10},

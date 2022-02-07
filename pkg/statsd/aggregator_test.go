@@ -399,7 +399,7 @@ func TestDisabledCount(t *testing.T) {
 	t.Parallel()
 	ma := newFakeAggregator()
 	ma.disabledSubtypes.CountPct = true
-	mm := gostatsd.NewMetricMap()
+	mm := gostatsd.NewMetricMap(false)
 	mm.Receive(&gostatsd.Metric{Name: "x", Value: 1, Type: gostatsd.TIMER})
 	ma.ReceiveMap(mm)
 	ma.Flush(1 * time.Second)
@@ -414,7 +414,7 @@ func TestDisabledMean(t *testing.T) {
 	t.Parallel()
 	ma := newFakeAggregator()
 	ma.disabledSubtypes.MeanPct = true
-	mm := gostatsd.NewMetricMap()
+	mm := gostatsd.NewMetricMap(false)
 	mm.Receive(&gostatsd.Metric{Name: "x", Value: 1, Type: gostatsd.TIMER})
 	ma.ReceiveMap(mm)
 	ma.Flush(1 * time.Second)
@@ -429,7 +429,7 @@ func TestDisabledSum(t *testing.T) {
 	t.Parallel()
 	ma := newFakeAggregator()
 	ma.disabledSubtypes.SumPct = true
-	mm := gostatsd.NewMetricMap()
+	mm := gostatsd.NewMetricMap(false)
 	mm.Receive(&gostatsd.Metric{Name: "x", Value: 1, Type: gostatsd.TIMER})
 	ma.ReceiveMap(mm)
 	ma.Flush(1 * time.Second)
@@ -444,7 +444,7 @@ func TestDisabledSumSquares(t *testing.T) {
 	t.Parallel()
 	ma := newFakeAggregator()
 	ma.disabledSubtypes.SumSquaresPct = true
-	mm := gostatsd.NewMetricMap()
+	mm := gostatsd.NewMetricMap(false)
 	mm.Receive(&gostatsd.Metric{Name: "x", Value: 1, Type: gostatsd.TIMER})
 	ma.ReceiveMap(mm)
 	ma.Flush(1 * time.Second)
@@ -459,7 +459,7 @@ func TestDisabledUpper(t *testing.T) {
 	t.Parallel()
 	ma := newFakeAggregator()
 	ma.disabledSubtypes.UpperPct = true
-	mm := gostatsd.NewMetricMap()
+	mm := gostatsd.NewMetricMap(false)
 	mm.Receive(&gostatsd.Metric{Name: "x", Value: 1, Type: gostatsd.TIMER})
 	ma.ReceiveMap(mm)
 	ma.Flush(1 * time.Second)
@@ -482,7 +482,7 @@ func TestDisabledLower(t *testing.T) {
 		math.MaxUint32,
 	)
 	ma.disabledSubtypes.LowerPct = true
-	mm := gostatsd.NewMetricMap()
+	mm := gostatsd.NewMetricMap(false)
 	mm.Receive(&gostatsd.Metric{Name: "x", Value: 1, Type: gostatsd.TIMER})
 	ma.ReceiveMap(mm)
 	ma.Flush(1 * time.Second)
