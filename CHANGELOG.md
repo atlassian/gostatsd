@@ -1,3 +1,10 @@
+34.1.0
+------
+- NewRelic backend honors Retry-After header, added by malderete.  As a result of this, the maximum time a request can
+  take approaches 2*max-request-elapsed-time, however it's still a bounded duration (unless max-request-elapsed-time=0).
+  Note: this is not entirely new behavior, as max-request-elapsed-time only determines when to stop retrying, and not
+  http timeouts (see [TRANSPORT.md](TRANSPORT.md) for details).
+
 34.0.1
 ------
 - Forcing a new tag release to allow for docker release
