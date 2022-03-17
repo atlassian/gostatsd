@@ -47,6 +47,10 @@ to run `gostatsd` with a graphite backend and a grafana dashboard.
 While not generally tested on Windows, it should work.  Maximum throughput is likely to be better on
 a linux system, however.
 
+The server listens for UDP packets by default. Unix Domain Sockets (UDS) can be used specifying a file path instead 
+of `address:port` with the `metrics-addr` configuration option. This only works on linux and will ignore `conn-per-reader` 
+configuration option.
+
 Configuring the server mode
 ---------------------------
 The server can currently run in two modes: `standalone` and `forwarder`.  It is configured through the top level
@@ -83,7 +87,8 @@ This configuration mode allows the following configuration options:
   so that memory can be pre-allocated and reducing churn.  Defaults to `4`.  Note: this is only a hint, and it is safe
   to send more.
 - `log-raw-metric`: logs raw metrics received from the network.  Defaults to `false`.
-- `metrics-addr`: the address to listen to metrics on. Defaults to `:8125`.
+- `metrics-addr`: the address to listen to metrics on. Defaults to `:8125`. Using a file path instead of `host:port` 
+  will create a Unix Domain Socket in the specified path instead of using UDP.
 - `namespace`: a namespace to prefix all metrics with.  Defaults to ''.
 - `statser-type`: configures where internal metrics are sent to.  May be `internal` which sends them to the internal
   processing pipeline, `logging` which logs them, `null` which drops them.  Defaults to `internal`, or `null` if the
@@ -93,7 +98,8 @@ This configuration mode allows the following configuration options:
   Defaults to `false`.
 - `receive-batch-size`: the number of datagrams to attempt to read.  It is more CPU efficient to read multiple, however
   it takes extra memory.  See [Memory allocation for read buffers] section below for details.  Defaults to 50.
-- `conn-per-reader`: attempts to create a connection for every UDP receiver.  Not supported by all OS versions.
+- `conn-per-reader`: attempts to create a connection for every UDP receiver.  Not supported by all OS versions. Will be
+  ignored if UDS is used instead of UDP.
   Defaults to `false`.
 - `bad-lines-per-minute`: the number of metrics which fail to parse to log per minute.  This is used to prevent a bad
   client spamming malformed statsd data, while still logging some information to enable troubleshooting.  Defaults to `0`.

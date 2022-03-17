@@ -2,8 +2,10 @@ package statsd
 
 import (
 	"context"
+	"github.com/stretchr/testify/assert"
 	"math/rand"
 	"runtime"
+	"strconv"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -143,6 +145,35 @@ func TestStatsdThroughput(t *testing.T) {
 		mallocs, mallocs/numMetrics,
 		memStatsFinish.NumGC-memStatsStart.NumGC,
 		memStatsFinish.GCCPUFraction)
+}
+
+func TestNetworkFromAddress(t *testing.T) {
+	t.Parallel()
+	input := []struct {
+		address         string
+		expectedNetwork string
+	}{
+		{
+			address:         "localhost:8125",
+			expectedNetwork: "udp",
+		},
+		{
+			address:         "",
+			expectedNetwork: "udp",
+		},
+		{
+			address:         "/some/file.sock",
+			expectedNetwork: "unixgram",
+		},
+	}
+	for pos, inp := range input {
+		inp := inp
+		t.Run(strconv.Itoa(pos), func(t *testing.T) {
+			t.Parallel()
+			network := networkFromAddress(inp.address)
+			assert.Equal(t, inp.expectedNetwork, network)
+		})
+	}
 }
 
 type countingBackend struct {
