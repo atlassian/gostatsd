@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"strings"
 	"time"
 
 	"github.com/ash2k/stager"
@@ -81,12 +82,24 @@ func socketFactory(metricsAddr string, connPerReader bool) SocketFactory {
 		return func() (net.PacketConn, error) {
 			return reuseport.ListenPacket("udp", metricsAddr)
 		}
-	} else {
-		conn, err := net.ListenPacket("udp", metricsAddr)
-		return func() (net.PacketConn, error) {
-			return conn, err
-		}
 	}
+
+	conn, err := net.ListenPacket(networkFromAddress(metricsAddr), metricsAddr)
+	return func() (net.PacketConn, error) {
+		return conn, err
+	}
+}
+
+//networkFromAddress returns the network type based on the provided address
+//if the address is empty or [host]:[port] combination it will be UDP otherwise UDS
+func networkFromAddress(addr string) string {
+	if strings.TrimSpace(addr) == "" {
+		return "udp"
+	}
+	if strings.Index(addr, ":") != -1 {
+		return "udp"
+	}
+	return "unixgram"
 }
 
 func (s *Server) createStandaloneSink() (gostatsd.PipelineHandler, []gostatsd.Runnable, error) {

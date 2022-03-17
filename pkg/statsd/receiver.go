@@ -3,6 +3,7 @@ package statsd
 import (
 	"context"
 	"net"
+	"os"
 	"strings"
 	"sync/atomic"
 
@@ -98,6 +99,13 @@ func (dr *DatagramReceiver) Run(ctx context.Context) {
 		}
 	}
 
+	// Delete socket file when connection is made using Unix Domain Sockets
+	if len(connections) > 0 {
+		if socket, ok := connections[0].LocalAddr().(*net.UnixAddr); ok {
+			defer os.Remove(socket.String())
+		}
+	}
+
 	// Wait for everything to stop
 	wg.Wait()
 }
@@ -142,8 +150,14 @@ func (dr *DatagramReceiver) Receive(ctx context.Context, c net.PacketConn) {
 				dr.bufPool.Put(retBuf)
 			}
 
+			ip := gostatsd.UnknownSource
+			// Do not retrieve IP address when connection is made using Unix Domain Sockets
+			if _, isUnixAddr := c.LocalAddr().(*net.UnixAddr); !isUnixAddr {
+				ip = getIP(addr)
+			}
+
 			dgs[i] = &Datagram{
-				IP:        getIP(addr),
+				IP:        ip,
 				Msg:       buf,
 				Timestamp: now,
 				DoneFunc:  doneFn,
