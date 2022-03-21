@@ -97,7 +97,7 @@ func TestDatagramReceiver_Receive(t *testing.T) {
 	assert.Equal(t, dg.Msg, fakesocket.FakeMetric)
 }
 
-func TestDatagramReceiver_UDS(t *testing.T) {
+func TestDatagramReceiver_UnixSocketConnection(t *testing.T) {
 	ch := make(chan []*Datagram, 1)
 	message := "abc.def.g:10|c"
 
@@ -128,11 +128,12 @@ func TestDatagramReceiver_UDS(t *testing.T) {
 		cancel()
 	case <-time.After(time.Second):
 		t.Errorf("Timeout, failed to read datagram")
+		cancel()
 	}
 	wg.Wait()
 }
 
-func TestDatagramReceiver_SocketIsRemoved(t *testing.T) {
+func TestDatagramReceiver_UnixSocketIsRemovedOnContextCancellation(t *testing.T) {
 	ch := make(chan []*Datagram, 1)
 
 	socketPath := os.TempDir() + "/gostatsd_receiver_test_receive_uds.sock"

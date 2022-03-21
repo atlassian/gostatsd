@@ -47,9 +47,9 @@ to run `gostatsd` with a graphite backend and a grafana dashboard.
 While not generally tested on Windows, it should work.  Maximum throughput is likely to be better on
 a linux system, however.
 
-The server listens for UDP packets by default. Unix Domain Sockets (UDS) can be used specifying a file path instead 
-of `address:port` with the `metrics-addr` configuration option. This only works on linux and will ignore `conn-per-reader` 
-configuration option.
+The server listens for UDP packets by default. You can use unix sockets providing an absolute path to the socket 
+in the `metrics-addr` configuration option. The socket mode used in this case is SOCK_DGRAM.
+Note that using unix sockets will only work on linux and that it will ignore `conn-per-reader` configuration option.
 
 Configuring the server mode
 ---------------------------
@@ -98,8 +98,8 @@ This configuration mode allows the following configuration options:
   Defaults to `false`.
 - `receive-batch-size`: the number of datagrams to attempt to read.  It is more CPU efficient to read multiple, however
   it takes extra memory.  See [Memory allocation for read buffers] section below for details.  Defaults to 50.
-- `conn-per-reader`: attempts to create a connection for every UDP receiver.  Not supported by all OS versions. Will be
-  ignored if UDS is used instead of UDP.
+- `conn-per-reader`: attempts to create a connection for every UDP receiver.  Not supported by all OS versions. It will 
+  be ignored when unix sockets are used for the connection.
   Defaults to `false`.
 - `bad-lines-per-minute`: the number of metrics which fail to parse to log per minute.  This is used to prevent a bad
   client spamming malformed statsd data, while still logging some information to enable troubleshooting.  Defaults to `0`.
