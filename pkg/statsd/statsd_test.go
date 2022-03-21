@@ -2,7 +2,6 @@ package statsd
 
 import (
 	"context"
-	"github.com/stretchr/testify/assert"
 	"math/rand"
 	"runtime"
 	"strconv"
@@ -13,6 +12,7 @@ import (
 	"github.com/ash2k/stager/wait"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/time/rate"
 

@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"strings"
 	"time"
 
 	"github.com/ash2k/stager"
@@ -91,15 +90,13 @@ func socketFactory(metricsAddr string, connPerReader bool) SocketFactory {
 }
 
 //networkFromAddress returns the network type based on the provided address
-//if the address is empty or [host]:[port] combination it will be UDP otherwise UDS
+//if the address starts with a slash (unix absolute path) it will be considered a unix socket
+//otherwise it will default to UDP
 func networkFromAddress(addr string) string {
-	if strings.TrimSpace(addr) == "" {
-		return "udp"
+	if len(addr) > 0 && addr[0:1] == "/" {
+		return "unixgram"
 	}
-	if strings.Index(addr, ":") != -1 {
-		return "udp"
-	}
-	return "unixgram"
+	return "udp"
 }
 
 func (s *Server) createStandaloneSink() (gostatsd.PipelineHandler, []gostatsd.Runnable, error) {
