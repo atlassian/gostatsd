@@ -1,3 +1,7 @@
+34.2.0
+------
+- Support for Unix Domain Sockets added by rubenruizdegauna
+
 34.1.0
 ------
 - NewRelic backend honors Retry-After header, added by malderete.  As a result of this, the maximum time a request can
