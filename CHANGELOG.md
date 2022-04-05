@@ -1,6 +1,8 @@
 34.2.1
 ------
 - Upgrade from Alpine 3.15.0 -> 3.15.3
+- Dependency upgrades
+- Upgrade golangci-lint action 1.33 -> 1.45.2
 
 34.2.0
 ------
