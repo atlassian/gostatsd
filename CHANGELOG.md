@@ -1,3 +1,7 @@
+34.2.1
+------
+- Upgrade from Alpine 3.15.0 -> 3.15.3
+
 34.2.0
 ------
 - Support for Unix Domain Sockets added by rubenruizdegauna
