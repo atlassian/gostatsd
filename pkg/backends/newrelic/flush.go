@@ -44,7 +44,9 @@ func (f *flush) addMetric(n *Client, metricType string, value float64, persecond
 // addMetric adds a timer metric to the series.
 func (f *flush) addTimerMetric(n *Client, metricType string, timer gostatsd.Timer, tagsKey, name string) {
 	if n.flushType == flushTypeMetrics {
-		timerMetric := newDimensionalMetricSet(n, f, name, metricType, float64(timer.Count), timer.Tags)
+		newTags := maybeAddHost(timer.Source, timer.Tags)
+
+		timerMetric := newDimensionalMetricSet(n, f, name, metricType, float64(timer.Count), newTags)
 
 		timerMetric.Value = map[string]float64{
 			"count": float64(timer.Count),
@@ -54,23 +56,23 @@ func (f *flush) addTimerMetric(n *Client, metricType string, timer gostatsd.Time
 		}
 
 		if !n.disabledSubtypes.CountPerSecond {
-			gaugeMetric := newDimensionalMetricSet(n, f, name+".per_second", "gauge", timer.PerSecond, timer.Tags)
+			gaugeMetric := newDimensionalMetricSet(n, f, name+".per_second", "gauge", timer.PerSecond, newTags)
 			f.ts.Metrics = append(f.ts.Metrics, gaugeMetric)
 		}
 		if !n.disabledSubtypes.Mean {
-			gaugeMetric := newDimensionalMetricSet(n, f, name+".mean", "gauge", timer.Mean, timer.Tags)
+			gaugeMetric := newDimensionalMetricSet(n, f, name+".mean", "gauge", timer.Mean, newTags)
 			f.ts.Metrics = append(f.ts.Metrics, gaugeMetric)
 		}
 		if !n.disabledSubtypes.Median {
-			gaugeMetric := newDimensionalMetricSet(n, f, name+".median", "gauge", timer.Median, timer.Tags)
+			gaugeMetric := newDimensionalMetricSet(n, f, name+".median", "gauge", timer.Median, newTags)
 			f.ts.Metrics = append(f.ts.Metrics, gaugeMetric)
 		}
 		if !n.disabledSubtypes.StdDev {
-			gaugeMetric := newDimensionalMetricSet(n, f, name+".std_dev", "gauge", timer.StdDev, timer.Tags)
+			gaugeMetric := newDimensionalMetricSet(n, f, name+".std_dev", "gauge", timer.StdDev, newTags)
 			f.ts.Metrics = append(f.ts.Metrics, gaugeMetric)
 		}
 		if !n.disabledSubtypes.SumSquares {
-			gaugeMetric := newDimensionalMetricSet(n, f, name+".sum_squares", "gauge", timer.SumSquares, timer.Tags)
+			gaugeMetric := newDimensionalMetricSet(n, f, name+".sum_squares", "gauge", timer.SumSquares, newTags)
 			f.ts.Metrics = append(f.ts.Metrics, gaugeMetric)
 		}
 
@@ -82,7 +84,7 @@ func (f *flush) addTimerMetric(n *Client, metricType string, timer gostatsd.Time
 		// Each metric name MUST have a ".percentiles" suffix.
 		for _, pct := range timer.Percentiles {
 			lastUnderscore := strings.LastIndex(pct.Str, "_")
-			gaugeMetric := newDimensionalMetricSet(n, f, fmt.Sprintf("%v.%v.percentiles", name, pct.Str[:lastUnderscore]), "gauge", pct.Float, timer.Tags)
+			gaugeMetric := newDimensionalMetricSet(n, f, fmt.Sprintf("%v.%v.percentiles", name, pct.Str[:lastUnderscore]), "gauge", pct.Float, newTags)
 			percentileResult, err := strconv.ParseFloat(pct.Str[lastUnderscore+1:], 64) // eg. for sum_squares_90 will return 90
 			if err == nil {
 				gaugeMetric.Attributes["percentile"] = percentileResult
@@ -91,7 +93,9 @@ func (f *flush) addTimerMetric(n *Client, metricType string, timer gostatsd.Time
 		}
 		f.ts.Metrics = append(f.ts.Metrics, timerMetric)
 	} else {
-		timerMetric := newMetricSet(n, f, name, metricType, float64(timer.Count), timer.Tags)
+		newTags := maybeAddHost(timer.Source, timer.Tags)
+
+		timerMetric := newMetricSet(n, f, name, metricType, float64(timer.Count), newTags)
 
 		if !n.disabledSubtypes.Lower {
 			timerMetric[n.timerMin] = timer.Min
