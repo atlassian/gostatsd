@@ -210,19 +210,19 @@ func (n *Client) processMetrics(now float64, metrics *gostatsd.MetricMap, cb fun
 	}
 
 	metrics.Gauges.Each(func(key, tagsKey string, g gostatsd.Gauge) {
-		newTags := maybeAddHost(g.Source, g.Tags)
+		newTags := maybeAddSource(g.Source, g.Tags)
 		fl.addMetric(n, "gauge", g.Value, 0, newTags, key)
 		fl.maybeFlush()
 	})
 
 	metrics.Counters.Each(func(key, tagsKey string, counter gostatsd.Counter) {
-		newTags := maybeAddHost(counter.Source, counter.Tags)
+		newTags := maybeAddSource(counter.Source, counter.Tags)
 		fl.addMetric(n, "counter", float64(counter.Value), counter.PerSecond, newTags, key)
 		fl.maybeFlush()
 	})
 
 	metrics.Sets.Each(func(key, tagsKey string, set gostatsd.Set) {
-		newTags := maybeAddHost(set.Source, set.Tags)
+		newTags := maybeAddSource(set.Source, set.Tags)
 		fl.addMetric(n, "set", float64(len(set.Values)), 0, newTags, key)
 		fl.maybeFlush()
 	})
@@ -234,7 +234,7 @@ func (n *Client) processMetrics(now float64, metrics *gostatsd.MetricMap, cb fun
 				if !math.IsInf(float64(histogramThreshold), 1) {
 					bucketTag = "le:" + strconv.FormatFloat(float64(histogramThreshold), 'f', -1, 64)
 				}
-				newTags := maybeAddHost(timer.Source, timer.Tags.Concat(gostatsd.Tags{bucketTag}))
+				newTags := maybeAddSource(timer.Source, timer.Tags.Concat(gostatsd.Tags{bucketTag}))
 				fl.addMetric(n, "counter", float64(count), 0, newTags, key+".histogram")
 			}
 		} else {
@@ -666,7 +666,7 @@ func contains(s []string, e string) bool {
 
 // If source is not empty and tags does not already have a host tag,
 // add a statsdSource tag.
-func maybeAddHost(source gostatsd.Source, tags gostatsd.Tags) gostatsd.Tags {
+func maybeAddSource(source gostatsd.Source, tags gostatsd.Tags) gostatsd.Tags {
 	if source == "" {
 		return tags
 	}

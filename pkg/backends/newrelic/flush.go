@@ -44,7 +44,7 @@ func (f *flush) addMetric(n *Client, metricType string, value float64, persecond
 // addMetric adds a timer metric to the series.
 func (f *flush) addTimerMetric(n *Client, metricType string, timer gostatsd.Timer, tagsKey, name string) {
 	if n.flushType == flushTypeMetrics {
-		newTags := maybeAddHost(timer.Source, timer.Tags)
+		newTags := maybeAddSource(timer.Source, timer.Tags)
 
 		timerMetric := newDimensionalMetricSet(n, f, name, metricType, float64(timer.Count), newTags)
 
@@ -93,7 +93,7 @@ func (f *flush) addTimerMetric(n *Client, metricType string, timer gostatsd.Time
 		}
 		f.ts.Metrics = append(f.ts.Metrics, timerMetric)
 	} else {
-		newTags := maybeAddHost(timer.Source, timer.Tags)
+		newTags := maybeAddSource(timer.Source, timer.Tags)
 
 		timerMetric := newMetricSet(n, f, name, metricType, float64(timer.Count), newTags)
 
