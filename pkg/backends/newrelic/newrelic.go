@@ -32,7 +32,7 @@ const (
 	// BackendName is the name of this backend.
 	BackendName                  = "newrelic"
 	integrationName              = "com.newrelic.gostatsd"
-	integrationVersion           = "2.3.1"
+	integrationVersion           = "2.4.0"
 	protocolVersion              = "2"
 	defaultUserAgent             = "gostatsd"
 	defaultMaxRequestElapsedTime = 15 * time.Second
@@ -496,6 +496,7 @@ func NewClientFromViper(v *viper.Viper, logger logrus.FieldLogger, pool *transpo
 	// New Relic Config Defaults & Recommendations
 	v.SetDefault("statser-type", "null")
 	v.SetDefault("flush-interval", "10s")
+	v.SetDefault("ignore-host", "true")
 	if v.GetString("statser-type") == "null" {
 		logger.Info("internal metrics OFF, to enable set 'statser-type' to 'logging' or 'internal'")
 	}
