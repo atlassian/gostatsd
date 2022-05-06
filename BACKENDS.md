@@ -287,8 +287,8 @@ Additional options are available to rename attributes if required.
 ```
 
 ### Host Tag
-When `--ignore-host` is not set, the New Relic backend will add the tag `statsdSource` to
-all metrics. The value of this tag will be the `gostatsd.Source` string recorded
+When `--ignore-host` is not set, the New Relic backend will add the tag `statsdSource`
+to all metrics. The value of this tag will be the `gostatsd.Source` string recorded
 with each metric. So as not to collide with the existing `host` attribute that
 is added to many infrastructure samples, the name `statsdSource` was chosen
 instead of `host`.
