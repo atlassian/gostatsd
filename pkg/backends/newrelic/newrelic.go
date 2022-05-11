@@ -32,7 +32,7 @@ const (
 	// BackendName is the name of this backend.
 	BackendName                  = "newrelic"
 	integrationName              = "com.newrelic.gostatsd"
-	integrationVersion           = "2.3.1"
+	integrationVersion           = "2.4.0"
 	protocolVersion              = "2"
 	defaultUserAgent             = "gostatsd"
 	defaultMaxRequestElapsedTime = 15 * time.Second
@@ -210,17 +210,20 @@ func (n *Client) processMetrics(now float64, metrics *gostatsd.MetricMap, cb fun
 	}
 
 	metrics.Gauges.Each(func(key, tagsKey string, g gostatsd.Gauge) {
-		fl.addMetric(n, "gauge", g.Value, 0, g.Tags, key)
+		newTags := maybeAddSource(g.Source, g.Tags)
+		fl.addMetric(n, "gauge", g.Value, 0, newTags, key)
 		fl.maybeFlush()
 	})
 
 	metrics.Counters.Each(func(key, tagsKey string, counter gostatsd.Counter) {
-		fl.addMetric(n, "counter", float64(counter.Value), counter.PerSecond, counter.Tags, key)
+		newTags := maybeAddSource(counter.Source, counter.Tags)
+		fl.addMetric(n, "counter", float64(counter.Value), counter.PerSecond, newTags, key)
 		fl.maybeFlush()
 	})
 
 	metrics.Sets.Each(func(key, tagsKey string, set gostatsd.Set) {
-		fl.addMetric(n, "set", float64(len(set.Values)), 0, set.Tags, key)
+		newTags := maybeAddSource(set.Source, set.Tags)
+		fl.addMetric(n, "set", float64(len(set.Values)), 0, newTags, key)
 		fl.maybeFlush()
 	})
 
@@ -231,7 +234,7 @@ func (n *Client) processMetrics(now float64, metrics *gostatsd.MetricMap, cb fun
 				if !math.IsInf(float64(histogramThreshold), 1) {
 					bucketTag = "le:" + strconv.FormatFloat(float64(histogramThreshold), 'f', -1, 64)
 				}
-				newTags := timer.Tags.Concat(gostatsd.Tags{bucketTag})
+				newTags := maybeAddSource(timer.Source, timer.Tags.Concat(gostatsd.Tags{bucketTag}))
 				fl.addMetric(n, "counter", float64(count), 0, newTags, key+".histogram")
 			}
 		} else {
@@ -493,6 +496,7 @@ func NewClientFromViper(v *viper.Viper, logger logrus.FieldLogger, pool *transpo
 	// New Relic Config Defaults & Recommendations
 	v.SetDefault("statser-type", "null")
 	v.SetDefault("flush-interval", "10s")
+	v.SetDefault("ignore-host", "true")
 	if v.GetString("statser-type") == "null" {
 		logger.Info("internal metrics OFF, to enable set 'statser-type' to 'logging' or 'internal'")
 	}
@@ -659,4 +663,20 @@ func contains(s []string, e string) bool {
 		}
 	}
 	return false
+}
+
+// If source is not empty and tags does not already have a host tag,
+// add a statsdSource tag.
+func maybeAddSource(source gostatsd.Source, tags gostatsd.Tags) gostatsd.Tags {
+	if source == "" {
+		return tags
+	}
+
+	for _, tag := range tags {
+		if strings.HasPrefix(tag, "statsdSource:") {
+			return tags
+		}
+	}
+
+	return append(tags, "statsdSource:"+string(source))
 }
