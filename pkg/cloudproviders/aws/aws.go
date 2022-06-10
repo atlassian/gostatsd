@@ -28,22 +28,19 @@ import (
 type LocalIPMode int
 
 const (
-	Never LocalIPMode = iota
-	Always
+	Deny LocalIPMode = iota
 	Allow
 )
 
 func NewLocalIPMode(str string) LocalIPMode {
 	s := strings.ToLower(str)
 	switch s {
-	case "never":
-		return Never
-	case "always":
-		return Always
+	case "deny":
+		return Deny
 	case "allow":
 		return Allow
 	}
-	return Never
+	return Deny
 }
 
 var (
@@ -59,7 +56,7 @@ const (
 	ProviderName             = "aws"
 	defaultClientTimeout     = 9 * time.Second
 	defaultMaxInstancesBatch = 32
-	defaultLocalIPMode       = Never
+	defaultLocalIPMode       = Deny
 )
 
 // Provider represents an AWS provider.
@@ -343,12 +340,8 @@ func multiError(errors []error) error {
 }
 
 func (p *Provider) isLocalIP(ip gostatsd.Source) bool {
-	if p.localIPMode == Never {
+	if p.localIPMode == Deny {
 		return false
-	}
-
-	if p.localIPMode == Always {
-		return true
 	}
 
 	return contains(p.localIPWhitelist, string(ip))

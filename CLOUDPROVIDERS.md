@@ -14,7 +14,51 @@ All configuration is in a stanza named after the backend, and takes simple key v
 
 aws
 ---
-### TODO
+#### Overview
+
+The AWS cloud provider uses the IP addresses of incoming metric datagrams
+to lookup the tags of EC2 instances with matching private IP addresses and
+decorates the associated metrics with said tags. A "local IP mode" is also
+provided that can be used to lookup tags of the local EC2 instance on which
+`gostatsd` is running.
+
+Tags are queried using the EC2 metadata service to execute a
+[`DescribeInstances`](https://docs.aws.amazon.com/sdk-for-go/api/service/ec2/#EC2.DescribeInstances)
+operation. Unless local IP mode is enabled, instances are located by
+setting the `private-ip-address` in the `DescribeInstances` filter to the values
+of the incoming IP addresses. In local IP mode, instances are located by setting
+the `instance-id` in the `DescribeInstances` filter to the instance ID returned
+by the [EC2 instance identity document](https://docs.aws.amazon.com/sdk-for-go/api/aws/ec2metadata/#EC2InstanceIdentityDocument).
+
+#### Important details
+
+Like the k8s provider, `ignore-host` must be set to `false` for the cloud
+provider to work at all! This is because it works based off the
+source IP address of incoming metrics, and these are dropped if
+`ignore-host=true`.
+
+#### Example with defaults
+
+```$toml
+cloud-provider = 'aws'
+
+[aws]
+max_retries = 3
+client_timeout = 9000000000
+max_instances_batch = 32
+local_ip_mode = "never"
+local_ip_whitelist = "127.0.0.1 localhost 172.17.0.1"
+```
+
+The configuration settings are as follows:
+- `max_retries`: The maximum number of times that a request will be retried by the AWS client before failure
+- `client_timeout`: The timeout (in nanoseconds) for the HTTP client passed to the AWS client
+- `max_instances_batch`: The maximum number of instances that can be requested at a time by the Cloud Provider pipeline handler
+- `local_ip_mode`: If set to `deny`, will never try to lookup tags of the local instance, even if datagrams
+  are sent with local interface addresses. If set to `allow`, will lookup tags of the local instance if datagrams
+  are sent with addresses on the local interface IP whitelist.
+- `local_ip_whitelist`: A string separated list of local interface IPs that should trigger
+  the lookup of tags on the local instance.
 
 k8s
 ---
