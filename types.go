@@ -24,6 +24,9 @@ func NanoMax(t1, t2 Nanotime) Nanotime {
 // We do not use net.IP because it will involve conversion to string and back several times.
 type Source string
 
+// Container is a guid
+type Container string
+
 // UnknownSource is an IP of an unknown source.
 const UnknownSource Source = ""
 

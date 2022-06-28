@@ -48,6 +48,7 @@ type Metric struct {
 	// - If the tag handler matches a `drop-host` filter, it will be removed
 	// - Backends treat it inconsistently
 	Source    Source     // Source of the metric.  In order of
+	Container Container  // Container of the metric.
 	Timestamp Nanotime   // Most accurate known timestamp of this metric
 	Type      MetricType // The type of metric
 	DoneFunc  func()     // Returns the metric to the pool. May be nil. Call Metric.Done(), not this.
@@ -64,6 +65,7 @@ func (m *Metric) Reset() {
 	m.Source = ""
 	m.Timestamp = 0
 	m.Type = 0
+	m.Container = ""
 }
 
 func Bucket(metricName string, source string, max int) int {
@@ -74,7 +76,7 @@ func Bucket(metricName string, source string, max int) int {
 }
 
 func (m *Metric) String() string {
-	return fmt.Sprintf("{%s, %s, %f, %s, %v}", m.Type, m.Name, m.Value, m.StringValue, m.Tags)
+	return fmt.Sprintf("{%s, %s, %f, %s, %v, %s}", m.Type, m.Name, m.Value, m.StringValue, m.Tags, m.Container)
 }
 
 // Done invokes DoneFunc if it's set, returning the metric to the pool.

@@ -24,24 +24,24 @@ type Lexer struct {
 	namespace     string
 	err           error
 	sampling      float64
-
-	MetricPool *pool.MetricPool
+	container     gostatsd.Container
+	MetricPool    *pool.MetricPool
 }
 
 // assumes we don't have \x00 bytes in input.
 const eof byte = 0
 
 var (
-	errMissingKeySep         = errors.New("missing key separator")
-	errEmptyKey              = errors.New("key zero len")
-	errMissingValueSep       = errors.New("missing value separator")
-	errInvalidType           = errors.New("invalid type")
-	errInvalidFormat         = errors.New("invalid format")
-	errInvalidSamplingOrTags = errors.New("invalid sampling or tags")
-	errInvalidAttributes     = errors.New("invalid event attributes")
-	errOverflow              = errors.New("overflow")
-	errNotEnoughData         = errors.New("not enough data")
-	errNaN                   = errors.New("invalid value NaN")
+	errMissingKeySep                  = errors.New("missing key separator")
+	errEmptyKey                       = errors.New("key zero len")
+	errMissingValueSep                = errors.New("missing value separator")
+	errInvalidType                    = errors.New("invalid type")
+	errInvalidFormat                  = errors.New("invalid format")
+	errInvalidSamplingTagsOrContainer = errors.New("invalid sampling tags or container")
+	errInvalidAttributes              = errors.New("invalid event attributes")
+	errOverflow                       = errors.New("overflow")
+	errNotEnoughData                  = errors.New("not enough data")
+	errNaN                            = errors.New("invalid value NaN")
 )
 
 var escapedNewline = []byte("\\n")
@@ -80,6 +80,13 @@ func (l *Lexer) reset() {
 	l.err = nil
 }
 
+func (l *Lexer) appendTag(start, end uint32) {
+	data := l.input[start:end]
+	if len(data) > 0 {
+		l.tags = append(l.tags, string(data))
+	}
+}
+
 func (l *Lexer) Run(input []byte, namespace string) (*gostatsd.Metric, *gostatsd.Event, error) {
 	l.reset()
 	l.input = input
@@ -107,8 +114,10 @@ func (l *Lexer) Run(input []byte, namespace string) (*gostatsd.Metric, *gostatsd
 			l.m.StringValue = ""
 		}
 		l.m.Tags = l.tags
+		l.m.Container = l.container
 	} else {
 		l.e.Tags = l.tags
+		l.e.Container = l.container
 	}
 	return l.m, l.e, nil
 }
@@ -260,6 +269,8 @@ func lexEventAttribute(l *Lexer) stateFn {
 		}))
 	case '#':
 		return lexTags
+	case 'c':
+		return lexContainer(lexEventAttributes)
 	case eof:
 	default:
 		l.err = errInvalidAttributes
@@ -414,14 +425,14 @@ func lexTypeSep(l *Lexer) stateFn {
 		return nil
 	case '|':
 		l.start = l.pos
-		return lexSampleRateOrTags
+		return lexSampleRateOrTagsOrContainer
 	}
 	l.err = errInvalidType
 	return nil
 }
 
 // lex the sample rate or the tags.
-func lexSampleRateOrTags(l *Lexer) stateFn {
+func lexSampleRateOrTagsOrContainer(l *Lexer) stateFn {
 	b := l.next()
 	switch b {
 	case '@':
@@ -437,8 +448,10 @@ func lexSampleRateOrTags(l *Lexer) stateFn {
 		}
 	case '#':
 		return lexTags
+	case 'c':
+		return lexContainer(lexInvalid)
 	default:
-		l.err = errInvalidSamplingOrTags
+		l.err = errInvalidSamplingTagsOrContainer
 		return nil
 	}
 }
@@ -454,19 +467,50 @@ func lexSampleRate(l *Lexer) stateFn {
 	if l.pos >= l.len {
 		return nil
 	}
-	return lexAssert('#', lexTags)
+
+	switch b := l.next(); b {
+	case '#':
+		return lexTags
+	case 'c':
+		return lexContainer(lexInvalid)
+	default:
+		l.err = errInvalidFormat
+		return nil
+	}
 }
 
-// lex the tags.
+// lex the tags
 func lexTags(l *Lexer) stateFn {
-	return lexUntil(',', func(l *Lexer, data []byte) stateFn {
-		if len(data) > 0 {
-			l.tags = append(l.tags, string(data))
-		}
-		if l.pos == l.len { // eof
+	l.start = l.pos
+	for {
+		switch b := l.next(); b {
+		case ',':
+			l.appendTag(l.start, l.pos-1)
+			l.start = l.pos
+
+		case '|':
+			l.appendTag(l.start, l.pos-1)
+			return lexAssert('c', lexContainer(lexInvalid))
+
+		case eof:
+			l.appendTag(l.start, l.pos) // next does not increment pos when at eof
 			return nil
 		}
-		l.pos++ // consume comma
-		return lexTags
-	})
+	}
+}
+
+// lex the container.
+func lexContainer(next stateFn) stateFn {
+	return lexAssert(':', lexUntil('|', func(l *Lexer, data []byte) stateFn {
+		l.container = gostatsd.Container(data)
+		return next
+	}))
+}
+
+func lexInvalid(l *Lexer) stateFn {
+	if b := l.next(); b != eof {
+		l.err = errInvalidFormat
+		return nil
+	}
+	return nil
 }
