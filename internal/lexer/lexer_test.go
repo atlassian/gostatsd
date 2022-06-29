@@ -50,6 +50,11 @@ func TestMetricsLexer(t *testing.T) {
 		"b:1|g|#,|c:xyz":                      {Name: "b", Value: 1, Type: gostatsd.GAUGE, Rate: 1.0, Container: "xyz"},
 		"b:1|g|#,,|c:xyz":                     {Name: "b", Value: 1, Type: gostatsd.GAUGE, Rate: 1.0, Container: "xyz"},
 		"b:1|g|#,,|c::,#@":                    {Name: "b", Value: 1, Type: gostatsd.GAUGE, Rate: 1.0, Container: ":,#@"},
+		"field.order.rev.all:1|g|c:xyz|#foo:bar|@0.1": {Name: "field.order.rev.all", Value: 1, Type: gostatsd.GAUGE, Rate: 0.1, Tags: gostatsd.Tags{"foo:bar"}, Container: "xyz"},
+		"field.order.rev.notags:1|g|c:xyz|@0.1":       {Name: "field.order.rev.notags", Value: 1, Type: gostatsd.GAUGE, Rate: 0.1, Container: "xyz"},
+		"new.field.prefix:1|g|#,,|c:xyz|x:":           {Name: "new.field.prefix", Value: 1, Type: gostatsd.GAUGE, Rate: 1.0, Container: "xyz"},
+		"new.field.empty:1|g|#,|c:xyz|":               {Name: "new.field.empty", Value: 1, Type: gostatsd.GAUGE, Rate: 1.0, Container: "xyz"},
+		"new.field.colon:1|g|#|c:xyz|:":               {Name: "new.field.colon", Value: 1, Type: gostatsd.GAUGE, Rate: 1.0, Container: "xyz"},
 	}
 
 	compareMetric(t, tests, "")
@@ -62,15 +67,7 @@ func TestInvalidMetricsLexer(t *testing.T) {
 		"foo.bar.baz:1|q",
 		"NaN.should.be:NaN|g",
 		"bad.sampling:1|g|@",
-		"container.empty:1|c|",
-		"container.missing.prefix:1|c|xyz",
-		"container.missing.c:1|c|:",
 		"container.missing.colon:1|c|c",
-		"smp.invalid.container:1|g|@1.0|xyz",
-		"smp.tags.empty.container:1|g|@1.2|#|",
-		"tags.invalid.container.baz:1|g|#foo|:",
-		"extra.field.empty:1|g|#,,|c:|",
-		"extra.field.value:1|g|#,,|c:|xxx",
 	}
 	for _, tc := range failing {
 		tc := tc
@@ -105,9 +102,10 @@ func TestEventsLexer(t *testing.T) {
 		"_e{1,1}:a|b|d:123123|h:hoost|p:low|t:warning|#tag1,t:tag2":       {Title: "a", Text: "b", DateHappened: 123123, Source: "hoost", Priority: gostatsd.PriLow, AlertType: gostatsd.AlertWarning, Tags: []string{"tag1", "t:tag2"}},
 		"_e{1,1}:a|b|d:123123|h:hoost|p:low|t:warning|#tag1,t:tag2|c:xyz": {Title: "a", Text: "b", DateHappened: 123123, Source: "hoost", Priority: gostatsd.PriLow, AlertType: gostatsd.AlertWarning, Tags: []string{"tag1", "t:tag2"}, Container: "xyz"}, //TODO is this correct?
 		"_e{1,1}:a|b|t:warning|d:123123|h:hoost|p:low|c:xyz|#tag1,t:tag2": {Title: "a", Text: "b", DateHappened: 123123, Source: "hoost", Priority: gostatsd.PriLow, AlertType: gostatsd.AlertWarning, Tags: []string{"tag1", "t:tag2"}, Container: "xyz"},
-		"_e{1,1}:a|b|c:xyz|t:warning|d:123123|h:hoost|p:low|#tag1,t:tag2": {Title: "a", Text: "b", DateHappened: 123123, Source: "hoost", Priority: gostatsd.PriLow, AlertType: gostatsd.AlertWarning, Tags: []string{"tag1", "t:tag2"}, Container: "xyz"},
-		"_e{1,1}:a|b|p:low|c:xyz|t:warning|d:123123|h:hoost|#tag1,t:tag2": {Title: "a", Text: "b", DateHappened: 123123, Source: "hoost", Priority: gostatsd.PriLow, AlertType: gostatsd.AlertWarning, Tags: []string{"tag1", "t:tag2"}, Container: "xyz"},
-		"_e{1,1}:a|b|h:hoost|p:low|c:xyz|t:warning|d:123123|#tag1,t:tag2": {Title: "a", Text: "b", DateHappened: 123123, Source: "hoost", Priority: gostatsd.PriLow, AlertType: gostatsd.AlertWarning, Tags: []string{"tag1", "t:tag2"}, Container: "xyz"},
+		"_e{1,1}:a|b|#tag1,t:tag2|t:warning|d:123123|h:hoost|p:low|c:xyz": {Title: "a", Text: "b", DateHappened: 123123, Source: "hoost", Priority: gostatsd.PriLow, AlertType: gostatsd.AlertWarning, Tags: []string{"tag1", "t:tag2"}, Container: "xyz"},
+		"_e{1,1}:a|b|c:xyz|#tag1,t:tag2|t:warning|d:123123|h:hoost|p:low": {Title: "a", Text: "b", DateHappened: 123123, Source: "hoost", Priority: gostatsd.PriLow, AlertType: gostatsd.AlertWarning, Tags: []string{"tag1", "t:tag2"}, Container: "xyz"},
+		"_e{1,1}:a|b|p:low|c:xyz|#tag1,t:tag2|t:warning|d:123123|h:hoost": {Title: "a", Text: "b", DateHappened: 123123, Source: "hoost", Priority: gostatsd.PriLow, AlertType: gostatsd.AlertWarning, Tags: []string{"tag1", "t:tag2"}, Container: "xyz"},
+		"_e{1,1}:a|b|h:hoost|p:low|c:xyz|#tag1,t:tag2|t:warning|d:123123": {Title: "a", Text: "b", DateHappened: 123123, Source: "hoost", Priority: gostatsd.PriLow, AlertType: gostatsd.AlertWarning, Tags: []string{"tag1", "t:tag2"}, Container: "xyz"},
 		"_e{1,1}:a|b|h:hoost":                                             {Title: "a", Text: "b", Source: "hoost"},
 		"_e{1,1}:a|b|h:hoost|c:xyz":                                       {Title: "a", Text: "b", Source: "hoost", Container: "xyz"},
 		"_e{1,1}:a|b|p:low":                                               {Title: "a", Text: "b", Priority: gostatsd.PriLow},

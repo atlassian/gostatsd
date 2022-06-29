@@ -32,16 +32,15 @@ type Lexer struct {
 const eof byte = 0
 
 var (
-	errMissingKeySep                  = errors.New("missing key separator")
-	errEmptyKey                       = errors.New("key zero len")
-	errMissingValueSep                = errors.New("missing value separator")
-	errInvalidType                    = errors.New("invalid type")
-	errInvalidFormat                  = errors.New("invalid format")
-	errInvalidSamplingTagsOrContainer = errors.New("invalid sampling tags or container")
-	errInvalidAttributes              = errors.New("invalid event attributes")
-	errOverflow                       = errors.New("overflow")
-	errNotEnoughData                  = errors.New("not enough data")
-	errNaN                            = errors.New("invalid value NaN")
+	errMissingKeySep     = errors.New("missing key separator")
+	errEmptyKey          = errors.New("key zero len")
+	errMissingValueSep   = errors.New("missing value separator")
+	errInvalidType       = errors.New("invalid type")
+	errInvalidFormat     = errors.New("invalid format")
+	errInvalidAttributes = errors.New("invalid event attributes")
+	errOverflow          = errors.New("overflow")
+	errNotEnoughData     = errors.New("not enough data")
+	errNaN               = errors.New("invalid value NaN")
 )
 
 var escapedNewline = []byte("\\n")
@@ -78,6 +77,7 @@ func (l *Lexer) reset() {
 	l.e = nil
 	l.tags = nil
 	l.err = nil
+	l.container = ""
 }
 
 func (l *Lexer) appendTag(start, end uint32) {
@@ -213,7 +213,7 @@ func lexEventAttributes(l *Lexer) stateFn {
 }
 
 func lexEventAttribute(l *Lexer) stateFn {
-	// d:date_happened|h:hostname|p:priority|t:alert_type|#tag1,tag2
+	// d:date_happened|h:hostname|p:priority|t:alert_type|#tag1,tag2|c:container
 	switch b := l.next(); b {
 	case 'd':
 		return lexAssert(':', lexUint(func(l *Lexer, value uint64) stateFn {
@@ -268,12 +268,12 @@ func lexEventAttribute(l *Lexer) stateFn {
 			return lexEventAttributes
 		}))
 	case '#':
-		return lexTags
+		return lexTags(lexEventAttributes)
 	case 'c':
 		return lexContainer(lexEventAttributes)
 	case eof:
 	default:
-		l.err = errInvalidAttributes
+		// error no longer raised allow new fields to be sent but ignored
 	}
 	return nil
 }
@@ -347,6 +347,23 @@ func lexUntil(stop byte, handler func(*Lexer, []byte) stateFn) stateFn {
 	}
 }
 
+// lexUntilRequired invokes handler with all bytes up to the stop byte, if stop byte is not found
+// will set the error specified in param ifNotFound
+func lexUntilRequired(stop byte, ifNotFound error, handler func(*Lexer, []byte) stateFn) stateFn {
+	return func(l *Lexer) stateFn {
+		start := l.pos
+		p := bytes.IndexByte(l.input[l.pos:], stop)
+		switch p {
+		case -1:
+			l.err = ifNotFound
+			return nil
+		default:
+			l.pos += uint32(p)
+		}
+		return handler(l, l.input[start:l.pos])
+	}
+}
+
 // lex the key.
 func lexKey(l *Lexer) stateFn {
 	if l.start == l.pos-1 {
@@ -358,28 +375,11 @@ func lexKey(l *Lexer) stateFn {
 		l.m.Name = l.namespace + "." + l.m.Name
 	}
 	l.start = l.pos
-	return lexValueSep
-}
-
-// lex until we find the pipe separator between value and modifier.
-func lexValueSep(l *Lexer) stateFn {
-	for {
-		// cheap check here. ParseFloat will do it.
-		switch b := l.next(); b {
-		case '|':
-			return lexValue
-		case eof:
-			l.err = errMissingValueSep
-			return nil
-		}
-	}
-}
-
-// lex the value.
-func lexValue(l *Lexer) stateFn {
-	l.m.StringValue = string(l.input[l.start : l.pos-1])
-	l.start = l.pos
-	return lexType
+	return lexUntilRequired('|', errMissingValueSep, func(l *Lexer, i []byte) stateFn {
+		l.m.StringValue = string(l.input[l.start:l.pos])
+		l.start = l.pos
+		return lexAssert('|', lexType)
+	})
 }
 
 // lex the type.
@@ -389,11 +389,11 @@ func lexType(l *Lexer) stateFn {
 	case 'c':
 		l.m.Type = gostatsd.COUNTER
 		l.start = l.pos
-		return lexTypeSep
+		return lexMetricFields
 	case 'g':
 		l.m.Type = gostatsd.GAUGE
 		l.start = l.pos
-		return lexTypeSep
+		return lexMetricFields
 	case 'm':
 		if b := l.next(); b != 's' {
 			l.err = errInvalidType
@@ -401,100 +401,84 @@ func lexType(l *Lexer) stateFn {
 		}
 		l.start = l.pos
 		l.m.Type = gostatsd.TIMER
-		return lexTypeSep
+		return lexMetricFields
 	case 'h':
 		l.start = l.pos
 		l.m.Type = gostatsd.TIMER
-		return lexTypeSep
+		return lexMetricFields
 	case 's':
 		l.m.Type = gostatsd.SET
 		l.start = l.pos
-		return lexTypeSep
+		return lexMetricFields
 	default:
 		l.err = errInvalidType
 		return nil
-
 	}
 }
 
 // lex the possible separator between type and sampling rate.
-func lexTypeSep(l *Lexer) stateFn {
+func lexMetricFields(l *Lexer) stateFn {
 	b := l.next()
 	switch b {
-	case eof:
-		return nil
 	case '|':
 		l.start = l.pos
-		return lexSampleRateOrTagsOrContainer
+		return lexMetricField
+	case eof:
+	default:
+		l.err = errInvalidType
 	}
-	l.err = errInvalidType
 	return nil
 }
 
 // lex the sample rate or the tags.
-func lexSampleRateOrTagsOrContainer(l *Lexer) stateFn {
+func lexMetricField(l *Lexer) stateFn {
 	b := l.next()
 	switch b {
 	case '@':
-		l.start = l.pos
-		for {
-			switch b := l.next(); b {
-			case '|':
-				return lexSampleRate
-			case eof:
-				l.pos++
-				return lexSampleRate
-			}
-		}
+		return lexSampleRate(lexMetricFields)
 	case '#':
-		return lexTags
+		return lexTags(lexMetricFields)
 	case 'c':
-		return lexContainer(lexInvalid)
+		return lexContainer(lexMetricFields)
 	default:
-		l.err = errInvalidSamplingTagsOrContainer
+		// error no longer raised allow new fields to be sent but ignored
 		return nil
 	}
 }
 
-// lex the sample rate.
-func lexSampleRate(l *Lexer) stateFn {
-	v, err := strconv.ParseFloat(string(l.input[l.start:l.pos-1]), 64)
-	if err != nil {
-		l.err = err
-		return nil
-	}
-	l.sampling = v
-	if l.pos >= l.len {
-		return nil
-	}
-
-	switch b := l.next(); b {
-	case '#':
-		return lexTags
-	case 'c':
-		return lexContainer(lexInvalid)
-	default:
-		l.err = errInvalidFormat
-		return nil
+func lexSampleRate(next stateFn) stateFn {
+	return func(l *Lexer) stateFn {
+		return lexUntil('|', func(l *Lexer, data []byte) stateFn {
+			v, err := strconv.ParseFloat(string(data), 64)
+			if err != nil {
+				l.err = err
+				return nil
+			}
+			l.sampling = v
+			return next
+		})
 	}
 }
 
 // lex the tags
-func lexTags(l *Lexer) stateFn {
-	l.start = l.pos
-	for {
-		switch b := l.next(); b {
-		case ',':
-			l.appendTag(l.start, l.pos-1)
-			l.start = l.pos
+func lexTags(next stateFn) stateFn {
+	return func(l *Lexer) stateFn {
+		l.start = l.pos
+		for {
+			switch b := l.next(); b {
+			case ',':
+				l.appendTag(l.start, l.pos-1)
+				l.start = l.pos
 
-		case '|':
-			l.appendTag(l.start, l.pos-1)
-			return lexAssert('c', lexContainer(lexInvalid))
+			case '|':
+				l.appendTag(l.start, l.pos-1)
+				l.pos-- //reverse one position to support same pattern as lexUntil
+				return next
 
-		case eof:
-			l.appendTag(l.start, l.pos) // next does not increment pos when at eof
-			return nil
+			case eof:
+				l.appendTag(l.start, l.pos) // next does not increment pos when at eof
+				return nil
+			}
 		}
 	}
 }
@@ -505,12 +489,4 @@ func lexContainer(next stateFn) stateFn {
 		l.container = gostatsd.Container(data)
 		return next
 	}))
-}
-
-func lexInvalid(l *Lexer) stateFn {
-	if b := l.next(); b != eof {
-		l.err = errInvalidFormat
-		return nil
-	}
-	return nil
 }
