@@ -455,10 +455,10 @@ func lexSampleRate(l *Lexer, next stateFn) stateFn {
 	for {
 		switch b := l.next(); b {
 		case '|':
-			return lexSampleRateValue(l, lexMetricFields)
+			return lexSampleRateValue(l, next)
 		case eof:
 			l.pos++
-			return lexSampleRateValue(l, lexMetricFields)
+			return lexSampleRateValue(l, next)
 		}
 	}
 }
