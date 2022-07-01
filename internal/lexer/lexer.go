@@ -267,8 +267,6 @@ func lexEventAttribute(l *Lexer) stateFn {
 		}))
 	case '#':
 		return lexTags(l, lexEventAttributes)
-	case 'c':
-		return lexContainer(l, lexEventAttributes)
 	case eof:
 	default:
 		// error no longer raised allow new fields to be sent but ignored
@@ -439,8 +437,6 @@ func lexMetricField(l *Lexer) stateFn {
 		return lexSampleRate(l, lexMetricFields)
 	case '#':
 		return lexTags(l, lexMetricFields)
-	case 'c':
-		return lexContainer(l, lexMetricFields)
 	default:
 		// error no longer raised allow new fields to be sent but ignored
 		return lexUnknown(l, lexMetricFields)
@@ -498,31 +494,6 @@ func lexTags(l *Lexer, next stateFn) stateFn {
 			l.appendTag(l.start, l.pos) // next does not increment pos when at eof
 			return nil
 		}
-	}
-}
-
-// lexContainer Expects a string value prefixed by ':'. The value is used to set in lexer.container with
-// prefix omitted, then returns the parameter next. If prefix is not found sets lexer.error and returns nil.
-// Consumes all bytes up to the stop byte ('|') or an eof. The stop byte is not consumed.
-// Avoids returning a function pointer such as using
-// lexAssert(':', lexUntil('|', ...
-// to keep performance inline with Sample Rate processing
-func lexContainer(l *Lexer, next stateFn) stateFn {
-	switch b := l.next(); b {
-	case ':':
-		start := l.pos
-		p := bytes.IndexByte(l.input[l.pos:], '|')
-		switch p {
-		case -1:
-			l.pos = l.len
-		default:
-			l.pos += uint32(p)
-		}
-		l.container = string(l.input[start:l.pos])
-		return next
-	default:
-		l.err = errInvalidFormat
-		return nil
 	}
 }
 

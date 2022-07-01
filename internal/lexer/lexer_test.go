@@ -73,7 +73,6 @@ func TestInvalidMetricsLexer(t *testing.T) {
 		"foo.bar.baz:1|q",
 		"NaN.should.be:NaN|g",
 		"bad.sampling:1|g|@",
-		"container.missing.colon:1|c|c",
 	}
 	for _, tc := range failing {
 		tc := tc
