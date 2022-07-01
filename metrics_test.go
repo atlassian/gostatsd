@@ -17,7 +17,6 @@ func TestMetricReset(t *testing.T) {
 		"something",
 		"somethingelse",
 		"source",
-		"container",
 		123,
 		COUNTER,
 		nil,
