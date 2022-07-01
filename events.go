@@ -86,8 +86,6 @@ type Event struct {
 	Tags Tags
 	// Source of the metric
 	Source Source
-	// Container of the metric
-	Container Container
 	// Priority of the event.
 	Priority Priority
 	// AlertType of the event.
