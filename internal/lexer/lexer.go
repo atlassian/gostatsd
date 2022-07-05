@@ -339,6 +339,38 @@ func lexAssert(nextByte byte, next stateFn) stateFn {
 	}
 }
 
+// Seeks the next stop or eof byte and then return the byte slice between
+// the start position and the end byte.
+func seekUntil(l *Lexer, stop byte) []byte {
+	l.start = l.pos
+	p := bytes.IndexByte(l.input[l.pos:], stop)
+	switch p {
+	case -1:
+		l.pos = l.len
+	default:
+		l.pos += uint32(p)
+	}
+	return l.input[l.start:l.pos]
+}
+
+// seekDelimited Seeks the next stop, delimiter or eof byte and then return the byte slice between
+// the start position and the end byte. It does not consume the stop byte, but will consume the delimiter.
+// Returns a boolean indicating whether the stop, or eof byte was detected.
+func seekDelimited(l *Lexer, stop, delimiter byte) ([]byte, bool) {
+	l.start = l.pos
+	for {
+		switch b := l.next(); b {
+		case delimiter:
+			return l.input[l.start : l.pos-1], false
+		case stop:
+			l.pos--
+			return l.input[l.start:l.pos], true //reverse one position so as not to consume stop byte
+		case eof:
+			return l.input[l.start:l.pos], true // next does not increment pos when at eof
+		}
+	}
+}
+
 // lex the key.
 func lexKey(l *Lexer) stateFn {
 	if l.start == l.pos-1 {
@@ -447,36 +479,4 @@ func lexMetricAttribute(l *Lexer) stateFn {
 		_ = seekUntil(l, '|')
 	}
 	return lexMetricAttributes
-}
-
-// seekDelimited Seeks the next stop, delimiter or eof byte and then return the byte slice between
-// the start position and the end byte. It does not consume the stop byte, but will consume the delimiter.
-// Returns a boolean indicating whether the stop, or eof byte was detected.
-func seekDelimited(l *Lexer, stop, delimiter byte) ([]byte, bool) {
-	l.start = l.pos
-	for {
-		switch b := l.next(); b {
-		case delimiter:
-			return l.input[l.start : l.pos-1], false
-		case stop:
-			l.pos--
-			return l.input[l.start:l.pos], true //reverse one position so as not to consume stop byte
-		case eof:
-			return l.input[l.start:l.pos], true // next does not increment pos when at eof
-		}
-	}
-}
-
-// Seeks the next stop or eof byte and then return the byte slice between
-// the start position and the end byte.
-func seekUntil(l *Lexer, stop byte) []byte {
-	l.start = l.pos
-	p := bytes.IndexByte(l.input[l.pos:], stop)
-	switch p {
-	case -1:
-		l.pos = l.len
-	default:
-		l.pos += uint32(p)
-	}
-	return l.input[l.start:l.pos]
 }

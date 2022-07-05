@@ -259,3 +259,25 @@ func BenchmarkParseCounterWithTagsAndContainer(b *testing.B) {
 func BenchmarkParseCounterWithTagsAndSampleRateAndContainer(b *testing.B) {
 	benchmarkLexer("", "smp.rte:5|c|@0.1|#foo:bar,baz|c:id", b)
 }
+
+var parselineEventBlackhole *gostatsd.Event
+
+func benchmarkEventLexer(ns string, input string, b *testing.B) {
+	slice := []byte(input)
+	var e *gostatsd.Event
+
+	l := &Lexer{
+		MetricPool: pool.NewMetricPool(0),
+	}
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for n := 0; n < b.N; n++ {
+		_, e, _ = l.Run(slice, ns)
+	}
+	parselineEventBlackhole = e
+}
+
+func BenchmarkParseEvent(b *testing.B) {
+	benchmarkEventLexer("", "_e{1,1}:a|b|d:123123|h:hoost|p:low|t:warning|#tag1,t:tag2", b)
+}
