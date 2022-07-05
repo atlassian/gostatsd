@@ -339,7 +339,7 @@ func lexAssert(nextByte byte, next stateFn) stateFn {
 	}
 }
 
-// Seeks the next stop or eof byte and then return the byte slice between
+// seekUntil Seeks the next stop or eof byte and then return the byte slice between
 // the start position and the end byte.
 func seekUntil(l *Lexer, stop byte) []byte {
 	l.start = l.pos
