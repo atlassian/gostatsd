@@ -1,0 +1,80 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+
+  build:
+    # minimal permissions
+    permissions:
+      contents: read
+      id-token: write
+    strategy:
+      matrix:
+        os: [ubuntu-18.04]
+        arch: [amd64]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Go
+        uses: actions/setup-go@v3
+        with:
+          go-version: 1.17.2
+
+      - name: Install Goveralls
+        run: go get -v github.com/mattn/goveralls
+
+      - name: Setup CI
+        run: make setup-ci
+
+      - name: Test
+        run:  |
+          make check-fmt
+          make build-all
+          make check
+          make test-race
+          make bench-race
+      - name: Get Artifact Publish Token
+        id: publish-token
+        uses: atlassian-labs/artifact-publish-token@v1.0.3
+        with:
+          output-modes: environment
+      - name: Docker Login
+        uses: docker/login-action@v2.0.0
+        with:
+          username: $ARTIFACTORY_USERNAME
+          password: $ARTIFACTORY_API_KEY
+          registry: docker-public.packages.atlassian.com
+      - name: Release
+        if: ${{ success() && github.ref_type == 'tag' }}
+        run: |
+          echo "Executing release on tag build $GITHUB_REF_NAME"
+          ARCH=linux CPU_ARCH="${{ matrix.arch }}" make release
+
+  push-manifest:
+    # minimal permissions
+    permissions:
+      contents: read
+      id-token: write
+    runs-on: ubuntu-latest
+    needs: build
+    if: ${{ github.ref_type == 'tag' }}
+    steps:
+      - name: Get Artifact Publish Token
+        id: publish-token
+        uses: atlassian-labs/artifact-publish-token@v1.0.3
+        with:
+          output-modes: environment
+      - name: Docker Login
+        uses: docker/login-action@v2.0.0
+        with:
+          username: $ARTIFACTORY_USERNAME
+          password: $ARTIFACTORY_API_KEY
+          registry: docker-public.packages.atlassian.com
+      - name: Push Docker Manifest
+        run: |
+          echo "Executing release-manifest on tag build $TRAVIS_TAG";
+          make release-manifest;
