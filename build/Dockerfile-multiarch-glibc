@@ -1,0 +1,11 @@
+FROM ubuntu:18.04
+
+RUN export DEBIAN_FRONTEND=noninteractive && \
+    apt-get update && \
+    apt-get install ca-certificates -y && \
+    rm -rf /var/lib/apt/lists/*
+
+ARG TARGETARCH
+ADD bin/linux/${TARGETARCH}/gostatsd /bin/gostatsd
+
+ENTRYPOINT ["gostatsd"]
