@@ -17,8 +17,13 @@ jobs:
       - name: Get current branch
         id: check_step
         run: |
-          raw=$(git branch -r --contains ${{ github.ref }})
-          branch=${raw##*/}
+          if ${{ github.event_name == 'pull_request' }}
+          then
+            branch=${{ github.base_ref }}
+          else
+            raw=$(git branch -r --contains ${{ github.ref }})
+            branch=${raw##*/}
+          fi
           echo "::set-output name=branch::$branch"
           echo "Branch is $branch."
 
