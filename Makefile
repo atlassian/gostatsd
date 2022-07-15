@@ -125,79 +125,19 @@ watch:
 git-hook:
 	cp dev/push-hook.sh .git/hooks/pre-push
 
-docker-multi-arch: pb/gostatsd.pb.go
-	docker pull golang:$(GOVERSION)
-	docker run \
-		--rm \
-		-v "$(GOPATH)":"$(GP)" \
-		-w "$(GP)/src/github.com/atlassian/gostatsd" \
-		-e GOPATH="$(GP)" \
-		-e CGO_ENABLED=0 \
-		-e GOOS="linux" \
-		-e GOARCH="$(CPU_ARCH)" \
-		golang:$(GOVERSION) \
-		go build -o build/bin/linux/$(CPU_ARCH)/$(BINARY_NAME) $(GOBUILD_VERSION_ARGS) $(MAIN_PKG)
-	docker buildx build -t $(IMAGE_NAME):$(GIT_HASH) -f build/Dockerfile-multiarch --platform=linux/$(CPU_ARCH) .
+docker-file: pb/gostatsd.pb.go
+	docker buildx build -t $(IMAGE_NAME):$(GIT_HASH) -f build/Dockerfile-multiarch \
+    --build-arg MAIN_PKG=$(MAIN_PKG) \
+    --build-arg BINARY_NAME=$(BINARY_NAME) \
+    --platform=linux/$(CPU_ARCH) . --push
 
-docker-race-multi-arch: pb/gostatsd.pb.go
-	docker pull golang:$(GOVERSION)
-	docker run \
-		--rm \
-		-v "$(GOPATH)":"$(GP)" \
-		-w "$(GP)/src/github.com/atlassian/gostatsd" \
-		-e GOPATH="$(GP)" \
-		-e CGO_ENABLED=0 \
-		-e GOOS="linux" \
-		-e GOARCH="$(CPU_ARCH)" \
-		golang:$(GOVERSION) \
-		go build -race -o build/bin/linux/$(CPU_ARCH)/$(BINARY_NAME) $(GOBUILD_VERSION_ARGS) $(MAIN_PKG)
-	docker buildx build -t $(IMAGE_NAME):$(GIT_HASH)-race -f build/Dockerfile-multiarch-glibc --platform=linux/$(CPU_ARCH) .
+docker-file-race: pb/gostatsd.pb.go
+	docker buildx build -t $(IMAGE_NAME):$(GIT_HASH)-race -f build/Dockerfile-multiarch-glibc \
+	--build-arg MAIN_PKG=$(MAIN_PKG) \
+	--build-arg BINARY_NAME=$(BINARY_NAME) \
+	--platform=linux/$(CPU_ARCH) . --push
 
-release-hash-multi-arch: docker-multi-arch
-	docker push $(IMAGE_NAME):$(GIT_HASH)
-
-release-normal-multi-arch: release-hash-multi-arch
-	docker tag $(IMAGE_NAME):$(GIT_HASH) $(IMAGE_NAME):latest
-	docker push $(IMAGE_NAME):latest
-	docker tag $(IMAGE_NAME):$(GIT_HASH) $(IMAGE_NAME):$(REPO_VERSION)
-	docker push $(IMAGE_NAME):$(REPO_VERSION)
-
-release-hash-race-multi-arch: docker-race-multi-arch
-	docker push $(IMAGE_NAME):$(GIT_HASH)-race
-
-release-race-multi-arch: docker-race-multi-arch
-	docker tag $(IMAGE_NAME):$(GIT_HASH)-race $(IMAGE_NAME):$(REPO_VERSION)-race
-	docker push $(IMAGE_NAME):$(REPO_VERSION)-race
-
-
-release-multi-arch: release-normal-multi-arch release-race-multi-arch
-
-# Compile a static binary. Cannot be used with -race
-docker: pb/gostatsd.pb.go
-	docker pull golang:$(GOVERSION)
-	docker run \
-		--rm \
-		-v "$(GOPATH)":"$(GP)" \
-		-w "$(GP)/src/github.com/atlassian/gostatsd" \
-		-e GOPATH="$(GP)" \
-		-e CGO_ENABLED=0 \
-		golang:$(GOVERSION) \
-		go build -o build/bin/linux/$(BINARY_NAME) $(GOBUILD_VERSION_ARGS) $(MAIN_PKG)
-	docker build --pull -t $(IMAGE_NAME):$(GIT_HASH) build
-
-# Compile a binary with -race. Needs to be run on a glibc-based system.
-docker-race: pb/gostatsd.pb.go
-	docker pull golang:$(GOVERSION)
-	docker run \
-		--rm \
-		-v "$(GOPATH)":"$(GP)" \
-		-w "$(GP)/src/github.com/atlassian/gostatsd" \
-		-e GOPATH="$(GP)" \
-		golang:$(GOVERSION) \
-		go build -race -o build/bin/linux/$(BINARY_NAME) $(GOBUILD_VERSION_ARGS) $(MAIN_PKG)
-	docker build --pull -t $(IMAGE_NAME):$(GIT_HASH)-race -f build/Dockerfile-glibc build
-
-release-hash: docker
+release-hash: docker-file
 	docker push $(IMAGE_NAME):$(GIT_HASH)
 
 release-normal: release-hash
@@ -206,10 +146,10 @@ release-normal: release-hash
 	docker tag $(IMAGE_NAME):$(GIT_HASH) $(IMAGE_NAME):$(REPO_VERSION)
 	docker push $(IMAGE_NAME):$(REPO_VERSION)
 
-release-hash-race: docker-race
+release-hash-race: docker-file-race
 	docker push $(IMAGE_NAME):$(GIT_HASH)-race
 
-release-race: docker-race
+release-race: docker-file-race
 	docker tag $(IMAGE_NAME):$(GIT_HASH)-race $(IMAGE_NAME):$(REPO_VERSION)-race
 	docker push $(IMAGE_NAME):$(REPO_VERSION)-race
 
