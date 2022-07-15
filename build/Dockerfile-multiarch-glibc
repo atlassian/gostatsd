@@ -1,3 +1,24 @@
+FROM golang:1.17.2-alpine AS build
+WORKDIR /build
+
+# Install dependencies first to take advantage of the docker build cache.
+ADD go.mod /build/go.mod
+ADD go.sum /build/go.sum
+
+RUN go mod download
+
+ARG TARGETARCH
+ARG BINARY_NAME
+ARG MAIN_PKG
+
+ADD . /build
+
+RUN apk update && apk add git
+
+RUN ldFlags="-s -X main.Version=$(git describe --abbrev=0 --tags) -X main.GitCommit=$(git rev-parse --short HEAD) -X main.BuildDate=$(date +%Y-%m-%d-%H:%M)"; \
+    echo $ldFlags; \
+    CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH} go build -race -o bin/linux/${TARGETARCH}/${BINARY_NAME} -ldflags "$(ldFlags)" ${MAIN_PKG}
+
 FROM ubuntu:18.04
 
 RUN export DEBIAN_FRONTEND=noninteractive && \
@@ -6,6 +27,6 @@ RUN export DEBIAN_FRONTEND=noninteractive && \
     rm -rf /var/lib/apt/lists/*
 
 ARG TARGETARCH
-ADD bin/linux/${TARGETARCH}/gostatsd /bin/gostatsd
+COPY --from=build /build/bin/linux/${TARGETARCH}/gostatsd /bin/gostatsd
 
 ENTRYPOINT ["gostatsd"]
