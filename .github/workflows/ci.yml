@@ -29,12 +29,13 @@ jobs:
           make test-race
           make bench-race
       - name: Non Tag
-        if: github.ref_type != 'tag' || (github.branch != 'master' && github.branch != 'release' && github.branch != 'main')
-        run: echo "Not executing release - non-tag build or tag is not on branch master, release, main"
-
+        if: github.ref_type != 'tag' || (github.ref_name != 'master' && github.ref_name != 'release' && github.ref_name != 'main')
+        run: |
+          echo "Will not proceed to release job. Build does not meet requirement for release:"
+          echo "Ref type '$GITHUB_REF_TYPE' must equal tag and branch '$GITHUB_REF_NAME' must be master, main or release."
   release:
     needs: build
-    if: github.ref_type == 'tag' && (github.branch == 'master' || github.branch == 'release' || github.branch == 'main')
+    if: github.ref_type == 'tag' && (github.ref_name == 'master' || github.ref_name == 'release' || github.ref_name == 'main')
     runs-on: ubuntu-18.04
     # minimal permissions for Get Artifact Publish Token
     permissions:
