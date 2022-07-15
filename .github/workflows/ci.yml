@@ -5,10 +5,12 @@ on:
   push:
 
 jobs:
-  check:
+  setup:
     runs-on: ubuntu-latest
     outputs:
       branch: ${{ steps.check_step.outputs.branch }}
+      githash: ${{ steps.var_step.outputs.githash }}
+      repoversion: ${{ steps.var_step.outputs.repoversion }}
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -26,9 +28,18 @@ jobs:
           fi
           echo "::set-output name=branch::$branch"
           echo "Branch is $branch."
+      - name: Set variables
+        id: var_step
+        run: |
+          hash=$(git rev-parse --short HEAD)
+          echo "::set-output name=githash::$hash"
+          echo "GitHash is $hash."
+          repoversion=$(git describe --abbrev=0 --tags)
+          echo "::set-output name=repoversion::$repoversion"
+          echo "RepoVersion is $repoversion."
 
   build:
-    needs: check # Wait for check step to finish
+    needs: setup # Wait for check step to finish
     runs-on: ubuntu-18.04
     # minimal permissions for Get Artifact Publish Token
     permissions:
@@ -52,16 +63,16 @@ jobs:
           make test-race
           make bench-race
       - name: Non Tag
-        if: github.ref_type != 'tag' || (needs.check.outputs.branch != 'master' && needs.check.outputs.branch != 'main' && needs.check.outputs.branch != 'release')
+        if: github.ref_type != 'tag' || (needs.setup.outputs.branch != 'master' && needs.setup.outputs.branch != 'main' && needs.setup.outputs.branch != 'release')
         run: |
           echo "Will not proceed to release job. Build does not meet requirement for release:"
-          echo "Ref type '$GITHUB_REF_TYPE' must equal tag and branch '${{needs.check.outputs.branch}}' must be master, main or release."
+          echo "Ref type '$GITHUB_REF_TYPE' must equal tag and branch '${{ needs.setup.outputs.branch }}' must be master, main or release."
 
   release:
     needs:
+      - setup
       - build
-      - check
-    if: github.ref_type == 'tag' && (needs.check.outputs.branch == 'master' || needs.check.outputs.branch == 'main' || needs.check.outputs.branch == 'release')
+    if: github.ref_type == 'tag' && (needs.setup.outputs.branch == 'master' || needs.setup.outputs.branch == 'main' || needs.setup.outputs.branch == 'release')
     runs-on: ubuntu-18.04
     # minimal permissions for Get Artifact Publish Token
     permissions:
@@ -79,9 +90,9 @@ jobs:
       - name: Release
         run: |
           echo "Executing release on tag build $GITHUB_REF_NAME"
-          ARCH=linux CPU_ARCH=amd64 make release
-          ARCH=linux CPU_ARCH=arm64 make release
+          ARCH=linux CPU_ARCH=amd64 GIT_HASH=${{ needs.setup.outputs.githash }} REPO_VERSION=${{ needs.setup.outputs.repoversion }} make release
+          ARCH=linux CPU_ARCH=arm64 GIT_HASH=${{ needs.setup.outputs.githash }} REPO_VERSION=${{ needs.setup.outputs.repoversion }} make release
       - name: Push Docker Manifest
         run: |
           echo "Executing release-manifest on tag build $GITHUB_REF_NAME";
-          make release-manifest;
+          make GIT_HASH=${{ needs.setup.outputs.githash }} REPO_VERSION=${{ needs.setup.outputs.repoversion }} release-manifest;
