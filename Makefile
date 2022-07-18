@@ -10,7 +10,8 @@ GOBUILD_VERSION_ARGS_WITH_SYMS := -ldflags "-X $(VERSION_VAR)=$(REPO_VERSION) -X
 BINARY_NAME := gostatsd
 CPU_ARCH ?= amd64
 MANIFEST_NAME := atlassianlabs/$(BINARY_NAME)
-IMAGE_NAME := $(MANIFEST_NAME)-$(CPU_ARCH)
+DOCKER_REPO := docker-public.packages.atlassian.com
+IMAGE_NAME := $(DOCKER_REPO)/$(MANIFEST_NAME)-$(CPU_ARCH)
 ARCH ?= $$(uname -s | tr A-Z a-z)
 GOVERSION := 1.17.2  # Keep in sync with .travis.yml and README.md
 GP := /gopath
@@ -129,13 +130,13 @@ docker-file: pb/gostatsd.pb.go
 	docker buildx build -t $(IMAGE_NAME):$(GIT_HASH) -f build/Dockerfile-multiarch \
     --build-arg MAIN_PKG=$(MAIN_PKG) \
     --build-arg BINARY_NAME=$(BINARY_NAME) \
-    --platform=linux/$(CPU_ARCH) . --push
+    --platform=linux/$(CPU_ARCH) .
 
 docker-file-race: pb/gostatsd.pb.go
 	docker buildx build -t $(IMAGE_NAME):$(GIT_HASH)-race -f build/Dockerfile-multiarch-glibc \
 	--build-arg MAIN_PKG=$(MAIN_PKG) \
 	--build-arg BINARY_NAME=$(BINARY_NAME) \
-	--platform=linux/$(CPU_ARCH) . --push
+	--platform=linux/$(CPU_ARCH) .
 
 release-hash: docker-file
 	docker push $(IMAGE_NAME):$(GIT_HASH)
