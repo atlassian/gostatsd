@@ -105,9 +105,11 @@ jobs:
       - name: Release
         run: |
           echo "Executing release on tag build $GITHUB_REF_NAME"
-          ARCH=linux CPU_ARCH=amd64 GIT_HASH=${{ needs.setup.outputs.githash }} REPO_VERSION=${{ needs.setup.outputs.repoversion }} make release
-          ARCH=linux CPU_ARCH=arm64 GIT_HASH=${{ needs.setup.outputs.githash }} REPO_VERSION=${{ needs.setup.outputs.repoversion }} make release
+          ARCH=linux CPU_ARCH=amd64 GIT_HASH=${{ needs.setup.outputs.githash }} make release-image
+          ARCH=linux CPU_ARCH=arm64 GIT_HASH=${{ needs.setup.outputs.githash }} make release-image
       - name: Push Docker Manifest
         run: |
-          echo "Executing release-manifest on tag build $GITHUB_REF_NAME";
-          GIT_HASH=${{ needs.setup.outputs.githash }} REPO_VERSION=${{ needs.setup.outputs.repoversion }} make release-manifest;
+          echo "Executing release-manifest on tag build $GITHUB_REF_NAME"
+          GIT_HASH=${{ needs.setup.outputs.githash }} REPO_VERSION=${{ needs.setup.outputs.repoversion }} make release
+          GIT_HASH=${{ needs.setup.outputs.githash }} REPO_VERSION=${{ needs.setup.outputs.repoversion }} make release-manifest
+

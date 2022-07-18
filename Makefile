@@ -130,32 +130,29 @@ docker-file: pb/gostatsd.pb.go
 	docker buildx build -t $(IMAGE_NAME):$(GIT_HASH) -f build/Dockerfile-multiarch \
     --build-arg MAIN_PKG=$(MAIN_PKG) \
     --build-arg BINARY_NAME=$(BINARY_NAME) \
-    --platform=linux/$(CPU_ARCH) .
+	--platform=linux/$(CPU_ARCH) \
+	--push .
 
 docker-file-race: pb/gostatsd.pb.go
 	docker buildx build -t $(IMAGE_NAME):$(GIT_HASH)-race -f build/Dockerfile-multiarch-glibc \
 	--build-arg MAIN_PKG=$(MAIN_PKG) \
 	--build-arg BINARY_NAME=$(BINARY_NAME) \
-	--platform=linux/$(CPU_ARCH) .
+	--platform=linux/$(CPU_ARCH) \
+	--push .
 
-release-hash: docker-file
-	docker push $(IMAGE_NAME):$(GIT_HASH)
+release-image: docker-file docker-file-race
 
-release-normal: release-hash
+release-normal:
 	docker tag $(IMAGE_NAME):$(GIT_HASH) $(IMAGE_NAME):latest
 	docker push $(IMAGE_NAME):latest
 	docker tag $(IMAGE_NAME):$(GIT_HASH) $(IMAGE_NAME):$(REPO_VERSION)
 	docker push $(IMAGE_NAME):$(REPO_VERSION)
 
-release-hash-race: docker-file-race
-	docker push $(IMAGE_NAME):$(GIT_HASH)-race
-
-release-race: docker-file-race
+release-race:
 	docker tag $(IMAGE_NAME):$(GIT_HASH)-race $(IMAGE_NAME):$(REPO_VERSION)-race
 	docker push $(IMAGE_NAME):$(REPO_VERSION)-race
 
-
-release: release-normal release-race
+release-version-tag: release-normal release-race
 
 release-manifest:
 	for tag in latest $(REPO_VERSION) $(GIT_HASH)-race $(REPO_VERSION)-race; do \
@@ -171,7 +168,7 @@ release-manifest:
 run: build
 	./build/bin/$(ARCH)/$(BINARY_NAME) --backends=stdout --verbose --flush-interval=2s
 
-run-docker: docker
+run-docker: docker-file
 	cd build/ && docker-compose rm -f gostatsd
 	docker-compose -f build/docker-compose.yml build
 	docker-compose -f build/docker-compose.yml up -d
