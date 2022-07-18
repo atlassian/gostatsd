@@ -93,11 +93,9 @@ jobs:
         with:
           output-modes: environment
       - name: Docker Login
-        uses: docker/login-action@v2.0.0
-        with:
-          username: ${ARTIFACTORY_USERNAME}
-          password: ${ARTIFACTORY_API_KEY}
-          registry: docker-public.packages.atlassian.com
+        run: |
+          echo "Logging in to packages.atlassian.com"
+          echo "${ARTIFACTORY_API_KEY}" | docker login docker-public.packages.atlassian.com -u "${ARTIFACTORY_USERNAME}" --password-stdin
       - name: Release
         run: |
           echo "Executing release on tag build $GITHUB_REF_NAME"
