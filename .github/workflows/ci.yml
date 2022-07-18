@@ -95,8 +95,8 @@ jobs:
       - name: Docker Login
         uses: docker/login-action@v2.0.0
         with:
-          username: $ARTIFACTORY_USERNAME
-          password: $ARTIFACTORY_API_KEY
+          username: ${ARTIFACTORY_USERNAME}
+          password: ${ARTIFACTORY_API_KEY}
           registry: docker-public.packages.atlassian.com
       - name: Release
         run: |
