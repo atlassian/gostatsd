@@ -120,6 +120,6 @@ jobs:
       - name: Push Docker Manifest
         run: |
           echo "Executing release-manifest on tag build $GITHUB_REF_NAME"
-          GIT_HASH=${{ needs.setup.outputs.githash }} REPO_VERSION=${{ needs.setup.outputs.repoversion }} make release
+          GIT_HASH=${{ needs.setup.outputs.githash }} REPO_VERSION=${{ needs.setup.outputs.repoversion }} make release-version-tag
           GIT_HASH=${{ needs.setup.outputs.githash }} REPO_VERSION=${{ needs.setup.outputs.repoversion }} make release-manifest
 
