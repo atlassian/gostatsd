@@ -77,7 +77,6 @@ jobs:
 
   publish:
     needs:
-      - setup
       - release
     runs-on: ubuntu-18.04
     # minimal permissions for Get Artifact Publish Token
