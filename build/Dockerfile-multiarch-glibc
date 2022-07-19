@@ -19,7 +19,7 @@ ADD . /build
 RUN apk update && apk add git
 
 RUN FLAGS="-s -X main.Version=${REPO_VERSION} -X main.GitCommit=${GIT_HASH} -X main.BuildDate=${BUILD_DATE}" \
-    CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH} go build -race -o bin/linux/${TARGETARCH}/${BINARY_NAME} -ldflags "${FLAGS}" ${MAIN_PKG}
+    GOOS=linux GOARCH=${TARGETARCH} go build -race -o bin/linux/${TARGETARCH}/${BINARY_NAME} -ldflags "${FLAGS}" ${MAIN_PKG}
 
 FROM ubuntu:18.04
 
