@@ -117,6 +117,19 @@ jobs:
     if: (needs.setup.outputs.branch == 'master' || needs.setup.outputs.branch == 'main' || needs.setup.outputs.branch == 'release')
     runs-on: ubuntu-18.04
     steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - name: Get Artifact Publish Token
+        id: publish-token
+        uses: atlassian-labs/artifact-publish-token@v1.0.4
+        with:
+          output-modes: environment
+      - name: Docker Login
+        run: |
+          echo "Logging in to packages.atlassian.com"
+          echo "${ARTIFACTORY_API_KEY}" | docker login docker-public.packages.atlassian.com -u "${ARTIFACTORY_USERNAME}" --password-stdin
       - name: Push Docker Manifest
         run: |
           echo "Executing release-manifest on tag build $GITHUB_REF_NAME"
