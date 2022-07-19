@@ -11,41 +11,7 @@ on:
       - 'VERSION'
 
 jobs:
-  setup:
-    runs-on: ubuntu-latest
-    outputs:
-      branch: ${{ steps.check_step.outputs.branch }}
-      githash: ${{ steps.var_step.outputs.githash }}
-      repoversion: ${{ steps.var_step.outputs.repoversion }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
-      - name: Get current branch
-        id: check_step
-        run: |
-          if ${{ github.event_name == 'pull_request' }}
-          then
-            branch=${{ github.base_ref }}
-          else
-            raw=$(git branch -r --contains ${{ github.ref }})
-            branch=${raw##*/}
-          fi
-          echo "::set-output name=branch::$branch"
-          echo "Branch is $branch."
-      - name: Set variables
-        id: var_step
-        run: |
-          hash=$(git rev-parse --short HEAD)
-          echo "::set-output name=githash::$hash"
-          echo "GitHash is $hash."
-          repoversion=$(cat VERSION)
-          echo "::set-output name=repoversion::$repoversion"
-          echo "RepoVersion is $repoversion."
-
   build:
-    needs: setup # Wait for check step to finish
     runs-on: ubuntu-18.04
     # minimal permissions for Get Artifact Publish Token
     permissions:
@@ -74,7 +40,6 @@ jobs:
 
   release:
     needs:
-      - setup
       - build
     runs-on: ubuntu-18.04
     strategy:
@@ -107,8 +72,8 @@ jobs:
           echo "${ARTIFACTORY_API_KEY}" | docker login docker-public.packages.atlassian.com -u "${ARTIFACTORY_USERNAME}" --password-stdin
       - name: Release
         run: |
-          echo "Executing release on tag build $GITHUB_REF_NAME with ARCH ${{ matrix.arch }}"
-          ARCH=linux CPU_ARCH=${{ matrix.arch }} GIT_HASH=${{ needs.setup.outputs.githash }} REPO_VERSION=${{ needs.setup.outputs.repoversion }} make release-image
+          echo "Executing release with CPU_ARCH ${{ matrix.arch }}"
+          ARCH=linux CPU_ARCH=${{ matrix.arch }} make release
 
   publish:
     needs:
@@ -135,7 +100,6 @@ jobs:
           echo "${ARTIFACTORY_API_KEY}" | docker login docker-public.packages.atlassian.com -u "${ARTIFACTORY_USERNAME}" --password-stdin
       - name: Push Docker Manifest
         run: |
-          echo "Executing release-manifest on tag build $GITHUB_REF_NAME"
-          GIT_HASH=${{ needs.setup.outputs.githash }} REPO_VERSION=${{ needs.setup.outputs.repoversion }} make release-version-tag
-          GIT_HASH=${{ needs.setup.outputs.githash }} REPO_VERSION=${{ needs.setup.outputs.repoversion }} make release-manifest
+          echo "Executing release-manifest"
+          make release-manifest
 
