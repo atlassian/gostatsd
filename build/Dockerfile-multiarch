@@ -1,4 +1,5 @@
-FROM golang:1.17.2-alpine AS build
+FROM golang:1.17.2-buster AS build
+# Keep golang version in sync with MakeFile, .travis.yml, Dockerfile-multiarch-glibc and README.md
 WORKDIR /build
 
 # Install dependencies first to take advantage of the docker build cache.
@@ -16,7 +17,7 @@ ARG BUILD_DATE
 
 ADD . /build
 
-RUN apk update && apk add git
+RUN apt-get update && apt-get install git
 
 RUN FLAGS="-s -X main.Version=${REPO_VERSION} -X main.GitCommit=${GIT_HASH} -X main.BuildDate=${BUILD_DATE}" \
     CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH} go build -o bin/linux/${TARGETARCH}/${BINARY_NAME} -ldflags "${FLAGS}" ${MAIN_PKG}

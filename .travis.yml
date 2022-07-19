@@ -1,7 +1,7 @@
 language: go
 
 go:
-  - "1.17.2"  # Keep in sync with Makefile and README.md
+  - "1.17.2"  # Keep in sync with Makefile, Dockerfile-multiarch, Dockerfile-multiarch-glibc and README.md
 
 arch:
   - amd64

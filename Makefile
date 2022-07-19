@@ -13,7 +13,7 @@ MANIFEST_NAME := atlassianlabs/$(BINARY_NAME)
 DOCKER_REPO := docker-public.packages.atlassian.com
 IMAGE_NAME := $(DOCKER_REPO)/$(MANIFEST_NAME)-$(CPU_ARCH)
 ARCH ?= $$(uname -s | tr A-Z a-z)
-GOVERSION := 1.17.2  # Keep in sync with .travis.yml and README.md
+GOVERSION := 1.17.2  # Keep in sync with .travis.yml, Dockerfile-multiarch, Dockerfile-multiarch-glibc and README.md
 GP := /gopath
 MAIN_PKG := github.com/atlassian/gostatsd/cmd/gostatsd
 CLUSTER_PKG := github.com/atlassian/gostatsd/cmd/cluster
@@ -125,15 +125,6 @@ watch:
 
 git-hook:
 	cp dev/push-hook.sh .git/hooks/pre-push
-
-docker-test:
-	docker buildx build -t $(IMAGE_NAME):$(GIT_HASH) -f build/Dockerfile-test \
-    --build-arg MAIN_PKG=$(MAIN_PKG) \
-    --build-arg BINARY_NAME=$(BINARY_NAME) \
-	--build-arg REPO_VERSION=$(REPO_VERSION) \
-    --build-arg GIT_HASH=$(GIT_HASH) \
-    --build-arg BUILD_DATE=$(BUILD_DATE) \
-	--platform=linux/$(CPU_ARCH) .
 
 docker-file: pb/gostatsd.pb.go
 	docker buildx build -t $(IMAGE_NAME):$(GIT_HASH) -f build/Dockerfile-multiarch \
