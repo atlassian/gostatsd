@@ -1,10 +1,32 @@
 language: go
 
-services:
-  - docker
-
 go:
   - "1.17.2"  # Keep in sync with Makefile and README.md
+
+arch:
+  - amd64
+  - arm64
+
+dist: bionic
+os: linux
+
+env:
+  global:
+    - secure: "rP1RadhUHDYYMXVbRfzzqO2nDMKr6nwjxjqXkp/nCMRFImHyQUtz4OqDr6SJ5imYnKFN2kFkQqs+N4mwS2hzR6ch6E0rYXdPjvw59FT+4UsbtzLZQUEi0svWCRAAHnSA8BTAIKjcU660SuIFdErwQDFD6x5rJRBeVc5lC1xsabdNYJMYfirrsRFySNzEiwY9+/+p4uI/rTqELr62+cKkYff/YT4Sm2XZhpsWy7epKkKHU/qTdsdjt6YWHLX1S9Z6nf6da/uRHjxgOpM5KKi4ybuJ9X45qReof/LOy4J0Ajk9Jjh3jPafaa+jaNTcMTwn90QHxX24EG0dcOLM8DXlBtws7jg2EaSuGD5WxeYMHKRd0QlDywi9p+F8WqhLPWf6WWsyhD+orNnHXFwu2UwG8SjFbgajknFAU4DUwRwGXjFqK4wppRODu4CoH/sL62MC61m9VUk9icv9QDDsjAteZv4LpAAk0mMrNIuJk0RShkp3D1zW3733zicJJszMQSBzjYO2+b8sQ1l/sae0XHhURVs9ANok8VCaYGqrGS+M0eebjZkhdyUUsVaxgJnEdCsHM1fojgO2cMwwMZ5FYeK2UwHQiTwOHyQcEpkltxLrjy6NcULx0gLhpPB3P7P/Czfl4LtYAaoLHWus/C0V131/C12soOqhiJGyaD8dwmHC4m8="
+
+before_install:
+  - go get -v github.com/mattn/goveralls
+
+install:
+  - make setup-ci
+
+script:
+  - make check-fmt
+  - make build-all
+  - make coveralls || true # Failing coveralls check should not break the build
+  - make check
+  - make test-race
+  - make bench-race
 
 notifications:
   slack:
