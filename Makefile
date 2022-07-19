@@ -9,9 +9,9 @@ GOBUILD_VERSION_ARGS := -ldflags "-s -X $(VERSION_VAR)=$(REPO_VERSION) -X $(GIT_
 GOBUILD_VERSION_ARGS_WITH_SYMS := -ldflags "-X $(VERSION_VAR)=$(REPO_VERSION) -X $(GIT_VAR)=$(GIT_HASH) -X $(BUILD_DATE_VAR)=$(BUILD_DATE)"
 BINARY_NAME := gostatsd
 CPU_ARCH ?= amd64
-MANIFEST_NAME := atlassianlabs/$(BINARY_NAME)
 DOCKER_REPO := docker-public.packages.atlassian.com
-IMAGE_NAME := $(DOCKER_REPO)/$(MANIFEST_NAME)-$(CPU_ARCH)
+MANIFEST_NAME := $(DOCKER_REPO)/atlassianlabs/$(BINARY_NAME)
+IMAGE_NAME := $(MANIFEST_NAME)-$(CPU_ARCH)
 ARCH ?= $$(uname -s | tr A-Z a-z)
 GOVERSION := 1.17.2  # Keep in sync with .travis.yml, Dockerfile-multiarch, Dockerfile-multiarch-glibc and README.md
 GP := /gopath
