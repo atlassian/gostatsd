@@ -156,12 +156,14 @@ docker-file-race: pb/gostatsd.pb.go
 	--push .
 
 release-normal: docker-file
+	docker pull $(IMAGE_NAME):$(GIT_HASH)
 	docker tag $(IMAGE_NAME):$(GIT_HASH) $(IMAGE_NAME):latest
 	docker push $(IMAGE_NAME):latest
 	docker tag $(IMAGE_NAME):$(GIT_HASH) $(IMAGE_NAME):$(REPO_VERSION)
 	docker push $(IMAGE_NAME):$(REPO_VERSION)
 
 release-race: docker-file-race
+	docker pull $(IMAGE_NAME):$(GIT_HASH)-race
 	docker tag $(IMAGE_NAME):$(GIT_HASH)-race $(IMAGE_NAME):$(REPO_VERSION)-race
 	docker push $(IMAGE_NAME):$(REPO_VERSION)-race
 
