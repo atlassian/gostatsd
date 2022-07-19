@@ -1,8 +1,14 @@
 name: ci
 
+# Only run on specified branches when VERSION file is changed
 on:
-  pull_request:
   push:
+    branches:
+      - master
+      - release
+      - main
+    paths:
+      - 'VERSION'
 
 jobs:
   setup:
@@ -34,7 +40,7 @@ jobs:
           hash=$(git rev-parse --short HEAD)
           echo "::set-output name=githash::$hash"
           echo "GitHash is $hash."
-          repoversion=$(git describe --abbrev=0 --tags)
+          repoversion=$(cat VERSION)
           echo "::set-output name=repoversion::$repoversion"
           echo "RepoVersion is $repoversion."
 
@@ -65,21 +71,15 @@ jobs:
           make check
           make test-race
           make bench-race
-      - name: Non Tag
-        if: github.ref_type != 'tag' || (needs.setup.outputs.branch != 'master' && needs.setup.outputs.branch != 'main' && needs.setup.outputs.branch != 'release')
-        run: |
-          echo "Will not proceed to release job. Build does not meet requirement for release:"
-          echo "Ref type '$GITHUB_REF_TYPE' must equal tag and branch '${{ needs.setup.outputs.branch }}' must be master, main or release."
 
   release:
     needs:
       - setup
       - build
-    if: (needs.setup.outputs.branch == 'master' || needs.setup.outputs.branch == 'main' || needs.setup.outputs.branch == 'release')
     runs-on: ubuntu-18.04
     strategy:
       matrix:
-       arch: [amd64, arm64]
+        arch: [amd64, arm64]
     # minimal permissions for Get Artifact Publish Token
     permissions:
       contents: read
@@ -108,14 +108,14 @@ jobs:
       - name: Release
         run: |
           echo "Executing release on tag build $GITHUB_REF_NAME with ARCH ${{ matrix.arch }}"
-          ARCH=linux CPU_ARCH=${{ matrix.arch }} GIT_HASH=${{ needs.setup.outputs.githash }} make release-image
+          ARCH=linux CPU_ARCH=${{ matrix.arch }} GIT_HASH=${{ needs.setup.outputs.githash }} REPO_VERSION=${{ needs.setup.outputs.repoversion }} make release-image
 
   publish:
     needs:
       - setup
       - release
-    if: (needs.setup.outputs.branch == 'master' || needs.setup.outputs.branch == 'main' || needs.setup.outputs.branch == 'release')
     runs-on: ubuntu-18.04
+    # minimal permissions for Get Artifact Publish Token
     permissions:
       contents: read
       id-token: write
