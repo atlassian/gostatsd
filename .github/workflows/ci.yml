@@ -113,7 +113,7 @@ jobs:
   publish:
     needs:
       - setup
-      - build
+      - release
     if: (needs.setup.outputs.branch == 'master' || needs.setup.outputs.branch == 'main' || needs.setup.outputs.branch == 'release')
     runs-on: ubuntu-18.04
     steps:
