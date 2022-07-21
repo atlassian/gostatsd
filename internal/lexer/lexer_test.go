@@ -117,6 +117,7 @@ func TestEventsLexer(t *testing.T) {
 		"_e{1,1}:a|b|c:xyz|x:unk|#tag1,t:tag2|t:warning|d:123123|h:hoost|p:low": {Title: "a", Text: "b", DateHappened: 123123, Source: "hoost", Priority: gostatsd.PriLow, AlertType: gostatsd.AlertWarning, Tags: []string{"tag1", "t:tag2"}},
 		"_e{1,1}:a|b|p:low|c:xyz|x:unk|#tag1,t:tag2|t:warning|d:123123|h:hoost": {Title: "a", Text: "b", DateHappened: 123123, Source: "hoost", Priority: gostatsd.PriLow, AlertType: gostatsd.AlertWarning, Tags: []string{"tag1", "t:tag2"}},
 		"_e{1,1}:a|b|h:hoost|p:low|c:xyz|x:unk|#tag1,t:tag2|t:warning|d:123123": {Title: "a", Text: "b", DateHappened: 123123, Source: "hoost", Priority: gostatsd.PriLow, AlertType: gostatsd.AlertWarning, Tags: []string{"tag1", "t:tag2"}},
+		"_e{1,1}:a|b|k:agg_key":                                                 {Title: "a", Text: "b", AggregationKey: "agg_key"},
 		"_e{1,1}:a|b|h:hoost":                                                   {Title: "a", Text: "b", Source: "hoost"},
 		"_e{1,1}:a|b|h:hoost|x:unk":                                             {Title: "a", Text: "b", Source: "hoost"},
 		"_e{1,1}:a|b|p:low":                                                     {Title: "a", Text: "b", Priority: gostatsd.PriLow},
