@@ -1,6 +1,7 @@
 package lexer
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -181,6 +182,108 @@ func TestInvalidEventsLexer(t *testing.T) {
 			assert.Nil(t, e)
 		})
 	}
+}
+
+func TestSeekDelimited(t *testing.T) {
+	var stop byte = '|'
+	var delimiter byte = ','
+	var otherChars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ;/\\\".:()-_=?![]'~@$%^&*#"
+	var testCases = []struct {
+		name     string
+		input    []byte
+		output   [][]byte
+		nextByte byte
+	}{
+		{"all chars", []byte(otherChars), results([]byte(otherChars)), eof},
+		{"all chars + stop", []byte(fmt.Sprintf("%s|", otherChars)), results([]byte(otherChars)), stop},
+		{"empty", []byte(""), results([]byte("")), eof},
+		{"stop", []byte("|"), results([]byte("")), stop},
+		{"multiple stop", []byte("||"), results([]byte("")), stop},
+		{"stop + char", []byte("|x"), results([]byte("")), stop},
+		{"stop + char |", []byte("|x"), results([]byte("")), stop},
+		{"stop + chars", []byte("|foo.bar"), results([]byte("")), stop},
+		{"stop + chars + stop", []byte("|foo.bar|"), results([]byte("")), stop},
+		{"char", []byte("x"), results([]byte("x")), eof},
+		{"char + stop", []byte("x|"), results([]byte("x")), stop},
+		{"char + stop + char", []byte("x|y"), results([]byte("x")), stop},
+		{"chars", []byte("foo.bar"), results([]byte("foo.bar")), eof},
+		{"chars + stop", []byte("foo.bar|"), results([]byte("foo.bar")), stop},
+		{"chars + stop + chars", []byte("foo:bar|baz:quux"), results([]byte("foo:bar")), stop},
+		{"delimited", []byte("x,foo:bar,baz:quux"), results([]byte("x"), []byte("foo:bar"), []byte("baz:quux")), eof},
+		{"delimited + stop", []byte("x,foo:bar,baz:quux|y"), results([]byte("x"), []byte("foo:bar"), []byte("baz:quux")), stop},
+		{"empty delimiter", []byte(",foo:bar,,baz:quux,"), results([]byte(""), []byte("foo:bar"), []byte(""), []byte("baz:quux"), []byte("")), eof},
+		{"empty delimiter + stop", []byte(",foo:bar,,baz:quux,|y"), results([]byte(""), []byte("foo:bar"), []byte(""), []byte("baz:quux"), []byte("")), stop},
+	}
+
+	for _, test := range testCases {
+		t.Run(test.name, func(t *testing.T) {
+			l := newTestLexer(test.input, "")
+			result := make([][]byte, 0)
+			for {
+				data, complete := seekDelimited(l, stop, delimiter)
+				result = append(result, data)
+				if complete {
+					break
+				}
+			}
+
+			assert.Equal(t, test.output, result)
+			assert.Equal(t, test.nextByte, l.next())
+		})
+	}
+}
+
+func results(results ...[]byte) [][]byte {
+	return results
+}
+
+func TestSeekUntil(t *testing.T) {
+	var stop byte = '|'
+	var otherChars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ;:/\\\".,()-_=?![]'~@$%^&*#"
+	var testCases = []struct {
+		name     string
+		input    []byte
+		output   []byte
+		nextByte byte
+	}{
+		{"all chars", []byte(otherChars), []byte(otherChars), eof},
+		{"all chars + stop", []byte(fmt.Sprintf("%s|", otherChars)), []byte(otherChars), stop},
+		{"empty", []byte(""), []byte(""), eof},
+		{"stop", []byte("|"), []byte(""), stop},
+		{"multiple stop", []byte("||"), []byte(""), stop},
+		{"stop + char", []byte("|x"), []byte(""), stop},
+		{"stop + char |", []byte("|x"), []byte(""), stop},
+		{"stop + chars", []byte("|foo.bar"), []byte(""), stop},
+		{"stop + chars + stop", []byte("|foo.bar|"), []byte(""), stop},
+		{"char", []byte("x"), []byte("x"), eof},
+		{"char + stop", []byte("x|"), []byte("x"), stop},
+		{"char + stop + char", []byte("x|y"), []byte("x"), stop},
+		{"chars", []byte("foo.bar"), []byte("foo.bar"), eof},
+		{"chars + stop", []byte("foo.bar|"), []byte("foo.bar"), stop},
+		{"chars + stop + chars", []byte("foo.bar|baz:quux"), []byte("foo.bar"), stop},
+	}
+
+	for _, test := range testCases {
+		t.Run(test.name, func(t *testing.T) {
+			l := newTestLexer(test.input, "")
+			result := seekUntil(l, stop)
+			assert.Equal(t, test.output, result)
+			assert.Equal(t, test.nextByte, l.next())
+		})
+	}
+}
+
+func newTestLexer(input []byte, namespace string) *Lexer {
+	l := Lexer{
+		MetricPool: pool.NewMetricPool(0),
+	}
+	l.reset()
+	l.input = input
+	l.namespace = namespace
+	l.len = uint32(len(l.input))
+	l.sampling = float64(1)
+
+	return &l
 }
 
 func parseLine(input []byte, namespace string) (*gostatsd.Metric, *gostatsd.Event, error) {
