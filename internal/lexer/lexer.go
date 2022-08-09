@@ -32,16 +32,15 @@ type Lexer struct {
 const eof byte = 0
 
 var (
-	errMissingKeySep         = errors.New("missing key separator")
-	errEmptyKey              = errors.New("key zero len")
-	errMissingValueSep       = errors.New("missing value separator")
-	errInvalidType           = errors.New("invalid type")
-	errInvalidFormat         = errors.New("invalid format")
-	errInvalidSamplingOrTags = errors.New("invalid sampling or tags")
-	errInvalidAttributes     = errors.New("invalid event attributes")
-	errOverflow              = errors.New("overflow")
-	errNotEnoughData         = errors.New("not enough data")
-	errNaN                   = errors.New("invalid value NaN")
+	errMissingKeySep     = errors.New("missing key separator")
+	errEmptyKey          = errors.New("key zero len")
+	errMissingValueSep   = errors.New("missing value separator")
+	errInvalidType       = errors.New("invalid type")
+	errInvalidFormat     = errors.New("invalid format")
+	errInvalidAttributes = errors.New("invalid event attributes")
+	errOverflow          = errors.New("overflow")
+	errNotEnoughData     = errors.New("not enough data")
+	errNaN               = errors.New("invalid value NaN")
 )
 
 var escapedNewline = []byte("\\n")
@@ -78,6 +77,12 @@ func (l *Lexer) reset() {
 	l.e = nil
 	l.tags = nil
 	l.err = nil
+}
+
+func (l *Lexer) appendTag(data []byte) {
+	if len(data) > 0 {
+		l.tags = append(l.tags, string(data))
+	}
 }
 
 func (l *Lexer) Run(input []byte, namespace string) (*gostatsd.Metric, *gostatsd.Event, error) {
@@ -192,6 +197,7 @@ func lexEventBody(l *Lexer) stateFn {
 	return lexEventAttributes
 }
 
+// lexEventAttributes lex through any event attributes separated by '|'
 func lexEventAttributes(l *Lexer) stateFn {
 	switch b := l.next(); b {
 	case '|':
@@ -203,8 +209,9 @@ func lexEventAttributes(l *Lexer) stateFn {
 	return nil
 }
 
+// lexEventAttribute
 func lexEventAttribute(l *Lexer) stateFn {
-	// d:date_happened|h:hostname|p:priority|t:alert_type|#tag1,tag2
+	// d:date_happened|h:hostname|p:priority|t:alert_type|#tag1,tag2|c:container
 	switch b := l.next(); b {
 	case 'd':
 		return lexAssert(':', lexUint(func(l *Lexer, value uint64) stateFn {
@@ -216,17 +223,20 @@ func lexEventAttribute(l *Lexer) stateFn {
 			return lexEventAttributes
 		}))
 	case 'h':
-		return lexAssert(':', lexUntil('|', func(l *Lexer, data []byte) stateFn {
+		return lexAssert(':', func(lexer *Lexer) stateFn {
+			data := seekUntil(l, '|')
 			l.e.Source = gostatsd.Source(data)
 			return lexEventAttributes
-		}))
+		})
 	case 'k':
-		return lexAssert(':', lexUntil('|', func(l *Lexer, data []byte) stateFn {
+		return lexAssert(':', func(lexer *Lexer) stateFn {
+			data := seekUntil(l, '|')
 			l.e.AggregationKey = string(data)
 			return lexEventAttributes
-		}))
+		})
 	case 'p':
-		return lexAssert(':', lexUntil('|', func(l *Lexer, data []byte) stateFn {
+		return lexAssert(':', func(lexer *Lexer) stateFn {
+			data := seekUntil(l, '|')
 			if bytes.Equal(data, priorityLow) {
 				l.e.Priority = gostatsd.PriLow
 			} else if bytes.Equal(data, priorityNormal) {
@@ -236,14 +246,16 @@ func lexEventAttribute(l *Lexer) stateFn {
 				return nil
 			}
 			return lexEventAttributes
-		}))
+		})
 	case 's':
-		return lexAssert(':', lexUntil('|', func(l *Lexer, data []byte) stateFn {
+		return lexAssert(':', func(lexer *Lexer) stateFn {
+			data := seekUntil(l, '|')
 			l.e.SourceTypeName = string(data)
 			return lexEventAttributes
-		}))
+		})
 	case 't':
-		return lexAssert(':', lexUntil('|', func(l *Lexer, data []byte) stateFn {
+		return lexAssert(':', func(lexer *Lexer) stateFn {
+			data := seekUntil(l, '|')
 			if bytes.Equal(data, alertError) {
 				l.e.AlertType = gostatsd.AlertError
 			} else if bytes.Equal(data, alertWarning) {
@@ -257,14 +269,21 @@ func lexEventAttribute(l *Lexer) stateFn {
 				return nil
 			}
 			return lexEventAttributes
-		}))
+		})
 	case '#':
-		return lexTags
-	case eof:
+		for {
+			data, complete := seekDelimited(l, '|', ',')
+			l.appendTag(data)
+			if complete {
+				break
+			}
+		}
+		return lexEventAttributes
 	default:
-		l.err = errInvalidAttributes
+		// error no longer raised allow new fields to be sent but ignored
+		_ = seekUntil(l, '|')
+		return lexEventAttributes
 	}
-	return nil
 }
 
 func lexUint32(target *uint32, next stateFn) stateFn {
@@ -320,19 +339,35 @@ func lexAssert(nextByte byte, next stateFn) stateFn {
 	}
 }
 
-// lexUntil invokes handler with all bytes up to the stop byte or an eof.
-// The stop byte is not consumed.
-func lexUntil(stop byte, handler func(*Lexer, []byte) stateFn) stateFn {
-	return func(l *Lexer) stateFn {
-		start := l.pos
-		p := bytes.IndexByte(l.input[l.pos:], stop)
-		switch p {
-		case -1:
-			l.pos = l.len
-		default:
-			l.pos += uint32(p)
+// seekUntil Seeks the next stop or eof byte and then return the byte slice between
+// the start position and the end byte.
+func seekUntil(l *Lexer, stop byte) []byte {
+	l.start = l.pos
+	p := bytes.IndexByte(l.input[l.pos:], stop)
+	switch p {
+	case -1:
+		l.pos = l.len
+	default:
+		l.pos += uint32(p)
+	}
+	return l.input[l.start:l.pos]
+}
+
+// seekDelimited Seeks the next stop, delimiter or eof byte and then return the byte slice between
+// the start position and the end byte. It does not consume the stop byte, but will consume the delimiter.
+// Returns a boolean indicating whether the stop, or eof byte was detected.
+func seekDelimited(l *Lexer, stop, delimiter byte) ([]byte, bool) {
+	l.start = l.pos
+	for {
+		switch b := l.next(); b {
+		case delimiter:
+			return l.input[l.start : l.pos-1], false
+		case stop:
+			l.pos--
+			return l.input[l.start:l.pos], true //reverse one position so as not to consume stop byte
+		case eof:
+			return l.input[l.start:l.pos], true // next does not increment pos when at eof
 		}
-		return handler(l, l.input[start:l.pos])
 	}
 }
 
@@ -378,11 +413,11 @@ func lexType(l *Lexer) stateFn {
 	case 'c':
 		l.m.Type = gostatsd.COUNTER
 		l.start = l.pos
-		return lexTypeSep
+		return lexMetricAttributes
 	case 'g':
 		l.m.Type = gostatsd.GAUGE
 		l.start = l.pos
-		return lexTypeSep
+		return lexMetricAttributes
 	case 'm':
 		if b := l.next(); b != 's' {
 			l.err = errInvalidType
@@ -390,83 +425,58 @@ func lexType(l *Lexer) stateFn {
 		}
 		l.start = l.pos
 		l.m.Type = gostatsd.TIMER
-		return lexTypeSep
+		return lexMetricAttributes
 	case 'h':
 		l.start = l.pos
 		l.m.Type = gostatsd.TIMER
-		return lexTypeSep
+		return lexMetricAttributes
 	case 's':
 		l.m.Type = gostatsd.SET
 		l.start = l.pos
-		return lexTypeSep
+		return lexMetricAttributes
 	default:
 		l.err = errInvalidType
 		return nil
-
 	}
 }
 
-// lex the possible separator between type and sampling rate.
-func lexTypeSep(l *Lexer) stateFn {
+// lexMetricAttributes iterate through any metric attributes separated by '|'
+func lexMetricAttributes(l *Lexer) stateFn {
 	b := l.next()
 	switch b {
-	case eof:
-		return nil
 	case '|':
 		l.start = l.pos
-		return lexSampleRateOrTags
+		return lexMetricAttribute
+	case eof:
+	default:
+		l.err = errInvalidType
 	}
-	l.err = errInvalidType
 	return nil
 }
 
-// lex the sample rate or the tags.
-func lexSampleRateOrTags(l *Lexer) stateFn {
+// lexMetricAttribute lex optional fields sample rate or tags. Will ignore unrecognised fields.
+func lexMetricAttribute(l *Lexer) stateFn {
 	b := l.next()
 	switch b {
 	case '@':
-		l.start = l.pos
-		for {
-			switch b := l.next(); b {
-			case '|':
-				return lexSampleRate
-			case eof:
-				l.pos++
-				return lexSampleRate
-			}
-		}
-	case '#':
-		return lexTags
-	default:
-		l.err = errInvalidSamplingOrTags
-		return nil
-	}
-}
-
-// lex the sample rate.
-func lexSampleRate(l *Lexer) stateFn {
-	v, err := strconv.ParseFloat(string(l.input[l.start:l.pos-1]), 64)
-	if err != nil {
-		l.err = err
-		return nil
-	}
-	l.sampling = v
-	if l.pos >= l.len {
-		return nil
-	}
-	return lexAssert('#', lexTags)
-}
-
-// lex the tags.
-func lexTags(l *Lexer) stateFn {
-	return lexUntil(',', func(l *Lexer, data []byte) stateFn {
-		if len(data) > 0 {
-			l.tags = append(l.tags, string(data))
-		}
-		if l.pos == l.len { // eof
+		input := seekUntil(l, '|')
+		v, err := strconv.ParseFloat(string(input), 64)
+		if err != nil {
+			l.err = err
 			return nil
 		}
-		l.pos++ // consume comma
-		return lexTags
-	})
+		l.sampling = v
+	case '#':
+		for {
+			data, complete := seekDelimited(l, '|', ',')
+			l.appendTag(data)
+			if complete {
+				break
+			}
+		}
+	default:
+		// error no longer raised allow new fields to be sent but ignored
+		_ = seekUntil(l, '|')
+	}
+	return lexMetricAttributes
 }
