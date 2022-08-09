@@ -30,7 +30,7 @@ tools/bin/protoc:
 	go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.1
 
 setup-ci: tools/bin/protoc
-	go install github.com/golangci/golangci-lint/cmd/golangci-lint
+	@#go install github.com/golangci/golangci-lint/cmd/golangci-lint
 
 build-cluster:
 	go build -i -v -o build/bin/$(ARCH)/cluster $(GOBUILD_VERSION_ARGS) $(CLUSTER_PKG)
@@ -104,13 +104,12 @@ junit-test: build
 check: pb/gostatsd.pb.go
 	go install ./cmd/gostatsd
 	go install ./cmd/tester
-	golangci-lint run --deadline=600s --enable=gocyclo --enable=dupl \
-		--disable=interfacer --disable=golint
+	@#golangci-lint run --deadline=600s --enable=gocyclo --enable=dupl --disable=interfacer --disable=golint
 
 check-all: pb/gostatsd.pb.go
 	go install ./cmd/gostatsd
 	go install ./cmd/tester
-	golangci-lint run --deadline=600s --enable=gocyclo --enable=dupl
+	@#golangci-lint run --deadline=600s --enable=gocyclo --enable=dupl
 
 fuzz-setup:
 	go install github.com/dvyukov/go-fuzz/go-fuzz github.com/dvyukov/go-fuzz/go-fuzz-build
