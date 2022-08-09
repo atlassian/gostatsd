@@ -1,3 +1,8 @@
+35.1.0
+------
+- Parser updated to drop unrecognized dogstatsd fields.  In particular the `|c` field will no longer
+  pollute the last tag in the list.  For now, the `|c` field is just dropped.
+
 35.0.1
 ------
 - Update to Alpine 3.15.5
