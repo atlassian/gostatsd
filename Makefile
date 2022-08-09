@@ -104,13 +104,12 @@ junit-test: build
 check: pb/gostatsd.pb.go
 	go install ./cmd/gostatsd
 	go install ./cmd/tester
-	@#golangci-lint run --deadline=600s --enable=gocyclo --enable=dupl \
-		--disable=interfacer --disable=golint
+	@#golangci-lint run --deadline=600s --enable=gocyclo --enable=dupl --disable=interfacer --disable=golint
 
 check-all: pb/gostatsd.pb.go
 	go install ./cmd/gostatsd
 	go install ./cmd/tester
-	#golangci-lint run --deadline=600s --enable=gocyclo --enable=dupl
+	@#golangci-lint run --deadline=600s --enable=gocyclo --enable=dupl
 
 fuzz-setup:
 	go install github.com/dvyukov/go-fuzz/go-fuzz github.com/dvyukov/go-fuzz/go-fuzz-build
