@@ -1,3 +1,7 @@
+35.0.1
+------
+- Update to Alpine 3.15.5
+
 35.0.0
 ------
 - Adds a statsdSource tag to the New Relic backend, see [BACKENDS.md](BACKENDS.md) for details.
