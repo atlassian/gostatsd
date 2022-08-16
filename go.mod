@@ -14,7 +14,7 @@ require (
 	github.com/jessevdk/go-flags v1.5.0
 	github.com/json-iterator/go v1.1.12
 	github.com/jstemmer/go-junit-report v0.9.1
-	github.com/libp2p/go-reuseport v0.1.0
+	github.com/libp2p/go-reuseport v0.2.0
 	github.com/magiconair/properties v1.8.5
 	github.com/sirupsen/logrus v1.8.1
 	github.com/spf13/pflag v1.0.5
