@@ -1,3 +1,7 @@
+35.1.1
+------
+- Bump all the libraries.  No user visible impact expected.
+
 35.1.0
 ------
 - Parser updated to drop unrecognized dogstatsd fields.  In particular the `|c` field will no longer
