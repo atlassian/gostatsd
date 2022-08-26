@@ -7,8 +7,9 @@ require (
 	github.com/aws/aws-sdk-go v1.44.79
 	github.com/cenkalti/backoff v2.2.1+incompatible
 	github.com/dvyukov/go-fuzz v0.0.0-20191206100749-a378175e205c
+	github.com/elazarl/go-bindata-assetfs v1.0.0 // indirect
 	github.com/githubnemo/CompileDaemon v1.4.0
-	github.com/go-redis/redis v6.15.9+incompatible
+	github.com/go-redis/redis/v8 v8.4.0
 	github.com/golangci/golangci-lint v1.48.0
 	github.com/gorilla/mux v1.8.0
 	github.com/jessevdk/go-flags v1.5.0
@@ -19,6 +20,8 @@ require (
 	github.com/sirupsen/logrus v1.9.0
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.12.0
+	github.com/stephens2424/writerset v1.0.2 // indirect
+	github.com/stretchr/objx v0.4.0 // indirect
 	github.com/stretchr/testify v1.8.0
 	github.com/tilinna/clock v1.1.0
 	golang.org/x/net v0.0.0-20220722155237-a158d28d115b
@@ -28,7 +31,11 @@ require (
 	k8s.io/api v0.24.3
 	k8s.io/apimachinery v0.24.3
 	k8s.io/client-go v0.24.3
+	k8s.io/utils v0.0.0-20220210201930-3a6ce19ff2f9 // indirect
+	stathat.com/c/consistent v1.0.0
 )
+
+require github.com/alicebob/miniredis/v2 v2.23.0
 
 require (
 	4d63.com/gochecknoglobals v0.1.0 // indirect
@@ -42,6 +49,7 @@ require (
 	github.com/PuerkitoBio/purell v1.1.1 // indirect
 	github.com/PuerkitoBio/urlesc v0.0.0-20170810143723-de5bf2ad4578 // indirect
 	github.com/alexkohler/prealloc v1.0.0 // indirect
+	github.com/alicebob/gopher-json v0.0.0-20200520072559-a9ecdc9d1d3a // indirect
 	github.com/alingse/asasalint v0.0.11 // indirect
 	github.com/ashanbrown/forbidigo v1.3.0 // indirect
 	github.com/ashanbrown/makezero v1.1.1 // indirect
@@ -58,7 +66,7 @@ require (
 	github.com/daixiang0/gci v0.6.2 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/denis-tingaikin/go-header v0.4.3 // indirect
-	github.com/elazarl/go-bindata-assetfs v1.0.0 // indirect
+	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
 	github.com/emicklei/go-restful v2.9.5+incompatible // indirect
 	github.com/esimonov/ifshort v1.0.4 // indirect
 	github.com/ettle/strcase v0.1.1 // indirect
@@ -176,8 +184,6 @@ require (
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
 	github.com/ssgreg/nlreturn/v2 v2.2.1 // indirect
 	github.com/stbenjam/no-sprintf-host-port v0.1.1 // indirect
-	github.com/stephens2424/writerset v1.0.2 // indirect
-	github.com/stretchr/objx v0.4.0 // indirect
 	github.com/subosito/gotenv v1.4.0 // indirect
 	github.com/sylvia7788/contextcheck v1.0.4 // indirect
 	github.com/tdakkota/asciicheck v0.1.1 // indirect
@@ -190,7 +196,9 @@ require (
 	github.com/uudashr/gocognit v1.0.6 // indirect
 	github.com/yagipy/maintidx v1.0.0 // indirect
 	github.com/yeya24/promlinter v0.2.0 // indirect
+	github.com/yuin/gopher-lua v0.0.0-20210529063254-f4c35e4016d9 // indirect
 	gitlab.com/bosi/decorder v0.2.3 // indirect
+	go.opentelemetry.io/otel v0.14.0 // indirect
 	go.uber.org/atomic v1.7.0 // indirect
 	go.uber.org/multierr v1.6.0 // indirect
 	go.uber.org/zap v1.17.0 // indirect
@@ -209,7 +217,6 @@ require (
 	honnef.co/go/tools v0.3.3 // indirect
 	k8s.io/klog/v2 v2.60.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20220328201542-3ee0da9b0b42 // indirect
-	k8s.io/utils v0.0.0-20220210201930-3a6ce19ff2f9 // indirect
 	mvdan.cc/gofumpt v0.3.1 // indirect
 	mvdan.cc/interfacer v0.0.0-20180901003855-c20040233aed // indirect
 	mvdan.cc/lint v0.0.0-20170908181259-adc824a0674b // indirect
