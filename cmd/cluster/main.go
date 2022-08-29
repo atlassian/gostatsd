@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"math/rand"
-	"os"
 	"os/signal"
 	"syscall"
 	"time"
@@ -28,15 +27,7 @@ func main() {
 	c.AddFlags(pflag.CommandLine)
 	pflag.Parse()
 
-	ctx, cancel := context.WithCancel(context.Background())
-	chCancel := make(chan os.Signal)
-	signal.Notify(chCancel, syscall.SIGINT, syscall.SIGTERM)
-	go func() {
-		fmt.Printf("Waiting\n")
-		<-chCancel
-		fmt.Printf("cancelled\n")
-		cancel()
-	}()
-
+	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer cancel()
 	c.Run(ctx)
 }

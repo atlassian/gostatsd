@@ -1,5 +1,4 @@
 /*
-
 Package statsd implements functionality for creating servers compatible with the statsd protocol.
 See https://github.com/etsy/statsd/blob/master/docs/metric_types.md for a description of the protocol.
 
