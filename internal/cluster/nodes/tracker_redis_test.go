@@ -2,6 +2,7 @@ package nodes
 
 import (
 	"context"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -10,7 +11,6 @@ import (
 	"github.com/go-redis/redis/v8"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"github.com/tilinna/clock"
 
 	"github.com/atlassian/gostatsd/internal/fixtures"
@@ -19,32 +19,32 @@ import (
 func TestRedisNodeTrackerSelf(t *testing.T) {
 	t.Parallel()
 
-	ctxTest, cancelTest := context.WithTimeout(context.Background(), 1*time.Second) // Ensure everything we want to do is done in under 1 second.
+	ctxTest, cancelTest := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancelTest()
 
-	clck := clock.NewMock(time.Unix(10, 0))
+	// We use a time in the future, because the redis client uses ctx.Deadline(),
+	// which returns the mock time, but then uses it in computation with real time.
+	clck := clock.NewMock(time.Unix(2147480000, 0))
 	ctxClock := clock.Context(ctxTest, clck)
 
-	mr, err := miniredis.Run()
-	require.NoError(t, err)
-	require.NotNil(t, mr)
-	defer mr.Close()
+	mr := miniredis.RunT(t)
 
 	redisClient := redis.NewClient(&redis.Options{
 		Addr: mr.Addr(),
 		DB:   0,
 	})
+	defer redisClient.Close()
 
 	ctxRunner, cancel := context.WithCancel(ctxClock)
 
-	addCalled := false
+	var addCalled atomic.Bool
 	removeCalled := false
 	rnt := NewRedisNodeTracker(
 		logrus.New(),
 		&fixtures.MockNodePicker{TB: t,
 			FnAdd: func(node string) {
 				assert.Equal(t, "me", node)
-				addCalled = true
+				addCalled.Store(true)
 			},
 			FnRemove: func(node string) {
 				assert.Equal(t, "me", node)
@@ -60,36 +60,36 @@ func TestRedisNodeTrackerSelf(t *testing.T) {
 	var wg wait.Group
 	wg.StartWithContext(ctxRunner, rnt.Run)
 
-	fixtures.EnsureAttachedTimers(t, clck, 1, 100*time.Millisecond)
+	fixtures.EnsureAttachedTimers(t, clck, 1, 1*time.Second)
+	// Make sure Add() is called before we cancel, otherwise we'll race against the ctx
+	assert.Eventually(t, addCalled.Load, 1*time.Second, time.Millisecond)
 	cancel()
-
 	wg.Wait()
-	assert.True(t, addCalled)
 	assert.True(t, removeCalled)
 }
 
 func TestRedisNodeTrackerOther(t *testing.T) {
 	t.Parallel()
 
-	ctxTest, cancelTest := context.WithTimeout(context.Background(), 1*time.Second) // Ensure everything we want to do is done in under 1 second.
+	ctxTest, cancelTest := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancelTest()
 
-	clck := clock.NewMock(time.Unix(10, 0))
+	// We use a time in the future, because the redis client uses ctx.Deadline(),
+	// which returns the mock time, but then uses it in computation with real time.
+	clck := clock.NewMock(time.Unix(2147480000, 0))
 	ctxClock := clock.Context(ctxTest, clck)
 
-	mr, err := miniredis.Run()
-	require.NoError(t, err)
-	require.NotNil(t, mr)
-	defer mr.Close()
+	mr := miniredis.RunT(t)
 
 	redisClient := redis.NewClient(&redis.Options{
 		Addr: mr.Addr(),
 		DB:   0,
 	})
+	defer redisClient.Close()
 
 	ctxRunner, cancel := context.WithCancel(ctxClock)
 
-	addMeCalled := false
+	var addMeCalled atomic.Bool
 	addDerpCalled := false
 	removeMeCalled := false
 	removeDerpCalled := false
@@ -100,7 +100,7 @@ func TestRedisNodeTrackerOther(t *testing.T) {
 			FnAdd: func(node string) {
 				switch node {
 				case "me":
-					addMeCalled = true
+					addMeCalled.Store(true)
 				case "derp":
 					addDerpCalled = true
 				default:
@@ -113,10 +113,10 @@ func TestRedisNodeTrackerOther(t *testing.T) {
 					removeMeCalled = true
 				case "derp":
 					removeDerpCalled = true
+					cancel() // Terminate the test when derp is removed
 				default:
 					assert.Fail(t, "unexpected node", node)
 				}
-				cancel()
 			},
 		},
 		redisClient,
@@ -128,12 +128,13 @@ func TestRedisNodeTrackerOther(t *testing.T) {
 	var wg wait.Group
 	wg.StartWithContext(ctxRunner, rnt.Run)
 
-	fixtures.EnsureAttachedTimers(t, clck, 1, 100*time.Millisecond)
+	fixtures.EnsureAttachedTimers(t, clck, 1, 1*time.Second)
+	assert.Eventually(t, addMeCalled.Load, 1*time.Second, time.Millisecond)
+
 	redisClient.Publish(ctxTest, "foo", "+derp")
 	redisClient.Publish(ctxTest, "foo", "-derp")
 
 	wg.Wait()
-	assert.True(t, addMeCalled)
 	assert.True(t, addDerpCalled)
 	assert.True(t, removeMeCalled)
 	assert.True(t, removeDerpCalled)

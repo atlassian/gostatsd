@@ -60,6 +60,15 @@ func (rnt *redisNodeTracker) Run(ctx context.Context) {
 	pubsub := rnt.client.Subscribe(ctx, rnt.namespace)
 	defer pubsub.Close()
 
+	// This forces the SUBSCRIBE to be processed, otherwise we
+	// may send the introduction request before subscribing.
+	if _, err := pubsub.Receive(ctx); err != nil {
+		// If this fails, it will slow down the initial learning of all the hosts,
+		// but it's not critical.  The bigger hazard is that redis itself has failed
+		// and this is just a symptom of a larger problem.
+		rnt.logger.WithError(err).Warning("Subscribe failed")
+	}
+
 	psChan := pubsub.Channel() // Closed when pubsub is Closed
 
 	// Send an immediate heartbeat, this will also solicit other nodes to respond.
@@ -186,6 +195,8 @@ func (rnt *redisNodeTracker) sendHeartbeat(ctx context.Context) error {
 func (rnt *redisNodeTracker) sendDrop(ctx context.Context) {
 	// Talks to redis
 	if rnt.nodeId != "" {
-		rnt.client.Publish(ctx, rnt.namespace, "-"+rnt.nodeId)
+		if err := rnt.client.Publish(ctx, rnt.namespace, "-"+rnt.nodeId).Err(); err != nil {
+			rnt.logger.WithError(err).Warning("failed to drop host")
+		}
 	}
 }
