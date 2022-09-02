@@ -1,8 +1,11 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"math/rand"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/spf13/pflag"
@@ -23,5 +26,8 @@ func main() {
 	c := newCluster()
 	c.AddFlags(pflag.CommandLine)
 	pflag.Parse()
-	_ = c.Run()
+
+	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer cancel()
+	c.Run(ctx)
 }

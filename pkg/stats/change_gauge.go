@@ -14,7 +14,6 @@ const repeatCount = 22
 // things that won't change in the majority of cases (such as failure to parse a statsd line), and things that will
 // be bursty (ie, transient http message failure).  It isn't suitable for things which are constantly changing such
 // as number of metrics or http requests.
-//
 type ChangeGauge struct {
 	// Cur is the last value expected to be sent.  If this is changed, SendIfChanged will send the value for
 	// 22 flush intervals in an attempt to retry any failures to send it.  Cur is assumed to be atomic by
