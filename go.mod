@@ -29,9 +29,9 @@ require (
 	golang.org/x/time v0.0.0-20220210224613-90d013bbcef8
 	golang.org/x/tools v0.1.12
 	google.golang.org/protobuf v1.28.1
-	k8s.io/api v0.25.0
+	k8s.io/api v0.25.2
 	k8s.io/apimachinery v0.25.2
-	k8s.io/client-go v0.25.0
+	k8s.io/client-go v0.25.2
 	k8s.io/utils v0.0.0-20220728103510-ee6ede2d64ed // indirect
 	stathat.com/c/consistent v1.0.0
 )
