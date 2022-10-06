@@ -1,3 +1,7 @@
+35.1.2
+------
+- Bump all the libraries.  No user visible impact expected.
+
 35.1.1
 ------
 - Bump all the libraries.  No user visible impact expected.
