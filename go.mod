@@ -5,7 +5,7 @@ go 1.19
 require (
 	github.com/alicebob/miniredis/v2 v2.23.0
 	github.com/ash2k/stager v0.0.0-20170622123058-6e9c7b0eacd4
-	github.com/aws/aws-sdk-go v1.44.111
+	github.com/aws/aws-sdk-go v1.44.126
 	github.com/cenkalti/backoff v2.2.1+incompatible
 	github.com/dvyukov/go-fuzz v0.0.0-20191206100749-a378175e205c
 	github.com/elazarl/go-bindata-assetfs v1.0.0 // indirect
