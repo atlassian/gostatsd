@@ -1,3 +1,8 @@
+35.1.3
+------
+- HTTP forwarder updated with a new option `concurrent-merge` to support parallel processing, the
+  default value is backward-compatible.
+
 35.1.2
 ------
 - Bump all the libraries.  No user visible impact expected.
