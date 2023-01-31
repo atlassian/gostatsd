@@ -126,6 +126,7 @@ following configuration options:
 - `api-endpoint`: configures the endpoint to submit raw metrics to.  This setting should be just a base URL, for example
   `https://statsd-aggregator.private`, with no path.  Required, no default
 - `max-requests`: maximum number of requests in flight.  Defaults to `1000` (which is probably too high)
+- `concurrent-merge`: maximum number of concurrent goroutines allowed to merge metrics before forwarding.  Defaults to `1` for backward-compatibility
 - `max-request-elapsed-time`: duration for the maximum amount of time to try submitting data before giving up.  This
   includes retries.  Defaults to `30s` (which is probably too high). Setting this value to `-1` will disable retries.
 - `consolidator-slots`: number of slots in the metric consolidator.  Memory usage is a function of this.  Lower values

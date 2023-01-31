@@ -251,6 +251,7 @@ func TestForwardingData(t *testing.T) {
 		s.URL,
 		1,
 		1,
+		1,
 		false,
 		100*time.Millisecond, // maxRequestElapsedTime
 		100*time.Millisecond, // flushInterval
@@ -312,7 +313,7 @@ func TestHttpForwarderV2New(t *testing.T) {
 			expected:   []string{"service:", "deploy:"},
 		},
 	} {
-		h, err := NewHttpForwarderHandlerV2(logger, "default", "endpoint", 1, 1, false, time.Second, time.Second,
+		h, err := NewHttpForwarderHandlerV2(logger, "default", "endpoint", 1, 1, 1, false, time.Second, time.Second,
 			cusHeaders, testcase.dynHeaders, pool)
 		require.Nil(t, err)
 		require.Equal(t, h.dynHeaderNames, testcase.expected)

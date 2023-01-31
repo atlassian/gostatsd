@@ -33,6 +33,7 @@ const (
 	defaultApiEndpoint               = ""
 	defaultMaxRequestElapsedTime     = 30 * time.Second
 	defaultMaxRequests               = 1000
+	defaultConcurrentMerge           = 1
 	defaultTransport                 = "default"
 )
 
@@ -49,6 +50,7 @@ type HttpForwarderHandlerV2 struct {
 	apiEndpoint           string
 	maxRequestElapsedTime time.Duration
 	metricsSem            chan struct{}
+	metricsMergingSem     chan struct{}
 	client                *http.Client
 	eventWg               sync.WaitGroup
 	compress              bool
@@ -70,6 +72,7 @@ func NewHttpForwarderHandlerV2FromViper(logger logrus.FieldLogger, v *viper.Vipe
 	subViper.SetDefault("max-request-elapsed-time", defaultMaxRequestElapsedTime)
 	subViper.SetDefault("consolidator-slots", v.GetInt(gostatsd.ParamMaxParsers))
 	subViper.SetDefault("flush-interval", defaultConsolidatorFlushInterval)
+	subViper.SetDefault("concurrent-merge", defaultConcurrentMerge)
 
 	return NewHttpForwarderHandlerV2(
 		logger,
@@ -77,6 +80,7 @@ func NewHttpForwarderHandlerV2FromViper(logger logrus.FieldLogger, v *viper.Vipe
 		subViper.GetString("api-endpoint"),
 		subViper.GetInt("consolidator-slots"),
 		subViper.GetInt("max-requests"),
+		subViper.GetInt("concurrent-merge"),
 		subViper.GetBool("compress"),
 		subViper.GetDuration("max-request-elapsed-time"),
 		subViper.GetDuration("flush-interval"),
@@ -93,6 +97,7 @@ func NewHttpForwarderHandlerV2(
 	apiEndpoint string,
 	consolidatorSlots,
 	maxRequests int,
+	concurrentMerge int,
 	compress bool,
 	maxRequestElapsedTime time.Duration,
 	flushInterval time.Duration,
@@ -114,6 +119,9 @@ func NewHttpForwarderHandlerV2(
 	}
 	if flushInterval <= 0 {
 		return nil, fmt.Errorf("flush-interval must be positive")
+	}
+	if concurrentMerge <= 0 {
+		return nil, fmt.Errorf("concurrent-merge must be positive")
 	}
 
 	httpClient, err := pool.Get(transport)
@@ -162,6 +170,11 @@ func NewHttpForwarderHandlerV2(
 		metricsSem <- struct{}{}
 	}
 
+	metricsMergingSem := make(chan struct{}, concurrentMerge)
+	for i := 0; i < concurrentMerge; i++ {
+		metricsMergingSem <- struct{}{}
+	}
+
 	ch := make(chan []*gostatsd.MetricMap)
 
 	return &HttpForwarderHandlerV2{
@@ -169,6 +182,7 @@ func NewHttpForwarderHandlerV2(
 		apiEndpoint:           apiEndpoint,
 		maxRequestElapsedTime: maxRequestElapsedTime,
 		metricsSem:            metricsSem,
+		metricsMergingSem:     metricsMergingSem,
 		compress:              compress,
 		consolidator:          gostatsd.NewMetricConsolidator(consolidatorSlots, false, flushInterval, ch),
 		consolidatedMetrics:   ch,
@@ -229,22 +243,31 @@ func (hfh *HttpForwarderHandlerV2) Run(ctx context.Context) {
 	var wg wait.Group
 	wg.Start(func() {
 		for metricMaps := range hfh.consolidatedMetrics {
-			mergedMetricMap := gostatsd.MergeMaps(metricMaps)
-			mms := mergedMetricMap.SplitByTags(hfh.dynHeaderNames)
-			for dynHeaderTags, mm := range mms {
-				if mm.IsEmpty() {
-					continue
+			hfh.acquireMergingSem()
+			metricMaps := metricMaps
+			go func() {
+				mergedMetricMap := gostatsd.MergeMaps(metricMaps)
+				mms := mergedMetricMap.SplitByTags(hfh.dynHeaderNames)
+				hfh.releaseMergingSem()
+
+				for dynHeaderTags, mm := range mms {
+					if mm.IsEmpty() {
+						continue
+					}
+					hfh.acquireSem()
+					postId := atomic.AddUint64(&hfh.postId, 1) - 1
+					go func(postId uint64, metricMap *gostatsd.MetricMap, dynHeaderTags string) {
+						hfh.postMetrics(context.Background(), metricMap, dynHeaderTags, postId)
+						hfh.releaseSem()
+					}(postId, mm, dynHeaderTags)
 				}
-				hfh.acquireSem()
-				postId := atomic.AddUint64(&hfh.postId, 1) - 1
-				go func(postId uint64, metricMap *gostatsd.MetricMap, dynHeaderTags string) {
-					hfh.postMetrics(context.Background(), metricMap, dynHeaderTags, postId)
-					hfh.releaseSem()
-				}(postId, mm, dynHeaderTags)
-			}
+			}()
 		}
 		for i := 0; i < cap(hfh.metricsSem); i++ {
 			hfh.acquireSem()
+		}
+		for i := 0; i < cap(hfh.metricsMergingSem); i++ {
+			hfh.acquireMergingSem()
 		}
 	})
 	wg.StartWithContext(ctx, func(ctx context.Context) {
@@ -268,6 +291,14 @@ func (hfh *HttpForwarderHandlerV2) acquireSem() {
 
 func (hfh *HttpForwarderHandlerV2) releaseSem() {
 	hfh.metricsSem <- struct{}{} // will never block
+}
+
+func (hfh *HttpForwarderHandlerV2) acquireMergingSem() {
+	<-hfh.metricsMergingSem
+}
+
+func (hfh *HttpForwarderHandlerV2) releaseMergingSem() {
+	hfh.metricsMergingSem <- struct{}{}
 }
 
 func translateToProtobufV2(metricMap *gostatsd.MetricMap) *pb.RawMessageV2 {
