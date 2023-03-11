@@ -29,7 +29,7 @@ jobs:
 
   build:
     needs: check # Wait for check step to finish
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-latest
     # minimal permissions for Get Artifact Publish Token
     permissions:
       contents: read
@@ -39,7 +39,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v3
         with:
-          go-version: 1.17.2
+          go-version: 1.19.7
       - name: Install Goveralls
         run: go get -v github.com/mattn/goveralls
       - name: Setup CI
@@ -62,9 +62,8 @@ jobs:
       - build
       - check
     if: github.ref_type == 'tag' && (needs.check.outputs.branch == 'master' || needs.check.outputs.branch == 'main' || needs.check.outputs.branch == 'release')
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-latest
     # minimal permissions for Get Artifact Publish Token
-    # bump to trigger action
     permissions:
       contents: read
       id-token: write
