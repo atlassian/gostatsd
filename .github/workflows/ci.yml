@@ -64,6 +64,7 @@ jobs:
     if: github.ref_type == 'tag' && (needs.check.outputs.branch == 'master' || needs.check.outputs.branch == 'main' || needs.check.outputs.branch == 'release')
     runs-on: ubuntu-18.04
     # minimal permissions for Get Artifact Publish Token
+    # bump to trigger action
     permissions:
       contents: read
       id-token: write
