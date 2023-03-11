@@ -186,7 +186,7 @@ func TestSendMetricsAsync(t *testing.T) {
 func metrics() *gostatsd.MetricMap {
 	timestamp := gostatsd.Nanotime(time.Unix(123456, 0).UnixNano())
 
-	mm := gostatsd.NewMetricMap()
+	mm := gostatsd.NewMetricMap(false)
 	mm.Counters["stat1"] = map[string]gostatsd.Counter{}
 	mm.Counters["stat1"][""] = gostatsd.Counter{PerSecond: 1.1, Value: 5, Timestamp: timestamp}
 	mm.Timers["t1"] = map[string]gostatsd.Timer{}
@@ -201,7 +201,7 @@ func metrics() *gostatsd.MetricMap {
 func metricsWithHistogram() *gostatsd.MetricMap {
 	timestamp := gostatsd.Nanotime(time.Unix(123456, 0).UnixNano())
 
-	mm := gostatsd.NewMetricMap()
+	mm := gostatsd.NewMetricMap(false)
 	mm.Timers["t1"] = map[string]gostatsd.Timer{}
 	mm.Timers["t1"]["gsd_histogram:20_30_40_50_60"] = gostatsd.Timer{Values: []float64{10}, Timestamp: timestamp, Histogram: map[gostatsd.HistogramThreshold]int{
 		20:                                       5,

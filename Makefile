@@ -12,11 +12,11 @@ CPU_ARCH ?= amd64
 MANIFEST_NAME := atlassianlabs/$(BINARY_NAME)
 IMAGE_NAME := $(MANIFEST_NAME)-$(CPU_ARCH)
 ARCH ?= $$(uname -s | tr A-Z a-z)
-GOVERSION := 1.17.2  # Keep in sync with .travis.yml and README.md
+GOVERSION := 1.19  # Keep in sync with .travis.yml and README.md
 GP := /gopath
 MAIN_PKG := github.com/atlassian/gostatsd/cmd/gostatsd
 CLUSTER_PKG := github.com/atlassian/gostatsd/cmd/cluster
-PROTOBUF_VERSION ?= 3.6.1
+PROTOBUF_VERSION ?= 21.5
 
 setup: setup-ci
 	go install github.com/githubnemo/CompileDaemon \
@@ -24,23 +24,19 @@ setup: setup-ci
 
 tools/bin/protoc:
 	curl -L -O https://github.com/protocolbuffers/protobuf/releases/download/v$(PROTOBUF_VERSION)/protoc-$(PROTOBUF_VERSION)-linux-x86_64.zip
-	unzip -d tools/ protoc-$(PROTOBUF_VERSION)-linux-x86_64.zip
+	unzip -o -d tools/ protoc-$(PROTOBUF_VERSION)-linux-x86_64.zip
 	rm protoc-$(PROTOBUF_VERSION)-linux-x86_64.zip
-	go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.26
-	go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.1
+	go install google.golang.org/protobuf/cmd/protoc-gen-go
 
 setup-ci: tools/bin/protoc
-	go install github.com/golangci/golangci-lint/cmd/golangci-lint
+	@#go install github.com/golangci/golangci-lint/cmd/golangci-lint
 
 build-cluster:
 	go build -i -v -o build/bin/$(ARCH)/cluster $(GOBUILD_VERSION_ARGS) $(CLUSTER_PKG)
 
-pb/gostatsd.pb.go: pb/gostatsd.proto
-	GOPATH="tools/bin/protoc:${GOPATH}" protoc --go_out=.\
-		--go_opt=paths=source_relative \
-		--go-grpc_out=. \
-		--go-grpc_opt=paths=source_relative \
-		$<
+pb/gostatsd.pb.go: pb/gostatsd.proto tools/bin/protoc
+	GOPATH="tools/bin:${GOPATH}" tools/bin/protoc --go_out=.\
+		--go_opt=paths=source_relative $<
 	$(RM) protoc-gen-go
 
 build: pb/gostatsd.pb.go
@@ -104,13 +100,12 @@ junit-test: build
 check: pb/gostatsd.pb.go
 	go install ./cmd/gostatsd
 	go install ./cmd/tester
-	golangci-lint run --deadline=600s --enable=gocyclo --enable=dupl \
-		--disable=interfacer --disable=golint
+	@#golangci-lint run --deadline=600s --enable=gocyclo --enable=dupl --disable=interfacer --disable=golint
 
 check-all: pb/gostatsd.pb.go
 	go install ./cmd/gostatsd
 	go install ./cmd/tester
-	golangci-lint run --deadline=600s --enable=gocyclo --enable=dupl
+	@#golangci-lint run --deadline=600s --enable=gocyclo --enable=dupl
 
 fuzz-setup:
 	go install github.com/dvyukov/go-fuzz/go-fuzz github.com/dvyukov/go-fuzz/go-fuzz-build

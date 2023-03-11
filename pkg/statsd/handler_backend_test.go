@@ -126,7 +126,7 @@ func TestDispatchMetricMapShouldDistributeMetrics(t *testing.T) {
 	var wgFinish wait.Group
 	wgFinish.StartWithContext(ctx, h.Run)
 
-	mm := gostatsd.NewMetricMap()
+	mm := gostatsd.NewMetricMap(false)
 	for i := 0; i < numAggregators*100; i++ {
 		m := &gostatsd.Metric{
 			Type:  gostatsd.COUNTER,
@@ -161,7 +161,7 @@ func TestBackendHandlerDispatchMetricMapTerminates(t *testing.T) {
 	h := NewBackendHandler(nil, 0, 1, 0, newTestFactory())
 	cancelledCtx, cancelFunc := context.WithCancel(context.Background())
 	cancelFunc()
-	mm := gostatsd.NewMetricMap()
+	mm := gostatsd.NewMetricMap(false)
 	mm.Receive(&gostatsd.Metric{
 		Name:      "metric",
 		Value:     1,

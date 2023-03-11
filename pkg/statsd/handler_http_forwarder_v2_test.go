@@ -93,7 +93,7 @@ func TestHttpForwarderV2Translation(t *testing.T) {
 		},
 	}
 
-	mm := gostatsd.NewMetricMap()
+	mm := gostatsd.NewMetricMap(false)
 	for _, metric := range metrics {
 		mm.Receive(metric)
 	}
@@ -205,7 +205,7 @@ func BenchmarkHttpForwarderV2TranslateAll(b *testing.B) {
 			Type:        1 + gostatsd.MetricType(i%4), // Use all types
 		})
 	}
-	mm := gostatsd.NewMetricMap()
+	mm := gostatsd.NewMetricMap(false)
 	for _, metric := range metrics {
 		mm.Receive(metric)
 	}
@@ -249,6 +249,7 @@ func TestForwardingData(t *testing.T) {
 		log,
 		"default",
 		s.URL,
+		1,
 		1,
 		1,
 		false,
@@ -312,7 +313,7 @@ func TestHttpForwarderV2New(t *testing.T) {
 			expected:   []string{"service:", "deploy:"},
 		},
 	} {
-		h, err := NewHttpForwarderHandlerV2(logger, "default", "endpoint", 1, 1, false, time.Second, time.Second,
+		h, err := NewHttpForwarderHandlerV2(logger, "default", "endpoint", 1, 1, 1, false, time.Second, time.Second,
 			cusHeaders, testcase.dynHeaders, pool)
 		require.Nil(t, err)
 		require.Equal(t, h.dynHeaderNames, testcase.expected)

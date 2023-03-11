@@ -4,7 +4,7 @@ services:
   - docker
 
 go:
-  - "1.17.2"  # Keep in sync with Makefile and README.md
+  - "1.19"  # Keep in sync with Makefile and README.md
 
 notifications:
   slack:

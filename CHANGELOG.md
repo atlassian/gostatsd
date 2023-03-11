@@ -1,3 +1,25 @@
+35.1.3
+------
+- HTTP forwarder updated with a new option `concurrent-merge` to support parallel processing, the
+  default value is backward-compatible.
+
+35.1.2
+------
+- Bump all the libraries.  No user visible impact expected.
+
+35.1.1
+------
+- Bump all the libraries.  No user visible impact expected.
+
+35.1.0
+------
+- Parser updated to drop unrecognized dogstatsd fields.  In particular the `|c` field will no longer
+  pollute the last tag in the list.  For now, the `|c` field is just dropped.
+
+35.0.1
+------
+- Update to Alpine 3.15.5
+
 35.0.0
 ------
 - Adds a statsdSource tag to the New Relic backend, see [BACKENDS.md](BACKENDS.md) for details.

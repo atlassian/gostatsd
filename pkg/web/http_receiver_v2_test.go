@@ -54,6 +54,7 @@ func TestForwardingEndToEndV2(t *testing.T) {
 		c.URL,
 		5, // deliberately prime, so the loop below doesn't send the same thing to the same MetricMap every time.
 		10,
+		1,
 		false,
 		10*time.Second,
 		10*time.Millisecond,
@@ -117,7 +118,7 @@ func TestForwardingEndToEndV2(t *testing.T) {
 		Rate:        0.1,
 	}
 
-	mm := gostatsd.NewMetricMap()
+	mm := gostatsd.NewMetricMap(false)
 
 	for i := 0; i < 100; i++ {
 		mm.Receive(m1)

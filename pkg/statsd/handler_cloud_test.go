@@ -42,7 +42,7 @@ func BenchmarkCloudHandlerDispatchMetricMap(b *testing.B) {
 
 	ctxBackground := context.Background()
 	b.RunParallel(func(pb *testing.PB) {
-		mm := gostatsd.NewMetricMap()
+		mm := gostatsd.NewMetricMap(false)
 		mm.Receive(sm1())
 
 		for pb.Next() {
@@ -92,7 +92,7 @@ func TestTransientInstanceFailure(t *testing.T) {
 
 	// t+0: prime the cache
 	expecting.Expect(1, 0)
-	mm := gostatsd.NewMetricMap()
+	mm := gostatsd.NewMetricMap(false)
 	mm.Receive(m1)
 	ch.DispatchMetricMap(ctx, mm)
 	expecting.WaitAll()
@@ -104,7 +104,7 @@ func TestTransientInstanceFailure(t *testing.T) {
 	// t+100ms: read from cache, must still be valid
 	expecting.Expect(1, 0)
 
-	mm = gostatsd.NewMetricMap()
+	mm = gostatsd.NewMetricMap(false)
 	mm.Receive(m2)
 	ch.DispatchMetricMap(ctx, mm)
 	expecting.WaitAll()
@@ -231,14 +231,14 @@ func doCheck(
 	wg.StartWithContext(ctx, ci.Run)
 
 	expecting.Expect(1, 1)
-	mm := gostatsd.NewMetricMap()
+	mm := gostatsd.NewMetricMap(false)
 	mm.Receive(m1)
 	ch.DispatchMetricMap(ctx, mm)
 	ch.DispatchEvent(ctx, e1)
 	expecting.WaitAll()
 
 	expecting.Expect(1, 1)
-	mm = gostatsd.NewMetricMap()
+	mm = gostatsd.NewMetricMap(false)
 	mm.Receive(m2)
 	ch.DispatchMetricMap(ctx, mm)
 	ch.DispatchEvent(ctx, e2)

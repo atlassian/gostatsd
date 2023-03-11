@@ -89,9 +89,9 @@ func socketFactory(metricsAddr string, connPerReader bool) SocketFactory {
 	}
 }
 
-//networkFromAddress returns the network type based on the provided address
-//if the address starts with a slash (unix absolute path) it will be considered a unix socket
-//otherwise it will default to UDP
+// networkFromAddress returns the network type based on the provided address
+// if the address starts with a slash (unix absolute path) it will be considered a unix socket
+// otherwise it will default to UDP
 func networkFromAddress(addr string) string {
 	if len(addr) > 0 && addr[0:1] == "/" {
 		return "unixgram"

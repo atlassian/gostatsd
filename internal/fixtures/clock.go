@@ -2,8 +2,10 @@ package fixtures
 
 import (
 	"context"
+	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/tilinna/clock"
 )
 
@@ -38,4 +40,14 @@ func NextStep(ctx context.Context, clck *clock.Mock) {
 	for _, d := clck.AddNext(); d == 0 && ctx.Err() == nil; _, d = clck.AddNext() {
 		time.Sleep(time.Nanosecond) // Allows the system to actually idle, runtime.Gosched() does not.
 	}
+}
+
+// EnsureAttachedTimers will block execution until either expected number of timers are reached
+// or the until duration has been reached causing this method to fail the test.
+// A true result is returned when the assertion passes allow for control flow of control, otherwise
+// the assertional failed and should ensure the test fails gracefully.
+func EnsureAttachedTimers(tb testing.TB, clck *clock.Mock, expect int, until time.Duration) bool {
+	return assert.Eventually(tb, func() bool {
+		return clck.Len() == expect
+	}, until, time.Millisecond)
 }

@@ -116,7 +116,7 @@ func (dp *DatagramParser) Run(ctx context.Context) {
 				accumB += badLineCount
 			}
 			// TODO: Refactor this to use a MetricConsolidator
-			mm := gostatsd.NewMetricMap()
+			mm := gostatsd.NewMetricMap(false)
 			for _, m := range metrics {
 				mm.Receive(m)
 			}
