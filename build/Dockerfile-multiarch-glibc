@@ -1,4 +1,5 @@
-FROM golang:1.17.2-alpine AS build
+# Go version needs to be the same in: CI config, README, Dockerfiles, and Makefile
+FROM golang:1.19.7-alpine AS build
 WORKDIR /build
 
 # Install dependencies first to take advantage of the docker build cache.

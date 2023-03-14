@@ -12,7 +12,7 @@ CPU_ARCH ?= amd64
 MANIFEST_NAME := atlassianlabs/$(BINARY_NAME)
 IMAGE_NAME := $(MANIFEST_NAME)-$(CPU_ARCH)
 ARCH ?= $$(uname -s | tr A-Z a-z)
-GOVERSION := 1.19  # Keep in sync with .travis.yml and README.md
+GOVERSION := 1.19.7  # Go version needs to be the same in: CI config, README, Dockerfiles, and Makefile
 GP := /gopath
 MAIN_PKG := github.com/atlassian/gostatsd/cmd/gostatsd
 CLUSTER_PKG := github.com/atlassian/gostatsd/cmd/cluster
@@ -148,8 +148,13 @@ release-race: docker-file-race
 	docker tag $(IMAGE_NAME):$(GIT_HASH)-race $(IMAGE_NAME):$(REPO_VERSION)-race
 	docker push $(IMAGE_NAME):$(REPO_VERSION)-race
 
+# Only works in Github actions, which is the only place `make release` should be run
+release-docker-login:
+	docker login docker-public.packages.atlassian.com \
+	  --username $ARTIFACTORY_USERNAME \
+	  --password $ARTIFACTORY_API_KEY
 
-release: release-normal release-race
+release: release-docker-login release-normal release-race
 
 release-manifest:
 	for tag in latest $(REPO_VERSION) $(GIT_HASH)-race $(REPO_VERSION)-race; do \
