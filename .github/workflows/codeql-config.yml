@@ -1,6 +1,0 @@
-name: "Configuration for gostatsd Codeql"
-
-query-filters:
-# Ignore log-injection warnings
-- exclude:
-     id: go/log-injection
