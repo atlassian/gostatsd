@@ -132,31 +132,31 @@ docker-file-race: pb/gostatsd.pb.go
 	--build-arg BINARY_NAME=$(BINARY_NAME) \
 	--platform=linux/$(CPU_ARCH) . --push
 
-release-hash: docker-file
+release-hash-ci: docker-file
 	docker push $(IMAGE_NAME):$(GIT_HASH)
 
-release-normal: release-hash
+release-normal-ci: release-hash
 	docker tag $(IMAGE_NAME):$(GIT_HASH) $(IMAGE_NAME):latest
 	docker push $(IMAGE_NAME):latest
 	docker tag $(IMAGE_NAME):$(GIT_HASH) $(IMAGE_NAME):$(REPO_VERSION)
 	docker push $(IMAGE_NAME):$(REPO_VERSION)
 
-release-hash-race: docker-file-race
+release-hash-race-ci: docker-file-race
 	docker push $(IMAGE_NAME):$(GIT_HASH)-race
 
-release-race: docker-file-race
+release-race-ci: docker-file-race
 	docker tag $(IMAGE_NAME):$(GIT_HASH)-race $(IMAGE_NAME):$(REPO_VERSION)-race
 	docker push $(IMAGE_NAME):$(REPO_VERSION)-race
 
-# Only works in Github actions, which is the only place `make release` should be run
-release-docker-login:
+# Only works in Github actions, which is the only place `make release-ci` should be run
+docker-login-ci:
 	docker login docker-public.packages.atlassian.com \
 	  --username $ARTIFACTORY_USERNAME \
 	  --password $ARTIFACTORY_API_KEY
 
-release: release-docker-login release-normal release-race
+release-ci: docker-login-ci release-normal-ci release-race-ci
 
-release-manifest:
+release-manifest-ci: docker-login-ci
 	for tag in latest $(REPO_VERSION) $(GIT_HASH)-race $(REPO_VERSION)-race; do \
 	  for arch in amd64 arm64; do \
 		  docker pull $(MANIFEST_NAME)-$$arch:$$tag; \

@@ -80,9 +80,9 @@ jobs:
       - name: Release
         run: |
           echo "Executing release on tag build $GITHUB_REF_NAME"
-          ARCH=linux CPU_ARCH=amd64 make release
-          ARCH=linux CPU_ARCH=arm64 make release
+          ARCH=linux CPU_ARCH=amd64 make release-ci
+          ARCH=linux CPU_ARCH=arm64 make release-ci
       - name: Push Docker Manifest
         run: |
-          echo "Executing release-manifest on tag build $GITHUB_REF_NAME";
-          make release-manifest;
+          echo "Executing release-manifest on tag build $GITHUB_REF_NAME"
+          make release-manifest-ci
