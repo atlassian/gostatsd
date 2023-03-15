@@ -57,13 +57,20 @@ jobs:
   release:
     needs:
       - build
-    if: github.ref_type == 'tag' && (needs.check.outputs.branch == 'master' || needs.check.outputs.branch == 'main' || needs.check.outputs.branch == 'release')
+    #if: github.ref_type == 'tag' && (needs.check.outputs.branch == 'master' || needs.check.outputs.branch == 'main' || needs.check.outputs.branch == 'release')
     runs-on: ubuntu-latest
     # minimal permissions for Get Artifact Publish Token
     permissions:
       id-token: write
     steps:
       - uses: actions/checkout@v3
+      # We need to be on the master branch
+      - name: Checkout master
+        run: git checkout master
+      - name: What's my tag?
+        run: |
+          tag=$(git describe --tag --abbrev=0)
+          echo "Tag name is ${tag}"
       # Get the token we need to publish to packages.atlassian.com
       - name: Get publish token
         id: publish-token
@@ -77,12 +84,12 @@ jobs:
       - name: Set up Docker Buildx
         id: buildx
         uses: docker/setup-buildx-action@master
-      - name: Release
-        run: |
-          echo "Executing release on tag build $GITHUB_REF_NAME"
-          ARCH=linux CPU_ARCH=amd64 make release-ci
-          ARCH=linux CPU_ARCH=arm64 make release-ci
-      - name: Push Docker Manifest
-        run: |
-          echo "Executing release-manifest on tag build $GITHUB_REF_NAME"
-          make release-manifest-ci
+      # - name: Release
+      #   run: |
+      #     echo "Executing release on tag build $GITHUB_REF_NAME"
+      #     ARCH=linux CPU_ARCH=amd64 make release-ci
+      #     ARCH=linux CPU_ARCH=arm64 make release-ci
+      # - name: Push Docker Manifest
+      #   run: |
+      #     echo "Executing release-manifest on tag build $GITHUB_REF_NAME"
+      #     make release-manifest-ci
