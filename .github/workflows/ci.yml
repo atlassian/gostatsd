@@ -76,6 +76,7 @@ jobs:
           git branch
           git --no-pager log --decorate=short --pretty=oneline -n10
           git checkout master
+          git fetch --tags
       - name: What's my tag?
         run: |
           tag=$(git describe --tag --abbrev=0)
