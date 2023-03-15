@@ -64,6 +64,11 @@ jobs:
       id-token: write
     steps:
       - uses: actions/checkout@v3
+        with:
+          # Master will probably be in the last two commits
+          # We will need to checkout to a depth of 2 to
+          # checkout master
+          fetch-depth: 2
       # We need to be on the master branch
       - name: Checkout master
         run: git checkout master
