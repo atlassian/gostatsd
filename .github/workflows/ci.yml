@@ -71,7 +71,10 @@ jobs:
           fetch-depth: 4
       # We need to be on the master branch
       - name: Checkout master
-        run: git checkout master
+        run: |
+          git branch
+          git --no-pager log --decorate=short --pretty=oneline -n10
+          git checkout master
       - name: What's my tag?
         run: |
           tag=$(git describe --tag --abbrev=0)
