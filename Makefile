@@ -12,7 +12,7 @@ CPU_ARCH ?= amd64
 MANIFEST_NAME := atlassianlabs/$(BINARY_NAME)
 IMAGE_NAME := $(MANIFEST_NAME)-$(CPU_ARCH)
 ARCH ?= $$(uname -s | tr A-Z a-z)
-GOVERSION := 1.19  # Keep in sync with .travis.yml and README.md
+GOVERSION := 1.19.7  # Go version needs to be the same in: CI config, README, Dockerfiles, and Makefile
 GP := /gopath
 MAIN_PKG := github.com/atlassian/gostatsd/cmd/gostatsd
 CLUSTER_PKG := github.com/atlassian/gostatsd/cmd/cluster
@@ -120,51 +120,43 @@ watch:
 git-hook:
 	cp dev/push-hook.sh .git/hooks/pre-push
 
-# Compile a static binary. Cannot be used with -race
-docker: pb/gostatsd.pb.go
-	docker pull golang:$(GOVERSION)
-	docker run \
-		--rm \
-		-v "$(GOPATH)":"$(GP)" \
-		-w "$(GP)/src/github.com/atlassian/gostatsd" \
-		-e GOPATH="$(GP)" \
-		-e CGO_ENABLED=0 \
-		golang:$(GOVERSION) \
-		go build -o build/bin/linux/$(BINARY_NAME) $(GOBUILD_VERSION_ARGS) $(MAIN_PKG)
-	docker build --pull -t $(IMAGE_NAME):$(GIT_HASH) build
+docker-file: pb/gostatsd.pb.go
+	docker buildx build -t $(IMAGE_NAME):$(GIT_HASH) -f build/Dockerfile-multiarch \
+    --build-arg MAIN_PKG=$(MAIN_PKG) \
+    --build-arg BINARY_NAME=$(BINARY_NAME) \
+    --platform=linux/$(CPU_ARCH) . --push
 
-# Compile a binary with -race. Needs to be run on a glibc-based system.
-docker-race: pb/gostatsd.pb.go
-	docker pull golang:$(GOVERSION)
-	docker run \
-		--rm \
-		-v "$(GOPATH)":"$(GP)" \
-		-w "$(GP)/src/github.com/atlassian/gostatsd" \
-		-e GOPATH="$(GP)" \
-		golang:$(GOVERSION) \
-		go build -race -o build/bin/linux/$(BINARY_NAME) $(GOBUILD_VERSION_ARGS) $(MAIN_PKG)
-	docker build --pull -t $(IMAGE_NAME):$(GIT_HASH)-race -f build/Dockerfile-glibc build
+docker-file-race: pb/gostatsd.pb.go
+	docker buildx build -t $(IMAGE_NAME):$(GIT_HASH)-race -f build/Dockerfile-multiarch-glibc \
+	--build-arg MAIN_PKG=$(MAIN_PKG) \
+	--build-arg BINARY_NAME=$(BINARY_NAME) \
+	--platform=linux/$(CPU_ARCH) . --push
 
-release-hash: docker
+release-hash-ci: docker-file
 	docker push $(IMAGE_NAME):$(GIT_HASH)
 
-release-normal: release-hash
+release-normal-ci: release-hash
 	docker tag $(IMAGE_NAME):$(GIT_HASH) $(IMAGE_NAME):latest
 	docker push $(IMAGE_NAME):latest
 	docker tag $(IMAGE_NAME):$(GIT_HASH) $(IMAGE_NAME):$(REPO_VERSION)
 	docker push $(IMAGE_NAME):$(REPO_VERSION)
 
-release-hash-race: docker-race
+release-hash-race-ci: docker-file-race
 	docker push $(IMAGE_NAME):$(GIT_HASH)-race
 
-release-race: docker-race
+release-race-ci: docker-file-race
 	docker tag $(IMAGE_NAME):$(GIT_HASH)-race $(IMAGE_NAME):$(REPO_VERSION)-race
 	docker push $(IMAGE_NAME):$(REPO_VERSION)-race
 
+# Only works in Github actions, which is the only place `make release-ci` should be run
+docker-login-ci:
+	docker login docker-public.packages.atlassian.com \
+	  --username $ARTIFACTORY_USERNAME \
+	  --password $ARTIFACTORY_API_KEY
 
-release: release-normal release-race
+release-ci: docker-login-ci release-normal-ci release-race-ci
 
-release-manifest:
+release-manifest-ci: docker-login-ci
 	for tag in latest $(REPO_VERSION) $(GIT_HASH)-race $(REPO_VERSION)-race; do \
 	  for arch in amd64 arm64; do \
 		  docker pull $(MANIFEST_NAME)-$$arch:$$tag; \
