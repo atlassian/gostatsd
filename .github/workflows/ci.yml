@@ -69,6 +69,7 @@ jobs:
           # We will need to checkout to a depth that allows
           # us to checkout master
           fetch-depth: 12
+          ref: master
       # We need to be on the master branch
       - name: Checkout master
         run: |
