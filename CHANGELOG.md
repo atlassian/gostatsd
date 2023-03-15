@@ -1,3 +1,11 @@
+35.1.4
+------
+Library version bumps. No user visible impact expected
+- Bump github.com/aws/aws-sdk-go from 1.44.111 to 1.44.126
+- Bump alpine from 3.16.2 to 3.17.2 in /cmd/tester
+- Bump alpine from 3.16.2 to 3.17.2 in /build/
+- Bump golang.org/x/net from 0.0.0-20220919232410-f2f64ebce3c1 to 0.8.0
+
 35.1.3
 ------
 - HTTP forwarder updated with a new option `concurrent-merge` to support parallel processing, the
