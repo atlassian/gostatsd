@@ -6,7 +6,6 @@ on:
 
 jobs:
   build:
-    needs: check # Wait for check step to finish
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
