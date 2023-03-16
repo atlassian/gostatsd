@@ -13,6 +13,10 @@ jobs:
       id-token: write
     steps:
       - uses: actions/checkout@v3
+        with:
+          # We want to fetch everything, tags and branch names
+          # so that we can compare them
+          fetch-depth: 0
       # Make sure that master and the latest git tag are pointing at the same commit
       # This will go some way to ensuring that we are building the latest version
       # and that a git tag was applied to master.
