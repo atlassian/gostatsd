@@ -23,7 +23,7 @@ jobs:
       - name: Ensure master and latest tag are the same commit
         run: |
           TAG=$(git describe --tag --abbrev=0)
-          [ "$(git rev-parse master)" != "$(git rev-parse $tag)" ] && echo "master and $tag are different commits" && exit 1
+          [ "$(git rev-parse master)" != "$(git rev-parse $TAG)" ] && echo "master and $TAG are different commits" && exit 1
       # Get the token we need to publish to packages.atlassian.com
       - name: Get publish token
         id: publish-token
