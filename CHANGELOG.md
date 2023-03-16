@@ -1,3 +1,8 @@
+35.1.5
+------
+Setting up the new test, build and release process on Github actions.
+This release is to test running the release step with a new tag on master.
+
 35.1.4
 ------
 Library version bumps. No user visible impact expected
