@@ -22,9 +22,13 @@ jobs:
       # and that a git tag was applied to master.
       - name: Ensure master and latest tag are the same commit
         run: |
+          # we want to see the output of the commands
           set -x
+          # don't quit if a pipeline fails
+          set +e
+          # get the latest tag
           TAG=$(git describe --tag --abbrev=0)
-          [ "$(git rev-parse master)" != "$(git rev-parse $TAG)" ] && echo "master and $TAG are different commits" && exit 1
+          [ "$(git rev-parse master)" != "$(git rev-parse $TAG)" ] && echo "master branch and $TAG are different commits" && exit 1
       # Get the token we need to publish to packages.atlassian.com
       - name: Get publish token
         id: publish-token
