@@ -29,6 +29,7 @@ jobs:
           # get the latest tag
           TAG=$(git describe --tag --abbrev=0)
           [ "$(git rev-parse master)" != "$(git rev-parse $TAG)" ] && echo "master branch and $TAG are different commits" && exit 1
+          echo "Master branch and $TAG are the same commit. We can continue with the release."
       # Get the token we need to publish to packages.atlassian.com
       - name: Get publish token
         id: publish-token
