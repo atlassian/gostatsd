@@ -150,9 +150,9 @@ release-race-ci: release-hash-race-ci
 
 # Only works in Github actions, which is the only place `make release-ci` should be run
 docker-login-ci:
-	docker login docker-public.packages.atlassian.com \
-	  --username $ARTIFACTORY_USERNAME \
-	  --password $ARTIFACTORY_API_KEY
+	echo "$$ARTIFACTORY_API_KEY" | docker login docker-public.packages.atlassian.com \
+	  --username ${ARTIFACTORY_USERNAME} \
+	  --password-stdin
 
 release-ci: docker-login-ci release-normal-ci release-race-ci
 
