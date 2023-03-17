@@ -22,6 +22,7 @@ jobs:
       # and that a git tag was applied to master.
       - name: Ensure master and latest tag are the same commit
         run: |
+          set +x
           TAG=$(git describe --tag --abbrev=0)
           [ "$(git rev-parse master)" != "$(git rev-parse $TAG)" ] && echo "master and $TAG are different commits" && exit 1
       # Get the token we need to publish to packages.atlassian.com
