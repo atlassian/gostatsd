@@ -10,7 +10,8 @@ GOBUILD_VERSION_ARGS_WITH_SYMS := -ldflags "-X $(VERSION_VAR)=$(REPO_VERSION) -X
 BINARY_NAME := gostatsd
 CPU_ARCH ?= amd64
 MANIFEST_NAME := atlassianlabs/$(BINARY_NAME)
-IMAGE_NAME := $(MANIFEST_NAME)-$(CPU_ARCH)
+REGISTRY_NAME := docker-public.packages.atlassian.com
+IMAGE_NAME := $(REGISTRY_NAME)/$(MANIFEST_NAME)-$(CPU_ARCH)
 ARCH ?= $$(uname -s | tr A-Z a-z)
 GOVERSION := 1.19.7  # Go version needs to be the same in: CI config, README, Dockerfiles, and Makefile
 GP := /gopath
