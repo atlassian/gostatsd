@@ -121,19 +121,19 @@ watch:
 git-hook:
 	cp dev/push-hook.sh .git/hooks/pre-push
 
-docker-file: pb/gostatsd.pb.go
+build-hash: pb/gostatsd.pb.go
 	docker buildx build -t $(IMAGE_NAME):$(GIT_HASH) -f build/Dockerfile-multiarch \
     --build-arg MAIN_PKG=$(MAIN_PKG) \
     --build-arg BINARY_NAME=$(BINARY_NAME) \
-    --platform=linux/$(CPU_ARCH) . --push
+    --platform=linux/$(CPU_ARCH) .
 
-docker-file-race: pb/gostatsd.pb.go
+build-hash-race: pb/gostatsd.pb.go
 	docker buildx build -t $(IMAGE_NAME):$(GIT_HASH)-race -f build/Dockerfile-multiarch-glibc \
 	--build-arg MAIN_PKG=$(MAIN_PKG) \
 	--build-arg BINARY_NAME=$(BINARY_NAME) \
-	--platform=linux/$(CPU_ARCH) . --push
+	--platform=linux/$(CPU_ARCH) .
 
-release-hash-ci: docker-file
+release-hash-ci: build-hash
 	docker push $(IMAGE_NAME):$(GIT_HASH)
 
 release-normal-ci: release-hash-ci
@@ -142,7 +142,7 @@ release-normal-ci: release-hash-ci
 	docker tag $(IMAGE_NAME):$(GIT_HASH) $(IMAGE_NAME):$(REPO_VERSION)
 	docker push $(IMAGE_NAME):$(REPO_VERSION)
 
-release-hash-race-ci: docker-file-race
+release-hash-race-ci: build-hash-race
 	docker push $(IMAGE_NAME):$(GIT_HASH)-race
 
 release-race-ci: release-hash-race-ci
