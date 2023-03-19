@@ -123,15 +123,17 @@ git-hook:
 
 build-hash: pb/gostatsd.pb.go
 	docker buildx build -t $(IMAGE_NAME):$(GIT_HASH) -f build/Dockerfile-multiarch \
-    --build-arg MAIN_PKG=$(MAIN_PKG) \
-    --build-arg BINARY_NAME=$(BINARY_NAME) \
-    --platform=linux/$(CPU_ARCH) .
+		--build-arg MAIN_PKG=$(MAIN_PKG) \
+		--build-arg BINARY_NAME=$(BINARY_NAME) \
+		--platform=linux/$(CPU_ARCH) . --output=type=image
+	docker images
 
 build-hash-race: pb/gostatsd.pb.go
 	docker buildx build -t $(IMAGE_NAME):$(GIT_HASH)-race -f build/Dockerfile-multiarch-glibc \
-	--build-arg MAIN_PKG=$(MAIN_PKG) \
-	--build-arg BINARY_NAME=$(BINARY_NAME) \
-	--platform=linux/$(CPU_ARCH) .
+		--build-arg MAIN_PKG=$(MAIN_PKG) \
+		--build-arg BINARY_NAME=$(BINARY_NAME) \
+		--platform=linux/$(CPU_ARCH) . --output=type=image
+	docker images
 
 release-hash-ci: build-hash
 	docker push $(IMAGE_NAME):$(GIT_HASH)
