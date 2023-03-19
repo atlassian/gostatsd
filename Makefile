@@ -125,13 +125,13 @@ build-hash: pb/gostatsd.pb.go
 	docker buildx build -t $(IMAGE_NAME):$(GIT_HASH) -f build/Dockerfile-multiarch \
     --build-arg MAIN_PKG=$(MAIN_PKG) \
     --build-arg BINARY_NAME=$(BINARY_NAME) \
-    --platform=linux/$(CPU_ARCH) .
+    --platform=linux/$(CPU_ARCH) . --load
 
 build-hash-race: pb/gostatsd.pb.go
 	docker buildx build -t $(IMAGE_NAME):$(GIT_HASH)-race -f build/Dockerfile-multiarch-glibc \
 	--build-arg MAIN_PKG=$(MAIN_PKG) \
 	--build-arg BINARY_NAME=$(BINARY_NAME) \
-	--platform=linux/$(CPU_ARCH) .
+	--platform=linux/$(CPU_ARCH) . --load
 
 release-hash-ci: build-hash
 	docker push $(IMAGE_NAME):$(GIT_HASH)
