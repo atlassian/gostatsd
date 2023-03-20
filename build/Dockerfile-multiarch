@@ -17,7 +17,7 @@ ADD . /build
 RUN apk update && apk add git
 
 RUN ldFlags="-s -X main.Version=$(git describe --abbrev=0 --tags) -X main.GitCommit=$(git rev-parse --short HEAD) -X main.BuildDate=$(date +%Y-%m-%d-%H:%M)"; \
-    CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH} go build -o bin/linux/${TARGETARCH}/${BINARY_NAME} -ldflags "$(ldFlags)" ${MAIN_PKG}
+    CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH} go build -o bin/linux/${TARGETARCH}/${BINARY_NAME} -ldflags "${ldFlags}" ${MAIN_PKG}
 
 FROM alpine:3.15.4
 
