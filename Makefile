@@ -9,9 +9,10 @@ GOBUILD_VERSION_ARGS := -ldflags "-s -X $(VERSION_VAR)=$(REPO_VERSION) -X $(GIT_
 GOBUILD_VERSION_ARGS_WITH_SYMS := -ldflags "-X $(VERSION_VAR)=$(REPO_VERSION) -X $(GIT_VAR)=$(GIT_HASH) -X $(BUILD_DATE_VAR)=$(BUILD_DATE)"
 BINARY_NAME := gostatsd
 CPU_ARCH ?= amd64
-MANIFEST_NAME := atlassianlabs/$(BINARY_NAME)
+REPOSITORY_NAME := atlassianlabs/$(BINARY_NAME)
 REGISTRY_NAME := docker-public.packages.atlassian.com
-IMAGE_NAME := $(REGISTRY_NAME)/$(MANIFEST_NAME)-$(CPU_ARCH)
+IMAGE_PREFIX := $(REGISTRY_NAME)/$(REPOSITORY_NAME)
+IMAGE_NAME := $(IMAGE_PREFIX)-$(CPU_ARCH)
 ARCH ?= $$(uname -s | tr A-Z a-z)
 GOVERSION := 1.19.7  # Go version needs to be the same in: CI config, README, Dockerfiles, and Makefile
 GP := /gopath
@@ -162,14 +163,11 @@ docker-login-ci:
 release-ci: docker-login-ci release-normal-ci release-race-ci
 
 release-manifest-ci: docker-login-ci
-	for tag in latest $(REPO_VERSION) $(GIT_HASH)-race $(REPO_VERSION)-race; do \
-	  for arch in amd64 arm64; do \
-		  docker pull $(MANIFEST_NAME)-$$arch:$$tag; \
-		done; \
-	  docker manifest create $(MANIFEST_NAME):$$tag --amend \
-		  $(MANIFEST_NAME)-amd64:$$tag \
-		  $(MANIFEST_NAME)-arm64:$$tag; \
-	  docker manifest push $(MANIFEST_NAME):$$tag; \
+	for tag in latest $(REPO_VERSION) $(GIT_HASH)-race $(REPO_VERSION)-race ; do \
+		docker pull $(IMAGE_NAME):$$tag ; \
+		docker manifest create $(IMAGE_PREFIX):$$tag --amend \
+			$(IMAGE_NAME):$$tag ; \
+	  	docker manifest push $(IMAGE_PREFIX):$$tag ; \
 	done
 
 run: build

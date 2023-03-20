@@ -56,4 +56,5 @@ jobs:
       - name: Push Docker Manifest
         run: |
           echo "Executing release-manifest on tag build $GITHUB_REF_NAME"
-          make release-manifest-ci
+          ARCH=linux CPU_ARCH=amd64 make release-manifest-ci
+          ARCH=linux CPU_ARCH=arm64 make release-manifest-ci
