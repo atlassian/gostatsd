@@ -1,3 +1,7 @@
+35.2.0
+------
+- Adds more meaningful healthchecks
+
 35.1.6 - 35.1.19
 ------
 - These versions were just developing and debugging the new build and release process on Github Actions
