@@ -23,6 +23,7 @@ import (
 	"github.com/atlassian/gostatsd"
 	"github.com/atlassian/gostatsd/internal/util"
 	"github.com/atlassian/gostatsd/pb"
+	"github.com/atlassian/gostatsd/pkg/healthcheck"
 	"github.com/atlassian/gostatsd/pkg/stats"
 	"github.com/atlassian/gostatsd/pkg/transport"
 )
@@ -39,12 +40,13 @@ const (
 
 // HttpForwarderHandlerV2 is a PipelineHandler which sends metrics to another gostatsd instance
 type HttpForwarderHandlerV2 struct {
-	postId          uint64 // atomic - used for an id in logs
-	messagesInvalid uint64 // atomic - messages which failed to be created
-	messagesCreated uint64 // atomic - messages which were created
-	messagesSent    uint64 // atomic - messages successfully sent
-	messagesRetried uint64 // atomic - retries (first send is not a retry, final failure is not a retry)
-	messagesDropped uint64 // atomic - final failure
+	postId             uint64 // atomic - used for an id in logs
+	messagesInvalid    uint64 // atomic - messages which failed to be created
+	messagesCreated    uint64 // atomic - messages which were created
+	messagesSent       uint64 // atomic - messages successfully sent
+	messagesRetried    uint64 // atomic - retries (first send is not a retry, final failure is not a retry)
+	messagesDropped    uint64 // atomic - final failure
+	lastSuccessfulSend atomic.Int64
 
 	logger                logrus.FieldLogger
 	apiEndpoint           string
@@ -61,6 +63,10 @@ type HttpForwarderHandlerV2 struct {
 	consolidator        *gostatsd.MetricConsolidator
 	consolidatedMetrics chan []*gostatsd.MetricMap
 }
+
+var (
+	_ healthcheck.DeepCheckProvider = &HttpForwarderHandlerV2{}
+)
 
 // NewHttpForwarderHandlerV2FromViper returns a new http API client.
 func NewHttpForwarderHandlerV2FromViper(logger logrus.FieldLogger, v *viper.Viper, pool *transport.TransportPool) (*HttpForwarderHandlerV2, error) {
@@ -193,6 +199,20 @@ func NewHttpForwarderHandlerV2(
 	}, nil
 }
 
+func (hfh *HttpForwarderHandlerV2) DeepChecks() []healthcheck.HealthcheckFunc {
+	return []healthcheck.HealthcheckFunc{
+		hfh.dcSentRecently,
+	}
+}
+
+func (hfh *HttpForwarderHandlerV2) dcSentRecently() (string, healthcheck.HealthyStatus) {
+	if lastSend := hfh.lastSuccessfulSend.Load(); lastSend == 0 {
+		return "sentRecently: never sent", healthcheck.Unhealthy
+	} else {
+		return fmt.Sprintf("sentRecently: lastSend=%s", time.Unix(0, lastSend).String()), healthcheck.Healthy
+	}
+}
+
 func (hfh *HttpForwarderHandlerV2) EstimatedTags() int {
 	return 0
 }
@@ -239,8 +259,14 @@ func (hfh *HttpForwarderHandlerV2) emitMetrics(statser stats.Statser) {
 	statser.Count("http.forwarder.dropped", float64(messagesDropped), nil)
 }
 
+// sendNop sends an empty metric map downstream.  It's used to "prime the pump" for the deepcheck.
+func (hfh *HttpForwarderHandlerV2) sendNop(ctx context.Context) {
+	hfh.postMetrics(ctx, gostatsd.NewMetricMap(false), "", 0)
+}
+
 func (hfh *HttpForwarderHandlerV2) Run(ctx context.Context) {
 	var wg wait.Group
+	wg.StartWithContext(ctx, hfh.sendNop)
 	wg.Start(func() {
 		for metricMaps := range hfh.consolidatedMetrics {
 			hfh.acquireMergingSem()
@@ -386,6 +412,7 @@ func (hfh *HttpForwarderHandlerV2) post(ctx context.Context, message proto.Messa
 	for {
 		if err = post(); err == nil {
 			atomic.AddUint64(&hfh.messagesSent, 1)
+			hfh.lastSuccessfulSend.Store(clock.Now(ctx).UnixNano())
 			return
 		}
 

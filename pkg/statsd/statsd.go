@@ -162,6 +162,7 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 		return err
 	}
 
+	healthChecks, deepChecks = healthcheck.MaybeAppendHealthChecks(healthChecks, deepChecks, handler)
 	runnables = append(append(make([]gostatsd.Runnable, 0, len(s.Runnables)), s.Runnables...), runnables...)
 
 	// Create the tag processor
