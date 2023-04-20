@@ -14,6 +14,7 @@ import (
 	"golang.org/x/time/rate"
 
 	"github.com/atlassian/gostatsd"
+	"github.com/atlassian/gostatsd/pkg/healthcheck"
 	"github.com/atlassian/gostatsd/pkg/stats"
 	"github.com/atlassian/gostatsd/pkg/transport"
 	"github.com/atlassian/gostatsd/pkg/web"
@@ -153,6 +154,9 @@ func (s *Server) createFinalSink(logger logrus.FieldLogger) (gostatsd.PipelineHa
 func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) error {
 	logger := logrus.StandardLogger()
 
+	var healthChecks []healthcheck.HealthcheckFunc
+	var deepChecks []healthcheck.HealthcheckFunc
+
 	handler, runnables, err := s.createFinalSink(logger)
 	if err != nil {
 		return err
@@ -196,7 +200,7 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 	runnables = gostatsd.MaybeAppendRunnable(runnables, statser)
 
 	// Create any http servers
-	httpServers, err := web.NewHttpServersFromViper(s.Viper, logger, handler)
+	httpServers, err := web.NewHttpServersFromViper(s.Viper, logger, handler, healthChecks, deepChecks)
 	if err != nil {
 		return err
 	}

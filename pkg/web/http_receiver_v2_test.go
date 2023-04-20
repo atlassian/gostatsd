@@ -41,6 +41,8 @@ func TestForwardingEndToEndV2(t *testing.T) {
 		false,
 		true,
 		false,
+		nil,
+		nil,
 	)
 	require.NoError(t, err)
 
