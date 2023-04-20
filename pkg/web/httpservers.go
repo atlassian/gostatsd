@@ -16,6 +16,7 @@ import (
 
 	"github.com/atlassian/gostatsd"
 	"github.com/atlassian/gostatsd/internal/util"
+	"github.com/atlassian/gostatsd/pkg/healthcheck"
 )
 
 type httpServer struct {
@@ -34,11 +35,17 @@ type route struct {
 
 var done = struct{}{}
 
-func NewHttpServersFromViper(v *viper.Viper, logger logrus.FieldLogger, handler gostatsd.PipelineHandler) ([]*httpServer, error) {
+func NewHttpServersFromViper(
+	v *viper.Viper,
+	logger logrus.FieldLogger,
+	handler gostatsd.PipelineHandler,
+	healthChecks []healthcheck.HealthcheckFunc,
+	deepChecks []healthcheck.HealthcheckFunc,
+) ([]*httpServer, error) {
 	httpServerNames := v.GetStringSlice("http-servers")
 	servers := make([]*httpServer, 0, len(httpServerNames))
 	for _, httpServerName := range httpServerNames {
-		server, err := newHttpServerFromViper(logger, v, httpServerName, handler)
+		server, err := newHttpServerFromViper(logger, v, httpServerName, handler, healthChecks, deepChecks)
 		if err != nil {
 			return nil, fmt.Errorf("failed to make http-server %s: %v", httpServerName, err)
 		}
@@ -52,6 +59,8 @@ func newHttpServerFromViper(
 	vMain *viper.Viper,
 	serverName string,
 	handler gostatsd.PipelineHandler,
+	healthChecks []healthcheck.HealthcheckFunc,
+	deepChecks []healthcheck.HealthcheckFunc,
 ) (*httpServer, error) {
 	vSub := util.GetSubViper(vMain, "http."+serverName)
 	vSub.SetDefault("address", "127.0.0.1:8080")
@@ -69,6 +78,8 @@ func newHttpServerFromViper(
 		vSub.GetBool("enable-expvar"),
 		vSub.GetBool("enable-ingestion"),
 		vSub.GetBool("enable-healthcheck"),
+		healthChecks,
+		deepChecks,
 	)
 }
 
@@ -80,6 +91,8 @@ func NewHttpServer(
 	enableExpVar,
 	enableIngestion,
 	enableHealthcheck bool,
+	healthChecks []healthcheck.HealthcheckFunc,
+	deepChecks []healthcheck.HealthcheckFunc,
 ) (*httpServer, error) {
 	var routes []route
 
@@ -113,7 +126,10 @@ func NewHttpServer(
 	}
 
 	if enableHealthcheck {
-		hc := &healthChecker{logger}
+		hc := &healthChecker{logger: logger,
+			healthChecks: healthChecks,
+			deepChecks:   deepChecks,
+		}
 		routes = append(routes,
 			route{path: "/healthcheck", handler: hc.healthCheck, methods: []string{"GET"}, name: "healthcheck_get"},
 			route{path: "/deepcheck", handler: hc.deepCheck, methods: []string{"GET"}, name: "deepcheck_get"},

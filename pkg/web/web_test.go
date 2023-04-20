@@ -24,6 +24,8 @@ func TestHttpServerShutsdown(t *testing.T) {
 		false,
 		false,
 		true,
+		nil,
+		nil,
 	)
 	require.NoError(t, err)
 
