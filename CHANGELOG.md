@@ -1,3 +1,7 @@
+35.2.1
+------
+- Bump aline from 3.17.2 to 3.18.0 in /cmd/tester and /build/
+
 35.2.0
 ------
 - Adds more meaningful healthchecks
