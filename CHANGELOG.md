@@ -1,6 +1,10 @@
+35.2.2
+------
+- Bump alpine from 3.18.0 to 3.18.2 in /cmd/tester and /build/
+
 35.2.1
 ------
-- Bump aline from 3.17.2 to 3.18.0 in /cmd/tester and /build/
+- Bump alpine from 3.17.2 to 3.18.0 in /cmd/tester and /build/
 
 35.2.0
 ------
