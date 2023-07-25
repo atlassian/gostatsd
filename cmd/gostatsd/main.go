@@ -73,9 +73,8 @@ func run(v *viper.Viper) error {
 		}()
 	}
 
-	ctx, cancelFunc := context.WithCancel(context.Background())
+	ctx, cancelFunc := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancelFunc()
-	cancelOnInterrupt(ctx, cancelFunc)
 
 	if err := s.Run(ctx); err != nil && err != context.Canceled {
 		return fmt.Errorf("server error: %v", err)
@@ -192,19 +191,6 @@ func getPercentiles(s []string) ([]float64, error) {
 		percentThresholds[i] = pt
 	}
 	return percentThresholds, nil
-}
-
-// cancelOnInterrupt calls f when os.Interrupt or SIGTERM is received.
-func cancelOnInterrupt(ctx context.Context, f context.CancelFunc) {
-	c := make(chan os.Signal, 1)
-	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
-	go func() {
-		select {
-		case <-ctx.Done():
-		case <-c:
-			f()
-		}
-	}()
 }
 
 func setupConfiguration() (*viper.Viper, bool, error) {

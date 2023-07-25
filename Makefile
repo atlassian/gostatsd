@@ -14,7 +14,7 @@ REGISTRY_NAME := docker-public.packages.atlassian.com
 IMAGE_PREFIX := $(REGISTRY_NAME)/$(REPOSITORY_NAME)
 IMAGE_NAME := $(IMAGE_PREFIX)-$(CPU_ARCH)
 ARCH ?= $$(uname -s | tr A-Z a-z)
-GOVERSION := 1.19.7  # Go version needs to be the same in: CI config, README, Dockerfiles, and Makefile
+GOVERSION := 1.20.6  # Go version needs to be the same in: CI config, README, Dockerfiles, and Makefile
 GP := /gopath
 MAIN_PKG := github.com/atlassian/gostatsd/cmd/gostatsd
 CLUSTER_PKG := github.com/atlassian/gostatsd/cmd/cluster
@@ -42,10 +42,10 @@ pb/gostatsd.pb.go: pb/gostatsd.proto tools/bin/protoc
 	$(RM) protoc-gen-go
 
 build: pb/gostatsd.pb.go
-	go build -i -v -o build/bin/$(ARCH)/$(BINARY_NAME) $(GOBUILD_VERSION_ARGS) $(MAIN_PKG)
+	go build -v -o build/bin/$(ARCH)/$(BINARY_NAME) $(GOBUILD_VERSION_ARGS) $(MAIN_PKG)
 
 build-race:
-	go build -i -v -race -o build/bin/$(ARCH)/$(BINARY_NAME) $(GOBUILD_VERSION_ARGS) $(MAIN_PKG)
+	go build -v -race -o build/bin/$(ARCH)/$(BINARY_NAME) $(GOBUILD_VERSION_ARGS) $(MAIN_PKG)
 
 build-all: pb/gostatsd.pb.go
 	go install -v ./...
