@@ -23,20 +23,29 @@ type InternalStatser struct {
 	hostname  gostatsd.Source
 	handler   gostatsd.PipelineHandler
 
+	disableEvents bool
+
 	consolidator *gostatsd.MetricConsolidator
 }
 
 // NewInternalStatser creates a new Statser which sends metrics to the
 // supplied InternalHandler.
-func NewInternalStatser(tags gostatsd.Tags, namespace string, hostname gostatsd.Source, handler gostatsd.PipelineHandler) *InternalStatser {
+func NewInternalStatser(
+	tags gostatsd.Tags,
+	namespace string,
+	hostname gostatsd.Source,
+	handler gostatsd.PipelineHandler,
+	disableEvents bool,
+) *InternalStatser {
 	if hostname != gostatsd.UnknownSource {
 		tags = tags.Concat(gostatsd.Tags{"host:" + string(hostname)})
 	}
 	return &InternalStatser{
-		tags:      tags,
-		namespace: namespace,
-		hostname:  hostname,
-		handler:   handler,
+		tags:          tags,
+		namespace:     namespace,
+		hostname:      hostname,
+		handler:       handler,
+		disableEvents: disableEvents,
 		// We can't just use a MetricMap because everything
 		// that writes to it is on its own goroutine.
 		consolidator: gostatsd.NewMetricConsolidator(10, false, 0, nil),
@@ -124,6 +133,9 @@ func (is *InternalStatser) dispatchMetric(metric *gostatsd.Metric) {
 }
 
 func (is *InternalStatser) Event(ctx context.Context, e *gostatsd.Event) {
+	if is.disableEvents {
+		return
+	}
 	is.handler.DispatchEvent(ctx, e)
 }
 
