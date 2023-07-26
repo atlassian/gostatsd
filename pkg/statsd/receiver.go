@@ -54,6 +54,8 @@ func (dr *DatagramReceiver) RunMetricsContext(ctx context.Context) {
 	flushed, unregister := statser.RegisterFlush()
 	defer unregister()
 
+	reporter := stats.ReportFromContext(ctx, statser)
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -68,8 +70,8 @@ func (dr *DatagramReceiver) RunMetricsContext(ctx context.Context) {
 			} else {
 				avgDatagramsInBatch = float64(datagramsReceived) / float64(batchesRead)
 			}
-			statser.Count("receiver.datagrams_received", float64(dr.cumulDatagramsReceived), nil)
-			statser.Count("receiver.avg_datagrams_in_batch", avgDatagramsInBatch, nil)
+			reporter.Report("receiver.datagrams_received", float64(dr.cumulDatagramsReceived), nil)
+			reporter.Report("receiver.avg_datagrams_in_batch", avgDatagramsInBatch, nil)
 		}
 	}
 }

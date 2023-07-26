@@ -29,6 +29,7 @@ type DatagramParser struct {
 	badLines        stats.ChangeGauge
 	metricsReceived uint64
 	eventsReceived  uint64
+	report          stats.ReportFunc
 
 	logger logrus.FieldLogger
 
@@ -80,13 +81,15 @@ func (dp *DatagramParser) RunMetricsContext(ctx context.Context) {
 	flushed, unregister := statser.RegisterFlush()
 	defer unregister()
 
+	reporter := stats.ReportFromContext(ctx, statser)
+
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case <-flushed:
-			statser.Count("parser.metrics_received", float64(atomic.SwapUint64(&dp.metricsReceived, 0)), nil)
-			statser.Count("parser.events_received", float64(atomic.SwapUint64(&dp.eventsReceived, 0)), nil)
+			reporter.Report("parser.metrics_received", float64(atomic.LoadUint64(&dp.metricsReceived)), nil)
+			reporter.Report("parser.events_received", float64(atomic.LoadUint64(&dp.eventsReceived)), nil)
 			dp.badLines.SendIfChanged(statser, "parser.bad_lines_seen", nil)
 		}
 	}

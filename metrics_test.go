@@ -3,6 +3,7 @@ package gostatsd
 import (
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -52,4 +53,21 @@ func TestAddTagsSetSource(t *testing.T) {
 	mTimer := Timer{}
 	mTimer.AddTagsSetSource(Tags{"foo"}, "source")
 	require.Equal(t, Tags{"foo"}, mTimer.Tags)
+}
+
+func TestParsingMetricType(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		val    string
+		expect MetricType
+	}{
+		{"set", SET},
+		{"gauge", GAUGE},
+		{"timer", TIMER},
+		{"counter", COUNTER},
+		{"rand", MetricType(0)},
+	} {
+		assert.Equal(t, tc.expect, ParseMetricType(tc.val))
+	}
 }

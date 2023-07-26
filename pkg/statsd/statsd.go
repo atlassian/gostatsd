@@ -59,6 +59,7 @@ type Server struct {
 	Hostname                  gostatsd.Source
 	LogRawMetric              bool
 	DisableInternalEvents     bool
+	ReportedMetricType        gostatsd.MetricType
 	Viper                     *viper.Viper
 	TransportPool             *transport.TransportPool
 }
@@ -211,7 +212,13 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 	}
 
 	// Start the world!
-	runCtx := stats.NewContext(context.Background(), statser)
+	runCtx := stats.NewReportContext(
+		stats.NewContext(
+			context.Background(),
+			statser,
+		),
+		s.ReportedMetricType,
+	)
 	stgr := stager.New()
 	defer stgr.Shutdown()
 	for _, runnable := range runnables {

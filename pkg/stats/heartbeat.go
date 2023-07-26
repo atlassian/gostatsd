@@ -26,16 +26,18 @@ func (hb *HeartBeater) Run(ctx context.Context) {
 	flushed, unregister := statser.RegisterFlush()
 	defer unregister()
 
+	reporter := ReportFromContext(ctx, statser)
+
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case <-flushed:
-			hb.emit(statser)
+			hb.emit(reporter)
 		}
 	}
 }
 
-func (hb *HeartBeater) emit(statser Statser) {
-	statser.Count(hb.metricName, 1, nil)
+func (hb *HeartBeater) emit(reporter ReportFunc) {
+	reporter.Report(hb.metricName, 1, nil)
 }

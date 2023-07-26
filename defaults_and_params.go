@@ -95,6 +95,8 @@ const (
 	DefaultLogRawMetric = false
 	// DefaultDisableInternalEvents is the default value for disabling internal events being sent
 	DefaultDisableInternalEvents = false
+	// DefaultInternalReportMetricType sets the metric type to be reported for a subset of internal metrics
+	DefaultInternalReportMetricType = "gauge"
 )
 
 const (
@@ -176,6 +178,8 @@ const (
 	ParamLogRawMetric = "log-raw-metric"
 	// ParamDisableInternalEvents enables sending internal events from gostatsd
 	ParamDisableInternalEvents = "disable-internal-events"
+	// ParamInternalReportMetricType enables defining what metric type an internal metric is sent as
+	ParamInternalReportMetricType = "internal-reported-metric-type"
 )
 
 // AddFlags adds flags to the specified FlagSet.

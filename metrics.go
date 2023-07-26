@@ -34,6 +34,20 @@ func (m MetricType) String() string {
 	return "unknown"
 }
 
+func ParseMetricType(mType string) MetricType {
+	switch mType {
+	case "set":
+		return SET
+	case "gauge":
+		return GAUGE
+	case "timer":
+		return TIMER
+	case "counter":
+		return COUNTER
+	}
+	return MetricType(0)
+}
+
 // Metric represents a single data collected datapoint.
 type Metric struct {
 	Name        string  // The name of the metric
