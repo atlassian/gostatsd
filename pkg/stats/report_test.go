@@ -5,8 +5,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/atlassian/gostatsd"
 	"github.com/stretchr/testify/mock"
+
+	"github.com/atlassian/gostatsd"
 )
 
 type MockStatser struct {
