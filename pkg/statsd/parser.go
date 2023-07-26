@@ -85,8 +85,8 @@ func (dp *DatagramParser) RunMetricsContext(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-flushed:
-			statser.Gauge("parser.metrics_received", float64(atomic.LoadUint64(&dp.metricsReceived)), nil)
-			statser.Gauge("parser.events_received", float64(atomic.LoadUint64(&dp.eventsReceived)), nil)
+			statser.Count("parser.metrics_received", float64(atomic.SwapUint64(&dp.metricsReceived, 0)), nil)
+			statser.Count("parser.events_received", float64(atomic.SwapUint64(&dp.eventsReceived, 0)), nil)
 			dp.badLines.SendIfChanged(statser, "parser.bad_lines_seen", nil)
 		}
 	}

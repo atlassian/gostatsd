@@ -37,5 +37,5 @@ func (hb *HeartBeater) Run(ctx context.Context) {
 }
 
 func (hb *HeartBeater) emit(statser Statser) {
-	statser.Gauge(hb.metricName, 1, nil)
+	statser.Count(hb.metricName, 1, nil)
 }

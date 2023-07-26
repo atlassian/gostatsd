@@ -68,8 +68,8 @@ func (dr *DatagramReceiver) RunMetricsContext(ctx context.Context) {
 			} else {
 				avgDatagramsInBatch = float64(datagramsReceived) / float64(batchesRead)
 			}
-			statser.Gauge("receiver.datagrams_received", float64(dr.cumulDatagramsReceived), nil)
-			statser.Gauge("receiver.avg_datagrams_in_batch", avgDatagramsInBatch, nil)
+			statser.Count("receiver.datagrams_received", float64(dr.cumulDatagramsReceived), nil)
+			statser.Count("receiver.avg_datagrams_in_batch", avgDatagramsInBatch, nil)
 		}
 	}
 }
