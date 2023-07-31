@@ -26,9 +26,8 @@ Metrics:
 | parser.bad_lines_seen                       | gauge (sparse)        |                              | The number of unparseable lines
 | parser.events_received                      | reported              |                              | The number of events parsed
 | parser.metrics_received                     | reported              |                              | The number of metrics parsed
-| receiver.datagrams_received                 | reported              |                              | The number of datagrams received
-| receiver.batches_read                       | reported              |                              | The average number of datagrams per batch (up to receive-batch-size). This
-|                                             |                       |                              | can be used to tweak receive-batch-size if necessary to reduce memory usage.
+| receiver.datagrams_received                 | reported              |                              | The number of datagrams received. 
+| receiver.batches_read                       | reported              |                              | The number of batches read. 
 | channel.avg                                 | gauge (flush)         | channel                      | The average of all samples in the flush interval
 | channel.min                                 | gauge (flush)         | channel                      | The minimum sample seen
 | channel.max                                 | gauge (flush)         | channel                      | The maximum sample seen

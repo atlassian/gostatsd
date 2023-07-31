@@ -100,10 +100,11 @@ func (is *InternalStatser) Increment(name string, tags gostatsd.Tags) {
 }
 
 func (is *InternalStatser) Report(name string, value *uint64, tags gostatsd.Tags) {
-	val := float64(atomic.SwapUint64(value, 0))
 	if is.forwarderMode {
+		val := float64(atomic.SwapUint64(value, 0))
 		is.Count(name, val, tags)
 	} else {
+		val := float64(atomic.LoadUint64(value))
 		is.Gauge(name, val, tags)
 	}
 }
