@@ -2,6 +2,7 @@ package stats
 
 import (
 	"context"
+	"sync/atomic"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -52,11 +53,11 @@ func (ls *LoggingStatser) Increment(name string, tags gostatsd.Tags) {
 	}).Infof("increment")
 }
 
-func (ls *LoggingStatser) Report(name string, value float64, tags gostatsd.Tags) {
+func (ls *LoggingStatser) Report(name string, value *uint64, tags gostatsd.Tags) {
 	ls.logger.WithFields(logrus.Fields{
 		"name":  name,
 		"tags":  ls.tags.Concat(tags),
-		"value": value,
+		"value": atomic.SwapUint64(value, 0),
 	}).Infof("report")
 }
 

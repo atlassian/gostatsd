@@ -2,6 +2,7 @@ package stats
 
 import (
 	"context"
+	"sync/atomic"
 	"time"
 
 	"github.com/atlassian/gostatsd"
@@ -98,11 +99,12 @@ func (is *InternalStatser) Increment(name string, tags gostatsd.Tags) {
 	is.Count(name, 1, tags)
 }
 
-func (is *InternalStatser) Report(name string, value float64, tags gostatsd.Tags) {
+func (is *InternalStatser) Report(name string, value *uint64, tags gostatsd.Tags) {
+	val := float64(atomic.SwapUint64(value, 0))
 	if is.forwarderMode {
-		is.Count(name, value, tags)
+		is.Count(name, val, tags)
 	} else {
-		is.Gauge(name, value, tags)
+		is.Gauge(name, val, tags)
 	}
 }
 

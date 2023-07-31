@@ -11,7 +11,7 @@ Metric types:
 | gauge (cumulative) | An internal counter sent as a gauge with the value never resetting
 | gauge (sparse)     | The same as a cumulative gauge, but data is only sent on change
 | counter            | An internal counter, reset on flush
-| reported           | A configurable type based on the flag `internal-reported-metric-type`
+| reported           | The type will be emitted as a guage for services in stand alone mode, otherwise as counters for forwarders.
 
 
 Metrics:
@@ -26,8 +26,8 @@ Metrics:
 | parser.bad_lines_seen                       | gauge (sparse)        |                              | The number of unparseable lines
 | parser.events_received                      | reported              |                              | The number of events parsed
 | parser.metrics_received                     | reported              |                              | The number of metrics parsed
-| receiver.datagrams_received                 | reported (cumulative) |                              | The number of datagrams received
-| receiver.avg_datagrams_in_batch             | reported (flush)      |                              | The average number of datagrams per batch (up to receive-batch-size). This
+| receiver.datagrams_received                 | reported              |                              | The number of datagrams received
+| receiver.batches_read                       | reported              |                              | The average number of datagrams per batch (up to receive-batch-size). This
 |                                             |                       |                              | can be used to tweak receive-batch-size if necessary to reduce memory usage.
 | channel.avg                                 | gauge (flush)         | channel                      | The average of all samples in the flush interval
 | channel.min                                 | gauge (flush)         | channel                      | The minimum sample seen

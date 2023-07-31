@@ -49,7 +49,7 @@ func (ts *TaggedStatser) Increment(name string, tags gostatsd.Tags) {
 	ts.statser.Increment(name, ts.concatTags(ts.tags, tags))
 }
 
-func (ts *TaggedStatser) Report(name string, value float64, tags gostatsd.Tags) {
+func (ts *TaggedStatser) Report(name string, value *uint64, tags gostatsd.Tags) {
 	ts.statser.Report(name, value, tags)
 }
 

@@ -34,7 +34,7 @@ func (cs *countingStatser) Increment(name string, tags gostatsd.Tags) {
 	atomic.AddUint64(&cs.counters, 1)
 }
 
-func (cs *countingStatser) Report(name string, value float64, tags gostatsd.Tags) {
+func (cs *countingStatser) Report(name string, value *uint64, tags gostatsd.Tags) {
 	atomic.AddUint64(&cs.reporters, 1)
 }
 

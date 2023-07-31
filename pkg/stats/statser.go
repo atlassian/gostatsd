@@ -19,7 +19,7 @@ type Statser interface {
 	Gauge(name string, value float64, tags gostatsd.Tags)
 	Count(name string, amount float64, tags gostatsd.Tags)
 	Increment(name string, tags gostatsd.Tags)
-	Report(name string, value float64, tags gostatsd.Tags)
+	Report(name string, value *uint64, tags gostatsd.Tags)
 	TimingMS(name string, ms float64, tags gostatsd.Tags)
 	TimingDuration(name string, d time.Duration, tags gostatsd.Tags)
 	NewTimer(name string, tags gostatsd.Tags) *Timer

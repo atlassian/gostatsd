@@ -27,7 +27,7 @@ func (ns *NullStatser) Count(name string, amount float64, tags gostatsd.Tags) {}
 // Increment does nothing
 func (ns *NullStatser) Increment(name string, tags gostatsd.Tags) {}
 
-func (ns *NullStatser) Report(name string, value float64, tags gostatsd.Tags) {}
+func (ns *NullStatser) Report(name string, value *uint64, tags gostatsd.Tags) {}
 
 // TimingMS does nothing
 func (ns *NullStatser) TimingMS(name string, ms float64, tags gostatsd.Tags) {}
