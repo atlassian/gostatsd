@@ -93,6 +93,8 @@ const (
 	DefaultTimerHistogramLimit = math.MaxUint32
 	// DefaultLogRawMetric is the default value for whether to log the metrics received from network
 	DefaultLogRawMetric = false
+	// DefaultDisableInternalEvents is the default value for disabling internal events being sent
+	DefaultDisableInternalEvents = false
 )
 
 const (
@@ -172,6 +174,8 @@ const (
 	ParamTimerHistogramLimit = "timer-histogram-limit"
 	// ParamLogRawMetric enables custom metrics to be printed to stdout
 	ParamLogRawMetric = "log-raw-metric"
+	// ParamDisableInternalEvents enables sending internal events from gostatsd
+	ParamDisableInternalEvents = "disable-internal-events"
 )
 
 // AddFlags adds flags to the specified FlagSet.
@@ -213,6 +217,7 @@ func AddFlags(fs *pflag.FlagSet) {
 	fs.String(ParamHostname, getHost(), "overrides the hostname of the server")
 	fs.Uint32(ParamTimerHistogramLimit, DefaultTimerHistogramLimit, "upper limit of timer histogram buckets (MaxUint32 by default)")
 	fs.Bool(ParamLogRawMetric, DefaultLogRawMetric, "Print metrics received from network to stdout in JSON format")
+	fs.Bool(ParamDisableInternalEvents, DefaultDisableInternalEvents, "Disables sending internal events from gostatsd")
 }
 
 func minInt(a, b int) int {

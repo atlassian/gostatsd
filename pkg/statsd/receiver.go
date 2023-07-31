@@ -25,9 +25,8 @@ type DatagramReceiver struct {
 	// Counter fields below must be read/written only using atomic instructions.
 	// 64-bit fields must be the first fields in the struct to guarantee proper memory alignment.
 	// See https://golang.org/pkg/sync/atomic/#pkg-note-BUG
-	datagramsReceived      uint64
-	batchesRead            uint64
-	cumulDatagramsReceived uint64
+	datagramsReceived uint64
+	batchesRead       uint64
 
 	bufPool *pool.DatagramBufferPool
 
@@ -59,17 +58,8 @@ func (dr *DatagramReceiver) RunMetricsContext(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-flushed:
-			datagramsReceived := atomic.SwapUint64(&dr.datagramsReceived, 0)
-			batchesRead := atomic.SwapUint64(&dr.batchesRead, 0)
-			dr.cumulDatagramsReceived += datagramsReceived
-			var avgDatagramsInBatch float64
-			if batchesRead == 0 {
-				avgDatagramsInBatch = 0
-			} else {
-				avgDatagramsInBatch = float64(datagramsReceived) / float64(batchesRead)
-			}
-			statser.Gauge("receiver.datagrams_received", float64(dr.cumulDatagramsReceived), nil)
-			statser.Gauge("receiver.avg_datagrams_in_batch", avgDatagramsInBatch, nil)
+			statser.Report("receiver.datagrams_received", &dr.datagramsReceived, nil)
+			statser.Report("receiver.batches_read", &dr.batchesRead, nil)
 		}
 	}
 }

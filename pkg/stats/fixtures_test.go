@@ -9,10 +9,11 @@ import (
 )
 
 type countingStatser struct {
-	gauges   uint64
-	counters uint64
-	timers   uint64
-	events   uint64
+	gauges    uint64
+	counters  uint64
+	reporters uint64
+	timers    uint64
+	events    uint64
 }
 
 func (cs *countingStatser) NotifyFlush(ctx context.Context, d time.Duration) {}
@@ -31,6 +32,10 @@ func (cs *countingStatser) Count(name string, amount float64, tags gostatsd.Tags
 
 func (cs *countingStatser) Increment(name string, tags gostatsd.Tags) {
 	atomic.AddUint64(&cs.counters, 1)
+}
+
+func (cs *countingStatser) Report(name string, value *uint64, tags gostatsd.Tags) {
+	atomic.AddUint64(&cs.reporters, 1)
 }
 
 func (cs *countingStatser) TimingMS(name string, ms float64, tags gostatsd.Tags) {

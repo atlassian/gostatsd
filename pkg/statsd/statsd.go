@@ -58,6 +58,7 @@ type Server struct {
 	ServerMode                string
 	Hostname                  gostatsd.Source
 	LogRawMetric              bool
+	DisableInternalEvents     bool
 	Viper                     *viper.Viper
 	TransportPool             *transport.TransportPool
 }
@@ -197,7 +198,13 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 
 	// Create the Statser
 	hostname := s.Hostname
-	statser := s.createStatser(hostname, handler, logger)
+	statser := s.createStatser(
+		hostname,
+		handler,
+		logger,
+		s.DisableInternalEvents,
+		s.ServerMode == "forwarder",
+	)
 	runnables = gostatsd.MaybeAppendRunnable(runnables, statser)
 
 	// Create any http servers
@@ -210,7 +217,10 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 	}
 
 	// Start the world!
-	runCtx := stats.NewContext(context.Background(), statser)
+	runCtx := stats.NewContext(
+		context.Background(),
+		statser,
+	)
 	stgr := stager.New()
 	defer stgr.Shutdown()
 	for _, runnable := range runnables {
@@ -226,7 +236,13 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 	return ctx.Err()
 }
 
-func (s *Server) createStatser(hostname gostatsd.Source, handler gostatsd.PipelineHandler, logger logrus.FieldLogger) stats.Statser {
+func (s *Server) createStatser(
+	hostname gostatsd.Source,
+	handler gostatsd.PipelineHandler,
+	logger logrus.FieldLogger,
+	disableEvents bool,
+	forwarderMode bool,
+) stats.Statser {
 	switch s.StatserType {
 	case gostatsd.StatserNull:
 		return stats.NewNullStatser()
@@ -241,7 +257,14 @@ func (s *Server) createStatser(hostname gostatsd.Source, handler gostatsd.Pipeli
 				namespace = s.InternalNamespace
 			}
 		}
-		return stats.NewInternalStatser(s.InternalTags, namespace, hostname, handler)
+		return stats.NewInternalStatser(
+			s.InternalTags,
+			namespace,
+			hostname,
+			handler,
+			disableEvents,
+			forwarderMode,
+		)
 	}
 }
 
@@ -258,6 +281,7 @@ func sendStartEvent(ctx context.Context, statser stats.Statser, hostname gostats
 func sendStopEvent(statser stats.Statser, hostname gostatsd.Source) {
 	ctx, cancelFunc := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancelFunc()
+
 	statser.Event(ctx, &gostatsd.Event{
 		Title:        "Gostatsd stopped",
 		Text:         "Gostatsd stopped",
@@ -265,6 +289,7 @@ func sendStopEvent(statser stats.Statser, hostname gostatsd.Source) {
 		Source:       hostname,
 		Priority:     gostatsd.PriLow,
 	})
+
 	statser.WaitForEvents()
 }
 

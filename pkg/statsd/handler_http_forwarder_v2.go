@@ -246,17 +246,11 @@ func (hfh *HttpForwarderHandlerV2) RunMetricsContext(ctx context.Context) {
 }
 
 func (hfh *HttpForwarderHandlerV2) emitMetrics(statser stats.Statser) {
-	messagesInvalid := atomic.SwapUint64(&hfh.messagesInvalid, 0)
-	messagesCreated := atomic.SwapUint64(&hfh.messagesCreated, 0)
-	messagesSent := atomic.SwapUint64(&hfh.messagesSent, 0)
-	messagesRetried := atomic.SwapUint64(&hfh.messagesRetried, 0)
-	messagesDropped := atomic.SwapUint64(&hfh.messagesDropped, 0)
-
-	statser.Count("http.forwarder.invalid", float64(messagesInvalid), nil)
-	statser.Count("http.forwarder.created", float64(messagesCreated), nil)
-	statser.Count("http.forwarder.sent", float64(messagesSent), nil)
-	statser.Count("http.forwarder.retried", float64(messagesRetried), nil)
-	statser.Count("http.forwarder.dropped", float64(messagesDropped), nil)
+	statser.Report("http.forwarder.invalid", &hfh.messagesInvalid, nil)
+	statser.Report("http.forwarder.created", &hfh.messagesCreated, nil)
+	statser.Report("http.forwarder.sent", &hfh.messagesSent, nil)
+	statser.Report("http.forwarder.retried", &hfh.messagesRetried, nil)
+	statser.Report("http.forwarder.dropped", &hfh.messagesDropped, nil)
 }
 
 // sendNop sends an empty metric map downstream.  It's used to "prime the pump" for the deepcheck.
