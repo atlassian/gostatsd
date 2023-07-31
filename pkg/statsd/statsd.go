@@ -59,7 +59,6 @@ type Server struct {
 	Hostname                  gostatsd.Source
 	LogRawMetric              bool
 	DisableInternalEvents     bool
-	ReportedMetricType        gostatsd.MetricType
 	Viper                     *viper.Viper
 	TransportPool             *transport.TransportPool
 }
@@ -199,7 +198,13 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 
 	// Create the Statser
 	hostname := s.Hostname
-	statser := s.createStatser(hostname, handler, logger, s.DisableInternalEvents)
+	statser := s.createStatser(
+		hostname,
+		handler,
+		logger,
+		s.DisableInternalEvents,
+		s.ServerMode == "forwarder",
+	)
 	runnables = gostatsd.MaybeAppendRunnable(runnables, statser)
 
 	// Create any http servers
@@ -212,12 +217,9 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 	}
 
 	// Start the world!
-	runCtx := stats.NewReportContext(
-		stats.NewContext(
-			context.Background(),
-			statser,
-		),
-		s.ReportedMetricType,
+	runCtx := stats.NewContext(
+		context.Background(),
+		statser,
 	)
 	stgr := stager.New()
 	defer stgr.Shutdown()
@@ -239,6 +241,7 @@ func (s *Server) createStatser(
 	handler gostatsd.PipelineHandler,
 	logger logrus.FieldLogger,
 	disableEvents bool,
+	forwarderMode bool,
 ) stats.Statser {
 	switch s.StatserType {
 	case gostatsd.StatserNull:
@@ -260,6 +263,7 @@ func (s *Server) createStatser(
 			hostname,
 			handler,
 			disableEvents,
+			forwarderMode,
 		)
 	}
 }

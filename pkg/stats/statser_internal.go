@@ -24,6 +24,7 @@ type InternalStatser struct {
 	handler   gostatsd.PipelineHandler
 
 	disableEvents bool
+	forwarderMode bool
 
 	consolidator *gostatsd.MetricConsolidator
 }
@@ -36,6 +37,7 @@ func NewInternalStatser(
 	hostname gostatsd.Source,
 	handler gostatsd.PipelineHandler,
 	disableEvents bool,
+	forwarderMode bool,
 ) *InternalStatser {
 	if hostname != gostatsd.UnknownSource {
 		tags = tags.Concat(gostatsd.Tags{"host:" + string(hostname)})
@@ -46,6 +48,7 @@ func NewInternalStatser(
 		hostname:      hostname,
 		handler:       handler,
 		disableEvents: disableEvents,
+		forwarderMode: forwarderMode,
 		// We can't just use a MetricMap because everything
 		// that writes to it is on its own goroutine.
 		consolidator: gostatsd.NewMetricConsolidator(10, false, 0, nil),
@@ -93,6 +96,14 @@ func (is *InternalStatser) Count(name string, amount float64, tags gostatsd.Tags
 // Increment sends a counter metric with a value of 1
 func (is *InternalStatser) Increment(name string, tags gostatsd.Tags) {
 	is.Count(name, 1, tags)
+}
+
+func (is *InternalStatser) Report(name string, value float64, tags gostatsd.Tags) {
+	if is.forwarderMode {
+		is.Count(name, value, tags)
+	} else {
+		is.Gauge(name, value, tags)
+	}
 }
 
 // TimingMS sends a timing metric from a millisecond value

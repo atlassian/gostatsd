@@ -52,6 +52,14 @@ func (ls *LoggingStatser) Increment(name string, tags gostatsd.Tags) {
 	}).Infof("increment")
 }
 
+func (ls *LoggingStatser) Report(name string, value float64, tags gostatsd.Tags) {
+	ls.logger.WithFields(logrus.Fields{
+		"name":  name,
+		"tags":  ls.tags.Concat(tags),
+		"value": value,
+	}).Infof("report")
+}
+
 // TimingMS sends a timing metric from a millisecond value
 func (ls *LoggingStatser) TimingMS(name string, ms float64, tags gostatsd.Tags) {
 	ls.logger.WithFields(logrus.Fields{
