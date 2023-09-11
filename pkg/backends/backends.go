@@ -28,6 +28,7 @@ var backends = map[string]gostatsd.BackendFactory{
 	stdout.BackendName:      stdout.NewClientFromViper,
 	cloudwatch.BackendName:  cloudwatch.NewClientFromViper,
 	newrelic.BackendName:    newrelic.NewClientFromViper,
+	redis.BackendName:       redis.NewClientFromViper,
 }
 
 // GetBackend creates an instance of the named backend, or nil if
