@@ -1,3 +1,7 @@
+36.0.1
+------
+- Bump go version to 1.21.3
+
 36.0.0
 ------
 - Bump go version to 1.20.6
