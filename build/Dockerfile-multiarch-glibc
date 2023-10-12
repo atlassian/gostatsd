@@ -14,9 +14,6 @@ ARG MAIN_PKG
 
 ADD . /build
 
-# We need git, gcc, libc-dev
-RUN apk update && apk add --update git gcc libc-dev
-
 # Race needs CGO
 # https://github.com/golang/go/issues/51235
 RUN ldFlags="-s -X main.Version=$(git describe --abbrev=0 --tags) -X main.GitCommit=$(git rev-parse --short HEAD) -X main.BuildDate=$(date +%Y-%m-%d-%H:%M)"; \
