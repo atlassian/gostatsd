@@ -1,3 +1,8 @@
+36.0.2
+------
+- Bumping `golang.org/x/net` to version `v0.17.0`
+- Bumping `github.com/spf13/viper` to version `v1.17.0`
+
 36.0.1
 ------
 - Bump go version to 1.21.3
