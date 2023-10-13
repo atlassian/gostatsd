@@ -19,7 +19,7 @@ ADD . /build
 RUN ldFlags="-s -X main.Version=$(git describe --abbrev=0 --tags) -X main.GitCommit=$(git rev-parse --short HEAD) -X main.BuildDate=$(date +%Y-%m-%d-%H:%M)"; \
     CGO_ENABLED=1 GOOS=linux GOARCH=${TARGETARCH} go build -race -o bin/linux/${TARGETARCH}/${BINARY_NAME} -ldflags "${ldFlags}" ${MAIN_PKG}
 
-FROM ubuntu:18.04
+FROM ubuntu:22.04
 
 RUN export DEBIAN_FRONTEND=noninteractive && \
     apt-get update && \
