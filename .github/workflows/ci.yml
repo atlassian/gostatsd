@@ -13,11 +13,9 @@ jobs:
         uses: actions/setup-go@v3
         with:
           # Go version needs to be the same in: CI config, README, Dockerfiles, and Makefile
-          go-version: 1.21.3
-      - name: Install Goveralls
-        run: go get -v github.com/mattn/goveralls
+          go-version: 1.21.4
       - name: Setup CI
-        run: make setup-ci
+        run: make tools
       - name: Test
         run: |
           make check-fmt

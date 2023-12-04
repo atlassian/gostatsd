@@ -1,5 +1,5 @@
 # Go version needs to be the same in: CI config, README, Dockerfiles, and Makefile
-FROM golang:1.21.3 AS build
+FROM golang:1.21.4 AS build
 WORKDIR /build
 
 # Install dependencies first to take advantage of the docker build cache.
@@ -16,8 +16,7 @@ ADD . /build
 
 # Race needs CGO
 # https://github.com/golang/go/issues/51235
-RUN ldFlags="-s -X main.Version=$(git describe --abbrev=0 --tags) -X main.GitCommit=$(git rev-parse --short HEAD) -X main.BuildDate=$(date +%Y-%m-%d-%H:%M)"; \
-    CGO_ENABLED=1 GOOS=linux GOARCH=${TARGETARCH} go build -race -o bin/linux/${TARGETARCH}/${BINARY_NAME} -ldflags "${ldFlags}" ${MAIN_PKG}
+RUN make build CGO_ENABLED=1 PKG=${MAIN_PKG}
 
 FROM ubuntu:22.04
 

@@ -1,3 +1,8 @@
+37.0.0
+------
+- Bumping go version to 1.21.4
+- Building with `GOEXPERIMENT=boringcrypto` by default
+
 36.0.2
 ------
 - Bumping `golang.org/x/net` to version `v0.17.0`
