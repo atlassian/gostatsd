@@ -73,6 +73,16 @@ func WithLogger(log logrus.FieldLogger) OptionFunc {
 	}
 }
 
+func WithLambdaFileName(fileName string) OptionFunc {
+	return func(m *manager) error {
+		if len(fileName) == 0 {
+			return errors.New("invalid name")
+		}
+		m.name = fileName
+		return nil
+	}
+}
+
 func NewManager(opts ...OptionFunc) (Manager, error) {
 	name, err := os.Executable()
 	if err != nil {
@@ -166,9 +176,6 @@ func (m *manager) Run(parent context.Context, server Server) error {
 }
 
 func (m *manager) heartbeat(ctx context.Context, cancel context.CancelFunc) error {
-	timer := clock.FromContext(ctx).NewTimer(100 * time.Millisecond)
-	defer timer.Stop()
-
 	for ctx.Err() == nil {
 		resp, err := m.nextEvent(ctx)
 		if err != nil {
@@ -184,15 +191,6 @@ func (m *manager) heartbeat(ctx context.Context, cancel context.CancelFunc) erro
 			"invocation-arn": resp.InvokedFunctionARN,
 			"deadline":       resp.Deadline,
 		}).Debug("Progressing further with the invocation")
-
-		deadline := time.Unix(0, resp.Deadline*int64(time.Millisecond))
-		waitTil := clock.FromContext(ctx).Until(deadline) / 2
-		timer.Reset(waitTil)
-
-		// To ensure we are not constantly sending heart beats to lambda,
-		// The timer will ensure that pause will be roughly half the time to the deadline
-		// The lambda will be continuely ready to accept data regardless
-		<-timer.C
 	}
 
 	cancel()
@@ -201,10 +199,8 @@ func (m *manager) heartbeat(ctx context.Context, cancel context.CancelFunc) erro
 }
 
 func (m *manager) register(ctx context.Context) error {
-	var (
-		buf bytes.Buffer
-		enc = json.NewEncoder(&buf)
-	)
+	var buf bytes.Buffer
+	var enc = json.NewEncoder(&buf)
 
 	enc.SetEscapeHTML(true)
 

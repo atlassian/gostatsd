@@ -15,10 +15,6 @@ import (
 	"github.com/atlassian/gostatsd"
 	"github.com/atlassian/gostatsd/internal/awslambda/extension"
 	"github.com/atlassian/gostatsd/internal/util"
-	"github.com/atlassian/gostatsd/pkg/backends"
-	"github.com/atlassian/gostatsd/pkg/cachedinstances"
-	"github.com/atlassian/gostatsd/pkg/cachedinstances/cloudprovider"
-	"github.com/atlassian/gostatsd/pkg/cloudproviders"
 	"github.com/atlassian/gostatsd/pkg/statsd"
 	"github.com/atlassian/gostatsd/pkg/transport"
 )
@@ -33,6 +29,8 @@ const (
 	ParamConfigPath = "config-path"
 
 	ParamVerbose = "verbose"
+
+	ParamLambdaFileName = "lambda-entrypoint-name"
 )
 
 func init() {
@@ -50,6 +48,7 @@ func GetConfiguration() (*viper.Viper, error) {
 	cmd := pflag.NewFlagSet(os.Args[0], pflag.ContinueOnError)
 	cmd.Bool(ParamVerbose, false, "Enables debug level logs within the extension")
 	cmd.String(ParamConfigPath, "", "Path to a configuration file")
+	cmd.String(ParamLambdaFileName, "", "Name of executable that boostraps lambda. Used as Lambda-Extension-Name header")
 
 	gostatsd.AddFlags(cmd)
 
@@ -74,47 +73,9 @@ func GetConfiguration() (*viper.Viper, error) {
 }
 
 func CreateServer(v *viper.Viper, logger logrus.FieldLogger) (*statsd.Server, error) {
-	var runnables []gostatsd.Runnable
-	// Logger
-
 	// HTTP client pool
 	pool := transport.NewTransportPool(logger, v)
 
-	// Cached instances
-	var cachedInstances gostatsd.CachedInstances
-	cloudProviderName := v.GetString(gostatsd.ParamCloudProvider)
-	if cloudProviderName == "" {
-		logger.Info("No cloud provider specified")
-	} else {
-		var err error
-		// See if requested cloud provider is a native CachedInstances implementation
-		cachedInstances, err = cachedinstances.Get(logger, cloudProviderName, v, Version)
-		switch err {
-		case nil:
-		case cachedinstances.ErrUnknownProvider:
-			// See if requested cloud provider is a CloudProvider implementation
-			cloudProvider, err := cloudproviders.Get(logger, cloudProviderName, v, Version)
-			if err != nil {
-				return nil, err
-			}
-			runnables = gostatsd.MaybeAppendRunnable(runnables, cloudProvider)
-			cachedInstances = newCachedInstancesFromViper(logger, cloudProvider, v)
-		default:
-			return nil, err
-		}
-		runnables = gostatsd.MaybeAppendRunnable(runnables, cachedInstances)
-	}
-	// Backends
-	backendNames := v.GetStringSlice(gostatsd.ParamBackends)
-	backendsList := make([]gostatsd.Backend, 0, len(backendNames))
-	for _, backendName := range backendNames {
-		backend, errBackend := backends.InitBackend(backendName, v, logger, pool)
-		if errBackend != nil {
-			return nil, errBackend
-		}
-		backendsList = append(backendsList, backend)
-		runnables = gostatsd.MaybeAppendRunnable(runnables, backend)
-	}
 	// Percentiles
 	pt, err := getPercentiles(v.GetStringSlice(gostatsd.ParamPercentThreshold))
 	if err != nil {
@@ -129,9 +90,9 @@ func CreateServer(v *viper.Viper, logger logrus.FieldLogger) (*statsd.Server, er
 
 	// Create server
 	return &statsd.Server{
-		Runnables:             runnables,
-		Backends:              backendsList,
-		CachedInstances:       cachedInstances,
+		Runnables:             nil,
+		Backends:              nil,
+		CachedInstances:       nil,
 		InternalTags:          v.GetStringSlice(gostatsd.ParamInternalTags),
 		InternalNamespace:     v.GetString(gostatsd.ParamInternalNamespace),
 		DefaultTags:           v.GetStringSlice(gostatsd.ParamDefaultTags),
@@ -183,27 +144,6 @@ func getPercentiles(s []string) ([]float64, error) {
 	return percentThresholds, nil
 }
 
-// newCachedInstancesFromViper initialises a new cached instances.
-func newCachedInstancesFromViper(logger logrus.FieldLogger, cloudProvider gostatsd.CloudProvider, v *viper.Viper) gostatsd.CachedInstances {
-	// Set the defaults in Viper based on the cloud provider values before we manipulate things
-	v.SetDefault(gostatsd.ParamCacheRefreshPeriod, gostatsd.DefaultCacheRefreshPeriod)
-	v.SetDefault(gostatsd.ParamCacheEvictAfterIdlePeriod, gostatsd.DefaultCacheEvictAfterIdlePeriod)
-	v.SetDefault(gostatsd.ParamCacheTTL, gostatsd.DefaultCacheTTL)
-	v.SetDefault(gostatsd.ParamCacheNegativeTTL, gostatsd.DefaultCacheNegativeTTL)
-	v.SetDefault(gostatsd.ParamMaxCloudRequests, gostatsd.DefaultMaxCloudRequests)
-	v.SetDefault(gostatsd.ParamBurstCloudRequests, gostatsd.DefaultBurstCloudRequests)
-
-	// Set the used values based on the defaults merged with any overrides
-	cacheOptions := gostatsd.CacheOptions{
-		CacheRefreshPeriod:        v.GetDuration(gostatsd.ParamCacheRefreshPeriod),
-		CacheEvictAfterIdlePeriod: v.GetDuration(gostatsd.ParamCacheEvictAfterIdlePeriod),
-		CacheTTL:                  v.GetDuration(gostatsd.ParamCacheTTL),
-		CacheNegativeTTL:          v.GetDuration(gostatsd.ParamCacheNegativeTTL),
-	}
-	limiter := rate.NewLimiter(rate.Limit(v.GetInt(gostatsd.ParamMaxCloudRequests)), v.GetInt(gostatsd.ParamBurstCloudRequests))
-	return cloudprovider.NewCachedCloudProvider(logger, limiter, cloudProvider, cacheOptions)
-}
-
 func main() {
 	conf, err := GetConfiguration()
 	if err != nil {
@@ -231,6 +171,7 @@ func main() {
 
 	manager, err := extension.NewManager(
 		extension.WithLogger(log),
+		extension.WithLambdaFileName(conf.GetString(ParamLambdaFileName)),
 	)
 	if err != nil {
 		log.WithError(err).Panic("Unable to create extension manager")
