@@ -2,12 +2,15 @@ package statsd
 
 import (
 	"context"
+	"net"
+	"os"
 	"runtime"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/magiconair/properties/assert"
+	tassert "github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/atlassian/gostatsd"
@@ -92,4 +95,73 @@ func TestDatagramReceiver_Receive(t *testing.T) {
 	dg := dgs[0]
 	assert.Equal(t, string(dg.IP), fakesocket.FakeAddr.IP.String())
 	assert.Equal(t, dg.Msg, fakesocket.FakeMetric)
+}
+
+func TestDatagramReceiver_UnixSocketConnection(t *testing.T) {
+	ch := make(chan []*Datagram, 1)
+	message := "abc.def.g:10|c"
+
+	// Datagram receiver listening in Unix Domain Socket
+	socketPath := os.TempDir() + "/gostatsd_receiver_test_receive_uds.sock"
+	mr := NewDatagramReceiver(ch, socketFactory(socketPath, false), 1, 2)
+	ctx, cancel := context.WithCancel(context.Background())
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		mr.Run(ctx)
+		wg.Done()
+	}()
+
+	// Wait until the socket is created
+	tassert.Eventually(t, func() bool {
+		return tassert.FileExists(t, socketPath)
+	}, time.Second, 10*time.Millisecond)
+
+	err := sendDataToSocket(socketPath, message)
+	tassert.NoError(t, err)
+
+	select {
+	case d := <-ch:
+		tassert.Len(t, d, 1)
+		tassert.Equal(t, d[0].Msg, []byte(message))
+		cancel()
+	case <-time.After(time.Second):
+		t.Errorf("Timeout, failed to read datagram")
+		cancel()
+	}
+	wg.Wait()
+}
+
+func TestDatagramReceiver_UnixSocketIsRemovedOnContextCancellation(t *testing.T) {
+	ch := make(chan []*Datagram, 1)
+
+	socketPath := os.TempDir() + "/gostatsd_receiver_test_receive_uds.sock"
+	mr := NewDatagramReceiver(ch, socketFactory(socketPath, false), 1, 2)
+	ctx, cancel := context.WithCancel(context.Background())
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		mr.Run(ctx)
+		wg.Done()
+	}()
+
+	tassert.Eventually(t, func() bool {
+		return tassert.FileExists(t, socketPath)
+	}, time.Second, 10*time.Millisecond)
+	cancel()
+	wg.Wait()
+	tassert.NoFileExists(t, socketPath)
+}
+
+func sendDataToSocket(socketPath string, data string) error {
+	c, err := net.Dial("unixgram", socketPath)
+	if err != nil {
+		return err
+	}
+	defer c.Close()
+
+	_, err = c.Write([]byte(data))
+	return err
 }

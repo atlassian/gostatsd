@@ -1,0 +1,60 @@
+name: manual-release
+
+on:
+  workflow_dispatch:
+
+jobs:
+  release:
+    # this job should only ever be run on master
+    if: github.ref_type == 'branch' && github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    # minimal permissions for Get Artifact Publish Token
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          # We want to fetch everything, tags and branch names
+          # so that we can compare them
+          fetch-depth: 0
+      # Make sure that master and the latest git tag are pointing at the same commit
+      # This will go some way to ensuring that we are building the latest version
+      # and that a git tag was applied to master.
+      - name: Ensure master and latest tag are the same commit
+        run: |
+          # we want to see the output of the commands
+          set -x
+          # don't quit if a pipeline fails
+          set +e
+          # get the latest tag
+          TAG=$(git describe --tag --abbrev=0)
+          [ "$(git rev-parse master)" != "$(git rev-parse $TAG)" ] && echo "master branch and $TAG are different commits" && exit 1
+          echo "Master branch and $TAG are the same commit. We can continue with the release."
+      # Get the token we need to publish to packages.atlassian.com
+      - name: Get publish token
+        id: publish-token
+        uses: atlassian-labs/artifact-publish-token@v1.0.1
+        with:
+          output-modes: environment
+      - name: Set up Go
+        uses: actions/setup-go@v3
+        with:
+          # Go version needs to be the same in: CI config, README, Dockerfiles, and Makefile
+          go-version: 1.21.4
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@master
+        with:
+          platforms: 'amd64,arm64'
+      - name: Set up Docker Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@master
+      - name: Release
+        run: |
+          echo "Executing release on tag build $GITHUB_REF_NAME"
+          ARCH=linux CPU_ARCH=amd64 make release-ci
+          ARCH=linux CPU_ARCH=arm64 make release-ci
+      - name: Push Docker Manifest
+        run: |
+          echo "Executing release-manifest on tag build $GITHUB_REF_NAME"
+          ARCH=linux CPU_ARCH=amd64 make release-manifest-ci
+          ARCH=linux CPU_ARCH=arm64 make release-manifest-ci

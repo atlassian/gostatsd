@@ -11,9 +11,22 @@ Only one prof will be allowed to run at any point, and requesting multiple will 
 - `/expvar`, routes directly to the [expvar handler](https://golang.org/pkg/expvar/#Handler)
 
 ### `healthcheck` endpoints
-- `/healthcheck`, reports if the server is internally healthy.  This is what should be used for health checking by an LB.
-- `/deepcheck`, reports the status of downstream services.  This should not be used for system healthcheck, as a bad
-  dependency should not cause an otherwise healthy server to cycle, because it will likely fail again.
+- `/healthcheck`, reports if the server is internally healthy.  This is what should be used for health checking by a
+  load-balancer.  It does not report on downstream dependencies.
+- `/deepcheck`, reports the status of downstream dependencies.  This should not be used for system healthcheck, as a bad
+  dependency should not cause an otherwise healthy server to cycle, because it will likely fail again.  It is generally
+  checked on startup, not continuously, but is designed with the assumption that it will be continuously polled.
+
+Both endpoints will return 200 if healthy, or 500 if not healthy.  Currently the body is:
+```
+{
+  "ok": ["results of checks"],
+  "failed": ["results of checks"]
+}
+```
+
+however this is not contractual and may change.  The contract is the error code, not the body.  A 500 is returned if
+the `failed` field is non-empty.
 
 ### `ingestion` endpoint
 - `/vN/raw` and `/vN/event`, takes in protobuf formatted raw metrics.  This endpoint is intended for gostatsd to

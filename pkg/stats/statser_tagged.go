@@ -49,6 +49,10 @@ func (ts *TaggedStatser) Increment(name string, tags gostatsd.Tags) {
 	ts.statser.Increment(name, ts.concatTags(ts.tags, tags))
 }
 
+func (ts *TaggedStatser) Report(name string, value *uint64, tags gostatsd.Tags) {
+	ts.statser.Report(name, value, tags)
+}
+
 // TimingMS sends a timing metric from a millisecond value
 func (ts *TaggedStatser) TimingMS(name string, ms float64, tags gostatsd.Tags) {
 	ts.statser.TimingMS(name, ms, ts.concatTags(ts.tags, tags))

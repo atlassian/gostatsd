@@ -42,7 +42,7 @@ func TestReceive(t *testing.T) {
 	t.Parallel()
 	assrt := assert.New(t)
 
-	mm := NewMetricMap()
+	mm := NewMetricMap(false)
 
 	tests := metricsFixtures()
 	for _, metric := range tests {
@@ -105,7 +105,7 @@ func TestReceive(t *testing.T) {
 }
 
 func benchmarkReceive(metric Metric, b *testing.B) {
-	ma := NewMetricMap()
+	ma := NewMetricMap(false)
 	b.ReportAllocs()
 	b.ResetTimer()
 
@@ -131,7 +131,7 @@ func BenchmarkReceiveSet(b *testing.B) {
 }
 
 func BenchmarkReceives(b *testing.B) {
-	ma := NewMetricMap()
+	ma := NewMetricMap(false)
 	tests := metricsFixtures()
 	b.ReportAllocs()
 	b.ResetTimer()
@@ -143,7 +143,7 @@ func BenchmarkReceives(b *testing.B) {
 }
 
 func TestMetricMapDispatch(t *testing.T) {
-	mm := NewMetricMap()
+	mm := NewMetricMap(false)
 	metrics := metricsFixtures()
 	for _, metric := range metrics {
 		mm.Receive(metric)
@@ -208,21 +208,21 @@ func TestMetricMapMerge(t *testing.T) {
 		{Name: "TestMetricMapMerge.set", StringValue: "def", Type: SET, Timestamp: 20},
 	}
 
-	m1 := NewMetricMap()
+	m1 := NewMetricMap(false)
 	for _, m := range metrics1 {
 		m1.Receive(m)
 	}
 
-	m2 := NewMetricMap()
+	m2 := NewMetricMap(false)
 	for _, m := range metrics2 {
 		m2.Receive(m)
 	}
 
-	merged := NewMetricMap()
+	merged := NewMetricMap(false)
 	merged.Merge(m1)
 	merged.Merge(m2)
 
-	expected := NewMetricMap()
+	expected := NewMetricMap(false)
 	expected.Counters = Counters{
 		"TestMetricMapMerge.counter": map[string]Counter{
 			"": {
@@ -263,7 +263,7 @@ func TestMetricMapMerge(t *testing.T) {
 }
 
 func TestMetricMapSplit(t *testing.T) {
-	mmOriginal := NewMetricMap()
+	mmOriginal := NewMetricMap(false)
 	mmOriginal.Counters["m"] = map[string]Counter{
 		"t.s.h1": {Tags: Tags{"t"}, Source: "h1", Value: 10},
 		"t.s.h2": {Tags: Tags{"t"}, Source: "h2", Value: 20},
@@ -293,7 +293,7 @@ func TestMetricMapSplit(t *testing.T) {
 		"t.s.h5": {Tags: Tags{"t"}, Source: "h5", Values: map[string]struct{}{"50": {}, "10": {}}},
 	}
 
-	mmMerged := NewMetricMap()
+	mmMerged := NewMetricMap(false)
 	mms := mmOriginal.Split(2)
 	for _, mmSplit := range mms {
 		// Make sure something landed in each (don't use mmSplit.IsEmpty() to ensure that all types are split)
@@ -308,7 +308,7 @@ func TestMetricMapSplit(t *testing.T) {
 }
 
 func TestMetricMapIsEmpty(t *testing.T) {
-	mm := NewMetricMap()
+	mm := NewMetricMap(false)
 	require.True(t, mm.IsEmpty())
 
 	// Counter
@@ -345,7 +345,7 @@ func TestTagsMatch(t *testing.T) {
 }
 
 func TestMetricMapSplitByTags(t *testing.T) {
-	mmOriginal := NewMetricMap()
+	mmOriginal := NewMetricMap(false)
 	mmOriginal.Counters["m"] = map[string]Counter{
 		"t:x,s:h1":     {Tags: Tags{"t:x"}, Source: "h1", Value: 10},
 		"t:x,s:h2":     {Tags: Tags{"t:x"}, Source: "h2", Value: 20},

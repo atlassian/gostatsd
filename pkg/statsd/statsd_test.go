@@ -4,6 +4,7 @@ import (
 	"context"
 	"math/rand"
 	"runtime"
+	"strconv"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -11,6 +12,7 @@ import (
 	"github.com/ash2k/stager/wait"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/time/rate"
 
@@ -143,6 +145,35 @@ func TestStatsdThroughput(t *testing.T) {
 		mallocs, mallocs/numMetrics,
 		memStatsFinish.NumGC-memStatsStart.NumGC,
 		memStatsFinish.GCCPUFraction)
+}
+
+func TestNetworkFromAddress(t *testing.T) {
+	t.Parallel()
+	input := []struct {
+		address         string
+		expectedNetwork string
+	}{
+		{
+			address:         "localhost:8125",
+			expectedNetwork: "udp",
+		},
+		{
+			address:         "",
+			expectedNetwork: "udp",
+		},
+		{
+			address:         "/some/file.sock",
+			expectedNetwork: "unixgram",
+		},
+	}
+	for pos, inp := range input {
+		inp := inp
+		t.Run(strconv.Itoa(pos), func(t *testing.T) {
+			t.Parallel()
+			network := networkFromAddress(inp.address)
+			assert.Equal(t, inp.expectedNetwork, network)
+		})
+	}
 }
 
 type countingBackend struct {

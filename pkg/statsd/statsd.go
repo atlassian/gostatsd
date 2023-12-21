@@ -14,6 +14,7 @@ import (
 	"golang.org/x/time/rate"
 
 	"github.com/atlassian/gostatsd"
+	"github.com/atlassian/gostatsd/pkg/healthcheck"
 	"github.com/atlassian/gostatsd/pkg/stats"
 	"github.com/atlassian/gostatsd/pkg/transport"
 	"github.com/atlassian/gostatsd/pkg/web"
@@ -57,6 +58,7 @@ type Server struct {
 	ServerMode                string
 	Hostname                  gostatsd.Source
 	LogRawMetric              bool
+	DisableInternalEvents     bool
 	Viper                     *viper.Viper
 	TransportPool             *transport.TransportPool
 }
@@ -81,12 +83,22 @@ func socketFactory(metricsAddr string, connPerReader bool) SocketFactory {
 		return func() (net.PacketConn, error) {
 			return reuseport.ListenPacket("udp", metricsAddr)
 		}
-	} else {
-		conn, err := net.ListenPacket("udp", metricsAddr)
-		return func() (net.PacketConn, error) {
-			return conn, err
-		}
 	}
+
+	conn, err := net.ListenPacket(networkFromAddress(metricsAddr), metricsAddr)
+	return func() (net.PacketConn, error) {
+		return conn, err
+	}
+}
+
+// networkFromAddress returns the network type based on the provided address
+// if the address starts with a slash (unix absolute path) it will be considered a unix socket
+// otherwise it will default to UDP
+func networkFromAddress(addr string) string {
+	if len(addr) > 0 && addr[0:1] == "/" {
+		return "unixgram"
+	}
+	return "udp"
 }
 
 func (s *Server) createStandaloneSink() (gostatsd.PipelineHandler, []gostatsd.Runnable, error) {
@@ -143,11 +155,15 @@ func (s *Server) createFinalSink(logger logrus.FieldLogger) (gostatsd.PipelineHa
 func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) error {
 	logger := logrus.StandardLogger()
 
+	var healthChecks []healthcheck.HealthcheckFunc
+	var deepChecks []healthcheck.HealthcheckFunc
+
 	handler, runnables, err := s.createFinalSink(logger)
 	if err != nil {
 		return err
 	}
 
+	healthChecks, deepChecks = healthcheck.MaybeAppendHealthChecks(healthChecks, deepChecks, handler)
 	runnables = append(append(make([]gostatsd.Runnable, 0, len(s.Runnables)), s.Runnables...), runnables...)
 
 	// Create the tag processor
@@ -182,11 +198,17 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 
 	// Create the Statser
 	hostname := s.Hostname
-	statser := s.createStatser(hostname, handler, logger)
+	statser := s.createStatser(
+		hostname,
+		handler,
+		logger,
+		s.DisableInternalEvents,
+		s.ServerMode == "forwarder",
+	)
 	runnables = gostatsd.MaybeAppendRunnable(runnables, statser)
 
 	// Create any http servers
-	httpServers, err := web.NewHttpServersFromViper(s.Viper, logger, handler)
+	httpServers, err := web.NewHttpServersFromViper(s.Viper, logger, handler, healthChecks, deepChecks)
 	if err != nil {
 		return err
 	}
@@ -195,7 +217,10 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 	}
 
 	// Start the world!
-	runCtx := stats.NewContext(context.Background(), statser)
+	runCtx := stats.NewContext(
+		context.Background(),
+		statser,
+	)
 	stgr := stager.New()
 	defer stgr.Shutdown()
 	for _, runnable := range runnables {
@@ -211,7 +236,13 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 	return ctx.Err()
 }
 
-func (s *Server) createStatser(hostname gostatsd.Source, handler gostatsd.PipelineHandler, logger logrus.FieldLogger) stats.Statser {
+func (s *Server) createStatser(
+	hostname gostatsd.Source,
+	handler gostatsd.PipelineHandler,
+	logger logrus.FieldLogger,
+	disableEvents bool,
+	forwarderMode bool,
+) stats.Statser {
 	switch s.StatserType {
 	case gostatsd.StatserNull:
 		return stats.NewNullStatser()
@@ -226,7 +257,14 @@ func (s *Server) createStatser(hostname gostatsd.Source, handler gostatsd.Pipeli
 				namespace = s.InternalNamespace
 			}
 		}
-		return stats.NewInternalStatser(s.InternalTags, namespace, hostname, handler)
+		return stats.NewInternalStatser(
+			s.InternalTags,
+			namespace,
+			hostname,
+			handler,
+			disableEvents,
+			forwarderMode,
+		)
 	}
 }
 
@@ -243,6 +281,7 @@ func sendStartEvent(ctx context.Context, statser stats.Statser, hostname gostats
 func sendStopEvent(statser stats.Statser, hostname gostatsd.Source) {
 	ctx, cancelFunc := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancelFunc()
+
 	statser.Event(ctx, &gostatsd.Event{
 		Title:        "Gostatsd stopped",
 		Text:         "Gostatsd stopped",
@@ -250,6 +289,7 @@ func sendStopEvent(statser stats.Statser, hostname gostatsd.Source) {
 		Source:       hostname,
 		Priority:     gostatsd.PriLow,
 	})
+
 	statser.WaitForEvents()
 }
 

@@ -1,7 +1,105 @@
-unreleased
+37.0.0
 ------
-- Forces http metrics forwarder to flush all data queued on shutdown
-- Adding in lambda extension to be use in AWS Cloud
+- Bumping go version to 1.21.4
+- Building with `GOEXPERIMENT=boringcrypto` by default
+
+36.0.2
+------
+- Bumping `golang.org/x/net` to version `v0.17.0`
+- Bumping `github.com/spf13/viper` to version `v1.17.0`
+
+36.0.1
+------
+- Bump go version to 1.21.3
+
+36.0.0
+------
+- Bump go version to 1.20.6
+- Updated internal metrics to use `Report` and change on deployment mode.
+- Updated METRICS.md for impacted values
+
+35.2.2
+------
+- Bump alpine from 3.18.0 to 3.18.2 in /cmd/tester and /build/
+
+35.2.1
+------
+- Bump alpine from 3.17.2 to 3.18.0 in /cmd/tester and /build/
+
+35.2.0
+------
+- Adds more meaningful healthchecks
+
+35.1.6 - 35.1.19
+------
+- These versions were just developing and debugging the new build and release process on Github Actions
+
+35.1.5
+------
+Setting up the new test, build and release process on Github actions.
+This release is to test running the release step with a new tag on master.
+
+35.1.4
+------
+Library version bumps. No user visible impact expected
+- Bump github.com/aws/aws-sdk-go from 1.44.111 to 1.44.126
+- Bump alpine from 3.16.2 to 3.17.2 in /cmd/tester
+- Bump alpine from 3.16.2 to 3.17.2 in /build/
+- Bump golang.org/x/net from 0.0.0-20220919232410-f2f64ebce3c1 to 0.8.0
+
+35.1.3
+------
+- HTTP forwarder updated with a new option `concurrent-merge` to support parallel processing, the
+  default value is backward-compatible.
+
+35.1.2
+------
+- Bump all the libraries.  No user visible impact expected.
+
+35.1.1
+------
+- Bump all the libraries.  No user visible impact expected.
+
+35.1.0
+------
+- Parser updated to drop unrecognized dogstatsd fields.  In particular the `|c` field will no longer
+  pollute the last tag in the list.  For now, the `|c` field is just dropped.
+
+35.0.1
+------
+- Update to Alpine 3.15.5
+
+35.0.0
+------
+- Adds a statsdSource tag to the New Relic backend, see [BACKENDS.md](BACKENDS.md) for details.
+
+34.2.1
+------
+- Upgrade from Alpine 3.15.0 -> 3.15.4
+- Dependency upgrades
+- Upgrade golangci-lint action 1.33 -> 1.45.2
+
+34.2.0
+------
+- Support for Unix Domain Sockets added by rubenruizdegauna
+
+34.1.0
+------
+- NewRelic backend honors Retry-After header, added by malderete.  As a result of this, the maximum time a request can
+  take approaches 2*max-request-elapsed-time, however it's still a bounded duration (unless max-request-elapsed-time=0).
+  Note: this is not entirely new behavior, as max-request-elapsed-time only determines when to stop retrying, and not
+  http timeouts (see [TRANSPORT.md](TRANSPORT.md) for details).
+
+34.0.1
+------
+- Forcing a new tag release to allow for docker release
+- Missed release for 34.0.0
+
+34.0.0
+------
+- (Breaking Change) Forces http metrics forwarder to flush all data queued on shutdown
+- Upgrade from Alpine 3.14.3 -> 3.15.0
+- Dependancy upgrades
 
 33.0.2
 ------

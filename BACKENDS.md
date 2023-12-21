@@ -285,3 +285,18 @@ Additional options are available to rename attributes if required.
 	timer-sum = "samples_sum"
 	timer-sumsquare = "samples_sum_squares"
 ```
+
+### Host Tag
+When `--ignore-host` is not set, the New Relic backend will add the tag `statsdSource`
+to all metrics. The value of this tag will be the `gostatsd.Source` string recorded
+with each metric. So as not to collide with the existing `host` attribute that
+is added to many infrastructure samples, the name `statsdSource` was chosen
+instead of `host`.
+
+*NOTE:* The addition of the `statsdSource` tag can potentially cause an
+explosion in [cardinality](https://docs.newrelic.com/docs/data-apis/ingest-apis/metric-api/NRQL-high-cardinality-metrics/).
+To avoid hitting cardinality limits, the `--ignore-host` option is the default
+when using the New Relic backend. To enable this functionality, supply
+`--ignore-host false` and be sure to watch your cardinality closely with a query
+like `SELECT cardinality() FROM Metric WHERE integration.name='GoStatsD'` or
+`SELECT cardinality() FROM Metric WHERE integration.name='GoStatsD' FACET metricName`.

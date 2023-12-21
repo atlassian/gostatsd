@@ -80,6 +80,95 @@ func TestRetries(t *testing.T) {
 	ch <- struct{}{}
 }
 
+func TestRetryAfter(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name                  string
+		retryAfterHeader      string
+		maxRequestElapsedTime time.Duration
+		expectedDuration      int64
+	}{
+		{
+			name:                  "Positive valid RetryAfter less than maxRequestElapsedTime",
+			retryAfterHeader:      "42",
+			maxRequestElapsedTime: 60 * time.Second,
+			expectedDuration:      42,
+		},
+		{
+			name:                  "Positive valid RetryAfter greather than maxRequestElapsedTime",
+			retryAfterHeader:      "42",
+			maxRequestElapsedTime: 2 * time.Second,
+			expectedDuration:      2,
+		},
+		{
+			name:                  "Negative invalid RetryAfter",
+			retryAfterHeader:      "-10",
+			maxRequestElapsedTime: 2 * time.Second,
+			expectedDuration:      0,
+		},
+		{
+			name:                  "Non-numeric invalid RetryAfter",
+			retryAfterHeader:      "wrong",
+			maxRequestElapsedTime: 2 * time.Second,
+			expectedDuration:      0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var requestNum uint32
+			var requestTimes []int64
+
+			mux := http.NewServeMux()
+			clck := clock.NewMock(time.Unix(0, 0))
+
+			mux.HandleFunc("/v1/data", func(w http.ResponseWriter, r *http.Request) {
+				requestTimes = append(requestTimes, clck.Now().Unix())
+				defer r.Body.Close()
+				n := atomic.AddUint32(&requestNum, 1)
+				data, err := ioutil.ReadAll(r.Body)
+
+				assert.NoError(t, err)
+				assert.NotEmpty(t, data)
+				if n == 1 {
+					// Return error on first request to trigger a retry after a second
+					w.Header().Add("Retry-After", tt.retryAfterHeader)
+					w.WriteHeader(http.StatusTooManyRequests)
+				}
+			})
+			ts := httptest.NewServer(mux)
+			defer ts.Close()
+
+			v := viper.New()
+			v.SetDefault("transport.default.client-timeout", 1*time.Second)
+			p := transport.NewTransportPool(logrus.New(), v)
+
+			client, err := NewClient("default", ts.URL+"/v1/data", "", "GoStatsD", "", "", "", "metric_name", "metric_type",
+				"metric_per_second", "metric_value", "samples_min", "samples_max", "samples_count",
+				"samples_mean", "samples_median", "samples_std_dev", "samples_sum", "samples_sum_squares", "agent",
+				defaultMetricsPerBatch, defaultMaxRequests, tt.maxRequestElapsedTime, 1*time.Second, gostatsd.TimerSubtypes{}, logrus.New(), p)
+
+			require.NoError(t, err)
+			res := make(chan []error, 1)
+			ctx := clock.Context(context.Background(), clck)
+			ch := make(chan struct{})
+			go advanceTime(clck, ch)
+			client.SendMetricsAsync(ctx, twoCounters(), func(errs []error) {
+				res <- errs
+			})
+			errs := <-res
+			for _, err := range errs {
+				assert.NoError(t, err)
+			}
+			assert.EqualValues(t, 2, requestNum)
+			assert.Len(t, requestTimes, 2)
+			assert.Equal(t, int64(tt.expectedDuration), requestTimes[1]-requestTimes[0])
+			ch <- struct{}{}
+		})
+	}
+}
+
 func TestSendMetricsInMultipleBatches(t *testing.T) {
 	t.Parallel()
 	var requestNum uint32
@@ -128,38 +217,39 @@ func TestSendMetrics(t *testing.T) {
 			name:      "infra",
 			flushType: "infra",
 			apiKey:    "",
-			expected: `{"name":"com.newrelic.gostatsd","protocol_version":"2","integration_version":"2.3.1","data":[{"metrics":` +
-				`[{"event_type":"GoStatsD","integration_version":"2.3.1","interval":1,"metric_name":"g1","metric_type":"gauge","metric_value":3,"tag3":"true","timestamp":100},` +
-				`{"event_type":"GoStatsD","integration_version":"2.3.1","interval":1,"metric_name":"c1","metric_per_second":1.1,"metric_type":"counter","metric_value":5,"tag1":"true","timestamp":100},` +
-				`{"event_type":"GoStatsD","integration_version":"2.3.1","interval":1,"metric_name":"users","metric_type":"set","metric_value":3,"tag4":"true","timestamp":100},` +
-				`{"count_90":0.1,"event_type":"GoStatsD","integration_version":"2.3.1","interval":1,"metric_name":"t1","metric_per_second":1.1,"metric_type":"timer","metric_value":1,` +
-				`"samples_count":1,"samples_max":1,"samples_mean":0.5,"samples_median":0.5,"samples_min":0,"samples_std_dev":0.1,"samples_sum":1,"samples_sum_squares":1,"tag2":"true","timestamp":100}]}]}`,
+			expected: `{"name":"com.newrelic.gostatsd","protocol_version":"2","integration_version":"2.4.0","data":[{"metrics":` +
+				`[{"event_type":"GoStatsD","integration_version":"2.4.0","interval":1,"metric_name":"g1","metric_type":"gauge","metric_value":3,"statsdSource":"h3","tag3":"true","timestamp":100},` +
+				`{"event_type":"GoStatsD","integration_version":"2.4.0","interval":1,"metric_name":"c1","metric_per_second":1.1,"metric_type":"counter","metric_value":5,"statsdSource":"h1","tag1":"true","timestamp":100},` +
+				`{"event_type":"GoStatsD","integration_version":"2.4.0","interval":1,"metric_name":"users","metric_type":"set","metric_value":3,"statsdSource":"h4","tag4":"true","timestamp":100},` +
+				`{"count_90":0.1,"event_type":"GoStatsD","integration_version":"2.4.0","interval":1,"metric_name":"t1","metric_per_second":1.1,"metric_type":"timer","metric_value":1,` +
+				`"samples_count":1,"samples_max":1,"samples_mean":0.5,"samples_median":0.5,"samples_min":0,"samples_std_dev":0.1,"samples_sum":1,"samples_sum_squares":1,"statsdSource":"h2","tag2":"true","timestamp":100}]}]}`,
 		},
 		{
 			name:      "insights",
 			flushType: "insights",
 			apiKey:    "some-api-key",
-			expected: `[{"eventType":"GoStatsD","integration_version":"2.3.1","interval":1,"metric_name":"g1","metric_type":"gauge","metric_value":3,"tag3":"true","timestamp":100},` +
-				`{"eventType":"GoStatsD","integration_version":"2.3.1","interval":1,"metric_name":"c1","metric_per_second":1.1,"metric_type":"counter","metric_value":5,"tag1":"true","timestamp":100},` +
-				`{"eventType":"GoStatsD","integration_version":"2.3.1","interval":1,"metric_name":"users","metric_type":"set","metric_value":3,"tag4":"true","timestamp":100},` +
-				`{"count_90":0.1,"eventType":"GoStatsD","integration_version":"2.3.1","interval":1,"metric_name":"t1","metric_per_second":1.1,"metric_type":"timer","metric_value":1,"samples_count":1,` +
-				`"samples_max":1,"samples_mean":0.5,"samples_median":0.5,"samples_min":0,"samples_std_dev":0.1,"samples_sum":1,"samples_sum_squares":1,"tag2":"true","timestamp":100}]`,
+			expected: `[{"eventType":"GoStatsD","integration_version":"2.4.0","interval":1,"metric_name":"g1","metric_type":"gauge","metric_value":3,"statsdSource":"h3","tag3":"true","timestamp":100},` +
+				`{"eventType":"GoStatsD","integration_version":"2.4.0","interval":1,"metric_name":"c1","metric_per_second":1.1,"metric_type":"counter","metric_value":5,"statsdSource":"h1","tag1":"true","timestamp":100},` +
+				`{"eventType":"GoStatsD","integration_version":"2.4.0","interval":1,"metric_name":"users","metric_type":"set","metric_value":3,"statsdSource":"h4","tag4":"true","timestamp":100},` +
+				`{"count_90":0.1,"eventType":"GoStatsD","integration_version":"2.4.0","interval":1,"metric_name":"t1","metric_per_second":1.1,"metric_type":"timer","metric_value":1,"samples_count":1,` +
+				`"samples_max":1,"samples_mean":0.5,"samples_median":0.5,"samples_min":0,"samples_std_dev":0.1,"samples_sum":1,"samples_sum_squares":1,"statsdSource":"h2","tag2":"true","timestamp":100}]`,
 		},
 		{
 			name:      "metrics",
 			flushType: "metrics",
 			apiKey:    "some-api-key",
-			expected: `[{"common":{"attributes":{"integration.name":"GoStatsD","integration.version":"2.3.1"},"interval.ms":1000},` +
-				`"metrics":[{"name":"g1","value":3,"type":"gauge","timestamp":100,"attributes":{"statsdType":"gauge","tag3":"true"}},` +
-				`{"name":"c1.per_second","value":1.1,"type":"gauge","timestamp":100,"attributes":{"statsdType":"gauge","tag1":"true"}},` +
-				`{"name":"c1","value":5,"type":"count","timestamp":100,"attributes":{"statsdType":"counter","tag1":"true"}},` +
-				`{"name":"users","timestamp":100,"attributes":{"statsdType":"set","tag4":"true"}},{"name":"t1.per_second","value":1.1,"type":"gauge","timestamp":100,"attributes":{"statsdType":"gauge","tag2":"true"}},` +
-				`{"name":"t1.mean","value":0.5,"type":"gauge","timestamp":100,"attributes":{"statsdType":"gauge","tag2":"true"}},` +
-				`{"name":"t1.median","value":0.5,"type":"gauge","timestamp":100,"attributes":{"statsdType":"gauge","tag2":"true"}},` +
-				`{"name":"t1.std_dev","value":0.1,"type":"gauge","timestamp":100,"attributes":{"statsdType":"gauge","tag2":"true"}},` +
-				`{"name":"t1.sum_squares","value":1,"type":"gauge","timestamp":100,"attributes":{"statsdType":"gauge","tag2":"true"}},` +
-				`{"name":"t1.count.percentiles","value":0.1,"type":"gauge","timestamp":100,"attributes":{"percentile":90,"statsdType":"gauge","tag2":"true"}},` +
-				`{"name":"t1.summary","value":{"count":1,"max":1,"min":0,"sum":1},"type":"summary","timestamp":100,"attributes":{"statsdType":"timer","tag2":"true"}}]}]`,
+			expected: `[{"common":{"attributes":{"integration.name":"GoStatsD","integration.version":"2.4.0"},"interval.ms":1000},` +
+				`"metrics":[{"name":"g1","value":3,"type":"gauge","timestamp":100,"attributes":{"statsdSource":"h3","statsdType":"gauge","tag3":"true"}},` +
+				`{"name":"c1.per_second","value":1.1,"type":"gauge","timestamp":100,"attributes":{"statsdSource":"h1","statsdType":"gauge","tag1":"true"}},` +
+				`{"name":"c1","value":5,"type":"count","timestamp":100,"attributes":{"statsdSource":"h1","statsdType":"counter","tag1":"true"}},` +
+				`{"name":"users","timestamp":100,"attributes":{"statsdSource":"h4","statsdType":"set","tag4":"true"}},` +
+				`{"name":"t1.per_second","value":1.1,"type":"gauge","timestamp":100,"attributes":{"statsdSource":"h2","statsdType":"gauge","tag2":"true"}},` +
+				`{"name":"t1.mean","value":0.5,"type":"gauge","timestamp":100,"attributes":{"statsdSource":"h2","statsdType":"gauge","tag2":"true"}},` +
+				`{"name":"t1.median","value":0.5,"type":"gauge","timestamp":100,"attributes":{"statsdSource":"h2","statsdType":"gauge","tag2":"true"}},` +
+				`{"name":"t1.std_dev","value":0.1,"type":"gauge","timestamp":100,"attributes":{"statsdSource":"h2","statsdType":"gauge","tag2":"true"}},` +
+				`{"name":"t1.sum_squares","value":1,"type":"gauge","timestamp":100,"attributes":{"statsdSource":"h2","statsdType":"gauge","tag2":"true"}},` +
+				`{"name":"t1.count.percentiles","value":0.1,"type":"gauge","timestamp":100,"attributes":{"percentile":90,"statsdSource":"h2","statsdType":"gauge","tag2":"true"}},` +
+				`{"name":"t1.summary","value":{"count":1,"max":1,"min":0,"sum":1},"type":"summary","timestamp":100,"attributes":{"statsdSource":"h2","statsdType":"timer","tag2":"true"}}]}]`,
 		},
 	}
 
@@ -241,12 +331,12 @@ func TestSendMetricsWithHistogram(t *testing.T) {
 		}
 
 		expected := []string{
-			`{"event_type":"GoStatsD","integration_version":"2.3.1","interval":1,"le":20,"metric_name":"t1.histogram","metric_per_second":0,"metric_type":"counter","metric_value":5,"timestamp":100}`,
-			`{"event_type":"GoStatsD","integration_version":"2.3.1","interval":1,"le":30,"metric_name":"t1.histogram","metric_per_second":0,"metric_type":"counter","metric_value":10,"timestamp":100}`,
-			`{"event_type":"GoStatsD","integration_version":"2.3.1","interval":1,"le":40,"metric_name":"t1.histogram","metric_per_second":0,"metric_type":"counter","metric_value":10,"timestamp":100}`,
-			`{"event_type":"GoStatsD","integration_version":"2.3.1","interval":1,"le":50,"metric_name":"t1.histogram","metric_per_second":0,"metric_type":"counter","metric_value":10,"timestamp":100}`,
-			`{"event_type":"GoStatsD","integration_version":"2.3.1","interval":1,"le":60,"metric_name":"t1.histogram","metric_per_second":0,"metric_type":"counter","metric_value":19,"timestamp":100}`,
-			`{"event_type":"GoStatsD","integration_version":"2.3.1","interval":1,"le":"infinity","metric_name":"t1.histogram","metric_per_second":0,"metric_type":"counter","metric_value":19,"timestamp":100}`,
+			`{"event_type":"GoStatsD","integration_version":"2.4.0","interval":1,"le":20,"metric_name":"t1.histogram","metric_per_second":0,"metric_type":"counter","metric_value":5,"timestamp":100}`,
+			`{"event_type":"GoStatsD","integration_version":"2.4.0","interval":1,"le":30,"metric_name":"t1.histogram","metric_per_second":0,"metric_type":"counter","metric_value":10,"timestamp":100}`,
+			`{"event_type":"GoStatsD","integration_version":"2.4.0","interval":1,"le":40,"metric_name":"t1.histogram","metric_per_second":0,"metric_type":"counter","metric_value":10,"timestamp":100}`,
+			`{"event_type":"GoStatsD","integration_version":"2.4.0","interval":1,"le":50,"metric_name":"t1.histogram","metric_per_second":0,"metric_type":"counter","metric_value":10,"timestamp":100}`,
+			`{"event_type":"GoStatsD","integration_version":"2.4.0","interval":1,"le":60,"metric_name":"t1.histogram","metric_per_second":0,"metric_type":"counter","metric_value":19,"timestamp":100}`,
+			`{"event_type":"GoStatsD","integration_version":"2.4.0","interval":1,"le":"infinity","metric_name":"t1.histogram","metric_per_second":0,"metric_type":"counter","metric_value":19,"timestamp":100}`,
 		}
 
 		for _, e := range expected {
@@ -343,7 +433,7 @@ func metricsOneOfEach() *gostatsd.MetricMap {
 }
 
 func metricsWithHistogram() *gostatsd.MetricMap {
-	mm := gostatsd.NewMetricMap()
+	mm := gostatsd.NewMetricMap(false)
 	mm.Timers["t1"] = map[string]gostatsd.Timer{}
 	mm.Timers["t1"]["gsd_histogram:20_30_40_50_60"] = gostatsd.Timer{
 		Values:    []float64{10},
@@ -368,7 +458,7 @@ func TestEventFormatter(t *testing.T) {
 	}{
 		{
 			name: "infra",
-			expected: `{"name":"com.newrelic.gostatsd","protocol_version":"2","integration_version":"2.3.1","data":` +
+			expected: `{"name":"com.newrelic.gostatsd","protocol_version":"2","integration_version":"2.4.0","data":` +
 				`[{"metrics":[{"AggregationKey":"","AlertType":"","DateHappened":0,"Hostname":"blah","Priority":"low","SourceTypeName":"","Text":"hi","Title":"EventTitle","event_type":"GoStatsD","name":"event",` +
 				`"tag_1":"-infinity","tag_2":"infinity","tag_3":"+infinity","tag_4":"NaN"}]}]}`,
 		},

@@ -1,0 +1,25 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Go
+        uses: actions/setup-go@v3
+        with:
+          # Go version needs to be the same in: CI config, README, Dockerfiles, and Makefile
+          go-version: 1.21.4
+      - name: Setup CI
+        run: make tools
+      - name: Test
+        run: |
+          make check-fmt
+          make build-all
+          make check
+          make test-race
+          make bench-race

@@ -1,0 +1,31 @@
+# Go version needs to be the same in: CI config, README, Dockerfiles, and Makefile
+FROM golang:1.21.4 AS build
+WORKDIR /build
+
+# Install dependencies first to take advantage of the docker build cache.
+ADD go.mod /build/go.mod
+ADD go.sum /build/go.sum
+
+RUN go mod download
+
+ARG TARGETARCH
+ARG BINARY_NAME
+ARG MAIN_PKG
+
+ADD . /build
+
+# Race needs CGO
+# https://github.com/golang/go/issues/51235
+RUN make build CGO_ENABLED=1 PKG=${MAIN_PKG}
+
+FROM ubuntu:22.04
+
+RUN export DEBIAN_FRONTEND=noninteractive && \
+    apt-get update && \
+    apt-get install ca-certificates -y && \
+    rm -rf /var/lib/apt/lists/*
+
+ARG TARGETARCH
+COPY --from=build /build/bin/linux/${TARGETARCH}/gostatsd /bin/gostatsd
+
+ENTRYPOINT ["gostatsd"]

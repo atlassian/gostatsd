@@ -185,7 +185,7 @@ func (rhh *rawHttpHandlerV2) EventHandler(w http.ResponseWriter, req *http.Reque
 
 func translateFromProtobufV2(pbMetricMap *pb.RawMessageV2) *gostatsd.MetricMap {
 	now := gostatsd.Nanotime(time.Now().UnixNano())
-	mm := gostatsd.NewMetricMap()
+	mm := gostatsd.NewMetricMap(false)
 
 	for metricName, tagMap := range pbMetricMap.Gauges {
 		mm.Gauges[metricName] = map[string]gostatsd.Gauge{}

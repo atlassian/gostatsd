@@ -5,6 +5,7 @@ import (
 	"compress/gzip"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -31,7 +32,7 @@ const (
 	// BackendName is the name of this backend.
 	BackendName                  = "newrelic"
 	integrationName              = "com.newrelic.gostatsd"
-	integrationVersion           = "2.3.1"
+	integrationVersion           = "2.4.0"
 	protocolVersion              = "2"
 	defaultUserAgent             = "gostatsd"
 	defaultMaxRequestElapsedTime = 15 * time.Second
@@ -129,7 +130,6 @@ type NRMetric struct {
 
 // SendMetricsAsync flushes the metrics to New Relic, preparing payload synchronously but doing the send asynchronously.
 func (n *Client) SendMetricsAsync(ctx context.Context, metrics *gostatsd.MetricMap, cb gostatsd.SendCallback) {
-
 	counter := 0
 	results := make(chan error)
 	now := float64(clock.FromContext(ctx).Now().Unix())
@@ -210,17 +210,20 @@ func (n *Client) processMetrics(now float64, metrics *gostatsd.MetricMap, cb fun
 	}
 
 	metrics.Gauges.Each(func(key, tagsKey string, g gostatsd.Gauge) {
-		fl.addMetric(n, "gauge", g.Value, 0, g.Tags, key)
+		newTags := maybeAddSource(g.Source, g.Tags)
+		fl.addMetric(n, "gauge", g.Value, 0, newTags, key)
 		fl.maybeFlush()
 	})
 
 	metrics.Counters.Each(func(key, tagsKey string, counter gostatsd.Counter) {
-		fl.addMetric(n, "counter", float64(counter.Value), counter.PerSecond, counter.Tags, key)
+		newTags := maybeAddSource(counter.Source, counter.Tags)
+		fl.addMetric(n, "counter", float64(counter.Value), counter.PerSecond, newTags, key)
 		fl.maybeFlush()
 	})
 
 	metrics.Sets.Each(func(key, tagsKey string, set gostatsd.Set) {
-		fl.addMetric(n, "set", float64(len(set.Values)), 0, set.Tags, key)
+		newTags := maybeAddSource(set.Source, set.Tags)
+		fl.addMetric(n, "set", float64(len(set.Values)), 0, newTags, key)
 		fl.maybeFlush()
 	})
 
@@ -231,7 +234,7 @@ func (n *Client) processMetrics(now float64, metrics *gostatsd.MetricMap, cb fun
 				if !math.IsInf(float64(histogramThreshold), 1) {
 					bucketTag = "le:" + strconv.FormatFloat(float64(histogramThreshold), 'f', -1, 64)
 				}
-				newTags := timer.Tags.Concat(gostatsd.Tags{bucketTag})
+				newTags := maybeAddSource(timer.Source, timer.Tags.Concat(gostatsd.Tags{bucketTag}))
 				fl.addMetric(n, "counter", float64(count), 0, newTags, key+".histogram")
 			}
 		} else {
@@ -295,6 +298,16 @@ func (n *Client) Name() string {
 	return BackendName
 }
 
+// RetryAfterError indicates if we should wait before retrying
+type RetryAfterError struct {
+	Duration time.Duration
+}
+
+// Error returns the error message
+func (r RetryAfterError) Error() string {
+	return fmt.Sprintf("Too many request retry-after=%+v", r.Duration)
+}
+
 func (n *Client) post(ctx context.Context, buffer *bytes.Buffer, data interface{}) error {
 	post, err := n.constructPost(ctx, buffer, data)
 	if err != nil {
@@ -307,13 +320,24 @@ func (n *Client) post(ctx context.Context, buffer *bytes.Buffer, data interface{
 	b.Clock = clck
 	b.Reset()
 	b.MaxElapsedTime = n.maxRequestElapsedTime
+
+	var next time.Duration
+	var retryAfterErr *RetryAfterError
 	for {
 		if err = post(); err == nil {
 			atomic.AddUint64(&n.batchesSent, 1)
 			return nil
 		}
 
-		next := b.NextBackOff()
+		next = b.NextBackOff()
+		if next != backoff.Stop && errors.As(err, &retryAfterErr) {
+			next = time.Duration(math.Max(float64(next), float64(retryAfterErr.Duration)))
+			if n.maxRequestElapsedTime > 0 {
+				// When maxRequestElapsedTime is specified put an upper-bound limit on the duration
+				next = time.Duration(math.Min(float64(next), float64(n.maxRequestElapsedTime)))
+			}
+		}
+
 		if next == backoff.Stop {
 			atomic.AddUint64(&n.batchesDropped, 1)
 			return fmt.Errorf("[%s] %v", BackendName, err)
@@ -407,13 +431,24 @@ func (n *Client) postWrapper(ctx context.Context, json []byte, dataType string) 
 		if err != nil {
 			return fmt.Errorf("error POSTing: %s", err.Error())
 		}
+
 		defer resp.Body.Close()
 		body := io.LimitReader(resp.Body, maxResponseSize)
+
 		if resp.StatusCode < http.StatusOK || resp.StatusCode > http.StatusNoContent {
 			b, _ := ioutil.ReadAll(body)
+
+			if resp.StatusCode == http.StatusTooManyRequests {
+				retryAfterSecs, err := strconv.Atoi(resp.Header.Get("Retry-After"))
+				if err == nil && retryAfterSecs > 0 {
+					return &RetryAfterError{Duration: time.Duration(retryAfterSecs) * time.Second}
+				}
+			}
+
 			n.logger.WithFields(logrus.Fields{
-				"status": resp.StatusCode,
-				"body":   string(b),
+				"status":  resp.StatusCode,
+				"body":    string(b),
+				"address": address,
 			}).Info("request failed")
 			return fmt.Errorf("received bad status code %d", resp.StatusCode)
 		}
@@ -461,6 +496,7 @@ func NewClientFromViper(v *viper.Viper, logger logrus.FieldLogger, pool *transpo
 	// New Relic Config Defaults & Recommendations
 	v.SetDefault("statser-type", "null")
 	v.SetDefault("flush-interval", "10s")
+	v.SetDefault("ignore-host", "true")
 	if v.GetString("statser-type") == "null" {
 		logger.Info("internal metrics OFF, to enable set 'statser-type' to 'logging' or 'internal'")
 	}
@@ -627,4 +663,20 @@ func contains(s []string, e string) bool {
 		}
 	}
 	return false
+}
+
+// If source is not empty and tags does not already have a host tag,
+// add a statsdSource tag.
+func maybeAddSource(source gostatsd.Source, tags gostatsd.Tags) gostatsd.Tags {
+	if source == "" {
+		return tags
+	}
+
+	for _, tag := range tags {
+		if strings.HasPrefix(tag, "statsdSource:") {
+			return tags
+		}
+	}
+
+	return append(tags, "statsdSource:"+string(source))
 }

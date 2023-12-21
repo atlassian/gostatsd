@@ -2,6 +2,7 @@ package stats
 
 import (
 	"context"
+	"sync/atomic"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -50,6 +51,14 @@ func (ls *LoggingStatser) Increment(name string, tags gostatsd.Tags) {
 		"name": name,
 		"tags": ls.tags.Concat(tags),
 	}).Infof("increment")
+}
+
+func (ls *LoggingStatser) Report(name string, value *uint64, tags gostatsd.Tags) {
+	ls.logger.WithFields(logrus.Fields{
+		"name":  name,
+		"tags":  ls.tags.Concat(tags),
+		"value": atomic.SwapUint64(value, 0),
+	}).Infof("report")
 }
 
 // TimingMS sends a timing metric from a millisecond value

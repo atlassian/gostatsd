@@ -1,69 +1,83 @@
-GO111MODULE := on
-VERSION_VAR := main.Version
-GIT_VAR := main.GitCommit
-BUILD_DATE_VAR := main.BuildDate
-BUILD_DATE := $$(date +%Y-%m-%d-%H:%M)
-REPO_VERSION ?= $$(git describe --abbrev=0 --tags)
-GIT_HASH ?= $$(git rev-parse --short HEAD)
-GOBUILD_VERSION_ARGS := -ldflags "-s -X $(VERSION_VAR)=$(REPO_VERSION) -X $(GIT_VAR)=$(GIT_HASH) -X $(BUILD_DATE_VAR)=$(BUILD_DATE)"
-GOBUILD_VERSION_ARGS_WITH_SYMS := -ldflags "-X $(VERSION_VAR)=$(REPO_VERSION) -X $(GIT_VAR)=$(GIT_HASH) -X $(BUILD_DATE_VAR)=$(BUILD_DATE)"
-BINARY_NAME := gostatsd
-CPU_ARCH ?= amd64
-MANIFEST_NAME := atlassianlabs/$(BINARY_NAME)
-IMAGE_NAME := $(MANIFEST_NAME)-$(CPU_ARCH)
-ARCH ?= $$(uname -s | tr A-Z a-z)
-GOVERSION := 1.17.2  # Keep in sync with .travis.yml and README.md
-GP := /gopath
-MAIN_PKG := github.com/atlassian/gostatsd/cmd/gostatsd
-CLUSTER_PKG := github.com/atlassian/gostatsd/cmd/cluster
-LAMBDA_PKG := github.com/atlassian/gostatsd/cmd/lambda-extension
-PROTOBUF_VERSION ?= 3.6.1
+BUILD_DATE          := $(shell date +%Y-%m-%d-%H:%M)
+REPO_VERSION        ?= $(shell git describe --abbrev=0 --tags)
+GIT_HASH            ?= $(shell git rev-parse --short HEAD)
+BINARY_NAME         := gostatsd
+CPU_ARCH            ?= amd64
+GCO_ENABLED         ?= 0
+REPOSITORY_NAME     := atlassianlabs/$(BINARY_NAME)
+REGISTRY_NAME       := docker-public.packages.atlassian.com
+IMAGE_PREFIX        := $(REGISTRY_NAME)/$(REPOSITORY_NAME)
+IMAGE_NAME          := $(IMAGE_PREFIX)-$(CPU_ARCH)
+ARCH                ?= $(shell uname -s | tr A-Z a-z)
+GOVERSION           := 1.21.4  # Go version needs to be the same in: CI config, README, Dockerfiles, and Makefile
+GP                  := /gopath
+MAIN_PKG            := github.com/atlassian/gostatsd/cmd/gostatsd
+CLUSTER_PKG         := github.com/atlassian/gostatsd/cmd/cluster
+PROTOBUF_VERSION    ?= 21.5
+PROJECT_ROOT_DIR    := $(realpath $(dir $(abspath $(lastword $(MAKEFILE_LIST)))))
+TOOLS_DIR           := $(PROJECT_ROOT_DIR)/.tools
+TOOLS_SRC_DIR       := $(PROJECT_ROOT_DIR)/internal/tools
+ALL_TOOLS_PACKAGES  := $(shell grep -E '(^|\s)_\s+\".*\"$$' < $(TOOLS_SRC_DIR)/tools.go | tr -d '"' | awk '{print $$2;}')
+ALL_TOOLS_COMMAND   := $(sort $(addprefix $(TOOLS_DIR)/,$(notdir $(ALL_TOOLS_PACKAGES))))
 
-setup: setup-ci
-	go install github.com/githubnemo/CompileDaemon \
-		github.com/jstemmer/go-junit-report \
-		golang.org/x/tools/cmd/goimports
+
+.PHONY: tools
+tools: $(ALL_TOOLS_COMMAND)
+
+$(ALL_TOOLS_COMMAND): $(TOOLS_DIR) $(TOOLS_SRC_DIR)/go.mod
+	cd $(TOOLS_SRC_DIR) && CGO_ENABLED=0 go build -o $(TOOLS_DIR)/$(notdir $@) $(filter %/$(notdir $@),$(ALL_TOOLS_PACKAGES))
+
+$(TOOLS_DIR):
+	mkdir -p $(TOOLS_DIR)
 
 tools/bin/protoc:
 	curl -L -O https://github.com/protocolbuffers/protobuf/releases/download/v$(PROTOBUF_VERSION)/protoc-$(PROTOBUF_VERSION)-linux-x86_64.zip
-	unzip -d tools/ protoc-$(PROTOBUF_VERSION)-linux-x86_64.zip
+	unzip -o -d tools/ protoc-$(PROTOBUF_VERSION)-linux-x86_64.zip
 	rm protoc-$(PROTOBUF_VERSION)-linux-x86_64.zip
-	go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.26
-	go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.1
 
-setup-ci: tools/bin/protoc
-	go install github.com/golangci/golangci-lint/cmd/golangci-lint
+pb/gostatsd.pb.go: pb/gostatsd.proto tools/bin/protoc
+	GOPATH="tools/bin:${GOPATH}" tools/bin/protoc --go_out=.\
+		--go_opt=paths=source_relative $<
 
-build-cluster: fmt
-	go build -v -o build/bin/$(ARCH)/cluster $(GOBUILD_VERSION_ARGS) $(CLUSTER_PKG)
+build: pb/gostatsd.pb.go
+	CGO_ENABLED=$(GCO_ENABLED) GOEXPERIMENT=boringcrypto \
+		go build  \
+			-v \
+			-ldflags "-s \
+				-X main.Version=$(REPO_VERSION) \
+				-X main.GitCommit=$(GIT_HASH) \
+				-X main.BuildDate=$(BUILD_DATE)" \
+			$(GOBUILD_OPTIONAL_FLAGS) \
+			-o build/bin/$(ARCH)/$(BINARY_NAME) \
+			$(PKG)
 
-pb/gostatsd.pb.go: pb/gostatsd.proto
-	GOPATH="tools/bin/protoc:${GOPATH}" protoc --go_out=.\
-		--go_opt=paths=source_relative \
-		--go-grpc_out=. \
-		--go-grpc_opt=paths=source_relative \
-		$<
-	$(RM) protoc-gen-go
-
-build: pb/gostatsd.pb.go fmt
-	go build -v -o build/bin/$(ARCH)/$(BINARY_NAME) $(GOBUILD_VERSION_ARGS) $(MAIN_PKG)
+build-gostatsd:
+	@$(MAKE) PKG=$(MAIN_PKG)
 
 build-lambda:
 	go build -v -o build/bin/$(ARCH)/lambda-extension $(GOBUILD_VERSION_ARGS) $(LAMBDA_PKG)
 
-build-race: fmt
-	go build -v -race -o build/bin/$(ARCH)/$(BINARY_NAME)-race $(GOBUILD_VERSION_ARGS) $(MAIN_PKG)
+build-gostatsd-race:
+	@$(MAKE) build-gostatsd GOBUILD_OPTIONAL_FLAGS=-race
 
-install-all: pb/gostatsd.pb.go
-	go install -v ./...
+build-cluster:
+	@$(MAKE) PKG=$(CLUSTER_PKG) BINARY_NAME="cluster"
 
-test-all: fmt cover test-race bench bench-race check
 
-test-all-full: fmt cover test-race-full bench-full bench-race-full check
+build-all: pb/gostatsd.pb.go tools
 
-fmt:
-	gofmt -w=true -s $$(find . -type f -name '*.go' -not -path "./vendor/*" -not -path "./pb/*")
-	goimports -w=true -d -local github.com/atlassian/gostatsd $$(find . -type f -name '*.go' -not -path "./vendor/*" -not -path "./pb/*")
+test-all: check-fmt cover test-race bench bench-race check
+
+test-all-full: check-fmt cover test-race-full bench-full bench-race-full check
+
+check-fmt: $(TOOLS_DIR)/goimports
+	@# Since gofmt and goimports dont return 1 on chamges, this !() stuff will trigger a build failure if theres any problems.
+	! (gofmt -l -s $$(find . -type f -name '*.go' -not -path "./vendor/*" -not -path "./pb/*") | grep .)
+	! ($(TOOLS_DIR)/goimports -l -local github.com/atlassian/gostatsd $$(find . -type f -name '*.go' -not -path "./vendor/*" -not -path "./pb/*") | grep .)
+
+fix-fmt:
+	gofmt -w -s $$(find . -type f -name '*.go' -not -path "./vendor/*" -not -path "./pb/*")
+	go run golang.org/x/tools/cmd/goimports -w -l -local github.com/atlassian/gostatsd $$(find . -type f -name '*.go' -not -path "./vendor/*" -not -path "./pb/*")
 
 test-full: pb/gostatsd.pb.go
 	go test ./...
@@ -94,9 +108,9 @@ cover: pb/gostatsd.pb.go
 	go tool cover -func=coverage.out
 	go tool cover -html=coverage.out
 
-coveralls: pb/gostatsd.pb.go
+coveralls: $(TOOLS_DIR)/goveralls pb/gostatsd.pb.go
 	./cover.sh
-	goveralls -coverprofile=coverage.out -service=travis-ci
+	$(TOOLS_DIR)/goveralls -coverprofile=coverage.out -service=travis-ci
 
 junit-test: build
 	go test -short -v ./... | go-junit-report > test-report.xml
@@ -104,94 +118,71 @@ junit-test: build
 check: pb/gostatsd.pb.go
 	go install ./cmd/gostatsd
 	go install ./cmd/tester
-	golangci-lint run --deadline=600s --enable=gocyclo --enable=dupl \
-		--disable=interfacer --disable=golint
 
 check-all: pb/gostatsd.pb.go
 	go install ./cmd/gostatsd
 	go install ./cmd/tester
-	golangci-lint run --deadline=600s --enable=gocyclo --enable=dupl
 
-fuzz-setup:
-	go install github.com/dvyukov/go-fuzz/go-fuzz github.com/dvyukov/go-fuzz/go-fuzz-build
-
-fuzz:
-	go-fuzz-build github.com/atlassian/gostatsd/pkg/statsd
-	go-fuzz -bin=./statsd-fuzz.zip -workdir=test_fixtures/lexer_fuzz
-
-watch:
-	CompileDaemon -color=true -build "make test"
+fuzz: $(TOOLS_DIR)/go-fuzz-build $(TOOLS_DIR)/go-fuzz
+	$(TOOLS_DIR)/go-fuzz-build github.com/atlassian/gostatsd/pkg/statsd
+	$(TOOLS_DIR)/go-fuzz -bin=./statsd-fuzz.zip -workdir=test_fixtures/lexer_fuzz
 
 git-hook:
 	cp dev/push-hook.sh .git/hooks/pre-push
 
-# Compile a static binary. Cannot be used with -race
-docker: pb/gostatsd.pb.go
-	docker pull golang:$(GOVERSION)
-	docker run \
-		--rm \
-		-v "$(GOPATH)":"$(GP)" \
-		-w "$(GP)/src/github.com/atlassian/gostatsd" \
-		-e GOPATH="$(GP)" \
-		-e CGO_ENABLED=0 \
-		golang:$(GOVERSION) \
-		go build -o build/bin/linux/$(BINARY_NAME) $(GOBUILD_VERSION_ARGS) $(MAIN_PKG)
-	docker build --pull -t $(IMAGE_NAME):$(GIT_HASH) build
+build-hash: pb/gostatsd.pb.go
+	docker buildx build -t $(IMAGE_NAME):$(GIT_HASH) -f build/Dockerfile-multiarch \
+		--build-arg MAIN_PKG=$(MAIN_PKG) \
+		--build-arg BINARY_NAME=$(BINARY_NAME) \
+		--platform=linux/$(CPU_ARCH) \
+		--load .
+	docker images
 
-# Compile a binary with -race. Needs to be run on a glibc-based system.
-docker-race: pb/gostatsd.pb.go
-	docker pull golang:$(GOVERSION)
-	docker run \
-		--rm \
-		-v "$(GOPATH)":"$(GP)" \
-		-w "$(GP)/src/github.com/atlassian/gostatsd" \
-		-e GOPATH="$(GP)" \
-		golang:$(GOVERSION) \
-		go build -race -o build/bin/linux/$(BINARY_NAME) $(GOBUILD_VERSION_ARGS) $(MAIN_PKG)
-	docker build --pull -t $(IMAGE_NAME):$(GIT_HASH)-race -f build/Dockerfile-glibc build
+build-hash-race: pb/gostatsd.pb.go
+	docker buildx build -t $(IMAGE_NAME):$(GIT_HASH)-race -f build/Dockerfile-multiarch-glibc \
+		--build-arg MAIN_PKG=$(MAIN_PKG) \
+		--build-arg BINARY_NAME=$(BINARY_NAME) \
+		--platform=linux/$(CPU_ARCH) \
+		--load .
+	docker images
 
-release-hash: docker
+release-hash-ci: build-hash
 	docker push $(IMAGE_NAME):$(GIT_HASH)
 
-release-normal: release-hash
+release-normal-ci: release-hash-ci
 	docker tag $(IMAGE_NAME):$(GIT_HASH) $(IMAGE_NAME):latest
 	docker push $(IMAGE_NAME):latest
 	docker tag $(IMAGE_NAME):$(GIT_HASH) $(IMAGE_NAME):$(REPO_VERSION)
 	docker push $(IMAGE_NAME):$(REPO_VERSION)
 
-release-hash-race: docker-race
+release-hash-race-ci: build-hash-race
 	docker push $(IMAGE_NAME):$(GIT_HASH)-race
 
-release-race: docker-race
+release-race-ci: release-hash-race-ci
 	docker tag $(IMAGE_NAME):$(GIT_HASH)-race $(IMAGE_NAME):$(REPO_VERSION)-race
 	docker push $(IMAGE_NAME):$(REPO_VERSION)-race
 
+# Only works in Github actions, which is the only place `make release-ci` should be run
+docker-login-ci:
+	echo "$$ARTIFACTORY_API_KEY" | docker login docker-public.packages.atlassian.com \
+	  --username ${ARTIFACTORY_USERNAME} \
+	  --password-stdin
 
-release: release-normal release-race
+release-ci: docker-login-ci release-normal-ci release-race-ci
 
-release-manifest:
-	for tag in latest $(REPO_VERSION) $(GIT_HASH)-race $(REPO_VERSION)-race; do \
-	  for arch in amd64 arm64; do \
-		  docker pull $(MANIFEST_NAME)-$$arch:$$tag; \
-		done; \
-	  docker manifest create $(MANIFEST_NAME):$$tag --amend \
-		  $(MANIFEST_NAME)-amd64:$$tag \
-		  $(MANIFEST_NAME)-arm64:$$tag; \
-	  docker manifest push $(MANIFEST_NAME):$$tag; \
-	done
-
-github-release: build build-cluster build-race build-lambda
-	mkdir -p build/release
-	for bin in build/bin/$(ARCH)/*; do \
-		cp $$bin build/release/`basename $$bin`-$(REPO_VERSION).$(ARCH)-$(CPU_ARCH); \
-		zip -r build/release/`basename $$bin`-$(REPO_VERSION).$(ARCH)-$(CPU_ARCH).zip $$bin; \
+release-manifest-ci: docker-login-ci
+	for tag in latest $(REPO_VERSION) $(GIT_HASH)-race $(REPO_VERSION)-race ; do \
+		docker pull $(IMAGE_NAME):$$tag ; \
+		docker manifest create $(IMAGE_PREFIX):$$tag --amend \
+			$(IMAGE_NAME):$$tag ; \
+	  	docker manifest push $(IMAGE_PREFIX):$$tag ; \
 	done
 
 run: build
 	./build/bin/$(ARCH)/$(BINARY_NAME) --backends=stdout --verbose --flush-interval=2s
 
 run-docker: docker
-	cd build/ && docker-compose rm -f gostatsd
+	docker-compose rm -f build/gostatsd
 	docker-compose -f build/docker-compose.yml build
 	docker-compose -f build/docker-compose.yml up -d
 
@@ -202,8 +193,8 @@ version:
 	@echo $(REPO_VERSION)
 
 clean:
-	rm -rf build/bin/* build/release/*
+	rm -rf build/bin/*
 	-docker rm $(docker ps -a -f 'status=exited' -q)
 	-docker rmi $(docker images -f 'dangling=true' -q)
 
-.PHONY: build github-release
+.PHONY: build

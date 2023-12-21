@@ -104,7 +104,7 @@ func TestParseDatagram(t *testing.T) {
 			t.Parallel()
 			mr, ch := newTestParser(false)
 			metrics, _, _ := mr.handleDatagram(context.Background(), lex(), 0, fakeIP, []byte(datagram))
-			mm := gostatsd.NewMetricMap()
+			mm := gostatsd.NewMetricMap(false)
 			for _, m := range metrics {
 				mm.Receive(m)
 			}
@@ -191,7 +191,7 @@ func TestParseDatagramIgnoreHost(t *testing.T) {
 				}
 				ch.events[i].DateHappened = 0
 			}
-			mm := gostatsd.NewMetricMap()
+			mm := gostatsd.NewMetricMap(false)
 			for _, m := range metrics {
 				mm.Receive(m)
 			}

@@ -278,7 +278,7 @@ func NewProvider(logger logrus.FieldLogger, clientset kubernetes.Interface, podI
 	annotationRegex, labelRegex *regexp.Regexp) (*Provider, error) {
 
 	// This list operation is for debugging purposes and failing fast. If this fails then the cache will likely fail.
-	_, err := clientset.CoreV1().Pods(meta_v1.NamespaceAll).List(meta_v1.ListOptions{})
+	_, err := clientset.CoreV1().Pods(meta_v1.NamespaceAll).List(context.Background(), meta_v1.ListOptions{})
 	if err != nil {
 		return nil, err
 	}

@@ -22,12 +22,12 @@ func TestTagStripMergesCounters(t *testing.T) {
 		{DropTags: gostatsd.StringMatchList{gostatsd.NewStringMatch("key2:*")}},
 	})
 
-	mm := gostatsd.NewMetricMap()
+	mm := gostatsd.NewMetricMap(false)
 	mm.Receive(&gostatsd.Metric{Type: gostatsd.COUNTER, Name: "metric", Timestamp: 10, Tags: gostatsd.Tags{"key:value"}, Value: 20, Rate: 1})                              // Will merge in to metric with TS 20
 	mm.Receive(&gostatsd.Metric{Type: gostatsd.COUNTER, Name: "metric", Timestamp: 20, Tags: gostatsd.Tags{"key:value", "key2:value2"}, Value: 1, Rate: 0.1})              // key2:value2 will be dropped, and TS 10 will merge in to it
 	mm.Receive(&gostatsd.Metric{Type: gostatsd.COUNTER, Name: "metric", Timestamp: 30, Tags: gostatsd.Tags{"key:value", "key2:value2", "key3:value3"}, Value: 1, Rate: 1}) // key2:value2 will be dropped, but it won't merge in to anything
 
-	expected := gostatsd.NewMetricMap()
+	expected := gostatsd.NewMetricMap(false)
 	expected.Counters["metric"] = map[string]gostatsd.Counter{
 		"key:value":             {Timestamp: 20, Value: 30, Tags: gostatsd.Tags{"key:value"}},
 		"key3:value3,key:value": {Timestamp: 30, Value: 1, Tags: gostatsd.Tags{"key3:value3", "key:value"}},
@@ -49,12 +49,12 @@ func TestTagStripMergesGauges(t *testing.T) {
 		{DropTags: gostatsd.StringMatchList{gostatsd.NewStringMatch("key2:*")}},
 	})
 
-	mm := gostatsd.NewMetricMap()
+	mm := gostatsd.NewMetricMap(false)
 	mm.Receive(&gostatsd.Metric{Type: gostatsd.GAUGE, Name: "metric", Timestamp: 10, Tags: gostatsd.Tags{"key:value"}, Value: 10})                               // Will merge in to metric with TS 20
 	mm.Receive(&gostatsd.Metric{Type: gostatsd.GAUGE, Name: "metric", Timestamp: 20, Tags: gostatsd.Tags{"key:value", "key2:value2"}, Value: 20})                // key2:value2 will be dropped, and TS 10 will merge in to it
 	mm.Receive(&gostatsd.Metric{Type: gostatsd.GAUGE, Name: "metric", Timestamp: 30, Tags: gostatsd.Tags{"key:value", "key2:value2", "key3:value3"}, Value: 30}) // key2:value2 will be dropped, but it won't merge in to anything
 
-	expected := gostatsd.NewMetricMap()
+	expected := gostatsd.NewMetricMap(false)
 	expected.Gauges["metric"] = map[string]gostatsd.Gauge{
 		"key:value":             {Timestamp: 20, Value: 20, Tags: gostatsd.Tags{"key:value"}},
 		"key3:value3,key:value": {Timestamp: 30, Value: 30, Tags: gostatsd.Tags{"key3:value3", "key:value"}},
@@ -76,12 +76,12 @@ func TestTagStripMergesTimers(t *testing.T) {
 		{DropTags: gostatsd.StringMatchList{gostatsd.NewStringMatch("key2:*")}},
 	})
 
-	mm := gostatsd.NewMetricMap()
+	mm := gostatsd.NewMetricMap(false)
 	mm.Receive(&gostatsd.Metric{Type: gostatsd.TIMER, Name: "metric", Timestamp: 10, Tags: gostatsd.Tags{"key:value"}, Value: 10, Rate: 1})                               // Will merge in to metric with TS 20
 	mm.Receive(&gostatsd.Metric{Type: gostatsd.TIMER, Name: "metric", Timestamp: 20, Tags: gostatsd.Tags{"key:value", "key2:value2"}, Value: 20, Rate: 1})                // key2:value2 will be dropped, and TS 10 will merge in to it
 	mm.Receive(&gostatsd.Metric{Type: gostatsd.TIMER, Name: "metric", Timestamp: 30, Tags: gostatsd.Tags{"key:value", "key2:value2", "key3:value3"}, Value: 30, Rate: 1}) // key2:value2 will be dropped, but it won't merge in to anything
 
-	expected := gostatsd.NewMetricMap()
+	expected := gostatsd.NewMetricMap(false)
 	expected.Timers["metric"] = map[string]gostatsd.Timer{
 		"key:value":             {Timestamp: 20, Values: []float64{10, 20}, Tags: gostatsd.Tags{"key:value"}, SampledCount: 2},
 		"key3:value3,key:value": {Timestamp: 30, Values: []float64{30}, Tags: gostatsd.Tags{"key3:value3", "key:value"}, SampledCount: 1},
@@ -105,12 +105,12 @@ func TestTagStripMergesSets(t *testing.T) {
 		{DropTags: gostatsd.StringMatchList{gostatsd.NewStringMatch("key2:*")}},
 	})
 
-	mm := gostatsd.NewMetricMap()
+	mm := gostatsd.NewMetricMap(false)
 	mm.Receive(&gostatsd.Metric{Type: gostatsd.SET, Name: "metric", Timestamp: 10, Tags: gostatsd.Tags{"key:value"}, StringValue: "abc"})                               // Will merge in to metric with TS 20
 	mm.Receive(&gostatsd.Metric{Type: gostatsd.SET, Name: "metric", Timestamp: 20, Tags: gostatsd.Tags{"key:value", "key2:value2"}, StringValue: "def"})                // key2:value2 will be dropped, and TS 10 will merge in to it
 	mm.Receive(&gostatsd.Metric{Type: gostatsd.SET, Name: "metric", Timestamp: 30, Tags: gostatsd.Tags{"key:value", "key2:value2", "key3:value3"}, StringValue: "ghi"}) // key2:value2 will be dropped, but it won't merge in to anything
 
-	expected := gostatsd.NewMetricMap()
+	expected := gostatsd.NewMetricMap(false)
 	expected.Sets["metric"] = map[string]gostatsd.Set{
 		"key:value":             {Timestamp: 20, Values: map[string]struct{}{"abc": {}, "def": {}}, Tags: gostatsd.Tags{"key:value"}},
 		"key3:value3,key:value": {Timestamp: 30, Values: map[string]struct{}{"ghi": {}}, Tags: gostatsd.Tags{"key3:value3", "key:value"}},
@@ -131,9 +131,9 @@ func TestFilterPassesNoFilters(t *testing.T) {
 	tch := &capturingHandler{}
 	th := NewTagHandler(tch, gostatsd.Tags{}, nil)
 
-	mm := gostatsd.NewMetricMap()
+	mm := gostatsd.NewMetricMap(false)
 	mm.Receive(MakeMetric())
-	expected := gostatsd.NewMetricMap()
+	expected := gostatsd.NewMetricMap(false)
 	expected.Receive(MakeMetric())
 	th.DispatchMetricMap(context.Background(), mm)
 	require.Len(t, tch.mm, 1)
@@ -147,9 +147,9 @@ func TestFilterPassesEmptyFilters(t *testing.T) {
 	th := NewTagHandler(tch, gostatsd.Tags{}, nil)
 	th.filters = []Filter{}
 
-	mm := gostatsd.NewMetricMap()
+	mm := gostatsd.NewMetricMap(false)
 	mm.Receive(MakeMetric())
-	expected := gostatsd.NewMetricMap()
+	expected := gostatsd.NewMetricMap(false)
 	expected.Receive(MakeMetric())
 	th.DispatchMetricMap(context.Background(), mm)
 	require.Len(t, tch.mm, 1)
@@ -168,9 +168,9 @@ func TestFilterKeepNonMatch(t *testing.T) {
 		},
 	}
 
-	mm := gostatsd.NewMetricMap()
+	mm := gostatsd.NewMetricMap(false)
 	mm.Receive(MakeMetric())
-	expected := gostatsd.NewMetricMap()
+	expected := gostatsd.NewMetricMap(false)
 	expected.Receive(MakeMetric())
 	th.DispatchMetricMap(context.Background(), mm)
 	require.Len(t, tch.mm, 1)
@@ -189,7 +189,7 @@ func TestFilterDropsBadName(t *testing.T) {
 		},
 	}
 
-	mm := gostatsd.NewMetricMap()
+	mm := gostatsd.NewMetricMap(false)
 	mm.Receive(MakeMetric())
 	th.DispatchMetricMap(context.Background(), mm)
 	require.Len(t, tch.mm, 0) // nothing is dispatched if the entire MetricMap is dropped
@@ -207,7 +207,7 @@ func TestFilterDropsBadPrefix(t *testing.T) {
 		},
 	}
 
-	mm := gostatsd.NewMetricMap()
+	mm := gostatsd.NewMetricMap(false)
 	mm.Receive(MakeMetric())
 	th.DispatchMetricMap(context.Background(), mm)
 	require.Len(t, tch.mm, 0) // nothing is dispatched if the entire MetricMap is dropped
@@ -226,11 +226,11 @@ func TestFilterKeepsWhitelist(t *testing.T) {
 		},
 	}
 
-	mm := gostatsd.NewMetricMap()
+	mm := gostatsd.NewMetricMap(false)
 	mm.Receive(MakeMetric(Name("name.bad")))
 	mm.Receive(MakeMetric(Name("name.good")))
 
-	expected := gostatsd.NewMetricMap()
+	expected := gostatsd.NewMetricMap(false)
 	expected.Receive(MakeMetric(Name("name.good")))
 
 	th.DispatchMetricMap(context.Background(), mm)
@@ -250,9 +250,9 @@ func TestFilterDropsTag(t *testing.T) {
 		},
 	}
 
-	mm := gostatsd.NewMetricMap()
+	mm := gostatsd.NewMetricMap(false)
 	mm.Receive(MakeMetric(Name("bad.name")))
-	expected := gostatsd.NewMetricMap()
+	expected := gostatsd.NewMetricMap(false)
 	expected.Receive(MakeMetric(Name("bad.name"), DropTag("host:baz")))
 
 	th.DispatchMetricMap(context.Background(), mm)
@@ -272,9 +272,9 @@ func TestFilterDropsHost(t *testing.T) {
 		},
 	}
 
-	mm := gostatsd.NewMetricMap()
+	mm := gostatsd.NewMetricMap(false)
 	mm.Receive(MakeMetric())
-	expected := gostatsd.NewMetricMap()
+	expected := gostatsd.NewMetricMap(false)
 	expected.Receive(MakeMetric(DropSource))
 
 	th.DispatchMetricMap(context.Background(), mm)
@@ -380,9 +380,9 @@ func TestTagMetricHandlerAddsNoTags(t *testing.T) {
 	tch := &capturingHandler{}
 	th := NewTagHandler(tch, gostatsd.Tags{}, nil)
 
-	mm := gostatsd.NewMetricMap()
+	mm := gostatsd.NewMetricMap(false)
 	mm.Receive(MakeMetric(DropSource))
-	expected := gostatsd.NewMetricMap()
+	expected := gostatsd.NewMetricMap(false)
 	expected.Receive(MakeMetric(DropSource)) // No hostname added
 
 	th.DispatchMetricMap(context.Background(), mm)
@@ -396,9 +396,9 @@ func TestTagMetricHandlerAddsSingleTag(t *testing.T) {
 	tch := &capturingHandler{}
 	th := NewTagHandler(tch, gostatsd.Tags{"tag1"}, nil)
 
-	mm := gostatsd.NewMetricMap()
+	mm := gostatsd.NewMetricMap(false)
 	mm.Receive(MakeMetric())
-	expected := gostatsd.NewMetricMap()
+	expected := gostatsd.NewMetricMap(false)
 	expected.Receive(MakeMetric(AddTag("tag1")))
 
 	th.DispatchMetricMap(context.Background(), mm)
@@ -412,9 +412,9 @@ func TestTagMetricHandlerAddsMultipleTags(t *testing.T) {
 	tch := &capturingHandler{}
 	th := NewTagHandler(tch, gostatsd.Tags{"tag1", "tag2"}, nil)
 
-	mm := gostatsd.NewMetricMap()
+	mm := gostatsd.NewMetricMap(false)
 	mm.Receive(MakeMetric())
-	expected := gostatsd.NewMetricMap()
+	expected := gostatsd.NewMetricMap(false)
 	expected.Receive(MakeMetric(AddTag("tag1", "tag2")))
 
 	th.DispatchMetricMap(context.Background(), mm)
@@ -428,9 +428,9 @@ func TestTagMetricHandlerAddsDuplicateTags(t *testing.T) {
 	tch := &capturingHandler{}
 	th := NewTagHandler(tch, gostatsd.Tags{"tag1", "tag2", "tag2", "tag3", "tag1"}, nil)
 
-	mm := gostatsd.NewMetricMap()
+	mm := gostatsd.NewMetricMap(false)
 	mm.Receive(MakeMetric())
-	expected := gostatsd.NewMetricMap()
+	expected := gostatsd.NewMetricMap(false)
 	expected.Receive(MakeMetric(AddTag("tag1", "tag2", "tag3")))
 
 	th.DispatchMetricMap(context.Background(), mm)
@@ -529,7 +529,7 @@ func BenchmarkTagMetricHandlerAddsDuplicateTagsSmall(b *testing.B) {
 			Type: gostatsd.COUNTER,
 			Tags: metricTags,
 		}
-		mm := gostatsd.NewMetricMap()
+		mm := gostatsd.NewMetricMap(false)
 		mm.Receive(m)
 		th.DispatchMetricMap(context.Background(), mm)
 	}
@@ -568,7 +568,7 @@ func BenchmarkTagMetricHandlerAddsDuplicateTagsLarge(b *testing.B) {
 			Type: gostatsd.COUNTER,
 			Tags: metricTags,
 		}
-		mm := gostatsd.NewMetricMap()
+		mm := gostatsd.NewMetricMap(false)
 		mm.Receive(m)
 		th.DispatchMetricMap(context.Background(), mm)
 	}

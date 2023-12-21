@@ -57,8 +57,8 @@ func (ch *CloudHandler) EstimatedTags() int {
 }
 
 func (ch *CloudHandler) DispatchMetricMap(ctx context.Context, mm *gostatsd.MetricMap) {
-	mmToDispatch := gostatsd.NewMetricMap()
-	mmToHandle := gostatsd.NewMetricMap()
+	mmToDispatch := gostatsd.NewMetricMap(false)
+	mmToHandle := gostatsd.NewMetricMap(false)
 	mm.Counters.Each(func(metricName string, tagsKey string, c gostatsd.Counter) {
 		if ch.updateTagsAndHostname(&c, c.Source) {
 			mmToDispatch.MergeCounter(metricName, gostatsd.FormatTagsKey(c.Source, c.Tags), c)
@@ -229,7 +229,7 @@ func (ch *CloudHandler) prepareMetricQueue(source gostatsd.Source) *gostatsd.Met
 		ch.toLookupIPs = append(ch.toLookupIPs, source)
 		ch.statsMetricHostsQueued++
 	}
-	queue := gostatsd.NewMetricMap()
+	queue := gostatsd.NewMetricMap(false)
 	ch.awaitingMetrics[source] = queue
 	return queue
 }
@@ -261,7 +261,7 @@ func (ch *CloudHandler) handleIncomingEvent(e *gostatsd.Event) {
 }
 
 func (ch *CloudHandler) updateAndDispatchMetrics(ctx context.Context, instance *gostatsd.Instance, mmIn *gostatsd.MetricMap) {
-	mmOut := gostatsd.NewMetricMap()
+	mmOut := gostatsd.NewMetricMap(false)
 	mmIn.Counters.Each(func(metricName string, tagsKey string, c gostatsd.Counter) {
 		updateInplace(&c, instance)
 		mmOut.MergeCounter(metricName, gostatsd.FormatTagsKey(c.Source, c.Tags), c)

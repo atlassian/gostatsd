@@ -85,8 +85,8 @@ func (dp *DatagramParser) RunMetricsContext(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-flushed:
-			statser.Gauge("parser.metrics_received", float64(atomic.LoadUint64(&dp.metricsReceived)), nil)
-			statser.Gauge("parser.events_received", float64(atomic.LoadUint64(&dp.eventsReceived)), nil)
+			statser.Report("parser.metrics_received", &dp.metricsReceived, nil)
+			statser.Report("parser.events_received", &dp.eventsReceived, nil)
 			dp.badLines.SendIfChanged(statser, "parser.bad_lines_seen", nil)
 		}
 	}
@@ -116,7 +116,7 @@ func (dp *DatagramParser) Run(ctx context.Context) {
 				accumB += badLineCount
 			}
 			// TODO: Refactor this to use a MetricConsolidator
-			mm := gostatsd.NewMetricMap()
+			mm := gostatsd.NewMetricMap(false)
 			for _, m := range metrics {
 				mm.Receive(m)
 			}

@@ -20,8 +20,46 @@ import (
 	"github.com/atlassian/gostatsd"
 	"github.com/atlassian/gostatsd/internal/fixtures"
 	"github.com/atlassian/gostatsd/pb"
+	"github.com/atlassian/gostatsd/pkg/healthcheck"
 	"github.com/atlassian/gostatsd/pkg/transport"
 )
+
+func TestHttpForwarderDeepCheck(t *testing.T) {
+	t.Parallel()
+
+	logger := logrus.New()
+	s := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {}))
+	t.Cleanup(s.Close)
+	hfh, err := NewHttpForwarderHandlerV2(
+		logger,
+		"",
+		s.URL,
+		1,
+		1,
+		1,
+		false,
+		1*time.Second,
+		1*time.Second,
+		nil,
+		nil,
+		transport.NewTransportPool(logger, viper.New()),
+	)
+	require.NoError(t, err)
+	require.NotNil(t, hfh)
+
+	deepChecks := hfh.DeepChecks()
+	assert.Len(t, deepChecks, 1)
+
+	msg, isHealthy := deepChecks[0]()
+	t.Logf("%s\n", msg)
+	assert.Equal(t, healthcheck.Unhealthy, isHealthy)
+
+	hfh.sendNop(context.Background())
+
+	msg, isHealthy = deepChecks[0]()
+	t.Logf("%s\n", msg)
+	assert.Equal(t, healthcheck.Healthy, isHealthy)
+}
 
 func TestHttpForwarderV2Translation(t *testing.T) {
 	t.Parallel()
@@ -93,7 +131,7 @@ func TestHttpForwarderV2Translation(t *testing.T) {
 		},
 	}
 
-	mm := gostatsd.NewMetricMap()
+	mm := gostatsd.NewMetricMap(false)
 	for _, metric := range metrics {
 		mm.Receive(metric)
 	}
@@ -205,7 +243,7 @@ func BenchmarkHttpForwarderV2TranslateAll(b *testing.B) {
 			Type:        1 + gostatsd.MetricType(i%4), // Use all types
 		})
 	}
-	mm := gostatsd.NewMetricMap()
+	mm := gostatsd.NewMetricMap(false)
 	for _, metric := range metrics {
 		mm.Receive(metric)
 	}
@@ -249,6 +287,7 @@ func TestForwardingData(t *testing.T) {
 		log,
 		"default",
 		s.URL,
+		1,
 		1,
 		1,
 		false,
@@ -312,7 +351,7 @@ func TestHttpForwarderV2New(t *testing.T) {
 			expected:   []string{"service:", "deploy:"},
 		},
 	} {
-		h, err := NewHttpForwarderHandlerV2(logger, "default", "endpoint", 1, 1, false, time.Second, time.Second,
+		h, err := NewHttpForwarderHandlerV2(logger, "default", "endpoint", 1, 1, 1, false, time.Second, time.Second,
 			cusHeaders, testcase.dynHeaders, pool)
 		require.Nil(t, err)
 		require.Equal(t, h.dynHeaderNames, testcase.expected)

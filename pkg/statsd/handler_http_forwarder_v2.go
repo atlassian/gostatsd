@@ -23,6 +23,7 @@ import (
 	"github.com/atlassian/gostatsd"
 	"github.com/atlassian/gostatsd/internal/util"
 	"github.com/atlassian/gostatsd/pb"
+	"github.com/atlassian/gostatsd/pkg/healthcheck"
 	"github.com/atlassian/gostatsd/pkg/stats"
 	"github.com/atlassian/gostatsd/pkg/transport"
 )
@@ -33,22 +34,25 @@ const (
 	defaultApiEndpoint               = ""
 	defaultMaxRequestElapsedTime     = 30 * time.Second
 	defaultMaxRequests               = 1000
+	defaultConcurrentMerge           = 1
 	defaultTransport                 = "default"
 )
 
 // HttpForwarderHandlerV2 is a PipelineHandler which sends metrics to another gostatsd instance
 type HttpForwarderHandlerV2 struct {
-	postId          uint64 // atomic - used for an id in logs
-	messagesInvalid uint64 // atomic - messages which failed to be created
-	messagesCreated uint64 // atomic - messages which were created
-	messagesSent    uint64 // atomic - messages successfully sent
-	messagesRetried uint64 // atomic - retries (first send is not a retry, final failure is not a retry)
-	messagesDropped uint64 // atomic - final failure
+	postId             uint64 // atomic - used for an id in logs
+	messagesInvalid    uint64 // atomic - messages which failed to be created
+	messagesCreated    uint64 // atomic - messages which were created
+	messagesSent       uint64 // atomic - messages successfully sent
+	messagesRetried    uint64 // atomic - retries (first send is not a retry, final failure is not a retry)
+	messagesDropped    uint64 // atomic - final failure
+	lastSuccessfulSend atomic.Int64
 
 	logger                logrus.FieldLogger
 	apiEndpoint           string
 	maxRequestElapsedTime time.Duration
 	metricsSem            chan struct{}
+	metricsMergingSem     chan struct{}
 	client                *http.Client
 	eventWg               sync.WaitGroup
 	compress              bool
@@ -60,6 +64,10 @@ type HttpForwarderHandlerV2 struct {
 	consolidatedMetrics chan []*gostatsd.MetricMap
 }
 
+var (
+	_ healthcheck.DeepCheckProvider = &HttpForwarderHandlerV2{}
+)
+
 // NewHttpForwarderHandlerV2FromViper returns a new http API client.
 func NewHttpForwarderHandlerV2FromViper(logger logrus.FieldLogger, v *viper.Viper, pool *transport.TransportPool) (*HttpForwarderHandlerV2, error) {
 	subViper := util.GetSubViper(v, "http-transport")
@@ -70,6 +78,7 @@ func NewHttpForwarderHandlerV2FromViper(logger logrus.FieldLogger, v *viper.Vipe
 	subViper.SetDefault("max-request-elapsed-time", defaultMaxRequestElapsedTime)
 	subViper.SetDefault("consolidator-slots", v.GetInt(gostatsd.ParamMaxParsers))
 	subViper.SetDefault("flush-interval", defaultConsolidatorFlushInterval)
+	subViper.SetDefault("concurrent-merge", defaultConcurrentMerge)
 
 	return NewHttpForwarderHandlerV2(
 		logger,
@@ -77,6 +86,7 @@ func NewHttpForwarderHandlerV2FromViper(logger logrus.FieldLogger, v *viper.Vipe
 		subViper.GetString("api-endpoint"),
 		subViper.GetInt("consolidator-slots"),
 		subViper.GetInt("max-requests"),
+		subViper.GetInt("concurrent-merge"),
 		subViper.GetBool("compress"),
 		subViper.GetDuration("max-request-elapsed-time"),
 		subViper.GetDuration("flush-interval"),
@@ -93,6 +103,7 @@ func NewHttpForwarderHandlerV2(
 	apiEndpoint string,
 	consolidatorSlots,
 	maxRequests int,
+	concurrentMerge int,
 	compress bool,
 	maxRequestElapsedTime time.Duration,
 	flushInterval time.Duration,
@@ -114,6 +125,9 @@ func NewHttpForwarderHandlerV2(
 	}
 	if flushInterval <= 0 {
 		return nil, fmt.Errorf("flush-interval must be positive")
+	}
+	if concurrentMerge <= 0 {
+		return nil, fmt.Errorf("concurrent-merge must be positive")
 	}
 
 	httpClient, err := pool.Get(transport)
@@ -162,6 +176,11 @@ func NewHttpForwarderHandlerV2(
 		metricsSem <- struct{}{}
 	}
 
+	metricsMergingSem := make(chan struct{}, concurrentMerge)
+	for i := 0; i < concurrentMerge; i++ {
+		metricsMergingSem <- struct{}{}
+	}
+
 	ch := make(chan []*gostatsd.MetricMap)
 
 	return &HttpForwarderHandlerV2{
@@ -169,14 +188,29 @@ func NewHttpForwarderHandlerV2(
 		apiEndpoint:           apiEndpoint,
 		maxRequestElapsedTime: maxRequestElapsedTime,
 		metricsSem:            metricsSem,
+		metricsMergingSem:     metricsMergingSem,
 		compress:              compress,
-		consolidator:          gostatsd.NewMetricConsolidator(consolidatorSlots, flushInterval, ch),
+		consolidator:          gostatsd.NewMetricConsolidator(consolidatorSlots, false, flushInterval, ch),
 		consolidatedMetrics:   ch,
 		client:                httpClient.Client,
 		headers:               headers,
 		dynHeaderNames:        dynHeaderNamesWithColon,
 		done:                  make(chan struct{}),
 	}, nil
+}
+
+func (hfh *HttpForwarderHandlerV2) DeepChecks() []healthcheck.HealthcheckFunc {
+	return []healthcheck.HealthcheckFunc{
+		hfh.dcSentRecently,
+	}
+}
+
+func (hfh *HttpForwarderHandlerV2) dcSentRecently() (string, healthcheck.HealthyStatus) {
+	if lastSend := hfh.lastSuccessfulSend.Load(); lastSend == 0 {
+		return "sentRecently: never sent", healthcheck.Unhealthy
+	} else {
+		return fmt.Sprintf("sentRecently: lastSend=%s", time.Unix(0, lastSend).String()), healthcheck.Healthy
+	}
 }
 
 func (hfh *HttpForwarderHandlerV2) EstimatedTags() int {
@@ -212,39 +246,48 @@ func (hfh *HttpForwarderHandlerV2) RunMetricsContext(ctx context.Context) {
 }
 
 func (hfh *HttpForwarderHandlerV2) emitMetrics(statser stats.Statser) {
-	messagesInvalid := atomic.SwapUint64(&hfh.messagesInvalid, 0)
-	messagesCreated := atomic.SwapUint64(&hfh.messagesCreated, 0)
-	messagesSent := atomic.SwapUint64(&hfh.messagesSent, 0)
-	messagesRetried := atomic.SwapUint64(&hfh.messagesRetried, 0)
-	messagesDropped := atomic.SwapUint64(&hfh.messagesDropped, 0)
+	statser.Report("http.forwarder.invalid", &hfh.messagesInvalid, nil)
+	statser.Report("http.forwarder.created", &hfh.messagesCreated, nil)
+	statser.Report("http.forwarder.sent", &hfh.messagesSent, nil)
+	statser.Report("http.forwarder.retried", &hfh.messagesRetried, nil)
+	statser.Report("http.forwarder.dropped", &hfh.messagesDropped, nil)
+}
 
-	statser.Count("http.forwarder.invalid", float64(messagesInvalid), nil)
-	statser.Count("http.forwarder.created", float64(messagesCreated), nil)
-	statser.Count("http.forwarder.sent", float64(messagesSent), nil)
-	statser.Count("http.forwarder.retried", float64(messagesRetried), nil)
-	statser.Count("http.forwarder.dropped", float64(messagesDropped), nil)
+// sendNop sends an empty metric map downstream.  It's used to "prime the pump" for the deepcheck.
+func (hfh *HttpForwarderHandlerV2) sendNop(ctx context.Context) {
+	hfh.postMetrics(ctx, gostatsd.NewMetricMap(false), "", 0)
 }
 
 func (hfh *HttpForwarderHandlerV2) Run(ctx context.Context) {
 	var wg wait.Group
+	wg.StartWithContext(ctx, hfh.sendNop)
 	wg.Start(func() {
 		for metricMaps := range hfh.consolidatedMetrics {
-			mergedMetricMap := mergeMaps(metricMaps)
-			mms := mergedMetricMap.SplitByTags(hfh.dynHeaderNames)
-			for dynHeaderTags, mm := range mms {
-				if mm.IsEmpty() {
-					continue
+			hfh.acquireMergingSem()
+			metricMaps := metricMaps
+			go func() {
+				mergedMetricMap := gostatsd.MergeMaps(metricMaps)
+				mms := mergedMetricMap.SplitByTags(hfh.dynHeaderNames)
+				hfh.releaseMergingSem()
+
+				for dynHeaderTags, mm := range mms {
+					if mm.IsEmpty() {
+						continue
+					}
+					hfh.acquireSem()
+					postId := atomic.AddUint64(&hfh.postId, 1) - 1
+					go func(postId uint64, metricMap *gostatsd.MetricMap, dynHeaderTags string) {
+						hfh.postMetrics(context.Background(), metricMap, dynHeaderTags, postId)
+						hfh.releaseSem()
+					}(postId, mm, dynHeaderTags)
 				}
-				hfh.acquireSem()
-				postId := atomic.AddUint64(&hfh.postId, 1) - 1
-				go func(postId uint64, metricMap *gostatsd.MetricMap, dynHeaderTags string) {
-					hfh.postMetrics(context.Background(), metricMap, dynHeaderTags, postId)
-					hfh.releaseSem()
-				}(postId, mm, dynHeaderTags)
-			}
+			}()
 		}
 		for i := 0; i < cap(hfh.metricsSem); i++ {
 			hfh.acquireSem()
+		}
+		for i := 0; i < cap(hfh.metricsMergingSem); i++ {
+			hfh.acquireMergingSem()
 		}
 	})
 	wg.StartWithContext(ctx, func(ctx context.Context) {
@@ -262,20 +305,20 @@ func (hfh *HttpForwarderHandlerV2) Close() {
 	close(hfh.consolidatedMetrics)
 }
 
-func mergeMaps(maps []*gostatsd.MetricMap) *gostatsd.MetricMap {
-	mm := gostatsd.NewMetricMap()
-	for _, m := range maps {
-		mm.Merge(m)
-	}
-	return mm
-}
-
 func (hfh *HttpForwarderHandlerV2) acquireSem() {
 	<-hfh.metricsSem // will potentially block
 }
 
 func (hfh *HttpForwarderHandlerV2) releaseSem() {
 	hfh.metricsSem <- struct{}{} // will never block
+}
+
+func (hfh *HttpForwarderHandlerV2) acquireMergingSem() {
+	<-hfh.metricsMergingSem
+}
+
+func (hfh *HttpForwarderHandlerV2) releaseMergingSem() {
+	hfh.metricsMergingSem <- struct{}{}
 }
 
 func translateToProtobufV2(metricMap *gostatsd.MetricMap) *pb.RawMessageV2 {
@@ -363,6 +406,7 @@ func (hfh *HttpForwarderHandlerV2) post(ctx context.Context, message proto.Messa
 	for {
 		if err = post(); err == nil {
 			atomic.AddUint64(&hfh.messagesSent, 1)
+			hfh.lastSuccessfulSend.Store(clock.Now(ctx).UnixNano())
 			return
 		}
 
