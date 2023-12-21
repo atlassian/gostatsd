@@ -3,7 +3,6 @@ package extension
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -14,6 +13,7 @@ import (
 	"time"
 
 	"github.com/ash2k/stager/wait"
+	jsoniter "github.com/json-iterator/go"
 	"github.com/sirupsen/logrus"
 	"github.com/tilinna/clock"
 	"go.uber.org/multierr"
@@ -75,7 +75,7 @@ func WithLogger(log logrus.FieldLogger) OptionFunc {
 
 func WithLambdaFileName(fileName string) OptionFunc {
 	return func(m *manager) error {
-		if len(fileName) == 0 {
+		if fileName == "" {
 			return errors.New("invalid name")
 		}
 		m.name = fileName
@@ -169,7 +169,8 @@ func (m *manager) Run(parent context.Context, server Server) error {
 		ctx, cancel := clock.TimeoutContext(context.Background(), time.Second)
 		defer cancel()
 
-		return m.exitError(ctx, err)
+		m.reportExitError(ctx, err)
+		return err
 	}
 
 	return nil
@@ -200,9 +201,7 @@ func (m *manager) heartbeat(ctx context.Context, cancel context.CancelFunc) erro
 
 func (m *manager) register(ctx context.Context) error {
 	var buf bytes.Buffer
-	var enc = json.NewEncoder(&buf)
-
-	enc.SetEscapeHTML(true)
+	var enc = jsoniter.NewEncoder(&buf)
 
 	err := enc.Encode(&api.RegisterRequestPayload{
 		Events: []api.Event{api.Invoke, api.Shutdown},
@@ -222,7 +221,10 @@ func (m *manager) register(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_, _ = io.Copy(io.Discard, resp.Body)
+		_ = resp.Body.Close()
+	}()
 
 	switch resp.StatusCode {
 	case http.StatusOK:
@@ -247,7 +249,7 @@ func (m *manager) register(ctx context.Context) error {
 	m.registeredID = id[0]
 
 	var info api.RegisterResponsePayload
-	if err := json.NewDecoder(resp.Body).Decode(&info); err != nil {
+	if err := jsoniter.NewDecoder(resp.Body).Decode(&info); err != nil {
 		return err
 	}
 
@@ -273,7 +275,10 @@ func (m *manager) nextEvent(ctx context.Context) (*api.EventNextPayload, error) 
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_, _ = io.Copy(io.Discard, resp.Body)
+		_ = resp.Body.Close()
+	}()
 
 	switch resp.StatusCode {
 	case http.StatusOK:
@@ -286,7 +291,7 @@ func (m *manager) nextEvent(ctx context.Context) (*api.EventNextPayload, error) 
 	}
 
 	var payload api.EventNextPayload
-	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+	if err := jsoniter.NewDecoder(resp.Body).Decode(&payload); err != nil {
 		return nil, err
 	}
 
@@ -294,12 +299,8 @@ func (m *manager) nextEvent(ctx context.Context) (*api.EventNextPayload, error) 
 }
 
 func (m *manager) initError(ctx context.Context, problem error) error {
-	var (
-		buf bytes.Buffer
-		enc = json.NewEncoder(&buf)
-	)
-
-	enc.SetEscapeHTML(true)
+	var buf bytes.Buffer
+	var enc = jsoniter.NewEncoder(&buf)
 
 	err := enc.Encode(api.ErrorRequest{
 		Message:    problem.Error(),
@@ -322,11 +323,10 @@ func (m *manager) initError(ctx context.Context, problem error) error {
 	if err != nil {
 		return err
 	}
-
-	if _, err := io.Copy(io.Discard, resp.Body); err != nil {
-		return err
-	}
-	_ = resp.Body.Close()
+	defer func() {
+		_, _ = io.Copy(io.Discard, resp.Body)
+		_ = resp.Body.Close()
+	}()
 
 	if resp.StatusCode == http.StatusAccepted {
 		return nil
@@ -335,13 +335,9 @@ func (m *manager) initError(ctx context.Context, problem error) error {
 	return fmt.Errorf("issue with sending init error to lambda, status code: %d", resp.StatusCode)
 }
 
-func (m *manager) exitError(ctx context.Context, problem error) error {
-	var (
-		buf bytes.Buffer
-		enc = json.NewEncoder(&buf)
-	)
-
-	enc.SetEscapeHTML(true)
+func (m *manager) reportExitError(ctx context.Context, problem error) {
+	var buf bytes.Buffer
+	var enc = jsoniter.NewEncoder(&buf)
 
 	err := enc.Encode(api.ErrorRequest{
 		Message:    problem.Error(),
@@ -350,12 +346,14 @@ func (m *manager) exitError(ctx context.Context, problem error) error {
 	})
 
 	if err != nil {
-		return err
+		m.log.WithError(err).Error("error encoding error request to lambda runtime")
+		return
 	}
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, api.ExitErrorEndpoint.GetUrl(m.domain), &buf)
 	if err != nil {
-		return err
+		m.log.WithError(err).Error("error forming http exit error request to lambda runtime")
+		return
 	}
 
 	req.Header.Set(api.LambdaExtensionIdentifierHeaderKey, m.registeredID)
@@ -363,20 +361,16 @@ func (m *manager) exitError(ctx context.Context, problem error) error {
 
 	resp, err := m.client.Do(req)
 	if err != nil {
-		return err
+		m.log.WithError(err).Error("error submitting exit error to lambda runtime")
+		return
 	}
 
-	if _, err := io.Copy(io.Discard, resp.Body); err != nil {
-		return err
-	}
+	defer func() {
+		_, _ = io.Copy(io.Discard, resp.Body)
+		_ = resp.Body.Close()
+	}()
 
-	if err := resp.Body.Close(); err != nil {
-		return err
+	if resp.StatusCode != http.StatusAccepted {
+		m.log.WithField("status code", resp.StatusCode).Error("issue with sending exit error to lambda")
 	}
-
-	if resp.StatusCode == http.StatusAccepted {
-		return nil
-	}
-
-	return fmt.Errorf("issue with sending exit error to lambda, status code: %d", resp.StatusCode)
 }

@@ -17,10 +17,12 @@ import (
 	"github.com/tilinna/clock"
 
 	"github.com/atlassian/gostatsd/internal/awslambda/extension/api"
+	"github.com/atlassian/gostatsd/internal/fixtures"
 	"github.com/atlassian/gostatsd/pkg/fakesocket"
 )
 
 type mocked struct {
+	delay time.Duration
 	erred error
 
 	start chan<- struct{}
@@ -29,6 +31,9 @@ type mocked struct {
 
 func (m *mocked) Run(ctx context.Context) error {
 	m.start <- struct{}{}
+	if m.delay > 0 {
+		<-clock.After(ctx, m.delay)
+	}
 	m.done <- struct{}{}
 	return m.erred
 }
@@ -188,6 +193,7 @@ func TestManagerRegister(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
+		tc := tc
 		t.Run(tc.Scenario, func(t *testing.T) {
 			t.Parallel()
 			r := mux.NewRouter()
@@ -224,6 +230,7 @@ func TestManagerDo(t *testing.T) {
 		Scenario      string
 		EventStatus   int
 		ShutdownAfter int
+		MockDelay     time.Duration
 		MockError     error
 
 		ExpectError error
@@ -232,6 +239,7 @@ func TestManagerDo(t *testing.T) {
 			Scenario:      "Normal operation",
 			EventStatus:   http.StatusOK,
 			ShutdownAfter: 3,
+			MockDelay:     time.Second,
 			MockError:     nil,
 			ExpectError:   nil,
 		},
@@ -239,6 +247,7 @@ func TestManagerDo(t *testing.T) {
 			Scenario:      "Operational failure sending heartbeart",
 			EventStatus:   http.StatusInternalServerError,
 			ShutdownAfter: 2,
+			MockDelay:     time.Second,
 			MockError:     nil,
 			ExpectError:   ErrIssueProgress,
 		},
@@ -246,6 +255,7 @@ func TestManagerDo(t *testing.T) {
 			Scenario:      "Server has shutdown early without cause",
 			EventStatus:   http.StatusOK,
 			ShutdownAfter: 3,
+			MockDelay:     0,
 			MockError:     nil,
 			ExpectError:   ErrServerEarlyExit,
 		},
@@ -253,6 +263,7 @@ func TestManagerDo(t *testing.T) {
 			Scenario:      "Server configuration was wrong resulting in during init",
 			EventStatus:   http.StatusOK,
 			ShutdownAfter: 0,
+			MockDelay:     0,
 			MockError:     fakesocket.ErrClosedConnection,
 			ExpectError:   fakesocket.ErrClosedConnection,
 		},
@@ -260,16 +271,21 @@ func TestManagerDo(t *testing.T) {
 			Scenario:      "Server failed throughout runtime and successfully committed to lambda",
 			EventStatus:   http.StatusOK,
 			ShutdownAfter: 0,
+			MockDelay:     300 * time.Millisecond,
 			MockError:     fakesocket.ErrClosedConnection,
-			ExpectError:   nil,
+			ExpectError:   fakesocket.ErrClosedConnection,
 		},
 	}
 
 	for _, tc := range testCases {
+		tc := tc
 		t.Run(tc.Scenario, func(t *testing.T) {
 			t.Parallel()
+			clck := clock.NewMock(time.Unix(1, 0))
 
-			ctx, cancel := context.WithCancel(context.Background())
+			ctx, cancel := context.WithCancel(
+				clock.Context(context.Background(), clck),
+			)
 			t.Cleanup(cancel)
 
 			r := mux.NewRouter()
@@ -297,7 +313,7 @@ func TestManagerDo(t *testing.T) {
 			start := make(chan struct{}, 1)
 			done := make(chan struct{}, 1)
 
-			server := &mocked{erred: tc.MockError, start: start, done: done}
+			server := &mocked{delay: tc.MockDelay, erred: tc.MockError, start: start, done: done}
 
 			go func() {
 				<-start
@@ -306,13 +322,16 @@ func TestManagerDo(t *testing.T) {
 					select {
 					case <-done:
 						close(done)
+						fixtures.NextStep(ctx, clck)
 						cancel()
 						return
 					default:
+						fixtures.NextStep(ctx, clck)
 					}
 				}
 			}()
 			assert.ErrorIs(t, m.Run(ctx, server), tc.ExpectError)
+			assert.Zero(t, clck.Len(), "Must have stopped all timers")
 		})
 	}
 }
