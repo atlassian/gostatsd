@@ -117,8 +117,8 @@ func (m *manager) Run(parent context.Context, server Server) error {
 	ctx, cancel := context.WithCancel(parent)
 	// Start gostatsd server
 	var (
-		wg   wait.Group
-		errs = make(chan error, 2)
+		wg     wait.Group
+		chErrs = make(chan error, 2)
 	)
 	defer cancel()
 
@@ -126,14 +126,14 @@ func (m *manager) Run(parent context.Context, server Server) error {
 		err := server.Run(c)
 		// Shutting down due to context is an acceptable
 		// reason to shutdown and is not considered an error
-		if errors.Is(err, ctx.Err()) {
-			err = nil
+		// we write all other errors to the channel
+		if !errors.Is(err, ctx.Err()) || err == nil {
+			chErrs <- err
 		}
-		errs <- err
 	})
 
 	select {
-	case err := <-errs:
+	case err := <-chErrs:
 		// In the event that the lambda finished early before
 		// it had started accepting events without error,
 		// It is still considered an error since
@@ -149,14 +149,14 @@ func (m *manager) Run(parent context.Context, server Server) error {
 	}
 
 	wg.StartWithContext(ctx, func(c context.Context) {
-		errs <- m.heartbeat(c, cancel)
+		chErrs <- m.heartbeat(c, cancel)
 	})
 
 	wg.Wait()
-	close(errs)
+	close(chErrs)
 
 	var err error
-	for er := range errs {
+	for er := range chErrs {
 		err = multierr.Append(err, er)
 	}
 
