@@ -94,7 +94,7 @@ func NewManager(opts ...OptionFunc) (Manager, error) {
 
 	m := &manager{
 		log:    log,
-		client: &http.Client{},
+		client: &http.Client{Timeout: 0},
 		domain: os.Getenv(api.EnvLambdaAPIKey),
 		name:   name,
 	}

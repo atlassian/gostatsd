@@ -53,16 +53,16 @@ build: pb/gostatsd.pb.go
 			$(PKG)
 
 build-gostatsd:
-	@$(MAKE) PKG=$(MAIN_PKG)
+	@$(MAKE) build PKG=$(MAIN_PKG)
 
 build-lambda:
-	go build -v -o build/bin/$(ARCH)/lambda-extension $(GOBUILD_VERSION_ARGS) $(LAMBDA_PKG)
+	@$(MAKE) build PKG=$(LAMBDA_PKG) BINARY_NAME="lambda-extension"
 
 build-gostatsd-race:
 	@$(MAKE) build-gostatsd GOBUILD_OPTIONAL_FLAGS=-race
 
 build-cluster:
-	@$(MAKE) PKG=$(CLUSTER_PKG) BINARY_NAME="cluster"
+	@$(MAKE) build PKG=$(CLUSTER_PKG) BINARY_NAME="cluster"
 
 
 build-all: pb/gostatsd.pb.go tools
