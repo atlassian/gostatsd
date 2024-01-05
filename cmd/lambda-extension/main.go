@@ -129,6 +129,7 @@ func CreateServer(v *viper.Viper, logger logrus.FieldLogger) (*statsd.Server, er
 		HistogramLimit:            v.GetUint32(gostatsd.ParamTimerHistogramLimit),
 		Viper:                     v,
 		TransportPool:             pool,
+		//FlushChannel:              make(chan struct{}, 2),
 	}, nil
 }
 
@@ -169,17 +170,18 @@ func main() {
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer cancel()
 
-	manager, err := extension.NewManager(
-		extension.WithLogger(log),
-		extension.WithLambdaFileName(conf.GetString(ParamLambdaFileName)),
-	)
-	if err != nil {
-		log.WithError(err).Panic("Unable to create extension manager")
-	}
-
 	server, err := CreateServer(conf, log)
 	if err != nil {
 		log.WithError(err).Panic("Unable to create gostatsd server")
+	}
+
+	manager, err := extension.NewManager(
+		extension.WithLogger(log),
+		extension.WithLambdaFileName(conf.GetString(ParamLambdaFileName)),
+		//extension.WithFlushChannel(server.FlushChannel),
+	)
+	if err != nil {
+		log.WithError(err).Panic("Unable to create extension manager")
 	}
 
 	if err := manager.Run(ctx, server); err != nil {

@@ -19,6 +19,7 @@ import (
 	"go.uber.org/multierr"
 
 	"github.com/atlassian/gostatsd/internal/awslambda/extension/api"
+	"github.com/atlassian/gostatsd/internal/awslambda/extension/telemetry"
 )
 
 var (
@@ -45,10 +46,13 @@ type OptionFunc func(*manager) error
 type manager struct {
 	log    logrus.FieldLogger
 	client *http.Client
-
+	//flushCh      chan struct{}
+	//invokeCh     chan struct{}
 	domain       string
 	name         string
 	registeredID string
+
+	telemetryServer *telemetry.Server
 }
 
 var _ Manager = (*manager)(nil)
@@ -83,6 +87,17 @@ func WithLambdaFileName(fileName string) OptionFunc {
 	}
 }
 
+//func WithFlushChannel(flushCh chan struct{}) OptionFunc {
+//	return func(m *manager) error {
+//		if flushCh == nil {
+//			return errors.New("invalid flush channel")
+//		}
+//		//m.flushCh = flushCh
+//		//m.invokeCh = make(chan struct{}, 2)
+//		return nil
+//	}
+//}
+
 func NewManager(opts ...OptionFunc) (Manager, error) {
 	name, err := os.Executable()
 	if err != nil {
@@ -99,6 +114,8 @@ func NewManager(opts ...OptionFunc) (Manager, error) {
 		name:   name,
 	}
 
+	m.telemetryServer = telemetry.NewServer(telemetry.WithRuntimeDoneHook(m.onRuntimeDone))
+
 	for _, opt := range opts {
 		if err := opt(m); err != nil {
 			return nil, err
@@ -109,19 +126,23 @@ func NewManager(opts ...OptionFunc) (Manager, error) {
 }
 
 func (m *manager) Run(parent context.Context, server Server) error {
+	var wg wait.Group
+	var chErrs = make(chan error, 2)
+
+	ctx, cancel := context.WithCancel(parent)
+	defer cancel()
+
 	// Init Phase of the lambda
 	if err := m.register(parent); err != nil {
 		return err
 	}
 
-	ctx, cancel := context.WithCancel(parent)
-	// Start gostatsd server
-	var (
-		wg     wait.Group
-		chErrs = make(chan error, 2)
-	)
-	defer cancel()
+	// Start telemetry server
+	wg.StartWithContext(ctx, func(ctx context.Context) {
+		m.telemetryServer.Start(ctx)
+	})
 
+	// Start gostatsd server
 	wg.StartWithContext(ctx, func(c context.Context) {
 		err := server.Run(c)
 		// Shutting down due to context is an acceptable
@@ -154,6 +175,9 @@ func (m *manager) Run(parent context.Context, server Server) error {
 
 	wg.Wait()
 	close(chErrs)
+	//if m.invokeCh != nil {
+	//	close(m.invokeCh)
+	//}
 
 	var err error
 	for er := range chErrs {
@@ -178,6 +202,11 @@ func (m *manager) Run(parent context.Context, server Server) error {
 
 func (m *manager) heartbeat(ctx context.Context, cancel context.CancelFunc) error {
 	for ctx.Err() == nil {
+		//if m.invokeCh != nil {
+		//	<-m.invokeCh
+		//	<-time.NewTimer(100 * time.Millisecond).C
+		//}
+
 		resp, err := m.nextEvent(ctx)
 		if err != nil {
 			return err
@@ -247,12 +276,10 @@ func (m *manager) register(ctx context.Context) error {
 	// the id assigned to the process needs to be preserved and sent
 	// with future requests
 	m.registeredID = id[0]
-
 	var info api.RegisterResponsePayload
 	if err := jsoniter.NewDecoder(resp.Body).Decode(&info); err != nil {
 		return err
 	}
-
 	// Log the registered payload here as an informative means of
 	// debugging connecitivity issues in future.
 	m.log.WithFields(map[string]interface{}{
@@ -260,7 +287,56 @@ func (m *manager) register(ctx context.Context) error {
 		"function-version": info.FunctionVersion,
 		"function-handler": info.Handler,
 	}).Info("Successfully registered with Lambda")
+
+	err = m.subscribeToTelemetry(ctx)
+	if err != nil {
+		m.log.WithError(err).Error("error subscribing to lambda telemetry endpoint")
+	}
+
+	//if m.invokeCh != nil {
+	//	m.invokeCh <- struct{}{}
+	//}
+
 	return nil
+}
+
+func (m *manager) subscribeToTelemetry(ctx context.Context) error {
+	b, err := jsoniter.Marshal(telemetry.SubscriptionRequest{
+		SchemaVersion: telemetry.ApiVersion,
+		Types:         []string{telemetry.PlatformSubscriptionType},
+		Destination:   &telemetry.SubscriptionDestination{URI: m.telemetryServer.Endpoint(), Protocol: "HTTP"},
+		Buffering:     &telemetry.SubscriptionBufferingConfig{TimeoutMs: telemetry.MinBufferingTimeoutMs},
+	})
+	if err != nil {
+		return err
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPut, telemetry.SubscribeEndpoint.GetUrl(m.domain), bytes.NewReader(b))
+	req.Header.Set(api.LambdaExtensionIdentifierHeaderKey, m.registeredID)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := m.client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		_, _ = io.Copy(io.Discard, resp.Body)
+		_ = resp.Body.Close()
+	}()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return errors.New(fmt.Sprintf("received %d response code from telemetry subscription with body %s", resp.StatusCode, string(body)))
+	}
+
+	m.log.Info("successfully subscribed to telemetry API")
+
+	return nil
+}
+
+func (m *manager) onRuntimeDone() {
+	//noop for now
+	//m.flushCh <- struct{}{}
+	//m.invokeCh <- struct{}{}
 }
 
 func (m *manager) nextEvent(ctx context.Context) (*api.EventNextPayload, error) {
