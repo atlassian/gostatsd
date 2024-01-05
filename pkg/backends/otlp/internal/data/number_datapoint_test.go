@@ -27,7 +27,9 @@ func TestNumberDataPoint(t *testing.T) {
 		{
 			name: "int with values",
 			opts: []func(NumberDataPoint){
-				WithNumberDataPointDelimtedTags([]string{"service.name:my-awesome-service"}),
+				WithNumberDataPointMap(
+					NewMap(WithStatsdDelimitedTags([]string{"service.name:my-awesome-service"})),
+				),
 				WithNumberDatapointIntValue(1),
 			},
 			expect: NumberDataPoint{
@@ -52,7 +54,9 @@ func TestNumberDataPoint(t *testing.T) {
 		{
 			name: "double with values",
 			opts: []func(NumberDataPoint){
-				WithNumberDataPointDelimtedTags([]string{"service.name:my-awesome-service"}),
+				WithNumberDataPointMap(
+					NewMap(WithStatsdDelimitedTags([]string{"service.name:my-awesome-service"})),
+				),
 				WithNumberDataPointDoubleValue(1),
 			},
 			expect: NumberDataPoint{
