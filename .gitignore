@@ -9,4 +9,8 @@
 build/dev/data/
 /.idea
 /.vscode
+/.tools
 *.toml
+
+# Ensure all testdata changes are included in git adds
+!/**/testdata/*
