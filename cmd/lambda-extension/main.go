@@ -184,8 +184,8 @@ func main() {
 		log.WithError(err).Panic("Unable to create extension manager")
 	}
 
-	if err := manager.Run(ctx, server); err != nil {
-		log.WithError(err).Error("Iss trying to run lambda extension")
+	if err = manager.Run(ctx, server); err != nil {
+		log.WithError(err).Error("Issue trying to init lambda extension")
 	}
 
 	log.Info("Shutting down")

@@ -3,6 +3,7 @@ package telemetry
 import (
 	"bytes"
 	"context"
+	"net"
 	"net/http"
 	"testing"
 	"time"
@@ -61,7 +62,10 @@ func TestRuntimeDoneHook(t *testing.T) {
 			p, err := jsoniter.Marshal(tc.payload)
 			require.NoError(t, err)
 
-			s := NewServer(WithRuntimeDoneHook(f), WithCustomAddr("127.0.0.1:8083"))
+			l, _ := net.Listen("tcp", ":0")
+			l.Close()
+
+			s := NewServer(WithRuntimeDoneHook(f), WithCustomAddr(l.Addr().String()))
 
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()

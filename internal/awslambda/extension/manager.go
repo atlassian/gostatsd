@@ -23,10 +23,11 @@ import (
 )
 
 var (
-	ErrTerminated         = errors.New("extension has shutdown")
-	ErrFailedRegistration = errors.New("extension failed to register with lambda")
-	ErrIssueProgress      = errors.New("unable continue execution")
-	ErrServerEarlyExit    = errors.New("server has shutdown early without cause")
+	ErrTerminated                  = errors.New("extension has shutdown")
+	ErrFailedRegistration          = errors.New("extension failed to register with lambda")
+	ErrIssueProgress               = errors.New("unable continue execution")
+	ErrServerEarlyExit             = errors.New("server has shutdown early without cause")
+	ErrFailedTelemetrySubscription = errors.New("extension failed to subscribe to lambda telemetry API")
 )
 
 // Manager ensures that the lifetime management of the lambda
@@ -127,10 +128,7 @@ func NewManager(opts ...OptionFunc) (Manager, error) {
 
 func (m *manager) Run(parent context.Context, server Server) error {
 	var wg wait.Group
-	var chErrs = make(chan error, 2)
-
-	ctx, cancel := context.WithCancel(parent)
-	defer cancel()
+	var chErrs = make(chan error, 3)
 
 	// Init Phase of the lambda
 	if err := m.register(parent); err != nil {
@@ -138,9 +136,16 @@ func (m *manager) Run(parent context.Context, server Server) error {
 	}
 
 	// Start telemetry server
-	wg.StartWithContext(ctx, func(ctx context.Context) {
-		m.telemetryServer.Start(ctx)
+	ctx, cancel := context.WithCancel(parent)
+	defer cancel()
+	wg.StartWithContext(ctx, func(c context.Context) {
+		chErrs <- m.telemetryServer.Start(c)
 	})
+
+	if err := m.subscribeToTelemetry(ctx); err != nil {
+		m.log.WithError(err).Error("error subscribing to lambda telemetry endpoint")
+		return err
+	}
 
 	// Start gostatsd server
 	wg.StartWithContext(ctx, func(c context.Context) {
@@ -201,6 +206,7 @@ func (m *manager) Run(parent context.Context, server Server) error {
 }
 
 func (m *manager) heartbeat(ctx context.Context, cancel context.CancelFunc) error {
+	defer cancel()
 	for ctx.Err() == nil {
 		//if m.invokeCh != nil {
 		//	<-m.invokeCh
@@ -222,8 +228,6 @@ func (m *manager) heartbeat(ctx context.Context, cancel context.CancelFunc) erro
 			"deadline":       resp.Deadline,
 		}).Debug("Progressing further with the invocation")
 	}
-
-	cancel()
 
 	return nil
 }
@@ -288,11 +292,6 @@ func (m *manager) register(ctx context.Context) error {
 		"function-handler": info.Handler,
 	}).Info("Successfully registered with Lambda")
 
-	err = m.subscribeToTelemetry(ctx)
-	if err != nil {
-		m.log.WithError(err).Error("error subscribing to lambda telemetry endpoint")
-	}
-
 	//if m.invokeCh != nil {
 	//	m.invokeCh <- struct{}{}
 	//}
@@ -325,7 +324,8 @@ func (m *manager) subscribeToTelemetry(ctx context.Context) error {
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return errors.New(fmt.Sprintf("received %d response code from telemetry subscription with body %s", resp.StatusCode, string(body)))
+		m.log.WithError(err).Errorf("received %d response code from telemetry subscription with body %s", resp.StatusCode, string(body))
+		return ErrFailedTelemetrySubscription
 	}
 
 	m.log.Info("successfully subscribed to telemetry API")
@@ -351,10 +351,7 @@ func (m *manager) nextEvent(ctx context.Context) (*api.EventNextPayload, error) 
 	if err != nil {
 		return nil, err
 	}
-	defer func() {
-		_, _ = io.Copy(io.Discard, resp.Body)
-		_ = resp.Body.Close()
-	}()
+	defer resp.Body.Close()
 
 	switch resp.StatusCode {
 	case http.StatusOK:
