@@ -62,6 +62,7 @@ type HttpForwarderHandlerV2 struct {
 	done                chan struct{}
 	consolidator        *gostatsd.MetricConsolidator
 	consolidatedMetrics chan []*gostatsd.MetricMap
+	flushCh             chan struct{}
 }
 
 var (
@@ -93,6 +94,7 @@ func NewHttpForwarderHandlerV2FromViper(logger logrus.FieldLogger, v *viper.Vipe
 		subViper.GetStringMapString("custom-headers"),
 		subViper.GetStringSlice("dynamic-headers"),
 		pool,
+		//flushCh,
 	)
 }
 
@@ -110,6 +112,7 @@ func NewHttpForwarderHandlerV2(
 	xheaders map[string]string,
 	dynHeaderNames []string,
 	pool *transport.TransportPool,
+	// flushCh chan struct{},
 ) (*HttpForwarderHandlerV2, error) {
 	if apiEndpoint == "" {
 		return nil, fmt.Errorf("api-endpoint is required")
@@ -196,6 +199,7 @@ func NewHttpForwarderHandlerV2(
 		headers:               headers,
 		dynHeaderNames:        dynHeaderNamesWithColon,
 		done:                  make(chan struct{}),
+		//flushCh:               flushCh,
 	}, nil
 }
 
@@ -263,9 +267,11 @@ func (hfh *HttpForwarderHandlerV2) Run(ctx context.Context) {
 	wg.StartWithContext(ctx, hfh.sendNop)
 	wg.Start(func() {
 		for metricMaps := range hfh.consolidatedMetrics {
+			hfh.logger.Debug("consolidating metrics")
 			hfh.acquireMergingSem()
 			metricMaps := metricMaps
 			go func() {
+				hfh.logger.Debug("finished consolidating metrics")
 				mergedMetricMap := gostatsd.MergeMaps(metricMaps)
 				mms := mergedMetricMap.SplitByTags(hfh.dynHeaderNames)
 				hfh.releaseMergingSem()
@@ -290,10 +296,29 @@ func (hfh *HttpForwarderHandlerV2) Run(ctx context.Context) {
 			hfh.acquireMergingSem()
 		}
 	})
-	wg.StartWithContext(ctx, func(ctx context.Context) {
-		hfh.consolidator.Run(ctx)
-		hfh.Close()
-	})
+
+	// trigger auto flush mode
+	if hfh.flushCh == nil {
+		wg.StartWithContext(ctx, func(ctx context.Context) {
+			hfh.consolidator.Run(ctx)
+			hfh.Close()
+		})
+	} else {
+		// trigger manual flush mode if we have a flush channel
+		wg.StartWithContext(ctx, func(ctx context.Context) {
+			for {
+				select {
+				case <-hfh.flushCh:
+					hfh.logger.Debug("received manual flush message")
+					hfh.FlushMetrics()
+				case <-ctx.Done():
+					hfh.FlushMetrics()
+					hfh.Close()
+					return
+				}
+			}
+		})
+	}
 
 	wg.Wait()
 	hfh.logger.Debug("Shutdown http forwarder")
@@ -382,6 +407,7 @@ func translateToProtobufV2(metricMap *gostatsd.MetricMap) *pb.RawMessageV2 {
 
 func (hfh *HttpForwarderHandlerV2) postMetrics(ctx context.Context, metricMap *gostatsd.MetricMap, dynHeaderTags string, batchId uint64) {
 	message := translateToProtobufV2(metricMap)
+	hfh.logger.Debug("finished translation to protobuf")
 	hfh.post(ctx, message, dynHeaderTags, batchId, "metrics", "/v2/raw")
 }
 
@@ -404,13 +430,16 @@ func (hfh *HttpForwarderHandlerV2) post(ctx context.Context, message proto.Messa
 	b.MaxElapsedTime = hfh.maxRequestElapsedTime
 
 	for {
+		logger.Debug("starting post of metrics")
 		if err = post(); err == nil {
+			logger.Debug("successfully posted metric")
 			atomic.AddUint64(&hfh.messagesSent, 1)
 			hfh.lastSuccessfulSend.Store(clock.Now(ctx).UnixNano())
 			return
 		}
 
 		next := b.NextBackOff()
+		logger.WithField("backoff_ns", next).WithError(err).Debug("posting failed, going for next backoff")
 		if next == backoff.Stop {
 			atomic.AddUint64(&hfh.messagesDropped, 1)
 			logger.WithError(err).Info("failed to send, giving up")
@@ -522,6 +551,10 @@ func (hfh *HttpForwarderHandlerV2) constructPost(ctx context.Context, logger log
 		}
 		return nil
 	}, nil
+}
+
+func (hfh *HttpForwarderHandlerV2) FlushMetrics() {
+	hfh.consolidator.Flush()
 }
 
 ///////// Event processing

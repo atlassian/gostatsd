@@ -43,6 +43,7 @@ func TestHttpForwarderDeepCheck(t *testing.T) {
 		nil,
 		nil,
 		transport.NewTransportPool(logger, viper.New()),
+		//nil,
 	)
 	require.NoError(t, err)
 	require.NotNil(t, hfh)
@@ -296,6 +297,7 @@ func TestForwardingData(t *testing.T) {
 		map[string]string{},
 		[]string{},
 		pool,
+		//nil,
 	)
 	require.NoError(t, err, "Must not error when creating the forwarder")
 

@@ -129,7 +129,6 @@ func CreateServer(v *viper.Viper, logger logrus.FieldLogger) (*statsd.Server, er
 		HistogramLimit:            v.GetUint32(gostatsd.ParamTimerHistogramLimit),
 		Viper:                     v,
 		TransportPool:             pool,
-		//FlushChannel:              make(chan struct{}, 2),
 	}, nil
 }
 
