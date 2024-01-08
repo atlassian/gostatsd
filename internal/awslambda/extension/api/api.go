@@ -46,7 +46,7 @@ type RegisterResponsePayload struct {
 	Handler         string `json:"handler"`
 }
 
-// Defining types used within the next phase of the extention
+// Defining types used within the next phase of the extension
 type EventNextPayload struct {
 	EventType          Event             `json:"eventType"`
 	Deadline           int64             `json:"deadlineMs"`

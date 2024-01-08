@@ -140,7 +140,7 @@ func EventNextHandler(tb testing.TB, ctx context.Context, statusCode, shutdownAf
 				EventType:          api.Invoke,
 				Deadline:           clock.FromContext(ctx).Now().UTC().Add(100 * time.Millisecond).UnixMilli(),
 				RequestID:          fmt.Sprint(count),
-				InvokedFunctionARN: "local:dev:gostatsd-extention-manager",
+				InvokedFunctionARN: "local:dev:gostatsd-extension-manager",
 			}
 			if count > shutdownAfter {
 				payload.EventType = api.Shutdown

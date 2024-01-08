@@ -28,7 +28,7 @@ const (
 
 var (
 	ErrFailedRegistration = errors.New("extension failed to register with lambda")
-	ErrIssueProgress      = errors.New("unable continue execution")
+	ErrIssueProgress      = errors.New("unable to continue execution")
 	ErrServerEarlyExit    = errors.New("server has shutdown early without cause")
 )
 
@@ -44,8 +44,6 @@ type Server interface {
 	Run(ctx context.Context) error
 }
 
-type OptionFunc func(*manager) error
-
 type manager struct {
 	log    logrus.FieldLogger
 	client *http.Client
@@ -57,59 +55,15 @@ type manager struct {
 
 var _ Manager = (*manager)(nil)
 
-func WithHTTPClient(c *http.Client) OptionFunc {
-	return func(m *manager) error {
-		if c == nil {
-			return errors.New("invalid http client")
-		}
-		m.client = c
-		return nil
-	}
-}
-
-func WithLogger(log logrus.FieldLogger) OptionFunc {
-	return func(m *manager) error {
-		if log == nil {
-			return errors.New("invalid logger provided")
-		}
-		m.log = log
-		return nil
-	}
-}
-
-func WithLambdaFileName(fileName string) OptionFunc {
-	return func(m *manager) error {
-		if fileName == "" {
-			return errors.New("invalid name")
-		}
-		m.name = fileName
-		return nil
-	}
-}
-
-func NewManager(opts ...OptionFunc) (Manager, error) {
-	name, err := os.Executable()
-	if err != nil {
-		return nil, err
-	}
-
-	log := logrus.New()
-	log.SetOutput(io.Discard)
-
+func NewManager(lambdaFileName string, log logrus.FieldLogger) Manager {
 	m := &manager{
 		log:    log,
-		client: &http.Client{Timeout: 0},
+		client: &http.Client{},
 		domain: os.Getenv(api.EnvLambdaAPIKey),
-		name:   name,
+		name:   lambdaFileName,
 	}
 
-	for _, opt := range opts {
-		if err := opt(m); err != nil {
-			return nil, err
-		}
-	}
-
-	return m, nil
+	return m
 }
 
 func (m *manager) Run(parent context.Context, server Server) error {
@@ -120,10 +74,8 @@ func (m *manager) Run(parent context.Context, server Server) error {
 
 	ctx, cancel := context.WithCancel(parent)
 	// Start gostatsd server
-	var (
-		wg     wait.Group
-		chErrs = make(chan error, 2)
-	)
+	var wg wait.Group
+	var chErrs = make(chan error, 2)
 	defer cancel()
 
 	wg.StartWithContext(ctx, func(c context.Context) {
@@ -188,13 +140,13 @@ func (m *manager) heartbeat(ctx context.Context) error {
 		}
 
 		if resp.EventType == api.Shutdown {
-			m.log.WithField("reason", resp.ShutdownReason).Info("Shutting down extention handler")
+			m.log.WithField("reason", resp.ShutdownReason).Info("Shutting down extension handler")
 			break
 		}
 		m.log.WithFields(map[string]interface{}{
-			"request-id":     resp.RequestID,
-			"invocation-arn": resp.InvokedFunctionARN,
-			"deadline":       resp.Deadline,
+			"requestId":     resp.RequestID,
+			"invocationArn": resp.InvokedFunctionARN,
+			"deadline":      resp.Deadline,
 		}).Debug("Progressing further with the invocation")
 	}
 
@@ -237,17 +189,16 @@ func (m *manager) register(ctx context.Context) error {
 		)
 	}
 
-	id, exist := resp.Header[api.LambdaExtensionIdentifierHeaderKey]
-	if !exist {
-		return multierr.Combine(
-			errors.New("missing required indentifier header in response"),
-			ErrFailedRegistration,
-		)
-	}
 	// Once we have successfully registered to the lambda,
 	// the id assigned to the process needs to be preserved and sent
 	// with future requests
-	m.registeredID = id[0]
+	m.registeredID = resp.Header.Get(api.LambdaExtensionIdentifierHeaderKey)
+	if m.registeredID == "" {
+		return multierr.Combine(
+			errors.New("missing required identifier header in response"),
+			ErrFailedRegistration,
+		)
+	}
 
 	var info api.RegisterResponsePayload
 	if err := jsoniter.NewDecoder(resp.Body).Decode(&info); err != nil {
@@ -257,9 +208,9 @@ func (m *manager) register(ctx context.Context) error {
 	// Log the registered payload here as an informative means of
 	// debugging connecitivity issues in future.
 	m.log.WithFields(map[string]interface{}{
-		"function-name":    info.FunctionName,
-		"function-version": info.FunctionVersion,
-		"function-handler": info.Handler,
+		"functionName":    info.FunctionName,
+		"functionVersion": info.FunctionVersion,
+		"functionHandler": info.Handler,
 	}).Info("Successfully registered with Lambda")
 	return nil
 }
