@@ -21,8 +21,12 @@ import (
 	"github.com/atlassian/gostatsd/internal/awslambda/extension/api"
 )
 
+const (
+	lambdaRuntimeErrorHeader = "extension.runtime.fault"
+	lambdaFailedInitHeader   = "extension.initialization.failed"
+)
+
 var (
-	ErrTerminated         = errors.New("extension has shutdown")
 	ErrFailedRegistration = errors.New("extension failed to register with lambda")
 	ErrIssueProgress      = errors.New("unable continue execution")
 	ErrServerEarlyExit    = errors.New("server has shutdown early without cause")
@@ -149,7 +153,7 @@ func (m *manager) Run(parent context.Context, server Server) error {
 	}
 
 	wg.StartWithContext(ctx, func(c context.Context) {
-		chErrs <- m.heartbeat(c, cancel)
+		chErrs <- m.heartbeat(c)
 	})
 
 	wg.Wait()
@@ -176,7 +180,7 @@ func (m *manager) Run(parent context.Context, server Server) error {
 	return nil
 }
 
-func (m *manager) heartbeat(ctx context.Context, cancel context.CancelFunc) error {
+func (m *manager) heartbeat(ctx context.Context) error {
 	for ctx.Err() == nil {
 		resp, err := m.nextEvent(ctx)
 		if err != nil {
@@ -194,16 +198,13 @@ func (m *manager) heartbeat(ctx context.Context, cancel context.CancelFunc) erro
 		}).Debug("Progressing further with the invocation")
 	}
 
-	cancel()
-
 	return nil
 }
 
 func (m *manager) register(ctx context.Context) error {
 	var buf bytes.Buffer
-	var enc = jsoniter.NewEncoder(&buf)
 
-	err := enc.Encode(&api.RegisterRequestPayload{
+	err := jsoniter.NewEncoder(&buf).Encode(&api.RegisterRequestPayload{
 		Events: []api.Event{api.Invoke, api.Shutdown},
 	})
 
@@ -300,11 +301,10 @@ func (m *manager) nextEvent(ctx context.Context) (*api.EventNextPayload, error) 
 
 func (m *manager) initError(ctx context.Context, problem error) error {
 	var buf bytes.Buffer
-	var enc = jsoniter.NewEncoder(&buf)
 
-	err := enc.Encode(api.ErrorRequest{
+	err := jsoniter.NewEncoder(&buf).Encode(api.ErrorRequest{
 		Message:    problem.Error(),
-		Type:       "init.failed.additional.invocations",
+		Type:       "InitializationError",
 		StackTrace: strings.Fields(string(debug.Stack())),
 	})
 	if err != nil {
@@ -317,7 +317,7 @@ func (m *manager) initError(ctx context.Context, problem error) error {
 	}
 
 	req.Header.Set(api.LambdaExtensionIdentifierHeaderKey, m.registeredID)
-	req.Header.Set(api.LambdaErrorHeaderKey, "extension.failed-additional-init")
+	req.Header.Set(api.LambdaErrorHeaderKey, lambdaFailedInitHeader)
 
 	resp, err := m.client.Do(req)
 	if err != nil {
@@ -337,11 +337,10 @@ func (m *manager) initError(ctx context.Context, problem error) error {
 
 func (m *manager) reportExitError(ctx context.Context, problem error) {
 	var buf bytes.Buffer
-	var enc = jsoniter.NewEncoder(&buf)
 
-	err := enc.Encode(api.ErrorRequest{
+	err := jsoniter.NewEncoder(&buf).Encode(api.ErrorRequest{
 		Message:    problem.Error(),
-		Type:       "extension.shutdown.failed",
+		Type:       "ShutdownError",
 		StackTrace: strings.Fields(string(debug.Stack())),
 	})
 
@@ -357,7 +356,7 @@ func (m *manager) reportExitError(ctx context.Context, problem error) {
 	}
 
 	req.Header.Set(api.LambdaExtensionIdentifierHeaderKey, m.registeredID)
-	req.Header.Set(api.LambdaErrorHeaderKey, "extension.runtime.fault")
+	req.Header.Set(api.LambdaErrorHeaderKey, lambdaRuntimeErrorHeader)
 
 	resp, err := m.client.Do(req)
 	if err != nil {

@@ -46,7 +46,7 @@ func InitHandler(tb testing.TB, statusCode int) http.Handler {
 		require.Contains(tb, r.Header, api.LambdaExtensionNameHeaderKey)
 		// Encorcing that payload is correct
 		var payload api.RegisterRequestPayload
-		require.NoError(tb, json.NewDecoder(r.Body).Decode(&payload), "Must send a valid payload request")
+		assert.NoError(tb, json.NewDecoder(r.Body).Decode(&payload), "Must send a valid payload request")
 
 		switch statusCode {
 		case http.StatusOK:

@@ -17,6 +17,14 @@ const (
 	EventEndpoint     LambdaPath = "/" + Version + "/extension/event/next"
 	InitErrorEndpoint LambdaPath = "/" + Version + "/extension/init/error"
 	ExitErrorEndpoint LambdaPath = "/" + Version + "/extension/exit/error"
+
+	Invoke   Event = "INVOKE"
+	Shutdown Event = "SHUTDOWN"
+
+	LambdaExtensionNameHeaderKey       = "Lambda-Extension-Name"
+	LambdaExtensionIdentifierHeaderKey = "Lambda-Extension-Identifier"
+	LambdaErrorHeaderKey               = "Lambda-Extension-Function-Error-Type"
+	LambdaExtensionEventIdentifer      = "Lambda-Extension-Event-Identifier"
 )
 
 func (lp LambdaPath) GetUrl(domain string) string {
@@ -37,11 +45,6 @@ type RegisterResponsePayload struct {
 	FunctionVersion string `json:"functionVersion"`
 	Handler         string `json:"handler"`
 }
-
-const (
-	Invoke   Event = "INVOKE"
-	Shutdown Event = "SHUTDOWN"
-)
 
 // Defining types used within the next phase of the extention
 type EventNextPayload struct {
@@ -67,10 +70,3 @@ type ErrorResponse struct {
 type StatusResponse struct {
 	Status string `json:"status"`
 }
-
-const (
-	LambdaExtensionNameHeaderKey       = "Lambda-Extension-Name"
-	LambdaExtensionIdentifierHeaderKey = "Lambda-Extension-Identifier"
-	LambdaErrorHeaderKey               = "Lambda-Extension-Function-Error-Type"
-	LambdaExtensionEventIdentifer      = "Lambda-Extension-Event-Identifier"
-)

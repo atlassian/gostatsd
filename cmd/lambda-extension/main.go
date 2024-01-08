@@ -33,14 +33,6 @@ const (
 	ParamLambdaFileName = "lambda-entrypoint-name"
 )
 
-func init() {
-	// Allows setting Version at compile time
-	// and perserve the value set
-	if Version == "" {
-		Version = GetVersion()
-	}
-}
-
 func GetConfiguration() (*viper.Viper, error) {
 	v := viper.New()
 	util.InitViper(v, "")
@@ -150,6 +142,10 @@ func main() {
 		panic(err)
 	}
 
+	if Version == "" {
+		Version = GetVersion()
+	}
+
 	log := logrus.New().WithFields(map[string]interface{}{
 		"version":   Version,
 		"buildDate": BuildDate,
@@ -183,7 +179,7 @@ func main() {
 	}
 
 	if err := manager.Run(ctx, server); err != nil {
-		log.WithError(err).Error("Iss trying to run lambda extension")
+		log.WithError(err).Error("Failed trying to run lambda extension")
 	}
 
 	log.Info("Shutting down")
