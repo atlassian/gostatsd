@@ -3,12 +3,13 @@ package main
 import (
 	"context"
 	"fmt"
+	"os"
+	"os/signal"
+
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 	"golang.org/x/time/rate"
-	"os"
-	"os/signal"
 
 	"github.com/atlassian/gostatsd"
 	"github.com/atlassian/gostatsd/internal/awslambda/extension"

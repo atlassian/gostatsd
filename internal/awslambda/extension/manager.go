@@ -59,7 +59,7 @@ func NewManager(lambdaFileName string, log logrus.FieldLogger) Manager {
 	m := &manager{
 		log:    log,
 		client: &http.Client{},
-		domain: os.Getenv(api.EnvLambdaAPIKey),
+		domain: os.Getenv(api.EnvLambdaAPIHostname),
 		name:   lambdaFileName,
 	}
 

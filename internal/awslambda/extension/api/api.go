@@ -7,7 +7,7 @@ import (
 type LambdaPath string
 
 const (
-	EnvLambdaAPIKey = "AWS_LAMBDA_RUNTIME_API"
+	EnvLambdaAPIHostname = "AWS_LAMBDA_RUNTIME_API"
 	// Version defines the used OpenAPI spec being adhere to
 	// by the connecting client. It is used as part of the
 	// generated URI to be used to issue connections.
