@@ -15,7 +15,7 @@
 36.0.0
 ------
 - Bump go version to 1.20.6
-- Updated internal metrics to use `Report` and change on deployment mode. 
+- Updated internal metrics to use `Report` and change on deployment mode.
 - Updated METRICS.md for impacted values
 
 35.2.2

@@ -1,4 +1,5 @@
 /build/bin/
+/build/release/
 /vendor/
 /tools/
 /coverage.out

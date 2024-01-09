@@ -13,6 +13,7 @@ GOVERSION           := 1.21.4  # Go version needs to be the same in: CI config, 
 GP                  := /gopath
 MAIN_PKG            := github.com/atlassian/gostatsd/cmd/gostatsd
 CLUSTER_PKG         := github.com/atlassian/gostatsd/cmd/cluster
+LAMBDA_PKG          := github.com/atlassian/gostatsd/cmd/lambda-extension
 PROTOBUF_VERSION    ?= 21.5
 PROJECT_ROOT_DIR    := $(realpath $(dir $(abspath $(lastword $(MAKEFILE_LIST)))))
 TOOLS_DIR           := $(PROJECT_ROOT_DIR)/.tools
@@ -52,13 +53,16 @@ build: pb/gostatsd.pb.go
 			$(PKG)
 
 build-gostatsd:
-	@$(MAKE) PKG=$(MAIN_PKG) 
+	@$(MAKE) build PKG=$(MAIN_PKG)
+
+build-lambda:
+	@$(MAKE) build PKG=$(LAMBDA_PKG) BINARY_NAME="lambda-extension"
 
 build-gostatsd-race:
 	@$(MAKE) build-gostatsd GOBUILD_OPTIONAL_FLAGS=-race
 
 build-cluster:
-	@$(MAKE) PKG=$(CLUSTER_PKG) BINARY_NAME="cluster"
+	@$(MAKE) build PKG=$(CLUSTER_PKG) BINARY_NAME="cluster"
 
 
 build-all: pb/gostatsd.pb.go tools
@@ -120,7 +124,7 @@ check-all: pb/gostatsd.pb.go
 	go install ./cmd/gostatsd
 	go install ./cmd/tester
 
-fuzz: $(TOOLS_DIR)/go-fuzz-build $(TOOLS_DIR)/go-fuzz 
+fuzz: $(TOOLS_DIR)/go-fuzz-build $(TOOLS_DIR)/go-fuzz
 	$(TOOLS_DIR)/go-fuzz-build github.com/atlassian/gostatsd/pkg/statsd
 	$(TOOLS_DIR)/go-fuzz -bin=./statsd-fuzz.zip -workdir=test_fixtures/lexer_fuzz
 
