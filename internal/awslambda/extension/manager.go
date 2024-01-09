@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"os"
 	"runtime/debug"
 	"strings"
 	"time"
@@ -55,11 +54,11 @@ type manager struct {
 
 var _ Manager = (*manager)(nil)
 
-func NewManager(lambdaFileName string, log logrus.FieldLogger) Manager {
+func NewManager(lambdaDomain string, lambdaFileName string, log logrus.FieldLogger) Manager {
 	m := &manager{
 		log:    log,
 		client: &http.Client{},
-		domain: os.Getenv(api.EnvLambdaAPIHostname),
+		domain: lambdaDomain,
 		name:   lambdaFileName,
 	}
 

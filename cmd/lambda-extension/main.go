@@ -13,6 +13,7 @@ import (
 
 	"github.com/atlassian/gostatsd"
 	"github.com/atlassian/gostatsd/internal/awslambda/extension"
+	"github.com/atlassian/gostatsd/internal/awslambda/extension/api"
 	"github.com/atlassian/gostatsd/internal/util"
 	"github.com/atlassian/gostatsd/pkg/statsd"
 	"github.com/atlassian/gostatsd/pkg/transport"
@@ -125,7 +126,7 @@ func main() {
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer cancel()
 
-	manager := extension.NewManager(conf.GetString(ParamLambdaFileName), log)
+	manager := extension.NewManager(os.Getenv(api.EnvLambdaAPIHostname), conf.GetString(ParamLambdaFileName), log)
 
 	server, err := CreateServer(conf, log)
 	if err != nil {
