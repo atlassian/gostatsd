@@ -4,7 +4,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
-	"io/ioutil"
+	"os"
 )
 
 func getTLSConfiguration(caPath, certPath, keyPath string, enable bool) (*tls.Config, error) {
@@ -20,7 +20,7 @@ func getTLSConfiguration(caPath, certPath, keyPath string, enable bool) (*tls.Co
 	}
 
 	if caPath != "" {
-		caPEM, err := ioutil.ReadFile(caPath)
+		caPEM, err := os.ReadFile(caPath)
 		if err != nil {
 			return nil, fmt.Errorf("[%s] error reading TLS CA: %v", BackendName, err)
 		}
