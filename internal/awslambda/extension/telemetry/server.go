@@ -15,6 +15,10 @@ import (
 
 type RuntimeDoneHook func()
 
+func NoopHook() RuntimeDoneHook {
+	return func() {}
+}
+
 type Server struct {
 	addr string
 	log  logrus.FieldLogger

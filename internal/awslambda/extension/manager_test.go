@@ -335,7 +335,7 @@ func TestManagerDo(t *testing.T) {
 				domain:          u.Hostname() + ":" + u.Port(),
 				name:            t.Name(),
 				registeredID:    t.Name(),
-				telemetryServer: telemetry.NewServer(log, func() {}, telemetry.WithCustomAddr(availableAddr())),
+				telemetryServer: telemetry.NewServer(log, telemetry.NoopHook(), telemetry.WithCustomAddr(availableAddr())),
 			}
 
 			start := make(chan struct{}, 1)
@@ -404,7 +404,7 @@ func TestManagerTelemetrySubscription(t *testing.T) {
 				domain:          u.Hostname() + ":" + u.Port(),
 				name:            t.Name(),
 				registeredID:    t.Name(),
-				telemetryServer: telemetry.NewServer(log, func() {}, telemetry.WithCustomAddr(availableAddr())),
+				telemetryServer: telemetry.NewServer(log, telemetry.NoopHook(), telemetry.WithCustomAddr(availableAddr())),
 			}
 
 			assert.ErrorIs(t, tc.expectedError, m.subscribeToTelemetry(context.Background()))

@@ -9,8 +9,9 @@ const (
 	PlatformSubscriptionType string         = "platform"
 	MinBufferingTimeoutMs    int            = 25
 
-	RuntimeDone                EventType = "platform.runtimeDone"
-	LambdaRuntimeAvailableAddr           = "sandbox:8083"
+	RuntimeDone EventType = "platform.runtimeDone"
+	// the sandbox hostname must be used in the lambda runtime, the port however can be configured if required
+	LambdaRuntimeAvailableAddr = "sandbox:8083"
 )
 
 type EventType string
