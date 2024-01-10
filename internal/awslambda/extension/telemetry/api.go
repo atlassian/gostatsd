@@ -10,14 +10,18 @@ const (
 	MinBufferingTimeoutMs    int            = 25
 
 	RuntimeDone EventType = "platform.runtimeDone"
-	// the sandbox hostname must be used in the lambda runtime, the port however can be configured if required
+	// LambdaRuntimeAvailableAddr uses the sandbox hostname must be used in the lambda runtime
+	// note the port component can be configured
 	LambdaRuntimeAvailableAddr = "sandbox:8083"
 )
 
 type EventType string
 
+// Event is the telemetry event that the lambda server pushes.
+//
+// Full schema can be found here: https://docs.aws.amazon.com/lambda/latest/dg/telemetry-schema-reference.html
 type Event struct {
-	// type is the only field we deserialise as it is used for flushing metrics
+	// Type is the only field we deserialise as it is used for flushing metrics
 	Type EventType `json:"type"`
 }
 

@@ -26,8 +26,6 @@ type Server struct {
 	httpServer *http.Server
 }
 
-type ServerOpt func(*Server)
-
 func NewServer(addr string, log logrus.FieldLogger, hook RuntimeDoneHook) *Server {
 	ts := &Server{
 		log: log,
@@ -40,12 +38,6 @@ func NewServer(addr string, log logrus.FieldLogger, hook RuntimeDoneHook) *Serve
 	ts.httpServer = &http.Server{Addr: addr, Handler: mx}
 
 	return ts
-}
-
-func WithCustomAddr(addr string) ServerOpt {
-	return func(s *Server) {
-		s.addr = addr
-	}
 }
 
 func (s *Server) Start(ctx context.Context) error {
