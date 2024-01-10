@@ -19,13 +19,14 @@ func TestNumberDataPoint(t *testing.T) {
 		{
 			name: "empty",
 			expect: NumberDataPoint{
-				raw: &v1metrics.NumberDataPoint{},
+				raw: &v1metrics.NumberDataPoint{
+					TimeUnixNano: 100,
+				},
 			},
 		},
 		{
 			name: "int with values",
 			opts: []func(NumberDataPoint){
-				WithNumberDatapointTimeStamp[int64](100),
 				WithNumberDataPointDelimtedTags([]string{"service.name:my-awesome-service"}),
 				WithNumberDatapointIntValue(1),
 			},
@@ -51,7 +52,6 @@ func TestNumberDataPoint(t *testing.T) {
 		{
 			name: "double with values",
 			opts: []func(NumberDataPoint){
-				WithNumberDatapointTimeStamp[int64](100),
 				WithNumberDataPointDelimtedTags([]string{"service.name:my-awesome-service"}),
 				WithNumberDataPointDoubleValue(1),
 			},
@@ -79,7 +79,7 @@ func TestNumberDataPoint(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			dp := NewNumberDataPoint(tc.opts...)
+			dp := NewNumberDataPoint(100, tc.opts...)
 			assert.Equal(t, dp, tc.expect, "Must match the expected value")
 		})
 	}

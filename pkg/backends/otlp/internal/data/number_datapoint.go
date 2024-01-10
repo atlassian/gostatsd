@@ -8,12 +8,6 @@ type NumberDataPoint struct {
 	raw *v1metrics.NumberDataPoint
 }
 
-func WithNumberDatapointTimeStamp[Timestamp interface{ ~int64 | ~uint64 }](t Timestamp) func(NumberDataPoint) {
-	return func(ndp NumberDataPoint) {
-		ndp.raw.TimeUnixNano = uint64(t)
-	}
-}
-
 func WithNumberDataPointDelimtedTags[Tags ~[]string](tags Tags) func(NumberDataPoint) {
 	return func(ndp NumberDataPoint) {
 		ndp.raw.Attributes = NewMap(WithStatsdDelimitedTags(tags)).unwrap()
@@ -36,9 +30,11 @@ func WithNumberDataPointDoubleValue(value float64) func(NumberDataPoint) {
 	}
 }
 
-func NewNumberDataPoint(opts ...func(NumberDataPoint)) NumberDataPoint {
+func NewNumberDataPoint(timestamp uint64, opts ...func(NumberDataPoint)) NumberDataPoint {
 	dp := NumberDataPoint{
-		raw: &v1metrics.NumberDataPoint{},
+		raw: &v1metrics.NumberDataPoint{
+			TimeUnixNano: timestamp,
+		},
 	}
 
 	for _, opt := range opts {

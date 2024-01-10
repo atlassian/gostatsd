@@ -16,7 +16,7 @@ func NewGauge(datapoints ...NumberDataPoint) Gauge {
 	}
 
 	for i := 0; i < len(datapoints); i++ {
-		(*g.raw).DataPoints = append((*g.raw).DataPoints, datapoints[i].raw)
+		g.raw.DataPoints = append(g.raw.DataPoints, datapoints[i].raw)
 	}
 
 	return g

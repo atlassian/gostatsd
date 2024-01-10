@@ -12,6 +12,6 @@ func TestGauge(t *testing.T) {
 	g := NewGauge()
 	assert.Len(t, g.raw.DataPoints, 0, "Must have no datapoints defined")
 
-	g = NewGauge(NewNumberDataPoint(), NewNumberDataPoint())
+	g = NewGauge(NewNumberDataPoint(100), NewNumberDataPoint(100))
 	assert.Len(t, g.raw.DataPoints, 2, "Must have two datapoints defined")
 }

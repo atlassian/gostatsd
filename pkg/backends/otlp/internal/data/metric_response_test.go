@@ -22,9 +22,10 @@ func TestProcessMetricsResponse(t *testing.T) {
 		errVal  string
 	}{
 		{
-			name:   "Valid response",
-			body:   bytes.NewBuffer(nil),
-			errVal: "",
+			name:    "Valid response",
+			body:    bytes.NewBuffer(nil),
+			dropped: 0,
+			errVal:  "",
 		},
 		{
 			name: "Dropped data",

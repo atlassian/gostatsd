@@ -23,6 +23,6 @@ func TestNewSum(t *testing.T) {
 		empty,
 	)
 
-	s := NewSum(NewNumberDataPoint(), NewNumberDataPoint())
+	s := NewSum(NewNumberDataPoint(100), NewNumberDataPoint(100))
 	assert.Len(t, s.raw.DataPoints, 2, "Must have two datapoints set")
 }

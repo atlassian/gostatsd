@@ -29,4 +29,5 @@ func TestNewScopeMetrics(t *testing.T) {
 		NewMetric("my-awesome-metric"),
 	)
 	assert.Len(t, sm.raw.Metrics, 1, "Must have one metric set")
+	assert.Equal(t, sm.raw.Metrics[0].Name, "my-awesome-metric")
 }

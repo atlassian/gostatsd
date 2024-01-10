@@ -19,7 +19,7 @@ func TestHistogram(t *testing.T) {
 		empty.raw.AggregationTemporality,
 	)
 
-	h := NewHistogram(NewHistogramDataPoint(), NewHistogramDataPoint())
+	h := NewHistogram(NewHistogramDataPoint(10), NewHistogramDataPoint(10))
 	assert.Len(t, h.raw.DataPoints, 2, "Must have two datapoints defined")
 }
 
@@ -35,7 +35,9 @@ func TestHistogramDataPoint(t *testing.T) {
 		{
 			name: "Empty",
 			expect: HistogramDataPoint{
-				raw: &v1metrics.HistogramDataPoint{},
+				raw: &v1metrics.HistogramDataPoint{
+					TimeUnixNano: 10,
+				},
 			},
 		},
 		{
@@ -44,11 +46,10 @@ func TestHistogramDataPoint(t *testing.T) {
 				WithHistogramDataPointAttributes(
 					NewMap(WithDelimitedStrings(":", []string{"service.name:my-awesome-service"})),
 				),
-				WithHistogramDataPointTimeStamp(100),
 			},
 			expect: HistogramDataPoint{
 				raw: &v1metrics.HistogramDataPoint{
-					TimeUnixNano: 100,
+					TimeUnixNano: 10,
 					Attributes: []*v1common.KeyValue{
 						{
 							Key: "service.name",
@@ -80,10 +81,11 @@ func TestHistogramDataPoint(t *testing.T) {
 				min, max, sum := 0.0, 3.8, 5.0
 				return HistogramDataPoint{
 					raw: &v1metrics.HistogramDataPoint{
-						Sum:   &sum,
-						Min:   &min,
-						Max:   &max,
-						Count: 3,
+						Sum:          &sum,
+						Min:          &min,
+						Max:          &max,
+						Count:        3,
+						TimeUnixNano: 10,
 						BucketCounts: []uint64{
 							1, 2, 2, 3, 3,
 						},
@@ -102,7 +104,7 @@ func TestHistogramDataPoint(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			dp := NewHistogramDataPoint(tc.opts...)
+			dp := NewHistogramDataPoint(10, tc.opts...)
 			assert.Equal(t, tc.expect, dp, "Must match the expected value")
 		})
 	}

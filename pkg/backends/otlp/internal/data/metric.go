@@ -18,20 +18,23 @@ func NewMetric(name string) Metric {
 	}
 }
 
-func (m Metric) SetGauge(g Gauge) {
+func (m Metric) SetGauge(g Gauge) Metric {
 	m.raw.Data = &v1metrics.Metric_Gauge{
 		Gauge: g.raw,
 	}
+	return m
 }
 
-func (m Metric) SetSum(s Sum) {
+func (m Metric) SetSum(s Sum) Metric {
 	m.raw.Data = &v1metrics.Metric_Sum{
 		Sum: s.raw,
 	}
+	return m
 }
 
-func (m Metric) SetHistogram(h Histogram) {
+func (m Metric) SetHistogram(h Histogram) Metric {
 	m.raw.Data = &v1metrics.Metric_Histogram{
 		Histogram: h.raw,
 	}
+	return m
 }

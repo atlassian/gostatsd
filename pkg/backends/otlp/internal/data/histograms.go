@@ -34,12 +34,6 @@ func NewHistogram(datapoints ...HistogramDataPoint) Histogram {
 	return ht
 }
 
-func WithHistogramDataPointTimeStamp(ts int64) func(HistogramDataPoint) {
-	return func(hdp HistogramDataPoint) {
-		hdp.raw.TimeUnixNano = uint64(ts)
-	}
-}
-
 func WithHistogramDataPointAttributes(attrs Map) func(HistogramDataPoint) {
 	return func(hdp HistogramDataPoint) {
 		hdp.raw.Attributes = attrs.unwrap()
@@ -78,9 +72,11 @@ func WithHistogramDataPointBucketValues[Buckets ~map[float64]uint64](buckets Buc
 	}
 }
 
-func NewHistogramDataPoint(opts ...func(HistogramDataPoint)) HistogramDataPoint {
+func NewHistogramDataPoint(timestamp uint64, opts ...func(HistogramDataPoint)) HistogramDataPoint {
 	dp := HistogramDataPoint{
-		raw: &v1metrics.HistogramDataPoint{},
+		raw: &v1metrics.HistogramDataPoint{
+			TimeUnixNano: timestamp,
+		},
 	}
 
 	for i := 0; i < len(opts); i++ {
