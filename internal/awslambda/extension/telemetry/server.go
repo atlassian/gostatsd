@@ -59,12 +59,12 @@ func (s *Server) Start(ctx context.Context) error {
 		defer cancel()
 		err := server.Shutdown(c)
 		if err != nil {
-			s.log.WithError(err).Info("did not shutdown gracefully")
+			s.log.WithError(err).Info("Did not shutdown gracefully")
 		}
 	}()
 
 	if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-		s.log.WithError(err).Error("server error")
+		s.log.WithError(err).Error("Server error")
 		return err
 	}
 
@@ -76,13 +76,13 @@ func (s *Server) Start(ctx context.Context) error {
 func (s *Server) eventHandler(_ http.ResponseWriter, r *http.Request) {
 	b, err := io.ReadAll(r.Body)
 	if err != nil {
-		s.log.WithError(err).Error("error reading body")
+		s.log.WithError(err).Error("Error reading body")
 	}
 
 	var telePayload []Event
 	err = jsoniter.Unmarshal(b, &telePayload)
 	if err != nil {
-		s.log.WithError(err).Error("error unmarshaling telemetry request")
+		s.log.WithError(err).Error("Error unmarshaling telemetry request")
 	}
 
 	for _, p := range telePayload {

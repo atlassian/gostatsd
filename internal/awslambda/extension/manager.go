@@ -66,7 +66,7 @@ func NewManager(lambdaDomain string, lambdaFileName string, log logrus.FieldLogg
 		name:   lambdaFileName,
 	}
 
-	m.telemetryServer = telemetry.NewServer(log, func() {})
+	m.telemetryServer = telemetry.NewServer(log, telemetry.NoopHook())
 
 	return m
 }
@@ -242,6 +242,9 @@ func (m *manager) subscribeToTelemetry(ctx context.Context) error {
 		return err
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodPut, telemetry.SubscribeEndpoint.GetUrl(m.domain), bytes.NewReader(b))
+	if err != nil {
+		return err
+	}
 	req.Header.Set(api.LambdaExtensionIdentifierHeaderKey, m.registeredID)
 	req.Header.Set("Content-Type", "application/json")
 
@@ -256,11 +259,14 @@ func (m *manager) subscribeToTelemetry(ctx context.Context) error {
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		m.log.WithError(err).Errorf("received %d response code from telemetry subscription with body %s", resp.StatusCode, string(body))
+		m.log.WithError(err).WithFields(map[string]interface{}{
+			"statusCode": resp.StatusCode,
+			"msg":        string(body),
+		}).Error("Error subscribing to telemetry API")
 		return ErrFailedTelemetrySubscription
 	}
 
-	m.log.Info("successfully subscribed to telemetry API")
+	m.log.Info("Successfully subscribed to telemetry API")
 
 	return nil
 }

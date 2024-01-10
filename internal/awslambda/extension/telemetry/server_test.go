@@ -23,10 +23,13 @@ func TestNewServer(t *testing.T) {
 func TestServerStart(t *testing.T) {
 	t.Parallel()
 
-	s := NewServer(logrus.New(), NoopHook(), WithCustomAddr("127.0.0.1:8083"))
+	l, _ := net.Listen("tcp", ":0")
+	l.Close()
+
+	s := NewServer(logrus.New(), NoopHook(), WithCustomAddr(l.Addr().String()))
 	ctx, cancel := context.WithCancel(context.Background())
 	go func() {
-		<-time.NewTimer(1 * time.Second).C
+		<-time.After(1 * time.Second)
 		cancel()
 	}()
 	err := s.Start(ctx)
@@ -96,8 +99,8 @@ func TestServerReturnsCorrectEndpoint(t *testing.T) {
 		},
 		{
 			name:             "custom server address returns correct endpoint",
-			server:           NewServer(logrus.New(), NoopHook(), WithCustomAddr("127.0.0.1:8081")),
-			expectedEndpoint: "http://127.0.0.1:8081/telemetry",
+			server:           NewServer(logrus.New(), NoopHook(), WithCustomAddr("test:8081")),
+			expectedEndpoint: "http://test:8081/telemetry",
 		},
 	}
 
