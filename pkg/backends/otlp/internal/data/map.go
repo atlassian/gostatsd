@@ -4,7 +4,6 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/atlassian/gostatsd"
 	v1common "go.opentelemetry.io/proto/otlp/common/v1"
 	"google.golang.org/protobuf/proto"
 )
@@ -26,9 +25,9 @@ func NewMap(opts ...func(Map)) Map {
 // WithDelimtedStrings splits each value based on the delim passed,
 // if there is no delim present, then the entire string is added to the key
 // and uses an empty string as the value
-func WithDelimitedStrings(delim string, values ...string) func(m Map) {
+func WithDelimitedStrings[Tags ~[]string](delim string, tags Tags) func(m Map) {
 	return func(m Map) {
-		for _, kv := range values {
+		for _, kv := range tags {
 			idx := strings.Index(kv, delim)
 			switch idx {
 			case -1:
@@ -41,8 +40,8 @@ func WithDelimitedStrings(delim string, values ...string) func(m Map) {
 	}
 }
 
-func WithStatsdDelimitedTags(tags gostatsd.Tags) func(Map) {
-	return WithDelimitedStrings(":", tags...)
+func WithStatsdDelimitedTags[Tags ~[]string](tags Tags) func(Map) {
+	return WithDelimitedStrings(":", tags)
 }
 
 func (m Map) Equal(mm Map) bool {
@@ -71,6 +70,10 @@ func (m Map) Insert(key string, value string) {
 			Value: val,
 		})
 	default:
+		if v, ok := (*m.raw)[index].Value.Value.(*v1common.AnyValue_StringValue); ok && v.StringValue == value {
+			return
+		}
+
 		v, ok := (*m.raw)[index].Value.Value.(*v1common.AnyValue_ArrayValue)
 		if !ok {
 			// Convert a simple key value into an array of values

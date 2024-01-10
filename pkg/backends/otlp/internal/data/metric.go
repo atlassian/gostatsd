@@ -5,45 +5,33 @@ import (
 )
 
 type Metric struct {
-	embed[*v1metrics.Metric]
-}
-
-func WithMetricTypeGauge(gauge Gauge) func(Metric) {
-	return func(m Metric) {
-		m.t.Data = &v1metrics.Metric_Gauge{
-			Gauge: gauge.AsRaw(),
-		}
-	}
-}
-
-func WithMetricTypeSum(sum Sum) func(Metric) {
-	return func(m Metric) {
-		m.t.Data = &v1metrics.Metric_Sum{
-			Sum: sum.AsRaw(),
-		}
-	}
-}
-
-func WithMetricTypeHistogram(histogram Histogram) func(Metric) {
-	return func(m Metric) {
-		m.t.Data = &v1metrics.Metric_Histogram{
-			Histogram: histogram.AsRaw(),
-		}
-	}
+	raw *v1metrics.Metric
 }
 
 // NewMetric creates a new metric wrapper and
 // sets the metric value based on the provided function.
-func NewMetric(name string, mtype func(Metric)) Metric {
-	m := Metric{
-		embed: newEmbed[*v1metrics.Metric](
-			func(e embed[*v1metrics.Metric]) {
-				e.t.Name = name
-			},
-		),
+func NewMetric(name string) Metric {
+	return Metric{
+		raw: &v1metrics.Metric{
+			Name: name,
+		},
 	}
+}
 
-	mtype(m)
+func (m Metric) SetGauge(g Gauge) {
+	m.raw.Data = &v1metrics.Metric_Gauge{
+		Gauge: g.raw,
+	}
+}
 
-	return m
+func (m Metric) SetSum(s Sum) {
+	m.raw.Data = &v1metrics.Metric_Sum{
+		Sum: s.raw,
+	}
+}
+
+func (m Metric) SetHistogram(h Histogram) {
+	m.raw.Data = &v1metrics.Metric_Histogram{
+		Histogram: h.raw,
+	}
 }

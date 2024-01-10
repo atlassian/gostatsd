@@ -5,20 +5,18 @@ import (
 )
 
 type Gauge struct {
-	embed[*v1metrics.Gauge]
+	raw *v1metrics.Gauge
 }
 
 func NewGauge(datapoints ...NumberDataPoint) Gauge {
 	g := Gauge{
-		embed: newEmbed[*v1metrics.Gauge](
-			func(e embed[*v1metrics.Gauge]) {
-				e.t.DataPoints = make([]*v1metrics.NumberDataPoint, 0, len(datapoints))
-			},
-		),
+		raw: &v1metrics.Gauge{
+			DataPoints: make([]*v1metrics.NumberDataPoint, 0, len(datapoints)),
+		},
 	}
 
 	for i := 0; i < len(datapoints); i++ {
-		g.embed.t.DataPoints = append(g.embed.t.DataPoints, datapoints[i].AsRaw())
+		(*g.raw).DataPoints = append((*g.raw).DataPoints, datapoints[i].raw)
 	}
 
 	return g

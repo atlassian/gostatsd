@@ -15,23 +15,21 @@ const (
 )
 
 type metricsRequest struct {
-	embed[*v1export.ExportMetricsServiceRequest]
+	raw *v1export.ExportMetricsServiceRequest
 }
 
 func NewMetricsRequest(ctx context.Context, endpoint string, metrics ...ResourceMetrics) (*http.Request, error) {
 	mr := metricsRequest{
-		embed: newEmbed[*v1export.ExportMetricsServiceRequest](
-			func(e embed[*v1export.ExportMetricsServiceRequest]) {
-				e.t.ResourceMetrics = make([]*v1metrics.ResourceMetrics, 0, len(metrics))
-			},
-		),
+		raw: &v1export.ExportMetricsServiceRequest{
+			ResourceMetrics: make([]*v1metrics.ResourceMetrics, 0, len(metrics)),
+		},
 	}
 
 	for i := 0; i < len(metrics); i++ {
-		mr.embed.t.ResourceMetrics = append(mr.embed.t.ResourceMetrics, metrics[i].AsRaw())
+		mr.raw.ResourceMetrics = append(mr.raw.ResourceMetrics, metrics[i].raw)
 	}
 
-	buf, err := proto.Marshal(mr.AsRaw())
+	buf, err := proto.Marshal(mr.raw)
 	if err != nil {
 		return nil, err
 	}

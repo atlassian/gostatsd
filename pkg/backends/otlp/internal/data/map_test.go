@@ -22,9 +22,11 @@ func TestNewMap(t *testing.T) {
 			name: "String delim values",
 			opts: []func(Map){
 				WithDelimitedStrings(":",
-					"service.name:my-awesome-service",
-					"service.version:1.0.0",
-					"service.namespace:internal/important:very",
+					[]string{
+						"service.name:my-awesome-service",
+						"service.version:1.0.0",
+						"service.namespace:internal/important:very",
+					},
 				),
 			},
 			m: NewMap(func(m Map) {
@@ -36,10 +38,10 @@ func TestNewMap(t *testing.T) {
 		{
 			name: "Duplicate entries",
 			opts: []func(Map){
-				WithDelimitedStrings(":",
+				WithStatsdDelimitedTags([]string{
 					"service.name:my-awesome-service",
 					"service.name:very-awesome",
-				),
+				}),
 			},
 			m: NewMap(func(m Map) {
 				m.Insert("service.name", "my-awesome-service")
@@ -49,7 +51,7 @@ func TestNewMap(t *testing.T) {
 		{
 			name: "no delim",
 			opts: []func(Map){
-				WithDelimitedStrings("$", "service.name:my-awesome-service"),
+				WithDelimitedStrings("$", []string{"service.name:my-awesome-service"}),
 			},
 			m: NewMap(func(m Map) {
 				m.Insert("service.name:my-awesome-service", "")
@@ -67,4 +69,23 @@ func TestNewMap(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestMapMerge(t *testing.T) {
+	t.Parallel()
+
+	empty := NewMap()
+	empty.Merge(empty)
+
+	assert.Len(t, *empty.raw, 0, "Must not have any values set")
+
+	m := NewMap(WithDelimitedStrings(":", []string{"service.name:my-awesome-service"}))
+	assert.Len(t, *m.raw, 1, "Must have one value defined")
+
+	empty.Merge(m)
+	assert.Len(t, *empty.raw, 1, "Must have values from contained")
+
+	empty.Merge(m)
+	assert.Len(t, *empty.raw, 1, "Must have values from contained")
+
 }

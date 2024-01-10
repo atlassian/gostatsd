@@ -9,26 +9,25 @@ import (
 )
 
 type Histogram struct {
-	embed[*v1metrics.Histogram]
+	raw *v1metrics.Histogram
 }
 
 type HistogramDataPoint struct {
-	embed[*v1metrics.HistogramDataPoint]
+	raw *v1metrics.HistogramDataPoint
 }
 
-func NewHistogramMetric(datapoints ...HistogramDataPoint) Histogram {
+func NewHistogram(datapoints ...HistogramDataPoint) Histogram {
 	ht := Histogram{
-		embed: newEmbed[*v1metrics.Histogram](
-			func(e embed[*v1metrics.Histogram]) {
-				e.t.AggregationTemporality = v1metrics.AggregationTemporality_AGGREGATION_TEMPORALITY_DELTA
-			},
-		),
+		raw: &v1metrics.Histogram{
+			AggregationTemporality: v1metrics.AggregationTemporality_AGGREGATION_TEMPORALITY_DELTA,
+			DataPoints:             make([]*v1metrics.HistogramDataPoint, 0, len(datapoints)),
+		},
 	}
 
 	for i := 0; i < len(datapoints); i++ {
-		ht.embed.t.DataPoints = append(
-			ht.embed.t.DataPoints,
-			datapoints[i].AsRaw(),
+		ht.raw.DataPoints = append(
+			ht.raw.DataPoints,
+			datapoints[i].raw,
 		)
 	}
 
@@ -37,27 +36,27 @@ func NewHistogramMetric(datapoints ...HistogramDataPoint) Histogram {
 
 func WithHistogramDataPointTimeStamp(ts int64) func(HistogramDataPoint) {
 	return func(hdp HistogramDataPoint) {
-		hdp.embed.t.TimeUnixNano = uint64(ts)
+		hdp.raw.TimeUnixNano = uint64(ts)
 	}
 }
 
 func WithHistogramDataPointAttributes(attrs Map) func(HistogramDataPoint) {
 	return func(hdp HistogramDataPoint) {
-		hdp.embed.t.Attributes = attrs.unwrap()
+		hdp.raw.Attributes = attrs.unwrap()
 	}
 }
 
 func WithHistogramDataPointStatistics(values []float64) func(HistogramDataPoint) {
 	return func(hdp HistogramDataPoint) {
-		hdp.t.Sum = new(float64)
-		hdp.t.Min = &values[0]
-		hdp.t.Max = &values[len(values)-1]
-		hdp.t.Count = uint64(len(values))
+		hdp.raw.Sum = new(float64)
+		hdp.raw.Min = &values[0]
+		hdp.raw.Max = &values[len(values)-1]
+		hdp.raw.Count = uint64(len(values))
 
 		for _, v := range values {
-			*hdp.t.Sum += v
-			*hdp.t.Min = math.Min(*hdp.t.Min, v)
-			*hdp.t.Max = math.Max(*hdp.t.Max, v)
+			*hdp.raw.Sum += v
+			*hdp.raw.Min = math.Min(*hdp.raw.Min, v)
+			*hdp.raw.Max = math.Max(*hdp.raw.Max, v)
 		}
 	}
 }
@@ -67,13 +66,13 @@ func WithHistogramDataPointBucketValues[Buckets ~map[float64]uint64](buckets Buc
 		bounds := maps.Keys(buckets)
 		slices.Sort(bounds)
 
-		hdp.embed.t.BucketCounts = make([]uint64, len(buckets))
-		hdp.embed.t.ExplicitBounds = make([]float64, len(buckets)-1)
+		hdp.raw.BucketCounts = make([]uint64, len(buckets))
+		hdp.raw.ExplicitBounds = make([]float64, len(buckets)-1)
 
 		for i, bound := range bounds {
-			hdp.embed.t.BucketCounts[i] = buckets[bound]
+			hdp.raw.BucketCounts[i] = buckets[bound]
 			if !math.IsInf(bound, 1) {
-				hdp.embed.t.ExplicitBounds[i] = bound
+				hdp.raw.ExplicitBounds[i] = bound
 			}
 		}
 	}
@@ -81,7 +80,7 @@ func WithHistogramDataPointBucketValues[Buckets ~map[float64]uint64](buckets Buc
 
 func NewHistogramDataPoint(opts ...func(HistogramDataPoint)) HistogramDataPoint {
 	dp := HistogramDataPoint{
-		embed: newEmbed[*v1metrics.HistogramDataPoint](),
+		raw: &v1metrics.HistogramDataPoint{},
 	}
 
 	for i := 0; i < len(opts); i++ {
