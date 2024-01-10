@@ -20,25 +20,26 @@ func NoopHook() RuntimeDoneHook {
 }
 
 type Server struct {
-	addr string
-	log  logrus.FieldLogger
-	f    RuntimeDoneHook
+	addr       string
+	log        logrus.FieldLogger
+	f          RuntimeDoneHook
+	httpServer *http.Server
 }
 
 type ServerOpt func(*Server)
 
-func NewServer(log logrus.FieldLogger, hook RuntimeDoneHook, opts ...ServerOpt) *Server {
-	s := &Server{
-		log:  log,
-		f:    hook,
-		addr: LambdaRuntimeAvailableAddr,
+func NewServer(addr string, log logrus.FieldLogger, hook RuntimeDoneHook) *Server {
+	ts := &Server{
+		log: log,
+		f:   hook,
 	}
 
-	for _, opt := range opts {
-		opt(s)
-	}
+	mx := mux.NewRouter()
+	mx.HandleFunc("/telemetry", ts.eventHandler).Methods(http.MethodPost)
 
-	return s
+	ts.httpServer = &http.Server{Addr: addr, Handler: mx}
+
+	return ts
 }
 
 func WithCustomAddr(addr string) ServerOpt {
@@ -48,22 +49,17 @@ func WithCustomAddr(addr string) ServerOpt {
 }
 
 func (s *Server) Start(ctx context.Context) error {
-	mx := mux.NewRouter()
-	mx.HandleFunc("/telemetry", s.eventHandler).Methods(http.MethodPost)
-
-	server := &http.Server{Addr: s.addr, Handler: mx}
-
 	go func() {
 		<-ctx.Done()
 		c, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 		defer cancel()
-		err := server.Shutdown(c)
+		err := s.httpServer.Shutdown(c)
 		if err != nil {
 			s.log.WithError(err).Info("Did not shutdown gracefully")
 		}
 	}()
 
-	if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+	if err := s.httpServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		s.log.WithError(err).Error("Server error")
 		return err
 	}
@@ -93,5 +89,5 @@ func (s *Server) eventHandler(_ http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) Endpoint() string {
-	return fmt.Sprintf("http://%s/telemetry", s.addr)
+	return fmt.Sprintf("http://%s/telemetry", s.httpServer.Addr)
 }

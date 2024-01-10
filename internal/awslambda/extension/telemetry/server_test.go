@@ -17,7 +17,7 @@ import (
 func TestNewServer(t *testing.T) {
 	t.Parallel()
 
-	assert.NotNil(t, NewServer(logrus.New(), NoopHook()))
+	assert.NotNil(t, NewServer("test:80", logrus.New(), NoopHook()))
 }
 
 func TestServerStart(t *testing.T) {
@@ -26,7 +26,7 @@ func TestServerStart(t *testing.T) {
 	l, _ := net.Listen("tcp", ":0")
 	l.Close()
 
-	s := NewServer(logrus.New(), NoopHook(), WithCustomAddr(l.Addr().String()))
+	s := NewServer(l.Addr().String(), logrus.New(), NoopHook())
 	ctx, cancel := context.WithCancel(context.Background())
 	go func() {
 		<-time.After(1 * time.Second)
@@ -69,7 +69,7 @@ func TestRuntimeDoneHook(t *testing.T) {
 			l, _ := net.Listen("tcp", ":0")
 			l.Close()
 
-			s := NewServer(logrus.New(), f, WithCustomAddr(l.Addr().String()))
+			s := NewServer(l.Addr().String(), logrus.New(), f)
 
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
@@ -86,29 +86,6 @@ func TestRuntimeDoneHook(t *testing.T) {
 
 func TestServerReturnsCorrectEndpoint(t *testing.T) {
 	t.Parallel()
-
-	tcs := []struct {
-		name             string
-		server           *Server
-		expectedEndpoint string
-	}{
-		{
-			name:             "default server uses sandbox endpoint",
-			server:           NewServer(logrus.New(), NoopHook()),
-			expectedEndpoint: "http://sandbox:8083/telemetry",
-		},
-		{
-			name:             "custom server address returns correct endpoint",
-			server:           NewServer(logrus.New(), NoopHook(), WithCustomAddr("test:8081")),
-			expectedEndpoint: "http://test:8081/telemetry",
-		},
-	}
-
-	for _, tc := range tcs {
-		tc := tc
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-			assert.Equal(t, tc.expectedEndpoint, tc.server.Endpoint())
-		})
-	}
+	s := NewServer(LambdaRuntimeAvailableAddr, logrus.New(), NoopHook())
+	assert.Equal(t, "http://sandbox:8083/telemetry", s.Endpoint())
 }

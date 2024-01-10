@@ -66,7 +66,7 @@ func NewManager(lambdaDomain string, lambdaFileName string, log logrus.FieldLogg
 		name:   lambdaFileName,
 	}
 
-	m.telemetryServer = telemetry.NewServer(log, telemetry.NoopHook())
+	m.telemetryServer = telemetry.NewServer(telemetry.LambdaRuntimeAvailableAddr, log, telemetry.NoopHook())
 
 	return m
 }
