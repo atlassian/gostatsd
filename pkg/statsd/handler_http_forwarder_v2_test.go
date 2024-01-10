@@ -19,6 +19,7 @@ import (
 
 	"github.com/atlassian/gostatsd"
 	"github.com/atlassian/gostatsd/internal/fixtures"
+	"github.com/atlassian/gostatsd/internal/flush"
 	"github.com/atlassian/gostatsd/pb"
 	"github.com/atlassian/gostatsd/pkg/healthcheck"
 	"github.com/atlassian/gostatsd/pkg/transport"
@@ -43,6 +44,7 @@ func TestHttpForwarderDeepCheck(t *testing.T) {
 		nil,
 		nil,
 		transport.NewTransportPool(logger, viper.New()),
+		nil,
 	)
 	require.NoError(t, err)
 	require.NotNil(t, hfh)
@@ -257,36 +259,16 @@ func BenchmarkHttpForwarderV2TranslateAll(b *testing.B) {
 
 func TestForwardingData(t *testing.T) {
 	t.Parallel()
-	var called, havePineapples, haveDerpinton uint64
-	s := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
-		atomic.AddUint64(&called, 1)
 
-		buf, err := io.ReadAll(r.Body)
-		require.NoError(t, err, "Must not error when reading request")
-		defer r.Body.Close()
-
-		var data pb.RawMessageV2
-		require.NoError(t, proto.Unmarshal(buf, &data))
-
-		counters, ok := data.GetCounters()["pineapples"]
-		if ok {
-			atomic.AddUint64(&havePineapples, 1)
-			val, ok := counters.GetTagMap()["derpinton"]
-			if ok {
-				atomic.AddUint64(&haveDerpinton, 1)
-				assert.Equal(t, int64(10), val.GetValue())
-			}
-		}
-
-	}))
-	t.Cleanup(s.Close)
+	ts := newTestServer(t)
+	t.Cleanup(ts.s.Close)
 
 	log := logrus.New().WithField("testcase", t.Name())
 	pool := transport.NewTransportPool(log, viper.New())
 	forwarder, err := NewHttpForwarderHandlerV2(
 		log,
 		"default",
-		s.URL,
+		ts.s.URL,
 		1,
 		1,
 		1,
@@ -296,6 +278,7 @@ func TestForwardingData(t *testing.T) {
 		map[string]string{},
 		[]string{},
 		pool,
+		nil,
 	)
 	require.NoError(t, err, "Must not error when creating the forwarder")
 
@@ -327,9 +310,10 @@ func TestForwardingData(t *testing.T) {
 
 	wg.Wait()
 
-	assert.Greater(t, atomic.LoadUint64(&called), uint64(0), "Handler must have been called")
-	assert.EqualValues(t, 1, atomic.LoadUint64(&havePineapples))
-	assert.EqualValues(t, 1, atomic.LoadUint64(&haveDerpinton))
+	assert.Greater(t, atomic.LoadUint64(&ts.called), uint64(0), "Handler must have been called")
+	assert.EqualValues(t, 1, atomic.LoadUint64(&ts.pineappleCount))
+	assert.EqualValues(t, 1, atomic.LoadUint64(&ts.derpCount))
+	assert.EqualValues(t, 10, ts.derpValue)
 	assert.Equal(t, 0, mockClock.Len(), "Must have closed all event handlers")
 }
 
@@ -352,8 +336,99 @@ func TestHttpForwarderV2New(t *testing.T) {
 		},
 	} {
 		h, err := NewHttpForwarderHandlerV2(logger, "default", "endpoint", 1, 1, 1, false, time.Second, time.Second,
-			cusHeaders, testcase.dynHeaders, pool)
+			cusHeaders, testcase.dynHeaders, pool, nil)
 		require.Nil(t, err)
 		require.Equal(t, h.dynHeaderNames, testcase.expected)
 	}
+}
+
+func TestManualFlush(t *testing.T) {
+	t.Parallel()
+
+	ts := newTestServer(t)
+	t.Cleanup(ts.s.Close)
+
+	log := logrus.New().WithField("testcase", t.Name())
+	pool := transport.NewTransportPool(log, viper.New())
+	fc := flush.NewFlushCoordinator()
+	forwarder, err := NewHttpForwarderHandlerV2(
+		log,
+		"default",
+		ts.s.URL,
+		1,
+		1,
+		1,
+		false,
+		100*time.Millisecond, // maxRequestElapsedTime
+		100*time.Millisecond, // flushInterval
+		map[string]string{},
+		[]string{},
+		pool,
+		fc,
+	)
+	require.NoError(t, err, "Must not error when creating the forwarder")
+
+	ctx, cancel := context.WithCancel(context.Background())
+	for i := 0; i < 10; i++ {
+		forwarder.DispatchMetricMap(ctx, &gostatsd.MetricMap{
+			Counters: gostatsd.Counters{
+				"pineapples": map[string]gostatsd.Counter{
+					"derpinton": {
+						PerSecond: 0.1,
+						Value:     1,
+						Source:    gostatsd.UnknownSource,
+						Timestamp: gostatsd.Nanotime(time.Now().Nanosecond()),
+						Tags:      gostatsd.Tags{},
+					},
+				},
+			},
+		})
+	}
+
+	var wg wait.Group
+	wg.StartWithContext(ctx, forwarder.Run)
+
+	fc.Flush()
+	fc.WaitForFlush()
+
+	cancel()
+
+	wg.Wait()
+
+	assert.Equal(t, uint64(2), ts.called, "Handler must have been called")
+	assert.EqualValues(t, 1, ts.pineappleCount)
+	assert.EqualValues(t, 1, ts.derpCount)
+	assert.EqualValues(t, 10, ts.derpValue)
+}
+
+type testServer struct {
+	s              *httptest.Server
+	called         uint64
+	pineappleCount uint64
+	derpCount      uint64
+	derpValue      int64
+}
+
+func newTestServer(tb *testing.T) *testServer {
+	t := &testServer{}
+	t.s = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		atomic.AddUint64(&t.called, 1)
+
+		buf, err := io.ReadAll(r.Body)
+		require.NoError(tb, err, "Must not error when reading request")
+
+		var data pb.RawMessageV2
+		require.NoError(tb, proto.Unmarshal(buf, &data))
+
+		counters, ok := data.GetCounters()["pineapples"]
+		if ok {
+			atomic.AddUint64(&t.pineappleCount, 1)
+			val, ok := counters.GetTagMap()["derpinton"]
+			if ok {
+				atomic.AddUint64(&t.derpCount, 1)
+				t.derpValue = val.GetValue()
+			}
+		}
+	}))
+	return t
 }

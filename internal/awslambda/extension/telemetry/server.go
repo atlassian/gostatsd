@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/http/httptest"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -24,6 +25,7 @@ type Server struct {
 	log        logrus.FieldLogger
 	f          RuntimeDoneHook
 	httpServer *http.Server
+	httptest.Server
 }
 
 func NewServer(addr string, log logrus.FieldLogger, hook RuntimeDoneHook) *Server {

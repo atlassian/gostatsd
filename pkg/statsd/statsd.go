@@ -14,6 +14,7 @@ import (
 	"golang.org/x/time/rate"
 
 	"github.com/atlassian/gostatsd"
+	"github.com/atlassian/gostatsd/internal/flush"
 	"github.com/atlassian/gostatsd/pkg/healthcheck"
 	"github.com/atlassian/gostatsd/pkg/stats"
 	"github.com/atlassian/gostatsd/pkg/transport"
@@ -33,6 +34,7 @@ type Server struct {
 	ExpiryIntervalGauge       time.Duration
 	ExpiryIntervalSet         time.Duration
 	ExpiryIntervalTimer       time.Duration
+	ForwarderFlushCoordinator flush.Coordinator
 	FlushInterval             time.Duration
 	FlushOffset               time.Duration
 	FlushAligned              bool
@@ -130,6 +132,7 @@ func (s *Server) createForwarderSink(logger logrus.FieldLogger) (gostatsd.Pipeli
 		logger,
 		s.Viper,
 		s.TransportPool,
+		s.ForwarderFlushCoordinator,
 	)
 	if err != nil {
 		return nil, nil, err

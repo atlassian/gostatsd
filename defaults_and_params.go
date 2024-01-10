@@ -176,6 +176,8 @@ const (
 	ParamLogRawMetric = "log-raw-metric"
 	// ParamDisableInternalEvents enables sending internal events from gostatsd
 	ParamDisableInternalEvents = "disable-internal-events"
+	// ParamEnableForwarderManualFlush enables the manual flushing of metrics in forwarder mode, the flush interval is ignored
+	ParamEnableForwarderManualFlush = "enable-forwarder-manual-flush"
 )
 
 // AddFlags adds flags to the specified FlagSet.
