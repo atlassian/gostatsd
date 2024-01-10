@@ -18,7 +18,7 @@ func ProcessMetricResponse(resp *http.Response) (dropped int64, errs error) {
 
 	var response v1export.ExportMetricsServiceResponse
 	if err := proto.Unmarshal(buf, &response); err != nil {
-		return 0, multierr.Combine(errs, err)
+		return 0, err
 	}
 
 	if ps := response.PartialSuccess; ps != nil && ps.ErrorMessage != "" {
