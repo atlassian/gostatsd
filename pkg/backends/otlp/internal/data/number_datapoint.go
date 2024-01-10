@@ -30,6 +30,7 @@ func WithNumberDataPointDoubleValue(value float64) func(NumberDataPoint) {
 	}
 }
 
+// NewNumberDataPoint applies options in order so the last value set wins
 func NewNumberDataPoint(timestamp uint64, opts ...func(NumberDataPoint)) NumberDataPoint {
 	dp := NumberDataPoint{
 		raw: &v1metrics.NumberDataPoint{
