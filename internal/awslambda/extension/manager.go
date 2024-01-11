@@ -18,6 +18,7 @@ import (
 	"go.uber.org/multierr"
 
 	"github.com/atlassian/gostatsd/internal/awslambda/extension/api"
+	"github.com/atlassian/gostatsd/internal/awslambda/extension/telemetry"
 )
 
 const (
@@ -26,9 +27,10 @@ const (
 )
 
 var (
-	ErrFailedRegistration = errors.New("extension failed to register with lambda")
-	ErrIssueProgress      = errors.New("unable to continue execution")
-	ErrServerEarlyExit    = errors.New("server has shutdown early without cause")
+	ErrFailedRegistration          = errors.New("extension failed to register with lambda")
+	ErrIssueProgress               = errors.New("unable continue execution")
+	ErrServerEarlyExit             = errors.New("server has shutdown early without cause")
+	ErrFailedTelemetrySubscription = errors.New("extension failed to subscribe to lambda telemetry API")
 )
 
 // Manager ensures that the lifetime management of the lambda
@@ -50,6 +52,8 @@ type manager struct {
 	domain       string
 	name         string
 	registeredID string
+
+	telemetryServer *telemetry.Server
 }
 
 var _ Manager = (*manager)(nil)
@@ -62,21 +66,33 @@ func NewManager(lambdaDomain string, lambdaFileName string, log logrus.FieldLogg
 		name:   lambdaFileName,
 	}
 
+	m.telemetryServer = telemetry.NewServer(telemetry.LambdaRuntimeAvailableAddr, log, telemetry.NoopHook())
+
 	return m
 }
 
 func (m *manager) Run(parent context.Context, server Server) error {
+	var wg wait.Group
+	var chErrs = make(chan error, 3)
+
 	// Init Phase of the lambda
 	if err := m.register(parent); err != nil {
 		return err
 	}
 
+	// Start telemetry server
 	ctx, cancel := context.WithCancel(parent)
-	// Start gostatsd server
-	var wg wait.Group
-	var chErrs = make(chan error, 2)
 	defer cancel()
+	wg.StartWithContext(ctx, func(c context.Context) {
+		chErrs <- m.telemetryServer.Start(c)
+	})
 
+	if err := m.subscribeToTelemetry(ctx); err != nil {
+		m.log.WithError(err).Error("error subscribing to lambda telemetry endpoint")
+		return err
+	}
+
+	// Start gostatsd server
 	wg.StartWithContext(ctx, func(c context.Context) {
 		err := server.Run(c)
 		// Shutting down due to context is an acceptable
@@ -214,6 +230,47 @@ func (m *manager) register(ctx context.Context) error {
 	return nil
 }
 
+func (m *manager) subscribeToTelemetry(ctx context.Context) error {
+	b, err := jsoniter.Marshal(telemetry.SubscriptionRequest{
+		SchemaVersion: telemetry.ApiVersion,
+		Types:         []string{telemetry.PlatformSubscriptionType},
+		Destination:   &telemetry.SubscriptionDestination{URI: m.telemetryServer.Endpoint(), Protocol: telemetry.ProtocolHTTP},
+		// we buffer for the minimum time on the lambda side to avoid adding additional billedDuration to the lambda
+		Buffering: &telemetry.SubscriptionBufferingConfig{TimeoutMs: telemetry.MinBufferingTimeoutMs},
+	})
+	if err != nil {
+		return err
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPut, telemetry.SubscribeEndpoint.GetUrl(m.domain), bytes.NewReader(b))
+	if err != nil {
+		return err
+	}
+	req.Header.Set(api.LambdaExtensionIdentifierHeaderKey, m.registeredID)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := m.client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		_, _ = io.Copy(io.Discard, resp.Body)
+		_ = resp.Body.Close()
+	}()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		m.log.WithError(err).WithFields(map[string]interface{}{
+			"statusCode": resp.StatusCode,
+			"msg":        string(body),
+		}).Error("Error subscribing to telemetry API")
+		return ErrFailedTelemetrySubscription
+	}
+
+	m.log.Info("Successfully subscribed to telemetry API")
+
+	return nil
+}
+
 func (m *manager) nextEvent(ctx context.Context) (*api.EventNextPayload, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, api.EventEndpoint.GetUrl(m.domain), http.NoBody)
 	if err != nil {
@@ -226,10 +283,7 @@ func (m *manager) nextEvent(ctx context.Context) (*api.EventNextPayload, error) 
 	if err != nil {
 		return nil, err
 	}
-	defer func() {
-		_, _ = io.Copy(io.Discard, resp.Body)
-		_ = resp.Body.Close()
-	}()
+	defer resp.Body.Close()
 
 	switch resp.StatusCode {
 	case http.StatusOK:
