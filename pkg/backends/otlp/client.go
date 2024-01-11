@@ -3,7 +3,11 @@ package otlp
 import (
 	"context"
 
+	"github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
+
 	"github.com/atlassian/gostatsd"
+	"github.com/atlassian/gostatsd/pkg/transport"
 )
 
 const (
@@ -13,11 +17,18 @@ const (
 // Client contains additional meta data in order
 // to export values as OTLP metrics.
 // The zero value is not safe to use.
-type Client struct {
-	resources []string
-}
+type Client struct{}
 
 var _ gostatsd.Backend = (*Client)(nil)
+
+func NewClientFromViper(v *viper.Viper, logger logrus.FieldLogger, pool *transport.TransportPool) (gostatsd.Backend, error) {
+	_, err := NewConfig(v)
+	if err != nil {
+		return nil, err
+	}
+
+	return Client{}, nil
+}
 
 func (Client) Name() string { return namedBackend }
 
