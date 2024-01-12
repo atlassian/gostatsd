@@ -63,7 +63,8 @@ func GetConfiguration() (*viper.Viper, error) {
 	}
 
 	// enable manual flush mode by default
-	v.SetDefault(gostatsd.ParamEnableForwarderManualFlush, true)
+	v.SetDefault(gostatsd.ParamLambdaExtensionManualFlush, true)
+	v.SetDefault(gostatsd.ParamLambdaExtensionTelemetryAddress, "")
 
 	return v, nil
 }
@@ -97,7 +98,7 @@ func CreateServer(v *viper.Viper, logger logrus.FieldLogger) *statsd.Server {
 		TransportPool:             transport.NewTransportPool(logger, v),
 	}
 
-	if v.GetBool(gostatsd.ParamEnableForwarderManualFlush) {
+	if v.GetBool(gostatsd.ParamLambdaExtensionManualFlush) {
 		s.ForwarderFlushCoordinator = flush.NewFlushCoordinator()
 		// Dynamic headers are disable as they can cause multiple flush notifies per flush
 		v.Set("dynamic-header", []string{})
@@ -136,8 +137,12 @@ func main() {
 	server := CreateServer(conf, log)
 
 	var opts = make([]extension.ManagerOpt, 0)
-	if conf.GetBool(gostatsd.ParamEnableForwarderManualFlush) {
+	if conf.GetBool(gostatsd.ParamLambdaExtensionManualFlush) {
 		opts = append(opts, extension.WithManualFlushEnabled(server.ForwarderFlushCoordinator))
+	}
+
+	if addr := conf.GetString(gostatsd.ParamLambdaExtensionTelemetryAddress); addr != "" {
+		opts = append(opts, extension.WithCustomTelemetryServerAddr(addr))
 	}
 
 	manager := extension.NewManager(os.Getenv(api.EnvLambdaAPIHostname),
