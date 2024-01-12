@@ -161,7 +161,7 @@ The following settings from the previous section are also supported:
 - `hostname`
 - `log-raw-metric`
 
-Running as a Lambda Extension
+Running as a Lambda Extension (experimental feature)
 -----------------------------
 Gostatsd can be run as a lambda extension in forwarder mode. The metrics are flushed at the end of each lambda invocation
 by default. The flush interval is ignored for your custom metrics, internal metrics are still flushed on a best effort

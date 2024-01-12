@@ -68,6 +68,7 @@ func TestManagerGostatsDIntegrationTest(t *testing.T) {
 	t.Cleanup(gsdServer.Close)
 
 	log := logrus.New()
+	log.SetOutput(io.Discard)
 	fc := flush.NewFlushCoordinator()
 
 	statsDServer, err := createStatsDServer(gsdServer.URL, fc, log)
@@ -79,7 +80,7 @@ func TestManagerGostatsDIntegrationTest(t *testing.T) {
 	teleAddr := availableAddr()
 	u, err := url.Parse(lambdaServer.URL)
 	require.NoError(t, err)
-	m := NewManager(u.Host, "test", log, WithManualFlushEnabled(fc), WithCustomTelemetryServerAddr(teleAddr))
+	m := NewManager(u.Host, "test", log, WithManualFlushEnabled(fc, teleAddr))
 
 	wg := wait.Group{}
 	wg.StartWithContext(ctx, func(ctx context.Context) {
@@ -104,10 +105,7 @@ func TestManagerGostatsDIntegrationTest(t *testing.T) {
 	assert.EqualValues(t, forwarderCallReceived, 2)
 }
 
-func createStatsDServer(apiAddr string,
-	fc flush.Coordinator,
-	log logrus.FieldLogger) (s *statsd.Server, err error) {
-
+func createStatsDServer(apiAddr string, fc flush.Coordinator, log logrus.FieldLogger) (s *statsd.Server, err error) {
 	// setup statsd server
 	l, err := net.ListenPacket("udp", ":0")
 	if err != nil {

@@ -369,10 +369,10 @@ func TestTelemetryEnabled(t *testing.T) {
 	m := &manager{}
 	assert.False(t, m.telemetryEnabled())
 
-	WithManualFlushEnabled(nil)(m)
+	WithManualFlushEnabled(nil, telemetry.LambdaRuntimeAvailableAddr)(m)
 	assert.False(t, m.telemetryEnabled())
 
-	WithManualFlushEnabled(flush.NewNoopFlushCoordinator())(m)
+	WithManualFlushEnabled(flush.NewNoopFlushCoordinator(), telemetry.LambdaRuntimeAvailableAddr)(m)
 	assert.True(t, m.telemetryEnabled())
 }
 

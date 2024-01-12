@@ -78,17 +78,17 @@ func NewManager(lambdaDomain string, lambdaFileName string, log logrus.FieldLogg
 	return m
 }
 
-func WithManualFlushEnabled(fc flush.Coordinator) ManagerOpt {
+// WithManualFlushEnabled enables a flush per invocation, it requires a flush.Coordinator to trigger the flush
+// and will register it as a telemetry server callback. A server address will also need to be provided
+// for the server to run on.
+func WithManualFlushEnabled(fc flush.Coordinator, telemetryServerAddr string) ManagerOpt {
 	return func(m *manager) {
 		if fc == nil {
 			return
 		}
 
-		if m.telemetryServer == nil {
-			m.telemetryServer = telemetry.NewServer(telemetry.LambdaRuntimeAvailableAddr, m.log, fc.Flush)
-		}
-
 		m.fc = fc
+		m.telemetryServer = telemetry.NewServer(telemetryServerAddr, m.log, fc.Flush)
 	}
 }
 

@@ -6,6 +6,8 @@ import (
 	"os"
 	"os/signal"
 
+	"github.com/atlassian/gostatsd/internal/awslambda/extension/telemetry"
+
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
@@ -64,7 +66,7 @@ func GetConfiguration() (*viper.Viper, error) {
 
 	// enable manual flush mode by default
 	v.SetDefault(gostatsd.ParamLambdaExtensionManualFlush, true)
-	v.SetDefault(gostatsd.ParamLambdaExtensionTelemetryAddress, "")
+	v.SetDefault(gostatsd.ParamLambdaExtensionTelemetryAddress, telemetry.LambdaRuntimeAvailableAddr)
 
 	return v, nil
 }
@@ -137,15 +139,13 @@ func main() {
 	server := CreateServer(conf, log)
 
 	var opts = make([]extension.ManagerOpt, 0)
+	telemetryServerAddr := conf.GetString(gostatsd.ParamLambdaExtensionTelemetryAddress)
 	if conf.GetBool(gostatsd.ParamLambdaExtensionManualFlush) {
-		opts = append(opts, extension.WithManualFlushEnabled(server.ForwarderFlushCoordinator))
+		opts = append(opts, extension.WithManualFlushEnabled(server.ForwarderFlushCoordinator, telemetryServerAddr))
 	}
 
-	if addr := conf.GetString(gostatsd.ParamLambdaExtensionTelemetryAddress); addr != "" {
-		opts = append(opts, extension.WithCustomTelemetryServerAddr(addr))
-	}
-
-	manager := extension.NewManager(os.Getenv(api.EnvLambdaAPIHostname),
+	manager := extension.NewManager(
+		os.Getenv(api.EnvLambdaAPIHostname),
 		conf.GetString(ParamLambdaFileName),
 		log,
 		opts...)
