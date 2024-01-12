@@ -313,7 +313,7 @@ func TestForwardingData(t *testing.T) {
 	assert.Greater(t, atomic.LoadUint64(&ts.called), uint64(0), "Handler must have been called")
 	assert.EqualValues(t, 1, atomic.LoadUint64(&ts.pineappleCount))
 	assert.EqualValues(t, 1, atomic.LoadUint64(&ts.derpCount))
-	assert.EqualValues(t, 10, ts.derpValue)
+	assert.EqualValues(t, 10, atomic.LoadInt64(&ts.derpValue))
 	assert.Equal(t, 0, mockClock.Len(), "Must have closed all event handlers")
 }
 
@@ -395,10 +395,10 @@ func TestManualFlush(t *testing.T) {
 
 	wg.Wait()
 
-	assert.Equal(t, uint64(2), ts.called, "Handler must have been called")
-	assert.EqualValues(t, 1, ts.pineappleCount)
-	assert.EqualValues(t, 1, ts.derpCount)
-	assert.EqualValues(t, 10, ts.derpValue)
+	assert.Equal(t, uint64(2), atomic.LoadUint64(&ts.called), "Handler must have been called")
+	assert.EqualValues(t, 1, atomic.LoadUint64(&ts.pineappleCount))
+	assert.EqualValues(t, 1, atomic.LoadUint64(&ts.derpCount))
+	assert.EqualValues(t, 10, atomic.LoadInt64(&ts.derpValue))
 }
 
 type testServer struct {

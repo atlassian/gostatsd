@@ -6,8 +6,6 @@ import (
 	"os"
 	"os/signal"
 
-	"github.com/atlassian/gostatsd/internal/awslambda/extension/telemetry"
-
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
@@ -16,6 +14,7 @@ import (
 	"github.com/atlassian/gostatsd"
 	"github.com/atlassian/gostatsd/internal/awslambda/extension"
 	"github.com/atlassian/gostatsd/internal/awslambda/extension/api"
+	"github.com/atlassian/gostatsd/internal/awslambda/extension/telemetry"
 	"github.com/atlassian/gostatsd/internal/flush"
 	"github.com/atlassian/gostatsd/internal/util"
 	"github.com/atlassian/gostatsd/pkg/statsd"
