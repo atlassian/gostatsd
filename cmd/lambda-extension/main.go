@@ -70,7 +70,7 @@ func GetConfiguration() (*viper.Viper, error) {
 	return v, nil
 }
 
-func CreateServer(v *viper.Viper, logger logrus.FieldLogger) *statsd.Server {
+func NewServer(v *viper.Viper, logger logrus.FieldLogger) *statsd.Server {
 	// create server in forwarder mode
 	s := &statsd.Server{
 		InternalTags:      v.GetStringSlice(gostatsd.ParamInternalTags),
@@ -135,11 +135,12 @@ func main() {
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer cancel()
 
-	server := CreateServer(conf, log)
+	server := NewServer(conf, log)
 
 	var opts = make([]extension.ManagerOpt, 0)
 	telemetryServerAddr := conf.GetString(gostatsd.ParamLambdaExtensionTelemetryAddress)
 	if conf.GetBool(gostatsd.ParamLambdaExtensionManualFlush) {
+		log.Info("Starting extension with manual flush")
 		opts = append(opts, extension.WithManualFlushEnabled(server.ForwarderFlushCoordinator, telemetryServerAddr))
 	}
 

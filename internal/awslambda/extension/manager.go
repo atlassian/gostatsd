@@ -92,12 +92,6 @@ func WithManualFlushEnabled(fc flush.Coordinator, telemetryServerAddr string) Ma
 	}
 }
 
-func WithCustomTelemetryServerAddr(addr string) ManagerOpt {
-	return func(m *manager) {
-		m.telemetryServer = telemetry.NewServer(addr, m.log, m.fc.Flush)
-	}
-}
-
 func (m *manager) Run(parent context.Context, server Server) error {
 	var wg wait.Group
 	var chErrs = make(chan error, 3)
