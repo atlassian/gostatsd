@@ -63,6 +63,7 @@ func TestForwardingEndToEndV2(t *testing.T) {
 		nil,
 		nil,
 		p,
+		nil,
 	)
 	require.NoError(t, err)
 

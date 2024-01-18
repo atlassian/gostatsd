@@ -20,7 +20,6 @@ func NoopHook() RuntimeDoneHook {
 }
 
 type Server struct {
-	addr       string
 	log        logrus.FieldLogger
 	f          RuntimeDoneHook
 	httpServer *http.Server
@@ -50,6 +49,10 @@ func (s *Server) Start(ctx context.Context) error {
 			s.log.WithError(err).Info("Did not shutdown gracefully")
 		}
 	}()
+
+	s.log.WithFields(map[string]interface{}{
+		"serverAddress": s.httpServer.Addr,
+	}).Info("starting server")
 
 	if err := s.httpServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		s.log.WithError(err).Error("Server error")

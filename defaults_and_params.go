@@ -176,6 +176,10 @@ const (
 	ParamLogRawMetric = "log-raw-metric"
 	// ParamDisableInternalEvents enables sending internal events from gostatsd
 	ParamDisableInternalEvents = "disable-internal-events"
+	// ParamLambdaExtensionManualFlush enables the manual flushing of metrics in forwarder mode, the flush interval is ignored
+	ParamLambdaExtensionManualFlush = "lambda-extension-manual-flush"
+	// ParamLambdaExtensionTelemetryAddress enables the manual flushing of metrics in forwarder mode, the flush interval is ignored
+	ParamLambdaExtensionTelemetryAddress = "lambda-extension-telemetry-address"
 )
 
 // AddFlags adds flags to the specified FlagSet.

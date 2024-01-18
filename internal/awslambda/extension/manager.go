@@ -19,6 +19,7 @@ import (
 
 	"github.com/atlassian/gostatsd/internal/awslambda/extension/api"
 	"github.com/atlassian/gostatsd/internal/awslambda/extension/telemetry"
+	"github.com/atlassian/gostatsd/internal/flush"
 )
 
 const (
@@ -46,29 +47,49 @@ type Server interface {
 }
 
 type manager struct {
-	log    logrus.FieldLogger
-	client *http.Client
-
+	log          logrus.FieldLogger
 	domain       string
 	name         string
 	registeredID string
 
-	telemetryServer *telemetry.Server
+	client              *http.Client
+	telemetryServerAddr string
+	telemetryServer     *telemetry.Server
+	fc                  flush.Coordinator
 }
+
+type ManagerOpt func(*manager)
 
 var _ Manager = (*manager)(nil)
 
-func NewManager(lambdaDomain string, lambdaFileName string, log logrus.FieldLogger) Manager {
+func NewManager(lambdaDomain string, lambdaFileName string, log logrus.FieldLogger, opts ...ManagerOpt) Manager {
 	m := &manager{
 		log:    log,
 		client: &http.Client{},
 		domain: lambdaDomain,
 		name:   lambdaFileName,
+		fc:     flush.NewNoopFlushCoordinator(),
 	}
 
-	m.telemetryServer = telemetry.NewServer(telemetry.LambdaRuntimeAvailableAddr, log, telemetry.NoopHook())
+	for _, opt := range opts {
+		opt(m)
+	}
 
 	return m
+}
+
+// WithManualFlushEnabled enables a flush per invocation, it requires a flush.Coordinator to trigger the flush
+// and will register it as a telemetry server callback. A server address will also need to be provided
+// for the server to run on.
+func WithManualFlushEnabled(fc flush.Coordinator, telemetryServerAddr string) ManagerOpt {
+	return func(m *manager) {
+		if fc == nil {
+			return
+		}
+
+		m.fc = fc
+		m.telemetryServer = telemetry.NewServer(telemetryServerAddr, m.log, fc.Flush)
+	}
 }
 
 func (m *manager) Run(parent context.Context, server Server) error {
@@ -83,13 +104,16 @@ func (m *manager) Run(parent context.Context, server Server) error {
 	// Start telemetry server
 	ctx, cancel := context.WithCancel(parent)
 	defer cancel()
-	wg.StartWithContext(ctx, func(c context.Context) {
-		chErrs <- m.telemetryServer.Start(c)
-	})
 
-	if err := m.subscribeToTelemetry(ctx); err != nil {
-		m.log.WithError(err).Error("error subscribing to lambda telemetry endpoint")
-		return err
+	if m.telemetryEnabled() {
+		wg.StartWithContext(ctx, func(c context.Context) {
+			chErrs <- m.telemetryServer.Start(c)
+		})
+
+		if err := m.subscribeToTelemetry(ctx); err != nil {
+			m.log.WithError(err).Error("error subscribing to lambda telemetry endpoint")
+			return err
+		}
 	}
 
 	// Start gostatsd server
@@ -148,7 +172,10 @@ func (m *manager) Run(parent context.Context, server Server) error {
 }
 
 func (m *manager) heartbeat(ctx context.Context) error {
+	// call flush on init so we don't block the first /next call
+	m.fc.Flush()
 	for ctx.Err() == nil {
+		m.fc.WaitForFlush()
 		resp, err := m.nextEvent(ctx)
 		if err != nil {
 			return err
@@ -376,4 +403,8 @@ func (m *manager) reportExitError(ctx context.Context, problem error) {
 	if resp.StatusCode != http.StatusAccepted {
 		m.log.WithField("status code", resp.StatusCode).Error("issue with sending exit error to lambda")
 	}
+}
+
+func (m *manager) telemetryEnabled() bool {
+	return m.telemetryServer != nil
 }

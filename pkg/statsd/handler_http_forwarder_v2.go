@@ -21,6 +21,7 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/atlassian/gostatsd"
+	"github.com/atlassian/gostatsd/internal/flush"
 	"github.com/atlassian/gostatsd/internal/util"
 	"github.com/atlassian/gostatsd/pb"
 	"github.com/atlassian/gostatsd/pkg/healthcheck"
@@ -62,6 +63,8 @@ type HttpForwarderHandlerV2 struct {
 	done                chan struct{}
 	consolidator        *gostatsd.MetricConsolidator
 	consolidatedMetrics chan []*gostatsd.MetricMap
+
+	flushCoordinator flush.Coordinator
 }
 
 var (
@@ -69,7 +72,7 @@ var (
 )
 
 // NewHttpForwarderHandlerV2FromViper returns a new http API client.
-func NewHttpForwarderHandlerV2FromViper(logger logrus.FieldLogger, v *viper.Viper, pool *transport.TransportPool) (*HttpForwarderHandlerV2, error) {
+func NewHttpForwarderHandlerV2FromViper(logger logrus.FieldLogger, v *viper.Viper, pool *transport.TransportPool, fc flush.Coordinator) (*HttpForwarderHandlerV2, error) {
 	subViper := util.GetSubViper(v, "http-transport")
 	subViper.SetDefault("transport", defaultTransport)
 	subViper.SetDefault("compress", defaultCompress)
@@ -93,6 +96,7 @@ func NewHttpForwarderHandlerV2FromViper(logger logrus.FieldLogger, v *viper.Vipe
 		subViper.GetStringMapString("custom-headers"),
 		subViper.GetStringSlice("dynamic-headers"),
 		pool,
+		fc,
 	)
 }
 
@@ -110,6 +114,7 @@ func NewHttpForwarderHandlerV2(
 	xheaders map[string]string,
 	dynHeaderNames []string,
 	pool *transport.TransportPool,
+	fc flush.Coordinator,
 ) (*HttpForwarderHandlerV2, error) {
 	if apiEndpoint == "" {
 		return nil, fmt.Errorf("api-endpoint is required")
@@ -182,6 +187,11 @@ func NewHttpForwarderHandlerV2(
 	}
 
 	ch := make(chan []*gostatsd.MetricMap)
+	consolidator := gostatsd.NewMetricConsolidator(consolidatorSlots, false, flushInterval, ch)
+
+	if fc != nil {
+		fc.RegisterFlushable(consolidator)
+	}
 
 	return &HttpForwarderHandlerV2{
 		logger:                logger.WithField("component", "http-forwarder-handler-v2"),
@@ -190,12 +200,13 @@ func NewHttpForwarderHandlerV2(
 		metricsSem:            metricsSem,
 		metricsMergingSem:     metricsMergingSem,
 		compress:              compress,
-		consolidator:          gostatsd.NewMetricConsolidator(consolidatorSlots, false, flushInterval, ch),
+		consolidator:          consolidator,
 		consolidatedMetrics:   ch,
 		client:                httpClient.Client,
 		headers:               headers,
 		dynHeaderNames:        dynHeaderNamesWithColon,
 		done:                  make(chan struct{}),
+		flushCoordinator:      fc,
 	}, nil
 }
 
@@ -272,12 +283,14 @@ func (hfh *HttpForwarderHandlerV2) Run(ctx context.Context) {
 
 				for dynHeaderTags, mm := range mms {
 					if mm.IsEmpty() {
+						hfh.notifyFlush()
 						continue
 					}
 					hfh.acquireSem()
 					postId := atomic.AddUint64(&hfh.postId, 1) - 1
 					go func(postId uint64, metricMap *gostatsd.MetricMap, dynHeaderTags string) {
 						hfh.postMetrics(context.Background(), metricMap, dynHeaderTags, postId)
+						hfh.notifyFlush()
 						hfh.releaseSem()
 					}(postId, mm, dynHeaderTags)
 				}
@@ -290,14 +303,19 @@ func (hfh *HttpForwarderHandlerV2) Run(ctx context.Context) {
 			hfh.acquireMergingSem()
 		}
 	})
+
 	wg.StartWithContext(ctx, func(ctx context.Context) {
-		hfh.consolidator.Run(ctx)
+		if hfh.flushCoordinator == nil {
+			hfh.consolidator.Run(ctx)
+		} else {
+			<-ctx.Done()
+		}
+
 		hfh.Close()
 	})
 
 	wg.Wait()
 	hfh.logger.Debug("Shutdown http forwarder")
-
 }
 
 func (hfh *HttpForwarderHandlerV2) Close() {
@@ -319,6 +337,12 @@ func (hfh *HttpForwarderHandlerV2) acquireMergingSem() {
 
 func (hfh *HttpForwarderHandlerV2) releaseMergingSem() {
 	hfh.metricsMergingSem <- struct{}{}
+}
+
+func (hfh *HttpForwarderHandlerV2) notifyFlush() {
+	if hfh.flushCoordinator != nil {
+		hfh.flushCoordinator.NotifyFlush()
+	}
 }
 
 func translateToProtobufV2(metricMap *gostatsd.MetricMap) *pb.RawMessageV2 {
