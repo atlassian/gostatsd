@@ -43,22 +43,29 @@ build: pb/gostatsd.pb.go
 	CGO_ENABLED=$(CGO_ENABLED) GOEXPERIMENT=boringcrypto \
 		go build  \
 			-v \
-			-ldflags "-s -X main.Version=$(REPO_VERSION) -X main.GitCommit=$(GIT_HASH) -X main.BuildDate=$(BUILD_DATE)" \
 			$(GOBUILD_OPTIONAL_FLAGS) \
 			-o build/bin/$(ARCH)/$(BINARY_NAME) \
 			$(PKG)
 
 build-gostatsd:
-	@$(MAKE) build PKG=$(MAIN_PKG)
+	@$(MAKE) build PKG=$(MAIN_PKG) GOBUILD_OPTIONAL_FLAGS="-ldflags '-s -X main.Version=$(REPO_VERSION) \
+ 															-X main.GitCommit=$(GIT_HASH) \
+ 															-X main.BuildDate=$(BUILD_DATE)'"
 
 build-lambda:
-	@$(MAKE) build PKG=$(LAMBDA_PKG) BINARY_NAME="lambda-extension"
+	@$(MAKE) build PKG=$(LAMBDA_PKG) BINARY_NAME="lambda-extension" GOBUILD_OPTIONAL_FLAGS="-ldflags '-s -X main.Version=$(REPO_VERSION) \
+                                                                     						 -X main.GitCommit=$(GIT_HASH) \
+                                                                     			  			 -X main.BuildDate=$(BUILD_DATE)'"
 
 build-gostatsd-race:
-	@$(MAKE) build-gostatsd GOBUILD_OPTIONAL_FLAGS="-race"
+	@$(MAKE) build-gostatsd GOBUILD_OPTIONAL_FLAGS="-race -ldflags '-s -X main.Version=$(REPO_VERSION) \
+													 -X main.GitCommit=$(GIT_HASH) \
+                                                     -X main.BuildDate=$(BUILD_DATE)'"
 
 build-cluster:
-	@$(MAKE) build PKG=$(CLUSTER_PKG) BINARY_NAME="cluster"
+	@$(MAKE) build PKG=$(CLUSTER_PKG) BINARY_NAME="cluster" GOBUILD_OPTIONAL_FLAGS="-ldflags '-s -X main.Version=$(REPO_VERSION) \
+                                                                                     -X main.GitCommit=$(GIT_HASH) \
+                                                                                     -X main.BuildDate=$(BUILD_DATE)'"
 
 build-gostatsd-fips:
 	@$(MAKE) build-gostatsd GOBUILD_OPTIONAL_FLAGS="-tags fips"
