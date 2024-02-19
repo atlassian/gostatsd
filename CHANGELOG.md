@@ -1,3 +1,8 @@
+38.0.0
+------
+- Adds support for Lambda extension
+- Adds optional fipsonly check on build
+
 37.0.0
 ------
 - Bumping go version to 1.21.4
