@@ -26,6 +26,6 @@ RUN export DEBIAN_FRONTEND=noninteractive && \
     rm -rf /var/lib/apt/lists/*
 
 ARG TARGETARCH
-COPY --from=build /build/bin/linux/${TARGETARCH}/gostatsd /bin/gostatsd
+COPY --from=build /build/bin/${TARGETARCH}/gostatsd /bin/gostatsd
 
 ENTRYPOINT ["gostatsd"]
