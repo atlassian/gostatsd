@@ -45,7 +45,7 @@ build: pb/gostatsd.pb.go
 			-v \
 			-ldflags "-X main.Version=$(REPO_VERSION) -X main.GitCommit=$(GIT_HASH) -X main.BuildDate=$(BUILD_DATE)" \
 			$(GOBUILD_OPTIONAL_FLAGS) \
-			-o build/bin/$(ARCH)/$(CPU_ARCH)/$(BINARY_NAME) \
+			-o bin/$(ARCH)/$(CPU_ARCH)/$(BINARY_NAME) \
 			$(PKG)
 
 build-gostatsd:
