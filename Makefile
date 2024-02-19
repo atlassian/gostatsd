@@ -3,7 +3,7 @@ REPO_VERSION        ?= $(shell git describe --abbrev=0 --tags)
 GIT_HASH            ?= $(shell git rev-parse --short HEAD)
 BINARY_NAME         := gostatsd
 CPU_ARCH            ?= amd64
-GCO_ENABLED         ?= 0
+CGO_ENABLED         ?= 0
 REPOSITORY_NAME     := atlassianlabs/$(BINARY_NAME)
 REGISTRY_NAME       := docker-public.packages.atlassian.com
 IMAGE_PREFIX        := $(REGISTRY_NAME)/$(REPOSITORY_NAME)
@@ -20,7 +20,6 @@ TOOLS_DIR           := $(PROJECT_ROOT_DIR)/.tools
 TOOLS_SRC_DIR       := $(PROJECT_ROOT_DIR)/internal/tools
 ALL_TOOLS_PACKAGES  := $(shell grep -E '(^|\s)_\s+\".*\"$$' < $(TOOLS_SRC_DIR)/tools.go | tr -d '"' | awk '{print $$2;}')
 ALL_TOOLS_COMMAND   := $(sort $(addprefix $(TOOLS_DIR)/,$(notdir $(ALL_TOOLS_PACKAGES))))
-
 
 .PHONY: tools
 tools: $(ALL_TOOLS_COMMAND)
@@ -41,13 +40,10 @@ pb/gostatsd.pb.go: pb/gostatsd.proto tools/bin/protoc
 		--go_opt=paths=source_relative $<
 
 build: pb/gostatsd.pb.go
-	CGO_ENABLED=$(GCO_ENABLED) GOEXPERIMENT=boringcrypto \
+	CGO_ENABLED=$(CGO_ENABLED) GOEXPERIMENT=boringcrypto \
 		go build  \
 			-v \
-			-ldflags "-s \
-				-X main.Version=$(REPO_VERSION) \
-				-X main.GitCommit=$(GIT_HASH) \
-				-X main.BuildDate=$(BUILD_DATE)" \
+			-ldflags "-X main.Version=$(REPO_VERSION) -X main.GitCommit=$(GIT_HASH) -X main.BuildDate=$(BUILD_DATE)" \
 			$(GOBUILD_OPTIONAL_FLAGS) \
 			-o build/bin/$(ARCH)/$(BINARY_NAME) \
 			$(PKG)
@@ -59,11 +55,16 @@ build-lambda:
 	@$(MAKE) build PKG=$(LAMBDA_PKG) BINARY_NAME="lambda-extension"
 
 build-gostatsd-race:
-	@$(MAKE) build-gostatsd GOBUILD_OPTIONAL_FLAGS=-race
+	@$(MAKE) build-gostatsd GOBUILD_OPTIONAL_FLAGS="-race"
 
 build-cluster:
 	@$(MAKE) build PKG=$(CLUSTER_PKG) BINARY_NAME="cluster"
 
+build-gostatsd-fips:
+	@$(MAKE) build-gostatsd GOBUILD_OPTIONAL_FLAGS="-tags fips"
+
+build-lambda-fips:
+	@$(MAKE) build PKG=$(LAMBDA_PKG) BINARY_NAME="lambda-extension" GOBUILD_OPTIONAL_FLAGS="-tags fips"
 
 build-all: pb/gostatsd.pb.go tools
 
