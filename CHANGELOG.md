@@ -1,3 +1,7 @@
+38.0.1
+------
+- Fix manual release due to failing docker builds
+
 38.0.0
 ------
 - Adds support for Lambda extension
