@@ -69,7 +69,7 @@ func TestHistogramDataPoint(t *testing.T) {
 				WithHistogramDataPointStatistics(
 					[]float64{0.0, 1.2, 3.8},
 				),
-				WithHistogramDataPointBucketValues(map[float64]uint64{
+				WithHistogramDataPointCumulativeBucketValues(map[float64]int{
 					1.0:         1,
 					1.4:         2,
 					3.0:         2,
@@ -87,7 +87,7 @@ func TestHistogramDataPoint(t *testing.T) {
 						Count:        3,
 						TimeUnixNano: 10,
 						BucketCounts: []uint64{
-							1, 2, 2, 3, 3,
+							1, 1, 0, 1, 0,
 						},
 						ExplicitBounds: []float64{
 							1.0,

@@ -8,7 +8,7 @@ type InstrumentationScope struct {
 
 func WithInstrumentationScopeAttributes(attributes Map) func(InstrumentationScope) {
 	return func(is InstrumentationScope) {
-		is.raw.Attributes = attributes.unwrap()
+		is.raw.Attributes = attributes.unWrap()
 	}
 }
 

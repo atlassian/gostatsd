@@ -26,17 +26,16 @@ func TestNewConfig(t *testing.T) {
 			name: "min configuration defined",
 			v: func() *viper.Viper {
 				v := viper.New()
-				v.SetDefault("endpoint", "http://local")
-				v.SetDefault("max_requests", 1)
+				v.SetDefault("otlp.endpoint", "http://local")
+				v.SetDefault("otlp.max_requests", 1)
 				return v
 			}(),
 			expect: &Config{
-				Endpoint:            "http://local",
-				MaxRequests:         1,
-				TimerConversion:     "AsGauge",
-				HistogramConversion: "AsGauge",
-				Transport:           "default",
-				UserAgent:           "gostatsd",
+				Endpoint:    "http://local",
+				MaxRequests: 1,
+				Conversion:  "AsGauge",
+				Transport:   "default",
+				UserAgent:   "gostatsd",
 			},
 			errVal: "",
 		},
@@ -44,14 +43,14 @@ func TestNewConfig(t *testing.T) {
 			name: "invalid options",
 			v: func() *viper.Viper {
 				v := viper.New()
-				v.SetDefault("max_requests", 0)
-				v.SetDefault("transport", "")
-				v.SetDefault("timer_conversion", "values")
-				v.SetDefault("histogram_conversion", "values")
+				v.SetDefault("otlp.max_requests", 0)
+				v.SetDefault("otlp.transport", "")
+				v.SetDefault("otlp.conversion", "values")
+				v.SetDefault("otlp.histogram_conversion", "values")
 				return v
 			}(),
 			expect: nil,
-			errVal: "no endpoint defined; max request must be a positive value; no transport defined; time conversion must be one of [\"AsGauge\", \"AsHistogram\"]; histogram conversion must be one of [\"AsGauge\", \"AsHistogram\"]",
+			errVal: "no endpoint defined; max request must be a positive value; no transport defined; conversion must be one of [\"AsGauge\", \"AsHistogram\"]",
 		},
 	} {
 		tc := tc

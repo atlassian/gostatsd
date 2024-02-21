@@ -1,0 +1,14 @@
+---
+version: '3.8'
+
+services:
+  otel-collector:
+    image: otel/opentelemetry-collector:0.92.0
+    container_name: otelcol
+  statsd-sender:
+    build: .
+    container_name: statsd-gen
+  statsd-server:
+    image: gostatsd:local
+    volumes:
+      - ./gostatsd.toml:/etc/gostatsd/config.toml

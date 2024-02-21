@@ -14,6 +14,12 @@ func WithResourceAttributes(opts ...func(Map)) func(Resource) {
 	}
 }
 
+func WithResourceMap(m Map) func(Resource) {
+	return func(r Resource) {
+		r.Attributes().Merge(m)
+	}
+}
+
 func NewResource(opts ...func(Resource)) Resource {
 	r := Resource{
 		raw: &v1resource.Resource{},

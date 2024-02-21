@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	v1common "go.opentelemetry.io/proto/otlp/common/v1"
 )
 
 func TestNewMap(t *testing.T) {
@@ -12,11 +13,11 @@ func TestNewMap(t *testing.T) {
 	for _, tc := range []struct {
 		name string
 		opts []func(Map)
-		m    Map
+		m    []*v1common.KeyValue
 	}{
 		{
 			name: "Blank map",
-			m:    NewMap(),
+			m:    nil,
 		},
 		{
 			name: "String delim values",
@@ -29,33 +30,72 @@ func TestNewMap(t *testing.T) {
 					},
 				),
 			},
-			m: NewMap(func(m Map) {
-				m.Insert("service.name", "my-awesome-service")
-				m.Insert("service.version", "1.0.0")
-				m.Insert("service.namespace", "internal/important:very")
-			}),
+			m: []*v1common.KeyValue{
+				{
+					Key: "service.name",
+					Value: &v1common.AnyValue{
+						Value: &v1common.AnyValue_StringValue{
+							StringValue: "my-awesome-service",
+						},
+					},
+				},
+				{
+					Key: "service.namespace",
+					Value: &v1common.AnyValue{
+						Value: &v1common.AnyValue_StringValue{
+							StringValue: "internal/important:very",
+						},
+					},
+				},
+				{
+					Key: "service.version",
+					Value: &v1common.AnyValue{
+						Value: &v1common.AnyValue_StringValue{
+							StringValue: "1.0.0",
+						},
+					},
+				},
+			},
 		},
 		{
-			name: "Duplicate entries",
+			name: "Multiple values",
 			opts: []func(Map){
 				WithStatsdDelimitedTags([]string{
 					"service.name:my-awesome-service",
 					"service.name:very-awesome",
 				}),
 			},
-			m: NewMap(func(m Map) {
-				m.Insert("service.name", "my-awesome-service")
-				m.Insert("service.name", "very-awesome")
-			}),
+			m: []*v1common.KeyValue{
+				{
+					Key: "service.name",
+					Value: &v1common.AnyValue{
+						Value: &v1common.AnyValue_ArrayValue{
+							ArrayValue: &v1common.ArrayValue{
+								Values: []*v1common.AnyValue{
+									{Value: &v1common.AnyValue_StringValue{StringValue: "my-awesome-service"}},
+									{Value: &v1common.AnyValue_StringValue{StringValue: "very-awesome"}},
+								},
+							},
+						},
+					},
+				},
+			},
 		},
 		{
 			name: "no delim",
 			opts: []func(Map){
 				WithDelimitedStrings("$", []string{"service.name:my-awesome-service"}),
 			},
-			m: NewMap(func(m Map) {
-				m.Insert("service.name:my-awesome-service", "")
-			}),
+			m: []*v1common.KeyValue{
+				{
+					Key: "service.name:my-awesome-service",
+					Value: &v1common.AnyValue{
+						Value: &v1common.AnyValue_StringValue{
+							StringValue: "",
+						},
+					},
+				},
+			},
 		},
 	} {
 		tc := tc
@@ -64,9 +104,7 @@ func TestNewMap(t *testing.T) {
 
 			m := NewMap(tc.opts...)
 
-			if !assert.True(t, tc.m.Equal(m), "Must match the expected values") {
-				assert.Equal(t, tc.m, m)
-			}
+			assert.Equal(t, tc.m, *m.raw)
 		})
 	}
 }
@@ -88,4 +126,45 @@ func TestMapMerge(t *testing.T) {
 	empty.Merge(m)
 	assert.Len(t, *empty.raw, 1, "Must have values from contained")
 
+}
+
+func TestMapHash(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		name   string
+		m      Map
+		expect uint64
+	}{
+		{
+			name:   "Empty Map",
+			m:      NewMap(),
+			expect: 0xCBF29CE484222325,
+		},
+		{
+			name: "Simple Map",
+			m: NewMap(WithStatsdDelimitedTags([]string{
+				"service.name:my-awesome-service",
+				"service.region:local",
+			})),
+			expect: 0x5EAB88693F03223B,
+		},
+		{
+			name: "Complex Map",
+			m: NewMap(WithStatsdDelimitedTags([]string{
+				"service.name:my-awesome-service",
+				"service.region:local",
+				"service.region:laptop",
+				"service.namespace:",
+			})),
+			expect: 0xECEBCB4D0907451B,
+		},
+	} {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			assert.Equal(t, tc.expect, tc.m.Hash(), "Must match the expected hash value")
+		})
+	}
 }

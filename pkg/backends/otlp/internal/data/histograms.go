@@ -36,7 +36,7 @@ func NewHistogram(datapoints ...HistogramDataPoint) Histogram {
 
 func WithHistogramDataPointAttributes(attrs Map) func(HistogramDataPoint) {
 	return func(hdp HistogramDataPoint) {
-		hdp.raw.Attributes = attrs.unwrap()
+		hdp.raw.Attributes = attrs.unWrap()
 	}
 }
 
@@ -55,7 +55,7 @@ func WithHistogramDataPointStatistics(values []float64) func(HistogramDataPoint)
 	}
 }
 
-func WithHistogramDataPointBucketValues[Buckets ~map[float64]uint64](buckets Buckets) func(HistogramDataPoint) {
+func WithHistogramDataPointCumulativeBucketValues[Buckets ~map[Bound]int, Bound ~float64](buckets Buckets) func(HistogramDataPoint) {
 	return func(hdp HistogramDataPoint) {
 		bounds := maps.Keys(buckets)
 		slices.Sort(bounds)
@@ -63,11 +63,15 @@ func WithHistogramDataPointBucketValues[Buckets ~map[float64]uint64](buckets Buc
 		hdp.raw.BucketCounts = make([]uint64, len(buckets))
 		hdp.raw.ExplicitBounds = make([]float64, len(buckets)-1)
 
+		// This will remove the cumulative bucket counts that is calculated
+		// within the aggregation step to adhere with OTLP Spec
+		delta := 0
 		for i, bound := range bounds {
-			hdp.raw.BucketCounts[i] = buckets[bound]
-			if !math.IsInf(bound, 1) {
-				hdp.raw.ExplicitBounds[i] = bound
+			hdp.raw.BucketCounts[i] = uint64(buckets[bound] - delta)
+			if !math.IsInf(float64(bound), 1) {
+				hdp.raw.ExplicitBounds[i] = float64(bound)
 			}
+			delta = buckets[bound]
 		}
 	}
 }

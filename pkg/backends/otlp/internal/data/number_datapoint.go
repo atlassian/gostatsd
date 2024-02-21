@@ -8,9 +8,9 @@ type NumberDataPoint struct {
 	raw *v1metrics.NumberDataPoint
 }
 
-func WithNumberDataPointDelimtedTags[Tags ~[]string](tags Tags) func(NumberDataPoint) {
+func WithNumberDataPointMap(m Map) func(NumberDataPoint) {
 	return func(ndp NumberDataPoint) {
-		ndp.raw.Attributes = NewMap(WithStatsdDelimitedTags(tags)).unwrap()
+		ndp.raw.Attributes = *m.raw
 	}
 }
 
