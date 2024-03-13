@@ -20,7 +20,7 @@ require (
 	github.com/tilinna/clock v1.1.0
 	golang.org/x/net v0.17.0
 	golang.org/x/time v0.3.0
-	google.golang.org/protobuf v1.31.0
+	google.golang.org/protobuf v1.33.0
 	k8s.io/api v0.25.2
 	k8s.io/apimachinery v0.25.2
 	k8s.io/client-go v0.25.2
