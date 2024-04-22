@@ -92,6 +92,3 @@ require (
 	sigs.k8s.io/structured-merge-diff/v4 v4.2.3 // indirect
 	sigs.k8s.io/yaml v1.2.0 // indirect
 )
-
-// https://github.com/atlassian/gostatsd/pull/455
-replace github.com/denis-tingajkin/go-header => github.com/denis-tingaikin/go-header v0.4.2
