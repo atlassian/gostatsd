@@ -16,7 +16,7 @@ ADD . /build
 
 # Race needs CGO
 # https://github.com/golang/go/issues/51235
-RUN make build CGO_ENABLED=1 PKG=${MAIN_PKG}
+RUN make build CPU_ARCH=${TARGETARCH} CGO_ENABLED=1 PKG=${MAIN_PKG}
 
 FROM ubuntu:22.04
 
