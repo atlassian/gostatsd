@@ -124,6 +124,9 @@ spoken is not configurable per server (see [HTTP.md](HTTP.md) for version guaran
 following configuration options:
 
 - `compress`: boolean indicating if the payload should be compressed.  Defaults to `true`
+- `compression-type`: compression algorithm to use, one of `zlib` or `lz4`. Defaults to `zlib`. Note `lz4` is non-standard
+  so make sure the downstream consumer can handle `Content-Encoding='lz4'`.
+- `compression-level`: compression level to use (0-9). 0 = best speed, 9 = best compression. Defaults to 9.
 - `api-endpoint`: configures the endpoint to submit raw metrics to.  This setting should be just a base URL, for example
   `https://statsd-aggregator.private`, with no path.  Required, no default
 - `max-requests`: maximum number of requests in flight.  Defaults to `1000` (which is probably too high)
