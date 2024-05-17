@@ -468,36 +468,6 @@ func TestManualFlush(t *testing.T) {
 	assert.EqualValues(t, 10, atomic.LoadInt64(&ts.derpValue))
 }
 
-func metricsFixtures() []*gostatsd.Metric {
-	ms := []*gostatsd.Metric{
-		{Name: "foo.bar.baz", Value: 2, Type: gostatsd.COUNTER, Timestamp: 10},
-		{Name: "abc.def.g", Value: 3, Type: gostatsd.GAUGE, Timestamp: 10},
-		{Name: "abc.def.g", Value: 8, Type: gostatsd.GAUGE, Tags: gostatsd.Tags{"foo:bar", "baz"}, Timestamp: 10},
-		{Name: "def.g", Value: 10, Type: gostatsd.TIMER, Timestamp: 10},
-		{Name: "def.g", Value: 1, Type: gostatsd.TIMER, Tags: gostatsd.Tags{"foo:bar", "baz"}, Timestamp: 10},
-		{Name: "smp.rte", Value: 50, Type: gostatsd.COUNTER, Timestamp: 10},
-		{Name: "smp.rte", Value: 50, Type: gostatsd.COUNTER, Tags: gostatsd.Tags{"foo:bar", "baz"}, Timestamp: 10},
-		{Name: "smp.rte", Value: 5, Type: gostatsd.COUNTER, Tags: gostatsd.Tags{"foo:bar", "baz"}, Timestamp: 10},
-		{Name: "uniq.usr", StringValue: "joe", Type: gostatsd.SET, Timestamp: 10},
-		{Name: "uniq.usr", StringValue: "joe", Type: gostatsd.SET, Timestamp: 10},
-		{Name: "uniq.usr", StringValue: "bob", Type: gostatsd.SET, Timestamp: 10},
-		{Name: "uniq.usr", StringValue: "john", Type: gostatsd.SET, Timestamp: 10},
-		{Name: "uniq.usr", StringValue: "john", Type: gostatsd.SET, Tags: gostatsd.Tags{"foo:bar", "baz"}, Timestamp: 10},
-		{Name: "timer_sampling", Value: 10, Type: gostatsd.TIMER, Rate: 0.1, Timestamp: 10},
-		{Name: "timer_sampling", Value: 30, Type: gostatsd.TIMER, Rate: 0.1, Timestamp: 10},
-		{Name: "timer_sampling", Value: 50, Type: gostatsd.TIMER, Rate: 0.1, Timestamp: 10},
-		{Name: "counter_sampling", Value: 2, Type: gostatsd.COUNTER, Rate: 0.25, Timestamp: 10},
-		{Name: "counter_sampling", Value: 5, Type: gostatsd.COUNTER, Rate: 0.25, Timestamp: 10},
-	}
-	for i, m := range ms {
-		if ms[i].Rate == 0.0 {
-			ms[i].Rate = 1.0
-		}
-		ms[i].TagsKey = m.FormatTagsKey()
-	}
-	return ms
-}
-
 type testServer struct {
 	s              *httptest.Server
 	called         uint64
