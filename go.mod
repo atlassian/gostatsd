@@ -1,6 +1,6 @@
 module github.com/atlassian/gostatsd
 
-go 1.19
+go 1.22
 
 require (
 	github.com/alicebob/miniredis/v2 v2.23.0
@@ -29,6 +29,7 @@ require (
 )
 
 require (
+	github.com/pierrec/lz4/v4 v4.1.19
 	go.opentelemetry.io/proto/otlp v1.0.0
 	go.uber.org/multierr v1.9.0
 	golang.org/x/exp v0.0.0-20230905200255-921286631fa9
