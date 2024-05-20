@@ -1,6 +1,6 @@
 module github.com/atlassian/gostatsd
 
-go 1.22
+go 1.21.4
 
 require (
 	github.com/alicebob/miniredis/v2 v2.23.0
