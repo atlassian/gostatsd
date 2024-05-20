@@ -146,7 +146,7 @@ func NewHttpForwarderHandlerV2(
 	}
 	compressionType, err := web.ReadCompressionType(compressionTypeStr)
 	if err != nil {
-		return nil, fmt.Errorf(err.Error())
+		return nil, err
 	}
 
 	if !web.IsValidCompressionLevel(compressionLevel) {
