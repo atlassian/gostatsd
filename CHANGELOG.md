@@ -1,3 +1,7 @@
+38.1.0
+------
+- Add support for LZ4 compression
+
 38.0.1
 ------
 - Fix manual release due to failing docker builds
