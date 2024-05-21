@@ -82,11 +82,18 @@ func (rhh *rawHttpHandlerV2) readBody(req *http.Request) ([]byte, int) {
 
 	encoding := req.Header.Get("Content-Encoding")
 	switch encoding {
-	case "deflate":
-		b, err = decompress(b)
+	case ZlibContentEncoding:
+		b, err = DecompressWithZlib(b)
 		if err != nil {
 			atomic.AddUint64(&rhh.requestFailureDecompress, 1)
-			rhh.logger.WithError(err).Info("failed decompressing body")
+			rhh.logger.WithError(err).Info("failed decompressing body (zlib)")
+			return nil, http.StatusBadRequest
+		}
+	case Lz4ContentEncoding:
+		b, err = DecompressWithLz4(b)
+		if err != nil {
+			atomic.AddUint64(&rhh.requestFailureDecompress, 1)
+			rhh.logger.WithError(err).Info("failed decompressing body (lz4)")
 			return nil, http.StatusBadRequest
 		}
 	case "identity", "":

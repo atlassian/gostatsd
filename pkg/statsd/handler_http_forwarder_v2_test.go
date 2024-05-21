@@ -1,7 +1,9 @@
 package statsd
 
 import (
+	"bytes"
 	"context"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -23,6 +25,7 @@ import (
 	"github.com/atlassian/gostatsd/pb"
 	"github.com/atlassian/gostatsd/pkg/healthcheck"
 	"github.com/atlassian/gostatsd/pkg/transport"
+	"github.com/atlassian/gostatsd/pkg/web"
 )
 
 func TestHttpForwarderDeepCheck(t *testing.T) {
@@ -39,6 +42,8 @@ func TestHttpForwarderDeepCheck(t *testing.T) {
 		1,
 		1,
 		false,
+		"",
+		0,
 		1*time.Second,
 		1*time.Second,
 		nil,
@@ -231,7 +236,8 @@ func TestHttpForwarderV2Translation(t *testing.T) {
 	require.EqualValues(t, expected.Sets, pbMetrics.Sets)
 }
 
-func BenchmarkHttpForwarderV2TranslateAll(b *testing.B) {
+// Get a large MetricMap useful for benchmarking
+func createMetricMapTestFixture() *gostatsd.MetricMap {
 	metrics := []*gostatsd.Metric{}
 
 	for i := 0; i < 1000; i++ {
@@ -250,10 +256,67 @@ func BenchmarkHttpForwarderV2TranslateAll(b *testing.B) {
 		mm.Receive(metric)
 	}
 
+	return mm
+}
+
+func BenchmarkHttpForwarderV2TranslateAll(b *testing.B) {
+	mm := createMetricMapTestFixture()
+
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		translateToProtobufV2(mm)
+	}
+}
+
+func BenchmarkHttpForwarderV2Compression_Zlib(b *testing.B) {
+	message := translateToProtobufV2(createMetricMapTestFixture())
+	raw, _ := proto.Marshal(message)
+
+	b.ReportAllocs()
+
+	for compressionLevel := 0; compressionLevel < 10; compressionLevel++ {
+		b.Run(fmt.Sprintf("zlib_compression_level_%d", compressionLevel), func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				buf := &bytes.Buffer{}
+				web.CompressWithZlib(raw, buf, compressionLevel)
+			}
+		})
+	}
+}
+
+func BenchmarkHttpForwarderV2Compression_Lz4(b *testing.B) {
+	message := translateToProtobufV2(createMetricMapTestFixture())
+	raw, _ := proto.Marshal(message)
+
+	b.ReportAllocs()
+
+	for compressionLevel := 0; compressionLevel < 10; compressionLevel++ {
+		b.Run(fmt.Sprintf("lz4_compression_level_%d", compressionLevel), func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				buf := &bytes.Buffer{}
+				web.CompressWithLz4(raw, buf, compressionLevel)
+			}
+		})
+	}
+}
+
+func TestHttpForwarderV2Compression_CompressionRatio(t *testing.T) {
+	message := translateToProtobufV2(createMetricMapTestFixture())
+	raw, _ := proto.Marshal(message)
+
+	for compressionLevel := 0; compressionLevel < 10; compressionLevel++ {
+		buf := &bytes.Buffer{}
+		web.CompressWithZlib(raw, buf, compressionLevel)
+		assert.Greater(t, buf.Len(), 0, "Compressed size should not be zero")
+		fmt.Printf("zlib level %v: %.3f%%\n", compressionLevel, 100*float64(buf.Len())/float64(len(raw)))
+	}
+
+	for compressionLevel := 0; compressionLevel < 10; compressionLevel++ {
+		buf := &bytes.Buffer{}
+		web.CompressWithLz4(raw, buf, compressionLevel)
+		assert.Greater(t, buf.Len(), 0, "Compressed size should not be zero")
+		fmt.Printf("lz4 level %v: %.3f%%\n", compressionLevel, 100*float64(buf.Len())/float64(len(raw)))
 	}
 }
 
@@ -273,6 +336,8 @@ func TestForwardingData(t *testing.T) {
 		1,
 		1,
 		false,
+		"",
+		0,
 		100*time.Millisecond, // maxRequestElapsedTime
 		100*time.Millisecond, // flushInterval
 		map[string]string{},
@@ -335,7 +400,7 @@ func TestHttpForwarderV2New(t *testing.T) {
 			expected:   []string{"service:", "deploy:"},
 		},
 	} {
-		h, err := NewHttpForwarderHandlerV2(logger, "default", "endpoint", 1, 1, 1, false, time.Second, time.Second,
+		h, err := NewHttpForwarderHandlerV2(logger, "default", "endpoint", 1, 1, 1, false, "", 0, time.Second, time.Second,
 			cusHeaders, testcase.dynHeaders, pool, nil)
 		require.Nil(t, err)
 		require.Equal(t, h.dynHeaderNames, testcase.expected)
@@ -359,6 +424,8 @@ func TestManualFlush(t *testing.T) {
 		1,
 		1,
 		false,
+		"",
+		0,
 		100*time.Millisecond, // maxRequestElapsedTime
 		100*time.Millisecond, // flushInterval
 		map[string]string{},
