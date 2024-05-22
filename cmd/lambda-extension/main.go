@@ -148,9 +148,11 @@ func main() {
 		os.Getenv(api.EnvLambdaAPIHostname),
 		conf.GetString(ParamLambdaFileName),
 		log,
-		opts...)
+		server,
+		opts...,
+	)
 
-	if err := manager.Run(ctx, server); err != nil {
+	if err := manager.Run(ctx); err != nil {
 		log.WithError(err).Error("Failed trying to run lambda extension")
 	}
 

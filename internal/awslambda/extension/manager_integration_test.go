@@ -80,11 +80,11 @@ func TestManagerGostatsDIntegrationTest(t *testing.T) {
 	teleAddr := availableAddr()
 	u, err := url.Parse(lambdaServer.URL)
 	require.NoError(t, err)
-	m := NewManager(u.Host, "test", log, WithManualFlushEnabled(fc, teleAddr))
+	m := NewManager(u.Host, "test", log, statsDServer, WithManualFlushEnabled(fc, teleAddr))
 
 	wg := wait.Group{}
 	wg.StartWithContext(ctx, func(ctx context.Context) {
-		err := m.Run(ctx, statsDServer)
+		err := m.Run(ctx)
 		assert.ErrorIs(t, err, ctx.Err())
 	})
 
