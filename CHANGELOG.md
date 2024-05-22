@@ -1,3 +1,7 @@
+39.0.0
+------
+- Fix breaking change from viper 1.15 -> 1.16
+
 38.1.0
 ------
 - Add support for LZ4 compression
