@@ -331,21 +331,23 @@ func TestManagerDo(t *testing.T) {
 			require.NoError(t, err, "Must be able to parse URL from httptest server")
 			log := logrus.New()
 
+			start := make(chan struct{}, 1)
+			done := make(chan struct{}, 1)
+
+			server := &mocked{delay: tc.MockDelay, erred: tc.MockError, start: start, done: done}
+
 			m := &manager{
 				log:          log,
 				client:       s.Client(),
 				domain:       u.Hostname() + ":" + u.Port(),
 				name:         t.Name(),
 				registeredID: t.Name(),
+				server:       server,
 				fc:           flush.NewNoopFlushCoordinator(),
 			}
 
 			assert.False(t, m.telemetryEnabled())
 
-			start := make(chan struct{}, 1)
-			done := make(chan struct{}, 1)
-
-			server := &mocked{delay: tc.MockDelay, erred: tc.MockError, start: start, done: done}
 			ctx, cancel := context.WithCancel(context.Background())
 			go func() {
 				<-start
@@ -359,7 +361,7 @@ func TestManagerDo(t *testing.T) {
 					}
 				}
 			}()
-			assert.ErrorIs(t, m.Run(ctx, server), tc.ExpectError)
+			assert.ErrorIs(t, m.Run(ctx), tc.ExpectError)
 		})
 	}
 }
@@ -475,6 +477,11 @@ func TestManagerManualFlushEnabled(t *testing.T) {
 			require.NoError(t, err, "Must be able to parse URL from httptest server")
 			log := logrus.New()
 
+			start := make(chan struct{}, 1)
+			done := make(chan struct{}, 1)
+
+			server := &mocked{delay: 1 * time.Second, erred: nil, start: start, done: done}
+
 			fc := &countingFlushCoordinator{}
 			m := &manager{
 				log:             log,
@@ -482,16 +489,13 @@ func TestManagerManualFlushEnabled(t *testing.T) {
 				domain:          u.Hostname() + ":" + u.Port(),
 				name:            t.Name(),
 				registeredID:    t.Name(),
+				server:          server,
 				fc:              fc,
 				telemetryServer: telemetry.NewServer(availableAddr(), log, fc.Flush),
 			}
 
 			assert.True(t, m.telemetryEnabled())
 
-			start := make(chan struct{}, 1)
-			done := make(chan struct{}, 1)
-
-			server := &mocked{delay: 1 * time.Second, erred: nil, start: start, done: done}
 			ctx, cancel := context.WithCancel(context.Background())
 			go func() {
 				<-start
@@ -505,7 +509,7 @@ func TestManagerManualFlushEnabled(t *testing.T) {
 					}
 				}
 			}()
-			assert.ErrorIs(t, tc.ExpectError, m.Run(ctx, server))
+			assert.ErrorIs(t, tc.ExpectError, m.Run(ctx))
 			assert.Equal(t, tc.ExpectedFlushWaits, fc.waitedCount)
 		})
 	}

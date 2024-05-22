@@ -34,11 +34,6 @@ var (
 	ErrFailedTelemetrySubscription = errors.New("extension failed to subscribe to lambda telemetry API")
 )
 
-// Manager ensures that the lifetime management of the lambda
-type Manager interface {
-	Run(ctx context.Context, server Server) error
-}
-
 // Server is an interface to the gostatsd.Server type,
 // the main purpose here is to allow for mocks to be used throughout testing
 // and reduce the amount of set up code to test
@@ -52,6 +47,7 @@ type manager struct {
 	name         string
 	registeredID string
 
+	server              Server
 	client              *http.Client
 	telemetryServerAddr string
 	telemetryServer     *telemetry.Server
@@ -60,14 +56,21 @@ type manager struct {
 
 type ManagerOpt func(*manager)
 
-var _ Manager = (*manager)(nil)
+var _ Server = (*manager)(nil)
 
-func NewManager(lambdaDomain string, lambdaFileName string, log logrus.FieldLogger, opts ...ManagerOpt) Manager {
+func NewManager(
+	lambdaDomain string,
+	lambdaFileName string,
+	log logrus.FieldLogger,
+	server Server,
+	opts ...ManagerOpt,
+) Server {
 	m := &manager{
 		log:    log,
 		client: &http.Client{},
 		domain: lambdaDomain,
 		name:   lambdaFileName,
+		server: server,
 		fc:     flush.NewNoopFlushCoordinator(),
 	}
 
@@ -92,7 +95,7 @@ func WithManualFlushEnabled(fc flush.Coordinator, telemetryServerAddr string) Ma
 	}
 }
 
-func (m *manager) Run(parent context.Context, server Server) error {
+func (m *manager) Run(parent context.Context) error {
 	var wg wait.Group
 	var chErrs = make(chan error, 3)
 
@@ -118,7 +121,7 @@ func (m *manager) Run(parent context.Context, server Server) error {
 
 	// Start gostatsd server
 	wg.StartWithContext(ctx, func(c context.Context) {
-		err := server.Run(c)
+		err := m.server.Run(c)
 		// Shutting down due to context is an acceptable
 		// reason to shutdown and is not considered an error
 		// we write all other errors to the channel
