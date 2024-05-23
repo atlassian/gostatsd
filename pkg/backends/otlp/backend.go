@@ -20,7 +20,6 @@ import (
 
 const (
 	BackendName = `otlp`
-	MaxRequests = 1000
 )
 
 // Backend contains additional meta data in order
@@ -66,7 +65,7 @@ func NewClientFromViper(v *viper.Viper, logger logrus.FieldLogger, pool *transpo
 		discarded:             cfg.TimerSubtypes,
 		client:                tc.Client,
 		logger:                logger,
-		sem:                   make(chan struct{}, MaxRequests),
+		sem:                   make(chan struct{}, cfg.MaxRequests),
 	}, nil
 }
 
