@@ -1,3 +1,7 @@
+39.0.1
+------
+- bump golang.org/x/net v0.17.0 -> v0.23.0
+
 39.0.0
 ------
 - Fix breaking change from viper 1.15 -> 1.16
