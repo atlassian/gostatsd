@@ -13,12 +13,16 @@ require (
 	github.com/json-iterator/go v1.1.12
 	github.com/libp2p/go-reuseport v0.2.0
 	github.com/magiconair/properties v1.8.7
+	github.com/pierrec/lz4/v4 v4.1.19
 	github.com/sirupsen/logrus v1.9.0
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.17.0
 	github.com/stretchr/testify v1.8.4
 	github.com/tilinna/clock v1.1.0
-	golang.org/x/net v0.17.0
+	go.opentelemetry.io/proto/otlp v1.0.0
+	go.uber.org/multierr v1.9.0
+	golang.org/x/exp v0.0.0-20230905200255-921286631fa9
+	golang.org/x/net v0.23.0
 	golang.org/x/time v0.3.0
 	google.golang.org/protobuf v1.33.0
 	k8s.io/api v0.25.2
@@ -26,13 +30,6 @@ require (
 	k8s.io/client-go v0.25.2
 	k8s.io/utils v0.0.0-20220728103510-ee6ede2d64ed // indirect
 	stathat.com/c/consistent v1.0.0
-)
-
-require (
-	github.com/pierrec/lz4/v4 v4.1.19
-	go.opentelemetry.io/proto/otlp v1.0.0
-	go.uber.org/multierr v1.9.0
-	golang.org/x/exp v0.0.0-20230905200255-921286631fa9
 )
 
 require (
@@ -76,9 +73,9 @@ require (
 	github.com/yuin/gopher-lua v0.0.0-20210529063254-f4c35e4016d9 // indirect
 	go.uber.org/atomic v1.9.0 // indirect
 	golang.org/x/oauth2 v0.12.0 // indirect
-	golang.org/x/sys v0.13.0 // indirect
-	golang.org/x/term v0.13.0 // indirect
-	golang.org/x/text v0.13.0 // indirect
+	golang.org/x/sys v0.18.0 // indirect
+	golang.org/x/term v0.18.0 // indirect
+	golang.org/x/text v0.14.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20230913181813-007df8e322eb // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20230920204549-e6e6cdab5c13 // indirect
