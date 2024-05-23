@@ -1,3 +1,9 @@
+39.0.1
+------
+- Bump golang.org/x/net from v0.17.0 -> v0.23.0
+- Bump protobuf (protoc) from 21.5 -> 26.1
+
+
 39.0.0
 ------
 - Fix breaking change from viper 1.15 -> 1.16
