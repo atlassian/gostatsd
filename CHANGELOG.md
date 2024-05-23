@@ -1,3 +1,20 @@
+39.0.0
+------
+- Fix breaking change from viper 1.15 -> 1.16
+
+38.1.0
+------
+- Add support for LZ4 compression
+
+38.0.1
+------
+- Fix manual release due to failing docker builds
+
+38.0.0
+------
+- Adds support for Lambda extension
+- Adds optional fipsonly check on build
+
 37.0.0
 ------
 - Bumping go version to 1.21.4

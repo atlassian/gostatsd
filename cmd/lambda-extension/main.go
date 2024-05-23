@@ -14,6 +14,8 @@ import (
 	"github.com/atlassian/gostatsd"
 	"github.com/atlassian/gostatsd/internal/awslambda/extension"
 	"github.com/atlassian/gostatsd/internal/awslambda/extension/api"
+	"github.com/atlassian/gostatsd/internal/awslambda/extension/telemetry"
+	"github.com/atlassian/gostatsd/internal/flush"
 	"github.com/atlassian/gostatsd/internal/util"
 	"github.com/atlassian/gostatsd/pkg/statsd"
 	"github.com/atlassian/gostatsd/pkg/transport"
@@ -40,7 +42,7 @@ func GetConfiguration() (*viper.Viper, error) {
 	cmd := pflag.NewFlagSet(os.Args[0], pflag.ContinueOnError)
 	cmd.Bool(ParamVerbose, false, "Enables debug level logs within the extension")
 	cmd.String(ParamConfigPath, "", "Path to a configuration file")
-	cmd.String(ParamLambdaFileName, "", "Name of executable that boostraps lambda. Used as Lambda-Extension-Name header")
+	cmd.String(ParamLambdaFileName, "", "Name of executable that bootstraps lambda. Used as Lambda-Extension-Name header")
 
 	gostatsd.AddFlags(cmd)
 
@@ -61,15 +63,16 @@ func GetConfiguration() (*viper.Viper, error) {
 		}
 	}
 
+	// enable manual flush mode by default
+	v.SetDefault(gostatsd.ParamLambdaExtensionManualFlush, true)
+	v.SetDefault(gostatsd.ParamLambdaExtensionTelemetryAddress, telemetry.LambdaRuntimeAvailableAddr)
+
 	return v, nil
 }
 
-func CreateServer(v *viper.Viper, logger logrus.FieldLogger) (*statsd.Server, error) {
-	// HTTP client pool
-	pool := transport.NewTransportPool(logger, v)
-
-	// Create server in forwarder mode
-	return &statsd.Server{
+func NewServer(v *viper.Viper, logger logrus.FieldLogger) *statsd.Server {
+	// create server in forwarder mode
+	s := &statsd.Server{
 		InternalTags:      v.GetStringSlice(gostatsd.ParamInternalTags),
 		InternalNamespace: v.GetString(gostatsd.ParamInternalNamespace),
 		DefaultTags:       v.GetStringSlice(gostatsd.ParamDefaultTags),
@@ -93,8 +96,16 @@ func CreateServer(v *viper.Viper, logger logrus.FieldLogger) (*statsd.Server, er
 		},
 		BadLineRateLimitPerSecond: rate.Limit(v.GetFloat64(gostatsd.ParamBadLinesPerMinute) / 60.0),
 		Viper:                     v,
-		TransportPool:             pool,
-	}, nil
+		TransportPool:             transport.NewTransportPool(logger, v),
+	}
+
+	if v.GetBool(gostatsd.ParamLambdaExtensionManualFlush) {
+		s.ForwarderFlushCoordinator = flush.NewFlushCoordinator()
+		// Dynamic headers are disable as they can cause multiple flush notifies per flush
+		v.Set("dynamic-header", []string{})
+	}
+
+	return s
 }
 
 func main() {
@@ -119,21 +130,29 @@ func main() {
 		log.Logger.SetLevel(logrus.DebugLevel)
 	}
 
-	// TODO: Configure log group
-
 	log.Info("Starting extension runtime")
 
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer cancel()
 
-	manager := extension.NewManager(os.Getenv(api.EnvLambdaAPIHostname), conf.GetString(ParamLambdaFileName), log)
+	server := NewServer(conf, log)
 
-	server, err := CreateServer(conf, log)
-	if err != nil {
-		log.WithError(err).Panic("Unable to create gostatsd server")
+	var opts = make([]extension.ManagerOpt, 0)
+	telemetryServerAddr := conf.GetString(gostatsd.ParamLambdaExtensionTelemetryAddress)
+	if conf.GetBool(gostatsd.ParamLambdaExtensionManualFlush) {
+		log.Info("Starting extension with manual flush")
+		opts = append(opts, extension.WithManualFlushEnabled(server.ForwarderFlushCoordinator, telemetryServerAddr))
 	}
 
-	if err := manager.Run(ctx, server); err != nil {
+	manager := extension.NewManager(
+		os.Getenv(api.EnvLambdaAPIHostname),
+		conf.GetString(ParamLambdaFileName),
+		log,
+		server,
+		opts...,
+	)
+
+	if err := manager.Run(ctx); err != nil {
 		log.WithError(err).Error("Failed trying to run lambda extension")
 	}
 

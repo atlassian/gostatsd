@@ -76,6 +76,7 @@ func TestRuntimeDoneHook(t *testing.T) {
 			go s.Start(ctx)
 
 			res, err := http.Post(s.Endpoint(), "application/json", bytes.NewReader(p))
+			require.NoError(t, err)
 			defer res.Body.Close()
 
 			assert.Equal(t, http.StatusOK, res.StatusCode)

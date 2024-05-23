@@ -19,6 +19,7 @@ import (
 
 	"github.com/atlassian/gostatsd/internal/awslambda/extension/api"
 	"github.com/atlassian/gostatsd/internal/awslambda/extension/telemetry"
+	"github.com/atlassian/gostatsd/internal/flush"
 	"github.com/atlassian/gostatsd/pkg/fakesocket"
 )
 
@@ -29,6 +30,23 @@ type mocked struct {
 	start chan<- struct{}
 	done  chan<- struct{}
 }
+
+type countingFlushCoordinator struct {
+	count       int
+	waitedCount int
+}
+
+func (n *countingFlushCoordinator) Flush() {}
+
+func (n *countingFlushCoordinator) NotifyFlush() {}
+
+func (n *countingFlushCoordinator) RegisterFlushable(flush.Flushable) {}
+
+func (n *countingFlushCoordinator) WaitForFlush() {
+	n.waitedCount += 1
+}
+
+var _ flush.Coordinator = (*countingFlushCoordinator)(nil)
 
 func (m *mocked) Run(ctx context.Context) error {
 	m.start <- struct{}{}
@@ -172,7 +190,7 @@ func TelemetryHandler(tb testing.TB, statusCode int) http.Handler {
 }
 
 func availableAddr() string {
-	l, _ := net.Listen("tcp", ":0")
+	l, _ := net.Listen("tcp", "127.0.0.1:0")
 	defer l.Close()
 	return l.Addr().String()
 }
@@ -242,68 +260,53 @@ func TestManagerDo(t *testing.T) {
 	t.Parallel()
 
 	testCases := []struct {
-		Scenario        string
-		EventStatus     int
-		TelemetryStatus int
-		ShutdownAfter   int
-		MockDelay       time.Duration
-		MockError       error
+		Scenario      string
+		EventStatus   int
+		ShutdownAfter int
+		MockDelay     time.Duration
+		MockError     error
 
 		ExpectError error
 	}{
 		{
-			Scenario:        "Normal operation",
-			EventStatus:     http.StatusOK,
-			TelemetryStatus: http.StatusOK,
-			ShutdownAfter:   3,
-			MockDelay:       time.Second,
-			MockError:       nil,
-			ExpectError:     nil,
+			Scenario:      "Normal operation",
+			EventStatus:   http.StatusOK,
+			ShutdownAfter: 3,
+			MockDelay:     time.Second,
+			MockError:     nil,
+			ExpectError:   nil,
 		},
 		{
-			Scenario:        "Operational failure sending heartbeart",
-			EventStatus:     http.StatusInternalServerError,
-			TelemetryStatus: http.StatusOK,
-			ShutdownAfter:   2,
-			MockDelay:       time.Second,
-			MockError:       nil,
-			ExpectError:     ErrIssueProgress,
+			Scenario:      "Operational failure sending heartbeart",
+			EventStatus:   http.StatusInternalServerError,
+			ShutdownAfter: 2,
+			MockDelay:     time.Second,
+			MockError:     nil,
+			ExpectError:   ErrIssueProgress,
 		},
 		{
-			Scenario:        "Server has shutdown early without cause",
-			EventStatus:     http.StatusOK,
-			TelemetryStatus: http.StatusOK,
-			ShutdownAfter:   3,
-			MockDelay:       0,
-			MockError:       nil,
-			ExpectError:     ErrServerEarlyExit,
+			Scenario:      "Server has shutdown early without cause",
+			EventStatus:   http.StatusOK,
+			ShutdownAfter: 3,
+			MockDelay:     0,
+			MockError:     nil,
+			ExpectError:   ErrServerEarlyExit,
 		},
 		{
-			Scenario:        "Server configuration was wrong resulting in during init",
-			EventStatus:     http.StatusOK,
-			TelemetryStatus: http.StatusOK,
-			ShutdownAfter:   0,
-			MockDelay:       0,
-			MockError:       fakesocket.ErrClosedConnection,
-			ExpectError:     fakesocket.ErrClosedConnection,
+			Scenario:      "Server configuration was wrong resulting in during init",
+			EventStatus:   http.StatusOK,
+			ShutdownAfter: 0,
+			MockDelay:     0,
+			MockError:     fakesocket.ErrClosedConnection,
+			ExpectError:   fakesocket.ErrClosedConnection,
 		},
 		{
-			Scenario:        "Server failed throughout runtime and successfully committed to lambda",
-			EventStatus:     http.StatusOK,
-			TelemetryStatus: http.StatusOK,
-			ShutdownAfter:   0,
-			MockDelay:       300 * time.Millisecond,
-			MockError:       fakesocket.ErrClosedConnection,
-			ExpectError:     fakesocket.ErrClosedConnection,
-		},
-		{
-			Scenario:        "Server failed to subscribe to telemetry",
-			EventStatus:     http.StatusOK,
-			TelemetryStatus: http.StatusInternalServerError,
-			ShutdownAfter:   0,
-			MockDelay:       300 * time.Millisecond,
-			MockError:       nil,
-			ExpectError:     ErrFailedTelemetrySubscription,
+			Scenario:      "Server failed throughout runtime and successfully committed to lambda",
+			EventStatus:   http.StatusOK,
+			ShutdownAfter: 0,
+			MockDelay:     300 * time.Millisecond,
+			MockError:     fakesocket.ErrClosedConnection,
+			ExpectError:   fakesocket.ErrClosedConnection,
 		},
 	}
 
@@ -316,7 +319,6 @@ func TestManagerDo(t *testing.T) {
 			r.Handle(api.RegisterEndpoint.String(), InitHandler(t, http.StatusOK))
 			r.Handle(api.InitErrorEndpoint.String(), InitErrorHandler(t, http.StatusAccepted))
 			r.Handle(api.ExitErrorEndpoint.String(), ExitErrorHandler(t, http.StatusAccepted))
-			r.Handle(telemetry.SubscribeEndpoint.String(), TelemetryHandler(t, tc.TelemetryStatus))
 			r.Handle(api.EventEndpoint.String(), EventNextHandler(t, tc.EventStatus, tc.ShutdownAfter))
 			r.PathPrefix("/").HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
 				assert.Fail(t, "Trying to access wrong path", r.RequestURI)
@@ -329,19 +331,23 @@ func TestManagerDo(t *testing.T) {
 			require.NoError(t, err, "Must be able to parse URL from httptest server")
 			log := logrus.New()
 
-			m := &manager{
-				log:             log,
-				client:          s.Client(),
-				domain:          u.Hostname() + ":" + u.Port(),
-				name:            t.Name(),
-				registeredID:    t.Name(),
-				telemetryServer: telemetry.NewServer(availableAddr(), log, telemetry.NoopHook()),
-			}
-
 			start := make(chan struct{}, 1)
 			done := make(chan struct{}, 1)
 
 			server := &mocked{delay: tc.MockDelay, erred: tc.MockError, start: start, done: done}
+
+			m := &manager{
+				log:          log,
+				client:       s.Client(),
+				domain:       u.Hostname() + ":" + u.Port(),
+				name:         t.Name(),
+				registeredID: t.Name(),
+				server:       server,
+				fc:           flush.NewNoopFlushCoordinator(),
+			}
+
+			assert.False(t, m.telemetryEnabled())
+
 			ctx, cancel := context.WithCancel(context.Background())
 			go func() {
 				<-start
@@ -355,9 +361,21 @@ func TestManagerDo(t *testing.T) {
 					}
 				}
 			}()
-			assert.ErrorIs(t, m.Run(ctx, server), tc.ExpectError)
+			assert.ErrorIs(t, m.Run(ctx), tc.ExpectError)
 		})
 	}
+}
+
+func TestTelemetryEnabled(t *testing.T) {
+	t.Parallel()
+	m := &manager{}
+	assert.False(t, m.telemetryEnabled())
+
+	WithManualFlushEnabled(nil, telemetry.LambdaRuntimeAvailableAddr)(m)
+	assert.False(t, m.telemetryEnabled())
+
+	WithManualFlushEnabled(flush.NewNoopFlushCoordinator(), telemetry.LambdaRuntimeAvailableAddr)(m)
+	assert.True(t, m.telemetryEnabled())
 }
 
 func TestManagerTelemetrySubscription(t *testing.T) {
@@ -408,6 +426,91 @@ func TestManagerTelemetrySubscription(t *testing.T) {
 			}
 
 			assert.ErrorIs(t, tc.expectedError, m.subscribeToTelemetry(context.Background()))
+		})
+	}
+}
+
+func TestManagerManualFlushEnabled(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		Scenario        string
+		EventStatus     int
+		TelemetryStatus int
+		ShutdownAfter   int
+
+		ExpectError        error
+		ExpectedFlushWaits int
+	}{
+		{
+			Scenario:           "Normal operation",
+			EventStatus:        http.StatusOK,
+			TelemetryStatus:    http.StatusOK,
+			ShutdownAfter:      3,
+			ExpectError:        nil,
+			ExpectedFlushWaits: 5,
+		},
+		{
+			Scenario:           "Server failed to subscribe to telemetry",
+			EventStatus:        http.StatusOK,
+			TelemetryStatus:    http.StatusInternalServerError,
+			ShutdownAfter:      0,
+			ExpectError:        ErrFailedTelemetrySubscription,
+			ExpectedFlushWaits: 0,
+		},
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+		t.Run(tc.Scenario, func(t *testing.T) {
+			t.Parallel()
+
+			r := mux.NewRouter()
+			r.Handle(api.RegisterEndpoint.String(), InitHandler(t, http.StatusOK))
+			r.Handle(telemetry.SubscribeEndpoint.String(), TelemetryHandler(t, tc.TelemetryStatus))
+			r.Handle(api.EventEndpoint.String(), EventNextHandler(t, tc.EventStatus, tc.ShutdownAfter))
+
+			s := httptest.NewServer(r)
+			t.Cleanup(s.Close)
+
+			u, err := url.Parse(s.URL)
+			require.NoError(t, err, "Must be able to parse URL from httptest server")
+			log := logrus.New()
+
+			start := make(chan struct{}, 1)
+			done := make(chan struct{}, 1)
+
+			server := &mocked{delay: 1 * time.Second, erred: nil, start: start, done: done}
+
+			fc := &countingFlushCoordinator{}
+			m := &manager{
+				log:             log,
+				client:          s.Client(),
+				domain:          u.Hostname() + ":" + u.Port(),
+				name:            t.Name(),
+				registeredID:    t.Name(),
+				server:          server,
+				fc:              fc,
+				telemetryServer: telemetry.NewServer(availableAddr(), log, fc.Flush),
+			}
+
+			assert.True(t, m.telemetryEnabled())
+
+			ctx, cancel := context.WithCancel(context.Background())
+			go func() {
+				<-start
+				close(start)
+				for {
+					select {
+					case <-done:
+						close(done)
+						cancel()
+						return
+					}
+				}
+			}()
+			assert.ErrorIs(t, tc.ExpectError, m.Run(ctx))
+			assert.Equal(t, tc.ExpectedFlushWaits, fc.waitedCount)
 		})
 	}
 }

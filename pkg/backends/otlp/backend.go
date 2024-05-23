@@ -10,12 +10,13 @@ import (
 	"strconv"
 	"sync/atomic"
 
-	"github.com/atlassian/gostatsd"
-	"github.com/atlassian/gostatsd/pkg/backends/otlp/internal/data"
-	"github.com/atlassian/gostatsd/pkg/transport"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"go.uber.org/multierr"
+
+	"github.com/atlassian/gostatsd"
+	"github.com/atlassian/gostatsd/pkg/backends/otlp/internal/data"
+	"github.com/atlassian/gostatsd/pkg/transport"
 )
 
 const (

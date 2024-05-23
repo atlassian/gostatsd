@@ -1,6 +1,6 @@
 module github.com/atlassian/gostatsd
 
-go 1.19
+go 1.21.4
 
 require (
 	github.com/alicebob/miniredis/v2 v2.23.0
@@ -20,7 +20,7 @@ require (
 	github.com/tilinna/clock v1.1.0
 	golang.org/x/net v0.17.0
 	golang.org/x/time v0.3.0
-	google.golang.org/protobuf v1.31.0
+	google.golang.org/protobuf v1.33.0
 	k8s.io/api v0.25.2
 	k8s.io/apimachinery v0.25.2
 	k8s.io/client-go v0.25.2
@@ -29,6 +29,7 @@ require (
 )
 
 require (
+	github.com/pierrec/lz4/v4 v4.1.19
 	go.opentelemetry.io/proto/otlp v1.0.0
 	go.uber.org/multierr v1.9.0
 	golang.org/x/exp v0.0.0-20230905200255-921286631fa9
@@ -92,6 +93,3 @@ require (
 	sigs.k8s.io/structured-merge-diff/v4 v4.2.3 // indirect
 	sigs.k8s.io/yaml v1.2.0 // indirect
 )
-
-// https://github.com/atlassian/gostatsd/pull/455
-replace github.com/denis-tingajkin/go-header => github.com/denis-tingaikin/go-header v0.4.2

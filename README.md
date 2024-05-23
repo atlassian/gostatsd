@@ -124,6 +124,9 @@ spoken is not configurable per server (see [HTTP.md](HTTP.md) for version guaran
 following configuration options:
 
 - `compress`: boolean indicating if the payload should be compressed.  Defaults to `true`
+- `compression-type`: compression algorithm to use, one of `zlib` or `lz4`. Defaults to `zlib`. Note `lz4` is non-standard
+  so make sure the downstream consumer can handle `Content-Encoding='lz4'`.
+- `compression-level`: compression level to use (0-9). 0 = best speed, 9 = best compression. Defaults to 9.
 - `api-endpoint`: configures the endpoint to submit raw metrics to.  This setting should be just a base URL, for example
   `https://statsd-aggregator.private`, with no path.  Required, no default
 - `max-requests`: maximum number of requests in flight.  Defaults to `1000` (which is probably too high)
@@ -161,6 +164,29 @@ The following settings from the previous section are also supported:
 - `hostname`
 - `log-raw-metric`
 
+Running as a Lambda Extension (experimental feature)
+-----------------------------
+Gostatsd can be run as a lambda extension in forwarder mode. The metrics are flushed at the end of each lambda invocation
+by default. The flush interval is ignored for your custom metrics, internal metrics are still flushed on a best effort
+basis using the configured flush interval.
+
+To support flushes based on the runtime function, a lambda telemetry server is started at the reserved lambda hostname
+`sandbox` on port 8083. This can be configured by setting the `lambda-extension-telemetry-address` configuration parameter.
+This will need to be done if port 8083 is not available within the lambda runtime.
+
+The flush per invocation setting can be disabled by setting `lambda-extension-manual-flush` to `false`, however this
+is not recommended unless the lambda is constantly invoked. Since the extensions are suspended once the user lambda
+functions return, this may lead to metric loss (for inflight requests) or metric delay until the next invocation in
+lambdas that are sparsely invoked.
+
+Configurable options:
+- `lambda-extension-telemetry-address`: address that the extension telemetry server should listen on
+- `lambda-extension-manual-flush`: boolean indicating whether the lambda should flush per invocation and disregard the
+   the flush interval
+
+All options for specified in the previous section for the forwarder are also configurable with the following caveats:
+- `dynamic-headers` are not supported
+- `flush-interval` will not be respected when `lambda-extension-manual-flush` is set to true
 
 Metric expiry and persistence
 -----------------------------

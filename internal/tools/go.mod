@@ -8,7 +8,7 @@ require (
 	github.com/jstemmer/go-junit-report v0.9.1
 	github.com/mattn/goveralls v0.0.12
 	golang.org/x/tools v0.14.0
-	google.golang.org/protobuf v1.28.0
+	google.golang.org/protobuf v1.33.0
 )
 
 require (

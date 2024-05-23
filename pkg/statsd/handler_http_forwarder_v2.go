@@ -2,7 +2,6 @@ package statsd
 
 import (
 	"bytes"
-	"compress/zlib"
 	"context"
 	"fmt"
 	"io"
@@ -21,16 +20,20 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/atlassian/gostatsd"
+	"github.com/atlassian/gostatsd/internal/flush"
 	"github.com/atlassian/gostatsd/internal/util"
 	"github.com/atlassian/gostatsd/pb"
 	"github.com/atlassian/gostatsd/pkg/healthcheck"
 	"github.com/atlassian/gostatsd/pkg/stats"
 	"github.com/atlassian/gostatsd/pkg/transport"
+	"github.com/atlassian/gostatsd/pkg/web"
 )
 
 const (
 	defaultConsolidatorFlushInterval = 1 * time.Second
 	defaultCompress                  = true
+	defaultCompressionType           = "zlib"
+	defaultCompressionLevel          = 9
 	defaultApiEndpoint               = ""
 	defaultMaxRequestElapsedTime     = 30 * time.Second
 	defaultMaxRequests               = 1000
@@ -56,12 +59,16 @@ type HttpForwarderHandlerV2 struct {
 	client                *http.Client
 	eventWg               sync.WaitGroup
 	compress              bool
+	compressionType       web.CompressionType
+	compressionLevel      int
 	headers               map[string]string
 	dynHeaderNames        []string
 
 	done                chan struct{}
 	consolidator        *gostatsd.MetricConsolidator
 	consolidatedMetrics chan []*gostatsd.MetricMap
+
+	flushCoordinator flush.Coordinator
 }
 
 var (
@@ -69,10 +76,12 @@ var (
 )
 
 // NewHttpForwarderHandlerV2FromViper returns a new http API client.
-func NewHttpForwarderHandlerV2FromViper(logger logrus.FieldLogger, v *viper.Viper, pool *transport.TransportPool) (*HttpForwarderHandlerV2, error) {
+func NewHttpForwarderHandlerV2FromViper(logger logrus.FieldLogger, v *viper.Viper, pool *transport.TransportPool, fc flush.Coordinator) (*HttpForwarderHandlerV2, error) {
 	subViper := util.GetSubViper(v, "http-transport")
 	subViper.SetDefault("transport", defaultTransport)
 	subViper.SetDefault("compress", defaultCompress)
+	subViper.SetDefault("compression-type", defaultCompressionType)
+	subViper.SetDefault("compression-level", defaultCompressionLevel)
 	subViper.SetDefault("api-endpoint", defaultApiEndpoint)
 	subViper.SetDefault("max-requests", defaultMaxRequests)
 	subViper.SetDefault("max-request-elapsed-time", defaultMaxRequestElapsedTime)
@@ -88,11 +97,14 @@ func NewHttpForwarderHandlerV2FromViper(logger logrus.FieldLogger, v *viper.Vipe
 		subViper.GetInt("max-requests"),
 		subViper.GetInt("concurrent-merge"),
 		subViper.GetBool("compress"),
+		subViper.GetString("compression-type"),
+		subViper.GetInt("compression-level"),
 		subViper.GetDuration("max-request-elapsed-time"),
 		subViper.GetDuration("flush-interval"),
 		subViper.GetStringMapString("custom-headers"),
 		subViper.GetStringSlice("dynamic-headers"),
 		pool,
+		fc,
 	)
 }
 
@@ -105,11 +117,14 @@ func NewHttpForwarderHandlerV2(
 	maxRequests int,
 	concurrentMerge int,
 	compress bool,
+	compressionTypeStr string,
+	compressionLevel int,
 	maxRequestElapsedTime time.Duration,
 	flushInterval time.Duration,
 	xheaders map[string]string,
 	dynHeaderNames []string,
 	pool *transport.TransportPool,
+	fc flush.Coordinator,
 ) (*HttpForwarderHandlerV2, error) {
 	if apiEndpoint == "" {
 		return nil, fmt.Errorf("api-endpoint is required")
@@ -129,6 +144,14 @@ func NewHttpForwarderHandlerV2(
 	if concurrentMerge <= 0 {
 		return nil, fmt.Errorf("concurrent-merge must be positive")
 	}
+	compressionType, err := web.ReadCompressionType(compressionTypeStr)
+	if err != nil {
+		return nil, err
+	}
+
+	if !web.IsValidCompressionLevel(compressionLevel) {
+		return nil, fmt.Errorf("compression-level must between 0 and 9 inclusive")
+	}
 
 	httpClient, err := pool.Get(transport)
 	if err != nil {
@@ -139,6 +162,8 @@ func NewHttpForwarderHandlerV2(
 	logger.WithFields(logrus.Fields{
 		"api-endpoint":             apiEndpoint,
 		"compress":                 compress,
+		"compression-type":         compressionTypeStr,
+		"compression-level":        compressionLevel,
 		"max-request-elapsed-time": maxRequestElapsedTime,
 		"max-requests":             maxRequests,
 		"consolidator-slots":       consolidatorSlots,
@@ -182,6 +207,11 @@ func NewHttpForwarderHandlerV2(
 	}
 
 	ch := make(chan []*gostatsd.MetricMap)
+	consolidator := gostatsd.NewMetricConsolidator(consolidatorSlots, false, flushInterval, ch)
+
+	if fc != nil {
+		fc.RegisterFlushable(consolidator)
+	}
 
 	return &HttpForwarderHandlerV2{
 		logger:                logger.WithField("component", "http-forwarder-handler-v2"),
@@ -190,12 +220,15 @@ func NewHttpForwarderHandlerV2(
 		metricsSem:            metricsSem,
 		metricsMergingSem:     metricsMergingSem,
 		compress:              compress,
-		consolidator:          gostatsd.NewMetricConsolidator(consolidatorSlots, false, flushInterval, ch),
+		compressionType:       compressionType,
+		compressionLevel:      compressionLevel,
+		consolidator:          consolidator,
 		consolidatedMetrics:   ch,
 		client:                httpClient.Client,
 		headers:               headers,
 		dynHeaderNames:        dynHeaderNamesWithColon,
 		done:                  make(chan struct{}),
+		flushCoordinator:      fc,
 	}, nil
 }
 
@@ -272,12 +305,14 @@ func (hfh *HttpForwarderHandlerV2) Run(ctx context.Context) {
 
 				for dynHeaderTags, mm := range mms {
 					if mm.IsEmpty() {
+						hfh.notifyFlush()
 						continue
 					}
 					hfh.acquireSem()
 					postId := atomic.AddUint64(&hfh.postId, 1) - 1
 					go func(postId uint64, metricMap *gostatsd.MetricMap, dynHeaderTags string) {
 						hfh.postMetrics(context.Background(), metricMap, dynHeaderTags, postId)
+						hfh.notifyFlush()
 						hfh.releaseSem()
 					}(postId, mm, dynHeaderTags)
 				}
@@ -290,14 +325,19 @@ func (hfh *HttpForwarderHandlerV2) Run(ctx context.Context) {
 			hfh.acquireMergingSem()
 		}
 	})
+
 	wg.StartWithContext(ctx, func(ctx context.Context) {
-		hfh.consolidator.Run(ctx)
+		if hfh.flushCoordinator == nil {
+			hfh.consolidator.Run(ctx)
+		} else {
+			<-ctx.Done()
+		}
+
 		hfh.Close()
 	})
 
 	wg.Wait()
 	hfh.logger.Debug("Shutdown http forwarder")
-
 }
 
 func (hfh *HttpForwarderHandlerV2) Close() {
@@ -319,6 +359,12 @@ func (hfh *HttpForwarderHandlerV2) acquireMergingSem() {
 
 func (hfh *HttpForwarderHandlerV2) releaseMergingSem() {
 	hfh.metricsMergingSem <- struct{}{}
+}
+
+func (hfh *HttpForwarderHandlerV2) notifyFlush() {
+	if hfh.flushCoordinator != nil {
+		hfh.flushCoordinator.NotifyFlush()
+	}
 }
 
 func translateToProtobufV2(metricMap *gostatsd.MetricMap) *pb.RawMessageV2 {
@@ -450,25 +496,32 @@ func (hfh *HttpForwarderHandlerV2) serialize(message proto.Message) ([]byte, err
 	return buf, nil
 }
 
-func (hfh *HttpForwarderHandlerV2) serializeAndCompress(message proto.Message) ([]byte, error) {
+func (hfh *HttpForwarderHandlerV2) serializeAndCompress(message proto.Message) (contentEncoding string, data []byte, err error) {
 	raw, err := hfh.serialize(message)
 	if err != nil {
-		return nil, err
+		return "", nil, err
 	}
 
 	buf := &bytes.Buffer{}
-	compressor, err := zlib.NewWriterLevel(buf, zlib.BestCompression)
-	if err != nil {
-		return nil, err
+
+	var encoding string
+
+	switch hfh.compressionType {
+	case web.Lz4:
+		encoding = web.Lz4ContentEncoding
+		err := web.CompressWithLz4(raw, buf, hfh.compressionLevel)
+		if err != nil {
+			return "", nil, err
+		}
+	default:
+		encoding = web.ZlibContentEncoding
+		err := web.CompressWithZlib(raw, buf, hfh.compressionLevel)
+		if err != nil {
+			return "", nil, err
+		}
 	}
 
-	_, _ = compressor.Write(raw) // error is propagated through Close
-	err = compressor.Close()
-	if err != nil {
-		return nil, err
-	}
-
-	return buf.Bytes(), nil
+	return encoding, buf.Bytes(), nil
 }
 
 func (hfh *HttpForwarderHandlerV2) constructPost(ctx context.Context, logger logrus.FieldLogger, path string, message proto.Message, dynHeaderTags string) (func() error /*doPost*/, error) {
@@ -476,9 +529,8 @@ func (hfh *HttpForwarderHandlerV2) constructPost(ctx context.Context, logger log
 	var err error
 	var encoding string
 
-	if hfh.compress {
-		body, err = hfh.serializeAndCompress(message)
-		encoding = "deflate"
+	if hfh.compress && hfh.compressionType != web.None {
+		encoding, body, err = hfh.serializeAndCompress(message)
 	} else {
 		body, err = hfh.serialize(message)
 		encoding = "identity"

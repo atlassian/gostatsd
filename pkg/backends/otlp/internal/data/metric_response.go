@@ -21,6 +21,10 @@ func ProcessMetricResponse(resp *http.Response) (dropped int64, errs error) {
 		return 0, err
 	}
 
+	if resp.StatusCode/100 != 2 {
+		errs = multierr.Append(errs, fmt.Errorf("returned a non 2XX status code of %d", resp.StatusCode))
+	}
+
 	if ps := response.PartialSuccess; ps != nil && ps.ErrorMessage != "" {
 		if ps.RejectedDataPoints > 0 {
 			dropped = ps.RejectedDataPoints
