@@ -10,17 +10,17 @@ import (
 	"strconv"
 	"sync/atomic"
 
-	"github.com/sirupsen/logrus"
-	"github.com/spf13/viper"
-	"go.uber.org/multierr"
-
 	"github.com/atlassian/gostatsd"
 	"github.com/atlassian/gostatsd/pkg/backends/otlp/internal/data"
 	"github.com/atlassian/gostatsd/pkg/transport"
+	"github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
+	"go.uber.org/multierr"
 )
 
 const (
 	BackendName = `otlp`
+	MaxRequests = 1000
 )
 
 // Backend contains additional meta data in order
@@ -37,6 +37,7 @@ type Backend struct {
 
 	logger logrus.FieldLogger
 	client *http.Client
+	sem    chan struct{}
 }
 
 var _ gostatsd.Backend = (*Backend)(nil)
@@ -65,6 +66,7 @@ func NewClientFromViper(v *viper.Viper, logger logrus.FieldLogger, pool *transpo
 		discarded:             cfg.TimerSubtypes,
 		client:                tc.Client,
 		logger:                logger,
+		sem:                   make(chan struct{}, MaxRequests),
 	}, nil
 }
 
@@ -228,7 +230,10 @@ func (c *Backend) postMetrics(ctx context.Context, resourceMetrics []data.Resour
 		atomic.AddUint64(&c.droppedMetrics, uint64(len(resourceMetrics)))
 		return err
 	}
+
+	c.sem <- struct{}{}
 	resp, err := c.client.Do(req)
+	<-c.sem
 	if err != nil {
 		atomic.AddUint64(&c.droppedMetrics, uint64(len(resourceMetrics)))
 		return err
