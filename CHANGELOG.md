@@ -1,6 +1,8 @@
 39.0.1
 ------
-- bump golang.org/x/net v0.17.0 -> v0.23.0
+- Bump golang.org/x/net from v0.17.0 -> v0.23.0
+- Bump protobuf (protoc) from 21.5 -> 26.1
+
 
 39.0.0
 ------
