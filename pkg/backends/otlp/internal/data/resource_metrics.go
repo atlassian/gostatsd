@@ -20,3 +20,12 @@ func NewResourceMetrics(resource Resource, scopeMetrics ...ScopeMetrics) Resourc
 
 	return rm
 }
+
+func (rm ResourceMetrics) AppendMetric(is InstrumentationScope, m Metric) {
+	if len(rm.raw.ScopeMetrics) == 0 {
+		rm.raw.ScopeMetrics = []*v1metrics.ScopeMetrics{
+			NewScopeMetrics(is).raw,
+		}
+	}
+	rm.raw.ScopeMetrics[0].Metrics = append(rm.raw.ScopeMetrics[0].Metrics, m.raw)
+}

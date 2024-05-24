@@ -17,6 +17,7 @@ func TestProcessMetricsResponse(t *testing.T) {
 
 	for _, tc := range []struct {
 		name    string
+		code    int
 		body    io.Reader
 		dropped int64
 		errVal  string
@@ -24,11 +25,13 @@ func TestProcessMetricsResponse(t *testing.T) {
 		{
 			name:    "Valid response",
 			body:    bytes.NewBuffer(nil),
+			code:    http.StatusOK,
 			dropped: 0,
 			errVal:  "",
 		},
 		{
 			name: "Dropped data",
+			code: http.StatusBadRequest,
 			body: func() io.Reader {
 				buf, err := proto.Marshal(&v1export.ExportMetricsServiceResponse{
 					PartialSuccess: &v1export.ExportMetricsPartialSuccess{
@@ -40,7 +43,7 @@ func TestProcessMetricsResponse(t *testing.T) {
 				return bytes.NewBuffer(buf)
 			}(),
 			dropped: 12,
-			errVal:  "dataloss: dropped 12 metrics; failed to send metrics: missing service name",
+			errVal:  "returned a non 2XX status code of 400; dataloss: dropped 12 metrics; failed to send metrics: missing service name",
 		},
 	} {
 		tc := tc
@@ -49,7 +52,8 @@ func TestProcessMetricsResponse(t *testing.T) {
 
 			dropped, err := ProcessMetricResponse(
 				&http.Response{
-					Body: io.NopCloser(tc.body),
+					StatusCode: tc.code,
+					Body:       io.NopCloser(tc.body),
 				},
 			)
 			assert.Equal(t, tc.dropped, dropped)

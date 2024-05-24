@@ -13,6 +13,7 @@ import (
 	"github.com/atlassian/gostatsd/pkg/backends/influxdb"
 	"github.com/atlassian/gostatsd/pkg/backends/newrelic"
 	"github.com/atlassian/gostatsd/pkg/backends/null"
+	"github.com/atlassian/gostatsd/pkg/backends/otlp"
 	"github.com/atlassian/gostatsd/pkg/backends/statsdaemon"
 	"github.com/atlassian/gostatsd/pkg/backends/stdout"
 	"github.com/atlassian/gostatsd/pkg/transport"
@@ -24,6 +25,7 @@ var backends = map[string]gostatsd.BackendFactory{
 	graphite.BackendName:    graphite.NewClientFromViper,
 	influxdb.BackendName:    influxdb.NewClientFromViper,
 	null.BackendName:        null.NewClientFromViper,
+	otlp.BackendName:        otlp.NewClientFromViper,
 	statsdaemon.BackendName: statsdaemon.NewClientFromViper,
 	stdout.BackendName:      stdout.NewClientFromViper,
 	cloudwatch.BackendName:  cloudwatch.NewClientFromViper,
