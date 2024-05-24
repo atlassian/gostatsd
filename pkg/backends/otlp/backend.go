@@ -37,6 +37,7 @@ type Backend struct {
 
 	logger logrus.FieldLogger
 	client *http.Client
+	sem    chan struct{}
 }
 
 var _ gostatsd.Backend = (*Backend)(nil)
@@ -65,6 +66,7 @@ func NewClientFromViper(v *viper.Viper, logger logrus.FieldLogger, pool *transpo
 		discarded:             cfg.TimerSubtypes,
 		client:                tc.Client,
 		logger:                logger,
+		sem:                   make(chan struct{}, cfg.MaxRequests),
 	}, nil
 }
 
@@ -228,7 +230,10 @@ func (c *Backend) postMetrics(ctx context.Context, resourceMetrics []data.Resour
 		atomic.AddUint64(&c.droppedMetrics, uint64(len(resourceMetrics)))
 		return err
 	}
+
+	c.sem <- struct{}{}
 	resp, err := c.client.Do(req)
+	<-c.sem
 	if err != nil {
 		atomic.AddUint64(&c.droppedMetrics, uint64(len(resourceMetrics)))
 		return err
