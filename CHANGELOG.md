@@ -1,8 +1,11 @@
+39.1.0
+------
+- Add support for OTLP backend
+
 39.0.1
 ------
 - Bump golang.org/x/net from v0.17.0 -> v0.23.0
 - Bump protobuf (protoc) from 21.5 -> 26.1
-
 
 39.0.0
 ------
