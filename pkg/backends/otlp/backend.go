@@ -216,12 +216,13 @@ func (bd *Backend) SendMetricsAsync(ctx context.Context, mm *gostatsd.MetricMap,
 
 	})
 
-	if err := bd.postMetrics(ctx, group.Values()); err != nil {
+	err := bd.postMetrics(ctx, group.Values())
+	if err != nil {
 		bd.logger.WithError(err).WithFields(logrus.Fields{
 			"endpoint": bd.endpoint,
 		}).Error("Issues trying to submit data")
-		cb(multierr.Errors(err))
 	}
+	cb(multierr.Errors(err))
 }
 
 func (c *Backend) postMetrics(ctx context.Context, resourceMetrics []data.ResourceMetrics) error {
