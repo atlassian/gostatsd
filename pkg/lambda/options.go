@@ -3,7 +3,6 @@ package lambda
 import (
 	"errors"
 	"os"
-	"path"
 
 	"github.com/spf13/pflag"
 	"go.uber.org/multierr"
@@ -39,7 +38,7 @@ type Options struct {
 func NewOptionsFromEnvironment() Options {
 	return Options{
 		RuntimeAPI:        os.Getenv(api.EnvLambdaAPIHostname),
-		ExecutableName:    path.Base(os.Args[0]),
+		ExecutableName:    os.Args[0],
 		EnableManualFlush: false,
 		TelemetryAddr:     "http://sandbox:8083",
 	}
