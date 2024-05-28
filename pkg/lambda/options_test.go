@@ -2,7 +2,6 @@ package lambda
 
 import (
 	"os"
-	"path"
 	"testing"
 
 	"github.com/spf13/pflag"
@@ -16,7 +15,7 @@ func TestDefaultOptions(t *testing.T) {
 
 	expected := Options{
 		RuntimeAPI:        "example",
-		ExecutableName:    path.Base(os.Args[0]),
+		ExecutableName:    os.Args[0],
 		EnableManualFlush: false,
 		TelemetryAddr:     "http://sandbox:8083",
 	}
