@@ -226,7 +226,7 @@ func (bd *Backend) SendMetricsAsync(ctx context.Context, mm *gostatsd.MetricMap,
 }
 
 func (c *Backend) postMetrics(ctx context.Context, resourceMetrics []data.ResourceMetrics) error {
-	req, err := data.NewMetricsRequest(ctx, c.endpoint)
+	req, err := data.NewMetricsRequest(ctx, c.endpoint, resourceMetrics...)
 	if err != nil {
 		atomic.AddUint64(&c.droppedMetrics, uint64(len(resourceMetrics)))
 		return err
