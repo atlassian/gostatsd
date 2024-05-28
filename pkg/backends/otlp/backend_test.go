@@ -2,6 +2,7 @@ package otlp
 
 import (
 	"context"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"path"
@@ -231,7 +232,9 @@ func TestBackendSendAsyncMetrics(t *testing.T) {
 				return mm
 			}(),
 			handler: func(w http.ResponseWriter, r *http.Request) {
-				// Do nothing
+				body, err := io.ReadAll(r.Body)
+				assert.NoError(t, err, "Must not error reading body")
+				assert.NotEmpty(t, body, "Must not have an empty body")
 			},
 			enableHistograms: true,
 			validate: func(t *testing.T) func(errs []error) {
