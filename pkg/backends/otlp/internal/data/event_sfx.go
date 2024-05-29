@@ -54,10 +54,18 @@ func (a *eventAttributes) PutMap(key string, value Map) {
 	*a = append(*a, &eventAttribute{Key: key, Value: value, ValueType: ValueTypeMap})
 }
 
-func TransformEventToLog(e *gostatsd.Event) *v1log.LogRecord {
-	attrs := eventAttributes(make([]*eventAttribute, 0))
+type SfxEvent struct {
+	raw *gostatsd.Event
+}
 
-	dimensions := e.CreateTagsMap()
+func NewSfxEvent(e *gostatsd.Event) *SfxEvent {
+	return &SfxEvent{e}
+}
+
+func (s *SfxEvent) TransformToLog() *v1log.LogRecord {
+	attrs := eventAttributes(make([]*eventAttribute, 0))
+	e := s.raw
+	dimensions := e.Tags.ToMap(string(e.Source))
 	for key, value := range dimensions {
 		attrs.PutStr(key, value)
 	}

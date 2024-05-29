@@ -10,10 +10,11 @@ import (
 	"strconv"
 	"sync/atomic"
 
-	"github.com/atlassian/gostatsd/pkg/stats"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"go.uber.org/multierr"
+
+	"github.com/atlassian/gostatsd/pkg/stats"
 
 	"github.com/atlassian/gostatsd"
 	"github.com/atlassian/gostatsd/pkg/backends/otlp/internal/data"
@@ -77,7 +78,8 @@ func (*Backend) Name() string {
 }
 
 func (b *Backend) SendEvent(ctx context.Context, event *gostatsd.Event) error {
-	el := data.TransformEventToLog(event)
+	se := data.NewSfxEvent(event)
+	el := se.TransformToLog()
 
 	req, err := data.NewEventsRequest(ctx, b.endpoint, el)
 	if err != nil {

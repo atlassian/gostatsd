@@ -1,10 +1,5 @@
 package gostatsd
 
-import (
-	"sort"
-	"strings"
-)
-
 // Priority of an event.
 type Priority byte
 
@@ -100,48 +95,6 @@ type Event struct {
 func (e *Event) AddTagsSetSource(additionalTags Tags, newSource Source) {
 	e.Tags = e.Tags.Concat(additionalTags)
 	e.Source = newSource
-}
-
-// CreateTagsMap converts all the tags into a format that can be translated
-// to send to a different vendor if required.
-// - If the tag exists without a value it is converted to: "unknown:<tag>"
-// - If the tag has several values it is converted to: "tag:Join(Sort(values), "__")"
-//   - []{ "tag:pineapple","tag:pear" } ==> "tag:pear__pineapple"
-//   - []{ "tag:newt" } ==> "tag:newt"
-//   - []{ "tag:newt", "tag:newt" } ==> "tag:newt__newt"
-//
-// - If the tag key contains a . it is re-mapped to _
-func (e *Event) CreateTagsMap() map[string]string {
-	flatpack := make(map[string][]string, len(e.Tags))
-	for i := 0; i < len(e.Tags); i++ {
-		key, value := parseTag(e.Tags[i])
-		key = strings.ReplaceAll(key, `.`, `_`)
-		flatpack[key] = append(flatpack[key], value)
-	}
-	tags := make(map[string]string, len(flatpack))
-	for key, values := range flatpack {
-		// Cheap operation, due to the fact that no sorting or additional allocation is required.
-		if len(values) == 1 {
-			tags[key] = values[0]
-			continue
-		}
-		// Expensive operation due an values being sorted and additioanl string being created with the Join
-		sort.Strings(values)
-		tags[key] = strings.Join(values, `__`)
-	}
-
-	if _, exist := tags[`host`]; !exist && e.Source != UnknownSource {
-		tags[`host`] = string(e.Source)
-	}
-	return tags
-}
-
-func parseTag(tag string) (string, string) {
-	tokens := strings.SplitN(tag, ":", 2)
-	if len(tokens) == 2 {
-		return tokens[0], tokens[1]
-	}
-	return unset, tokens[0]
 }
 
 // Events represents a list of events.
