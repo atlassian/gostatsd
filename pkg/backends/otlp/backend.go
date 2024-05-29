@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"sync/atomic"
 
+	"github.com/atlassian/gostatsd/pkg/stats"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"go.uber.org/multierr"
@@ -85,7 +86,7 @@ func (b *Backend) SendEvent(ctx context.Context, event *gostatsd.Event) error {
 	}
 
 	b.requestsBufferSem <- struct{}{}
-	resp, err := b.client.Do(req) //TODO: handle response
+	resp, err := b.client.Do(req)
 	<-b.requestsBufferSem
 	if err != nil {
 		atomic.AddUint64(&b.droppedEvents, 1)
@@ -93,8 +94,11 @@ func (b *Backend) SendEvent(ctx context.Context, event *gostatsd.Event) error {
 	}
 
 	_, err = data.ProcessEventsResponse(resp)
-	// we're not batching events, so dropped events is always 1
+	// for now, we're not batch sending events, so dropped events is always 1
 	atomic.AddUint64(&b.droppedEvents, 1)
+
+	statser := stats.FromContext(ctx).WithTags(gostatsd.Tags{"backend:otlp"})
+	statser.Gauge("backend.dropped_events", float64(atomic.LoadUint64(&b.droppedEvents)), nil)
 
 	return err
 }
@@ -261,5 +265,9 @@ func (c *Backend) postMetrics(ctx context.Context, resourceMetrics []data.Resour
 	}
 	dropped, err := data.ProcessMetricResponse(resp)
 	atomic.AddUint64(&c.droppedMetrics, uint64(dropped))
+
+	statser := stats.FromContext(ctx).WithTags(gostatsd.Tags{"backend:otlp"})
+	statser.Gauge("backend.dropped", float64(atomic.LoadUint64(&c.droppedMetrics)), nil)
+
 	return err
 }

@@ -34,34 +34,28 @@ const (
 	ValueTypeMap
 )
 
-type EventAttribute struct {
+type eventAttribute struct {
 	Key       string
 	Value     any
 	ValueType AttributeValueType
 }
 
-type EventAttributes []*EventAttribute
+type eventAttributes []*eventAttribute
 
-func (a *EventAttributes) PutStr(key string, value string) {
-	*a = append(*a, &EventAttribute{Key: key, Value: value, ValueType: ValueTypeString})
+func (a *eventAttributes) PutStr(key string, value string) {
+	*a = append(*a, &eventAttribute{Key: key, Value: value, ValueType: ValueTypeString})
 }
 
-func (a *EventAttributes) PutInt(key string, value int64) {
-	*a = append(*a, &EventAttribute{Key: key, Value: value, ValueType: ValueTypeInt64})
+func (a *eventAttributes) PutInt(key string, value int64) {
+	*a = append(*a, &eventAttribute{Key: key, Value: value, ValueType: ValueTypeInt64})
 }
 
-func (a *EventAttributes) PutMap(key string, value Map) {
-	*a = append(*a, &EventAttribute{Key: key, Value: value, ValueType: ValueTypeMap})
+func (a *eventAttributes) PutMap(key string, value Map) {
+	*a = append(*a, &eventAttribute{Key: key, Value: value, ValueType: ValueTypeMap})
 }
 
 func TransformEventToLog(e *gostatsd.Event) *v1log.LogRecord {
-	attrs := EventAttributes(make([]*EventAttribute, 0))
-	var ts time.Time
-	if e.DateHappened != 0 {
-		ts = time.Unix(e.DateHappened, 0)
-	} else {
-		ts = time.Now()
-	}
+	attrs := eventAttributes(make([]*eventAttribute, 0))
 
 	dimensions := e.CreateTagsMap()
 	for key, value := range dimensions {
@@ -118,6 +112,13 @@ func TransformEventToLog(e *gostatsd.Event) *v1log.LogRecord {
 				},
 			})
 		}
+	}
+
+	var ts time.Time
+	if e.DateHappened != 0 {
+		ts = time.Unix(e.DateHappened, 0)
+	} else {
+		ts = time.Now()
 	}
 
 	lr := &v1log.LogRecord{

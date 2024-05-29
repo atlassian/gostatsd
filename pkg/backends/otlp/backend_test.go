@@ -283,6 +283,7 @@ func TestSendEvent(t *testing.T) {
 		name    string
 		handler http.HandlerFunc
 		event   *gostatsd.Event
+		wantErr assert.ErrorAssertionFunc
 	}{
 		{
 			name: "should send event as log with correct attributes",
@@ -292,7 +293,9 @@ func TestSendEvent(t *testing.T) {
 				assert.NotEmpty(t, body, "Must not have an empty body")
 
 				req := &v1logexport.ExportLogsServiceRequest{}
-				proto.Unmarshal(body, req)
+				err = proto.Unmarshal(body, req)
+				assert.NoError(t, err, "Must not error unmarshalling body")
+
 				record := req.ResourceLogs[0].ScopeLogs[0].LogRecords[0]
 
 				assert.Equal(t, uint64(time.Date(2021, 1, 1, 0, 0, 0, 0, time.UTC).UnixNano()), record.TimeUnixNano)
@@ -316,7 +319,6 @@ func TestSendEvent(t *testing.T) {
 				assert.Equal(t, &v1common.AnyValue_StringValue{StringValue: "127.0.0.1"}, findAttrByKey(record.Attributes, "host"))
 				assert.Equal(t, &v1common.AnyValue_StringValue{StringValue: gostatsd.PriNormal.String()}, findAttrByKey(record.Attributes, "priority"))
 				assert.Equal(t, &v1common.AnyValue_StringValue{StringValue: gostatsd.AlertError.String()}, findAttrByKey(record.Attributes, "alert_type"))
-
 			},
 			event: &gostatsd.Event{
 				Title:        "test title",
@@ -327,6 +329,15 @@ func TestSendEvent(t *testing.T) {
 				Priority:     gostatsd.PriNormal,
 				AlertType:    gostatsd.AlertError,
 			},
+			wantErr: assert.NoError,
+		},
+		{
+			name: "should return error when server returns non 2XX status code",
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				http.Error(w, "im dead", http.StatusServiceUnavailable)
+			},
+			event:   &gostatsd.Event{},
+			wantErr: assert.Error,
 		},
 	} {
 		tc := tc
@@ -348,8 +359,7 @@ func TestSendEvent(t *testing.T) {
 			)
 			require.NoError(t, err, "Must not error creating backend")
 
-			err = b.SendEvent(context.Background(), tc.event)
-			require.NoError(t, err, "Must not error sending event")
+			tc.wantErr(t, b.SendEvent(context.Background(), tc.event))
 		})
 	}
 }
