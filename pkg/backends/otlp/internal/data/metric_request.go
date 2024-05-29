@@ -1,17 +1,12 @@
 package data
 
 import (
-	"bytes"
 	"context"
 	"net/http"
 
 	v1export "go.opentelemetry.io/proto/otlp/collector/metrics/v1"
 	v1metrics "go.opentelemetry.io/proto/otlp/metrics/v1"
 	"google.golang.org/protobuf/proto"
-)
-
-const (
-	metricRequestContentType = "application/x-protobuf"
 )
 
 type metricsRequest struct {
@@ -34,17 +29,5 @@ func NewMetricsRequest(ctx context.Context, endpoint string, metrics ...Resource
 		return nil, err
 	}
 
-	req, err := http.NewRequestWithContext(
-		ctx,
-		http.MethodPost,
-		endpoint,
-		bytes.NewBuffer(buf),
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Set("Content-Type", metricRequestContentType)
-
-	return req, nil
+	return createProtobufRequest(ctx, endpoint, buf)
 }

@@ -8,15 +8,18 @@ import (
 	"runtime"
 	"runtime/debug"
 	"strconv"
+	"strings"
 	"sync/atomic"
 
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
+	"go.opentelemetry.io/collector/pdata/pcommon"
 	"go.uber.org/multierr"
 
 	"github.com/atlassian/gostatsd"
 	"github.com/atlassian/gostatsd/pkg/backends/otlp/internal/data"
 	"github.com/atlassian/gostatsd/pkg/transport"
+	"go.opentelemetry.io/collector/pdata/plog"
 )
 
 const (
@@ -28,16 +31,18 @@ const (
 // The zero value is not safe to use.
 type Backend struct {
 	droppedMetrics uint64
+	droppedEvents  uint64
 
 	endpoint              string
 	convertTimersToGauges bool
 	is                    data.InstrumentationScope
 	resourceKeys          gostatsd.Tags
-	discarded             gostatsd.TimerSubtypes
 
-	logger logrus.FieldLogger
-	client *http.Client
-	sem    chan struct{}
+	discarded               gostatsd.TimerSubtypes
+	logger                  logrus.FieldLogger
+	client                  *http.Client
+	metricRequestsBufferSem chan struct{}
+	eventRequestsBufferSem  chan struct{}
 }
 
 var _ gostatsd.Backend = (*Backend)(nil)
@@ -59,14 +64,14 @@ func NewClientFromViper(v *viper.Viper, logger logrus.FieldLogger, pool *transpo
 	}
 
 	return &Backend{
-		endpoint:              cfg.Endpoint,
-		convertTimersToGauges: cfg.Conversion == ConversionAsGauge,
-		is:                    data.NewInstrumentationScope("gostatsd/aggregation", version),
-		resourceKeys:          cfg.ResourceKeys,
-		discarded:             cfg.TimerSubtypes,
-		client:                tc.Client,
-		logger:                logger,
-		sem:                   make(chan struct{}, cfg.MaxRequests),
+		endpoint:                cfg.Endpoint,
+		convertTimersToGauges:   cfg.Conversion == ConversionAsGauge,
+		is:                      data.NewInstrumentationScope("gostatsd/aggregation", version),
+		resourceKeys:            cfg.ResourceKeys,
+		discarded:               cfg.TimerSubtypes,
+		client:                  tc.Client,
+		logger:                  logger,
+		metricRequestsBufferSem: make(chan struct{}, cfg.MaxRequests),
 	}, nil
 }
 
@@ -74,9 +79,98 @@ func (*Backend) Name() string {
 	return BackendName
 }
 
-func (*Backend) SendEvent(ctx context.Context, e *gostatsd.Event) error {
-	// Events are currently ignored and dropped
-	return nil
+func (b *Backend) SendEvent(ctx context.Context, event *gostatsd.Event) error {
+	eventLog := plog.NewLogRecord()
+	lr := eventLog
+
+	title := event.Title
+	text := event.Text
+	dateHappened := event.DateHappened
+	sourceTypeName := event.SourceTypeName
+	tags := event.Tags
+	source := event.Source
+	priority := event.Priority
+	alertType := event.AlertType
+
+	attrs := lr.Attributes()
+	attrs.EnsureCapacity(1 + len(tags))
+	for _, dim := range tags {
+		if dim == "" {
+			continue
+		}
+
+		kvs := strings.SplitN(dim, ":", 1)
+		if len(kvs) == 2 {
+			attrs.PutStr(kvs[0], kvs[1])
+		} else {
+			attrs.PutStr(kvs[0], "")
+		}
+	}
+
+	// The EventType field is stored as an attribute.
+	eventType := event.EventType
+	if eventType == "" {
+		eventType = "unknown"
+	}
+	attrs.PutStr(splunk.SFxEventType, eventType)
+
+	// SignalFx timestamps are in millis so convert to nanos by multiplying
+	// by 1 million.
+	lr.SetTimestamp(pcommon.Timestamp(event.Timestamp * 1e6))
+
+	if event.Category != nil {
+		attrs.PutInt(splunk.SFxEventCategoryKey, int64(*event.Category))
+	} else {
+		// This gives us an unambiguous way of determining that a log record
+		// represents a SignalFx event, even if category is missing from the
+		// event.
+		attrs.PutEmpty(splunk.SFxEventCategoryKey)
+	}
+
+	//if len(event.Properties) > 0 {
+	//	propMap := attrs.PutEmptyMap(splunk.SFxEventPropertiesKey)
+	//	propMap.EnsureCapacity(len(event.Properties))
+	//	for _, prop := range event.Properties {
+	//		// No way to tell what value type is without testing each
+	//		// individually.
+	//		switch {
+	//		case prop.Value.StrValue != nil:
+	//			propMap.PutStr(prop.Key, prop.Value.GetStrValue())
+	//		case prop.Value.IntValue != nil:
+	//			propMap.PutInt(prop.Key, prop.Value.GetIntValue())
+	//		case prop.Value.DoubleValue != nil:
+	//			propMap.PutDouble(prop.Key, prop.Value.GetDoubleValue())
+	//		case prop.Value.BoolValue != nil:
+	//			propMap.PutBool(prop.Key, prop.Value.GetBoolValue())
+	//		default:
+	//			// If there is no property value, just insert a null to
+	//			// record that the key was present.
+	//			propMap.PutEmpty(prop.Key)
+	//		}
+	//	}
+	//}
+
+	req, err := data.NewEventsRequest(ctx, b.endpoint)
+	if err != nil {
+		atomic.AddUint64(&b.droppedEvents, 1)
+		return err
+	}
+
+	b.eventRequestsBufferSem <- struct{}{}
+	resp, err := b.client.Do(req)
+	<-b.eventRequestsBufferSem
+	if err != nil {
+		atomic.AddUint64(&b.droppedEvents, 1)
+		return err
+	}
+
+	//TODO: Implement the ProcessEventResponse function
+	//err := data.ProcessEventResponse(resp)
+	//if err != nil {
+	//  atomic.AddUint64(&b.droppedEvents, 1)
+	//}
+
+	return err
 }
 
 func (bd *Backend) SendMetricsAsync(ctx context.Context, mm *gostatsd.MetricMap, cb gostatsd.SendCallback) {
@@ -232,9 +326,9 @@ func (c *Backend) postMetrics(ctx context.Context, resourceMetrics []data.Resour
 		return err
 	}
 
-	c.sem <- struct{}{}
+	c.metricRequestsBufferSem <- struct{}{}
 	resp, err := c.client.Do(req)
-	<-c.sem
+	<-c.metricRequestsBufferSem
 	if err != nil {
 		atomic.AddUint64(&c.droppedMetrics, uint64(len(resourceMetrics)))
 		return err
