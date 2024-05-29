@@ -85,18 +85,16 @@ func (b *Backend) SendEvent(ctx context.Context, event *gostatsd.Event) error {
 	}
 
 	b.requestsBufferSem <- struct{}{}
-	_, err = b.client.Do(req) //TODO: handle response
+	resp, err := b.client.Do(req) //TODO: handle response
 	<-b.requestsBufferSem
 	if err != nil {
 		atomic.AddUint64(&b.droppedEvents, 1)
 		return err
 	}
 
-	//TODO: Implement the ProcessEventResponse function
-	//err := data.ProcessEventResponse(resp)
-	//if err != nil {
-	//  atomic.AddUint64(&b.droppedEvents, 1)
-	//}
+	_, err = data.ProcessEventsResponse(resp)
+	// we're not batching events, so dropped events is always 1
+	atomic.AddUint64(&b.droppedEvents, 1)
 
 	return err
 }
