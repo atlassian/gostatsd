@@ -13,9 +13,12 @@ import (
 // characters so it is undesirable to have restrictions on the input side.
 type Tags []string
 
-// StatsdSourceID stores the key used to tag metrics with the origin IP address.
-// Should be short to avoid extra hashing and memory overhead for map operations.
-const StatsdSourceID = "s"
+const (
+	// StatsdSourceID stores the key used to tag metrics with the origin IP address.
+	// Should be short to avoid extra hashing and memory overhead for map operations.
+	StatsdSourceID = "s"
+	unset          = `unknown`
+)
 
 // String returns a comma-separated string representation of the tags.
 func (tags Tags) String() string {

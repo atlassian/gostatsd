@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	v1log "go.opentelemetry.io/proto/otlp/logs/v1"
 )
 
 func TestEventRequest(t *testing.T) {
@@ -14,7 +15,7 @@ func TestEventRequest(t *testing.T) {
 	req, err := NewEventsRequest(
 		context.Background(),
 		"not-a-valid-url",
-		NewEvents(),
+		&v1log.LogRecord{},
 	)
 	assert.NoError(t, err, "Must not error creating request")
 	assert.NotNil(t, req, "Must have a valid request")

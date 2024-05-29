@@ -5,26 +5,30 @@ import (
 	"net/http"
 
 	v1export "go.opentelemetry.io/proto/otlp/collector/logs/v1"
-	v1logs "go.opentelemetry.io/proto/otlp/logs/v1"
+	v1log "go.opentelemetry.io/proto/otlp/logs/v1"
 	"google.golang.org/protobuf/proto"
 )
 
-type eventRequest struct {
-	raw *v1export.ExportLogsServiceRequest
-}
-
-func NewEventsRequest(ctx context.Context, endpoint string, events ...Events) (*http.Request, error) {
-	r := eventRequest{
-		raw: &v1export.ExportLogsServiceRequest{
-			ResourceLogs: make([]*v1logs.ResourceLogs, 0, len(events)),
+func NewEventsRequest(ctx context.Context, endpoint string, record *v1log.LogRecord) (*http.Request, error) {
+	resourceLogs := make([]*v1log.ResourceLogs, 0, 1)
+	rl := &v1log.ResourceLogs{
+		Resource: nil,
+		ScopeLogs: []*v1log.ScopeLogs{
+			{
+				LogRecords: []*v1log.LogRecord{
+					record,
+				},
+			},
 		},
 	}
 
-	for i := 0; i < len(events); i++ {
-		r.raw.ResourceLogs = append(r.raw.ResourceLogs, events[i].raw)
+	resourceLogs = append(resourceLogs, rl)
+
+	rawReq := &v1export.ExportLogsServiceRequest{
+		ResourceLogs: resourceLogs,
 	}
 
-	buf, err := proto.Marshal(r.raw)
+	buf, err := proto.Marshal(rawReq)
 	if err != nil {
 		return nil, err
 	}
