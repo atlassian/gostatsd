@@ -35,11 +35,10 @@ type Backend struct {
 	is                    data.InstrumentationScope
 	resourceKeys          gostatsd.Tags
 
-	discarded               gostatsd.TimerSubtypes
-	logger                  logrus.FieldLogger
-	client                  *http.Client
-	metricRequestsBufferSem chan struct{}
-	eventRequestsBufferSem  chan struct{}
+	discarded         gostatsd.TimerSubtypes
+	logger            logrus.FieldLogger
+	client            *http.Client
+	requestsBufferSem chan struct{}
 }
 
 var _ gostatsd.Backend = (*Backend)(nil)
@@ -61,14 +60,14 @@ func NewClientFromViper(v *viper.Viper, logger logrus.FieldLogger, pool *transpo
 	}
 
 	return &Backend{
-		endpoint:                cfg.Endpoint,
-		convertTimersToGauges:   cfg.Conversion == ConversionAsGauge,
-		is:                      data.NewInstrumentationScope("gostatsd/aggregation", version),
-		resourceKeys:            cfg.ResourceKeys,
-		discarded:               cfg.TimerSubtypes,
-		client:                  tc.Client,
-		logger:                  logger,
-		metricRequestsBufferSem: make(chan struct{}, cfg.MaxRequests),
+		endpoint:              cfg.Endpoint,
+		convertTimersToGauges: cfg.Conversion == ConversionAsGauge,
+		is:                    data.NewInstrumentationScope("gostatsd/aggregation", version),
+		resourceKeys:          cfg.ResourceKeys,
+		discarded:             cfg.TimerSubtypes,
+		client:                tc.Client,
+		logger:                logger,
+		requestsBufferSem:     make(chan struct{}, cfg.MaxRequests),
 	}, nil
 }
 
@@ -77,8 +76,7 @@ func (*Backend) Name() string {
 }
 
 func (b *Backend) SendEvent(ctx context.Context, event *gostatsd.Event) error {
-
-	el := event.TransformToLog()
+	el := data.TransformEventToLog(event)
 
 	req, err := data.NewEventsRequest(ctx, b.endpoint, el)
 	if err != nil {
@@ -86,9 +84,9 @@ func (b *Backend) SendEvent(ctx context.Context, event *gostatsd.Event) error {
 		return err
 	}
 
-	b.eventRequestsBufferSem <- struct{}{}
+	b.requestsBufferSem <- struct{}{}
 	_, err = b.client.Do(req) //TODO: handle response
-	<-b.eventRequestsBufferSem
+	<-b.requestsBufferSem
 	if err != nil {
 		atomic.AddUint64(&b.droppedEvents, 1)
 		return err
@@ -256,9 +254,9 @@ func (c *Backend) postMetrics(ctx context.Context, resourceMetrics []data.Resour
 		return err
 	}
 
-	c.metricRequestsBufferSem <- struct{}{}
+	c.requestsBufferSem <- struct{}{}
 	resp, err := c.client.Do(req)
-	<-c.metricRequestsBufferSem
+	<-c.requestsBufferSem
 	if err != nil {
 		atomic.AddUint64(&c.droppedMetrics, uint64(len(resourceMetrics)))
 		return err

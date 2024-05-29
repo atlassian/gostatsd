@@ -9,10 +9,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/atlassian/gostatsd/pkg/backends/otlp/internal/data"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	v1logexport "go.opentelemetry.io/proto/otlp/collector/logs/v1"
 	v1export "go.opentelemetry.io/proto/otlp/collector/metrics/v1"
+	v1common "go.opentelemetry.io/proto/otlp/common/v1"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/atlassian/gostatsd"
@@ -271,4 +274,90 @@ func TestBackendSendAsyncMetrics(t *testing.T) {
 			b.SendMetricsAsync(context.Background(), tc.mm, tc.validate(t))
 		})
 	}
+}
+
+func TestSendEvent(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name    string
+		handler http.HandlerFunc
+		event   *gostatsd.Event
+	}{
+		{
+			name: "should send event as log with correct attributes",
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				body, err := io.ReadAll(r.Body)
+				assert.NoError(t, err, "Must not error reading body")
+				assert.NotEmpty(t, body, "Must not have an empty body")
+
+				req := &v1logexport.ExportLogsServiceRequest{}
+				proto.Unmarshal(body, req)
+				record := req.ResourceLogs[0].ScopeLogs[0].LogRecords[0]
+
+				assert.Equal(t, uint64(time.Date(2021, 1, 1, 0, 0, 0, 0, time.UTC).UnixNano()), record.TimeUnixNano)
+
+				// event title is stored in SFxEventType ("com.splunk.signalfx.event_type")
+				assert.Equal(t, &v1common.AnyValue_StringValue{StringValue: "test title"}, findAttrByKey(record.Attributes, data.SFxEventType))
+
+				// text is stored in SFxEventProperties ("com.splunk.signalfx.event_properties")
+				assert.Equal(t, &v1common.AnyValue_KvlistValue{
+					KvlistValue: &v1common.KeyValueList{
+						Values: []*v1common.KeyValue{
+							{
+								Key:   "text",
+								Value: &v1common.AnyValue{Value: &v1common.AnyValue_StringValue{StringValue: "test text"}},
+							},
+						},
+					},
+				}, findAttrByKey(record.Attributes, data.SFxEventPropertiesKey))
+
+				assert.Equal(t, &v1common.AnyValue_StringValue{StringValue: "my-tag"}, findAttrByKey(record.Attributes, "tag"))
+				assert.Equal(t, &v1common.AnyValue_StringValue{StringValue: "127.0.0.1"}, findAttrByKey(record.Attributes, "host"))
+				assert.Equal(t, &v1common.AnyValue_StringValue{StringValue: gostatsd.PriNormal.String()}, findAttrByKey(record.Attributes, "priority"))
+				assert.Equal(t, &v1common.AnyValue_StringValue{StringValue: gostatsd.AlertError.String()}, findAttrByKey(record.Attributes, "alert_type"))
+
+			},
+			event: &gostatsd.Event{
+				Title:        "test title",
+				Text:         "test text",
+				DateHappened: time.Date(2021, 1, 1, 0, 0, 0, 0, time.UTC).Unix(),
+				Tags:         gostatsd.Tags{"tag:my-tag"},
+				Source:       "127.0.0.1",
+				Priority:     gostatsd.PriNormal,
+				AlertType:    gostatsd.AlertError,
+			},
+		},
+	} {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			s := httptest.NewServer(tc.handler)
+			t.Cleanup(s.Close)
+
+			v := viper.New()
+			v.Set("otlp.endpoint", s.URL)
+
+			logger := fixtures.NewTestLogger(t)
+
+			b, err := NewClientFromViper(
+				v,
+				logger,
+				transport.NewTransportPool(logger, v),
+			)
+			require.NoError(t, err, "Must not error creating backend")
+
+			err = b.SendEvent(context.Background(), tc.event)
+			require.NoError(t, err, "Must not error sending event")
+		})
+	}
+}
+
+func findAttrByKey(attributes []*v1common.KeyValue, s string) any {
+	for _, attr := range attributes {
+		if attr.Key == s {
+			return attr.Value.GetValue()
+		}
+	}
+	return nil
 }
