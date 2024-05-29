@@ -30,13 +30,13 @@ $(ALL_TOOLS_COMMAND): $(TOOLS_DIR) $(TOOLS_SRC_DIR)/go.mod
 $(TOOLS_DIR):
 	mkdir -p $(TOOLS_DIR)
 
-tools/bin/protoc:
+.tools/bin/protoc:
 	curl -L -O https://github.com/protocolbuffers/protobuf/releases/download/v$(PROTOBUF_VERSION)/protoc-$(PROTOBUF_VERSION)-linux-x86_64.zip
-	unzip -o -d tools/ protoc-$(PROTOBUF_VERSION)-linux-x86_64.zip
+	unzip -o -d $(TOOLS_DIR) protoc-$(PROTOBUF_VERSION)-linux-x86_64.zip
 	rm protoc-$(PROTOBUF_VERSION)-linux-x86_64.zip
 
-pb/gostatsd.pb.go: pb/gostatsd.proto tools/bin/protoc
-	GOPATH="tools/bin:${GOPATH}" tools/bin/protoc --go_out=.\
+pb/gostatsd.pb.go: pb/gostatsd.proto .tools/bin/protoc
+	GOPATH="$(TOOLS_DIR):$(shell go env GOPATH)/bin" $(TOOLS_DIR)/protoc --go_out=.\
 		--go_opt=paths=source_relative $<
 
 build: pb/gostatsd.pb.go
@@ -195,8 +195,8 @@ version:
 	@echo $(REPO_VERSION)
 
 clean:
-	rm -rf build/bin/*
-	-docker rm $(docker ps -a -f 'status=exited' -q)
+	rm -rf bin/*
+	-docker rm $(docker ps -a -f 'status=exited' -q) 
 	-docker rmi $(docker images -f 'dangling=true' -q)
 
 .PHONY: build
