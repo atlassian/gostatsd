@@ -3,9 +3,10 @@ package data
 import (
 	"time"
 
-	"github.com/atlassian/gostatsd"
 	v1common "go.opentelemetry.io/proto/otlp/common/v1"
 	v1log "go.opentelemetry.io/proto/otlp/logs/v1"
+
+	"github.com/atlassian/gostatsd"
 )
 
 const (
