@@ -13,7 +13,7 @@ type metricsRequest struct {
 	raw *v1export.ExportMetricsServiceRequest
 }
 
-func NewMetricsRequest(ctx context.Context, endpoint string, metrics ...ResourceMetrics) (*http.Request, error) {
+func NewMetricsRequest(ctx context.Context, endpoint string, metrics []ResourceMetrics) (*http.Request, error) {
 	mr := metricsRequest{
 		raw: &v1export.ExportMetricsServiceRequest{
 			ResourceMetrics: make([]*v1metrics.ResourceMetrics, 0, len(metrics)),

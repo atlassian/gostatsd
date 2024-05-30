@@ -14,7 +14,7 @@ func TestMetricsRequest(t *testing.T) {
 	req, err := NewMetricsRequest(
 		context.Background(),
 		"not-a-valid-url",
-		NewResourceMetrics(NewResource()),
+		[]ResourceMetrics{NewResourceMetrics(NewResource())},
 	)
 	assert.NoError(t, err, "Must not error creating request")
 	assert.NotNil(t, req, "Must have a valid request")
