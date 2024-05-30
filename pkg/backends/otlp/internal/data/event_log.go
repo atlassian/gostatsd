@@ -8,22 +8,22 @@ const (
 	ValueTypeMap
 )
 
-type eventAttribute struct {
+type eventLogAttribute struct {
 	Key       string
 	Value     any
 	ValueType AttributeValueType
 }
 
-type eventAttributes []*eventAttribute
+type eventLogAttributes []*eventLogAttribute
 
-func (a *eventAttributes) PutStr(key string, value string) {
-	*a = append(*a, &eventAttribute{Key: key, Value: value, ValueType: ValueTypeString})
+func (a *eventLogAttributes) PutStr(key string, value string) {
+	*a = append(*a, &eventLogAttribute{Key: key, Value: value, ValueType: ValueTypeString})
 }
 
-func (a *eventAttributes) PutInt(key string, value int64) {
-	*a = append(*a, &eventAttribute{Key: key, Value: value, ValueType: ValueTypeInt64})
+func (a *eventLogAttributes) PutInt(key string, value int64) {
+	*a = append(*a, &eventLogAttribute{Key: key, Value: value, ValueType: ValueTypeInt64})
 }
 
-func (a *eventAttributes) PutMap(key string, value Map) {
-	*a = append(*a, &eventAttribute{Key: key, Value: value, ValueType: ValueTypeMap})
+func (a *eventLogAttributes) PutMap(key string, value Map) {
+	*a = append(*a, &eventLogAttribute{Key: key, Value: value, ValueType: ValueTypeMap})
 }

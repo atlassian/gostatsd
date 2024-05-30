@@ -9,7 +9,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/atlassian/gostatsd/pkg/backends/otlp/internal/data"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -17,6 +16,8 @@ import (
 	v1export "go.opentelemetry.io/proto/otlp/collector/metrics/v1"
 	v1common "go.opentelemetry.io/proto/otlp/common/v1"
 	"google.golang.org/protobuf/proto"
+
+	"github.com/atlassian/gostatsd/pkg/backends/otlp/internal/data"
 
 	"github.com/atlassian/gostatsd"
 	"github.com/atlassian/gostatsd/internal/fixtures"

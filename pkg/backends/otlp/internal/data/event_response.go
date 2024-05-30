@@ -10,10 +10,10 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-func ProcessEventsResponse(resp *http.Response) (dropped int64, errs error) {
-	buf, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return 0, err
+func ProcessEventsResponse(resp *http.Response) error {
+	buf, errs := io.ReadAll(resp.Body)
+	if errs != nil {
+		return errs
 	}
 
 	if resp.StatusCode/100 != 2 {
@@ -22,16 +22,13 @@ func ProcessEventsResponse(resp *http.Response) (dropped int64, errs error) {
 
 	var response v1export.ExportLogsServiceResponse
 	if err := proto.Unmarshal(buf, &response); err != nil {
-		return 0, err
+		errs = multierr.Append(errs, fmt.Errorf("failed to unmarshal response: %w", err))
+		return errs
 	}
 
 	if ps := response.PartialSuccess; ps != nil && ps.ErrorMessage != "" {
-		if ps.RejectedLogRecords > 0 {
-			dropped = ps.RejectedLogRecords
-			errs = multierr.Append(errs, fmt.Errorf("dataloss: dropped %d events", ps.RejectedLogRecords))
-		}
 		errs = multierr.Append(errs, fmt.Errorf("failed to send events: %s", ps.ErrorMessage))
 	}
 
-	return dropped, errs
+	return errs
 }

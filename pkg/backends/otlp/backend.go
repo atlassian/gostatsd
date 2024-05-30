@@ -108,7 +108,7 @@ func (b *Backend) SendEvent(ctx context.Context, event *gostatsd.Event) error {
 		return err
 	}
 
-	_, err = data.ProcessEventsResponse(resp)
+	err = data.ProcessEventsResponse(resp)
 	// for now, we're not batch sending events, so dropped events is always 1
 	atomic.AddUint64(&b.droppedEvents, 1)
 

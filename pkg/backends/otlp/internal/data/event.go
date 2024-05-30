@@ -56,7 +56,7 @@ func WithPropertiesAttrKey(key string) func(*OtlpEvent) {
 }
 
 func (s *OtlpEvent) TransformToLog() *v1log.LogRecord {
-	attrs := eventAttributes(make([]*eventAttribute, 0))
+	attrs := eventLogAttributes(make([]*eventLogAttribute, 0))
 	e := s.raw
 	dimensions := e.Tags.ToMap(string(e.Source))
 	for key, value := range dimensions {
