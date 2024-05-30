@@ -1,3 +1,7 @@
+39.1.2
+------
+- Add support for events in OTLP backend
+
 39.1.0
 ------
 - Add support for OTLP backend
