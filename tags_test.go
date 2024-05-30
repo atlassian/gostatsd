@@ -33,7 +33,7 @@ func TestTagsToMap(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			tags := Tags(tc.tags)
-			assert.EqualValues(t, tc.expected, tags.ToMap(tc.host))
+			assert.EqualValues(t, tc.expected, tags.ToMap())
 		})
 	}
 }

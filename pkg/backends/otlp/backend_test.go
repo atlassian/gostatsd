@@ -285,55 +285,7 @@ func TestSendEvent(t *testing.T) {
 		wantErr   assert.ErrorAssertionFunc
 	}{
 		{
-			name: "should send event as log with attributes in the keys configured",
-			handler: func(w http.ResponseWriter, r *http.Request) {
-				body, err := io.ReadAll(r.Body)
-				assert.NoError(t, err, "Must not error reading body")
-				assert.NotEmpty(t, body, "Must not have an empty body")
-
-				req := &v1logexport.ExportLogsServiceRequest{}
-				err = proto.Unmarshal(body, req)
-				assert.NoError(t, err, "Must not error unmarshalling body")
-
-				record := req.ResourceLogs[0].ScopeLogs[0].LogRecords[0]
-
-				assert.Equal(t, uint64(time.Date(2021, 1, 1, 0, 0, 0, 0, time.UTC).UnixNano()), record.TimeUnixNano)
-
-				assert.Equal(t, &v1common.AnyValue_StringValue{StringValue: "test title"}, findAttrByKey(record.Attributes, "com.atlassian.event_type"))
-
-				assert.Equal(t, &v1common.AnyValue_KvlistValue{
-					KvlistValue: &v1common.KeyValueList{
-						Values: []*v1common.KeyValue{
-							{
-								Key:   "text",
-								Value: &v1common.AnyValue{Value: &v1common.AnyValue_StringValue{StringValue: "test text"}},
-							},
-						},
-					},
-				}, findAttrByKey(record.Attributes, "com.atlassian.event_properties"))
-
-				assert.Equal(t, &v1common.AnyValue_StringValue{StringValue: "my-tag"}, findAttrByKey(record.Attributes, "tag"))
-				assert.Equal(t, &v1common.AnyValue_StringValue{StringValue: "127.0.0.1"}, findAttrByKey(record.Attributes, "host"))
-				assert.Equal(t, &v1common.AnyValue_StringValue{StringValue: gostatsd.PriNormal.String()}, findAttrByKey(record.Attributes, "priority"))
-				assert.Equal(t, &v1common.AnyValue_StringValue{StringValue: gostatsd.AlertError.String()}, findAttrByKey(record.Attributes, "alert_type"))
-			},
-			event: &gostatsd.Event{
-				Title:        "test title",
-				Text:         "test text",
-				DateHappened: time.Date(2021, 1, 1, 0, 0, 0, 0, time.UTC).Unix(),
-				Tags:         gostatsd.Tags{"tag:my-tag"},
-				Source:       "127.0.0.1",
-				Priority:     gostatsd.PriNormal,
-				AlertType:    gostatsd.AlertError,
-			},
-			configMap: map[string]string{
-				"otlp.event_title_attribute_key":      "com.atlassian.event_type",
-				"otlp.event_properties_attribute_key": "com.atlassian.event_properties",
-			},
-			wantErr: assert.NoError,
-		},
-		{
-			name: "should send event as log with attributes in the default keys if not configured",
+			name: "should send event as log with attributes",
 			handler: func(w http.ResponseWriter, r *http.Request) {
 				body, err := io.ReadAll(r.Body)
 				assert.NoError(t, err, "Must not error reading body")
@@ -346,17 +298,7 @@ func TestSendEvent(t *testing.T) {
 				record := req.ResourceLogs[0].ScopeLogs[0].LogRecords[0]
 
 				assert.Equal(t, &v1common.AnyValue_StringValue{StringValue: "test title"}, findAttrByKey(record.Attributes, "title"))
-
-				assert.Equal(t, &v1common.AnyValue_KvlistValue{
-					KvlistValue: &v1common.KeyValueList{
-						Values: []*v1common.KeyValue{
-							{
-								Key:   "text",
-								Value: &v1common.AnyValue{Value: &v1common.AnyValue_StringValue{StringValue: "test text"}},
-							},
-						},
-					},
-				}, findAttrByKey(record.Attributes, "properties"))
+				assert.Equal(t, &v1common.AnyValue_StringValue{StringValue: "test text"}, findAttrByKey(record.Attributes, "text"))
 			},
 			event: &gostatsd.Event{
 				Title: "test title",

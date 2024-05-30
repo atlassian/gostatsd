@@ -13,12 +13,9 @@ import (
 
 func TestTransformToLog(t *testing.T) {
 	tests := []struct {
-		name              string
-		gostatsdEvent     *gostatsd.Event
-		titleAttrKey      string
-		categoryAttrKey   string
-		propertiesAttrKey string
-		want              *v1log.LogRecord
+		name          string
+		gostatsdEvent *gostatsd.Event
+		want          *v1log.LogRecord
 	}{
 		{
 			name: "should convert event log record with default attributes fields",
@@ -39,6 +36,10 @@ func TestTransformToLog(t *testing.T) {
 						Value: &v1common.AnyValue{Value: &v1common.AnyValue_StringValue{StringValue: "title"}},
 					},
 					{
+						Key:   "text",
+						Value: &v1common.AnyValue{Value: &v1common.AnyValue_StringValue{StringValue: "text"}},
+					},
+					{
 						Key:   "tag1",
 						Value: &v1common.AnyValue{Value: &v1common.AnyValue_StringValue{StringValue: "1"}},
 					},
@@ -47,7 +48,7 @@ func TestTransformToLog(t *testing.T) {
 						Value: &v1common.AnyValue{Value: &v1common.AnyValue_StringValue{StringValue: "2"}},
 					},
 					{
-						Key:   "host",
+						Key:   "source",
 						Value: &v1common.AnyValue{Value: &v1common.AnyValue_StringValue{StringValue: "127.0.0.1"}},
 					},
 					{
@@ -57,55 +58,34 @@ func TestTransformToLog(t *testing.T) {
 					{
 						Key:   "alert_type",
 						Value: &v1common.AnyValue{Value: &v1common.AnyValue_StringValue{StringValue: gostatsd.AlertError.String()}},
-					},
-					{
-						Key: "properties",
-						Value: &v1common.AnyValue{
-							Value: &v1common.AnyValue_KvlistValue{
-								KvlistValue: &v1common.KeyValueList{
-									Values: []*v1common.KeyValue{
-										{
-											Key:   "text",
-											Value: &v1common.AnyValue{Value: &v1common.AnyValue_StringValue{StringValue: "text"}},
-										},
-									},
-								},
-							},
-						},
 					},
 				},
 			},
 		},
 		{
-			name: "should convert event log record with custom attributes fields",
+			name: "should override tags if tag collides with event attributes fields",
 			gostatsdEvent: &gostatsd.Event{
 				Title:        "title",
 				Text:         "text",
 				DateHappened: time.Date(2021, 1, 1, 0, 0, 0, 0, time.UTC).Unix(),
-				Tags:         gostatsd.Tags{"tag1:1", "tag2:2"},
+				Tags:         gostatsd.Tags{"title:1", "text:1"},
 				Source:       "127.0.0.1",
 				Priority:     gostatsd.PriNormal,
 				AlertType:    gostatsd.AlertError,
 			},
-			titleAttrKey:      "com.atlassian.title",
-			propertiesAttrKey: "com.atlassian.properties",
 			want: &v1log.LogRecord{
 				TimeUnixNano: uint64(time.Date(2021, 1, 1, 0, 0, 0, 0, time.UTC).UnixNano()),
 				Attributes: []*v1common.KeyValue{
 					{
-						Key:   "com.atlassian.title",
+						Key:   "title",
 						Value: &v1common.AnyValue{Value: &v1common.AnyValue_StringValue{StringValue: "title"}},
 					},
 					{
-						Key:   "tag1",
-						Value: &v1common.AnyValue{Value: &v1common.AnyValue_StringValue{StringValue: "1"}},
+						Key:   "text",
+						Value: &v1common.AnyValue{Value: &v1common.AnyValue_StringValue{StringValue: "text"}},
 					},
 					{
-						Key:   "tag2",
-						Value: &v1common.AnyValue{Value: &v1common.AnyValue_StringValue{StringValue: "2"}},
-					},
-					{
-						Key:   "host",
+						Key:   "source",
 						Value: &v1common.AnyValue{Value: &v1common.AnyValue_StringValue{StringValue: "127.0.0.1"}},
 					},
 					{
@@ -115,21 +95,6 @@ func TestTransformToLog(t *testing.T) {
 					{
 						Key:   "alert_type",
 						Value: &v1common.AnyValue{Value: &v1common.AnyValue_StringValue{StringValue: gostatsd.AlertError.String()}},
-					},
-					{
-						Key: "com.atlassian.properties",
-						Value: &v1common.AnyValue{
-							Value: &v1common.AnyValue_KvlistValue{
-								KvlistValue: &v1common.KeyValueList{
-									Values: []*v1common.KeyValue{
-										{
-											Key:   "text",
-											Value: &v1common.AnyValue{Value: &v1common.AnyValue_StringValue{StringValue: "text"}},
-										},
-									},
-								},
-							},
-						},
 					},
 				},
 			},
@@ -140,12 +105,6 @@ func TestTransformToLog(t *testing.T) {
 			s, err := NewOtlpEvent(tt.gostatsdEvent)
 			assert.NoError(t, err)
 
-			if tt.titleAttrKey != "" {
-				s.titleAttrKey = tt.titleAttrKey
-			}
-			if tt.propertiesAttrKey != "" {
-				s.propertiesAttrKey = tt.propertiesAttrKey
-			}
 			record := s.TransformToLog()
 			assert.Equal(t, tt.want.TimeUnixNano, record.TimeUnixNano)
 			assert.Equal(t, len(tt.want.Attributes), len(record.Attributes))
