@@ -17,8 +17,6 @@ import (
 	v1common "go.opentelemetry.io/proto/otlp/common/v1"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/atlassian/gostatsd/pkg/backends/otlp/internal/data"
-
 	"github.com/atlassian/gostatsd"
 	"github.com/atlassian/gostatsd/internal/fixtures"
 	"github.com/atlassian/gostatsd/pkg/transport"
@@ -314,7 +312,6 @@ func TestSendEvent(t *testing.T) {
 					},
 				}, findAttrByKey(record.Attributes, "com.atlassian.event_properties"))
 
-				assert.Equal(t, &v1common.AnyValue_IntValue{IntValue: int64(data.USERDEFINED)}, findAttrByKey(record.Attributes, "com.atlassian.event_category"))
 				assert.Equal(t, &v1common.AnyValue_StringValue{StringValue: "my-tag"}, findAttrByKey(record.Attributes, "tag"))
 				assert.Equal(t, &v1common.AnyValue_StringValue{StringValue: "127.0.0.1"}, findAttrByKey(record.Attributes, "host"))
 				assert.Equal(t, &v1common.AnyValue_StringValue{StringValue: gostatsd.PriNormal.String()}, findAttrByKey(record.Attributes, "priority"))
@@ -332,7 +329,6 @@ func TestSendEvent(t *testing.T) {
 			configMap: map[string]string{
 				"otlp.event_title_attribute_key":      "com.atlassian.event_type",
 				"otlp.event_properties_attribute_key": "com.atlassian.event_properties",
-				"otlp.event_category_attribute_key":   "com.atlassian.event_category",
 			},
 			wantErr: assert.NoError,
 		},
@@ -361,8 +357,6 @@ func TestSendEvent(t *testing.T) {
 						},
 					},
 				}, findAttrByKey(record.Attributes, "properties"))
-
-				assert.Equal(t, &v1common.AnyValue_IntValue{IntValue: int64(data.USERDEFINED)}, findAttrByKey(record.Attributes, "category"))
 			},
 			event: &gostatsd.Event{
 				Title: "test title",

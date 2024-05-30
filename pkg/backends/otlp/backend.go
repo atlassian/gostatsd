@@ -43,7 +43,6 @@ type Backend struct {
 	requestsBufferSem chan struct{}
 
 	titleAttributeKey      string
-	categoryAttributeKey   string
 	propertiesAttributeKey string
 }
 
@@ -75,7 +74,6 @@ func NewClientFromViper(v *viper.Viper, logger logrus.FieldLogger, pool *transpo
 		logger:                 logger,
 		requestsBufferSem:      make(chan struct{}, cfg.MaxRequests),
 		titleAttributeKey:      cfg.EventTitleAttributeKey,
-		categoryAttributeKey:   cfg.EventCategoryAttributeKey,
 		propertiesAttributeKey: cfg.EventPropertiesAttributeKey,
 	}, nil
 }
@@ -88,7 +86,6 @@ func (b *Backend) SendEvent(ctx context.Context, event *gostatsd.Event) error {
 	se, err := data.NewOtlpEvent(
 		event,
 		data.WithTitleAttrKey(b.titleAttributeKey),
-		data.WithCategoryAttrKey(b.categoryAttributeKey),
 		data.WithPropertiesAttrKey(b.propertiesAttributeKey),
 	)
 	if err != nil {

@@ -59,10 +59,6 @@ func TestTransformToLog(t *testing.T) {
 						Value: &v1common.AnyValue{Value: &v1common.AnyValue_StringValue{StringValue: gostatsd.AlertError.String()}},
 					},
 					{
-						Key:   "category",
-						Value: &v1common.AnyValue{Value: &v1common.AnyValue_IntValue{IntValue: int64(USERDEFINED)}},
-					},
-					{
 						Key: "properties",
 						Value: &v1common.AnyValue{
 							Value: &v1common.AnyValue_KvlistValue{
@@ -92,7 +88,6 @@ func TestTransformToLog(t *testing.T) {
 				AlertType:    gostatsd.AlertError,
 			},
 			titleAttrKey:      "com.atlassian.title",
-			categoryAttrKey:   "com.atlassian.category",
 			propertiesAttrKey: "com.atlassian.properties",
 			want: &v1log.LogRecord{
 				TimeUnixNano: uint64(time.Date(2021, 1, 1, 0, 0, 0, 0, time.UTC).UnixNano()),
@@ -122,10 +117,6 @@ func TestTransformToLog(t *testing.T) {
 						Value: &v1common.AnyValue{Value: &v1common.AnyValue_StringValue{StringValue: gostatsd.AlertError.String()}},
 					},
 					{
-						Key:   "com.atlassian.category",
-						Value: &v1common.AnyValue{Value: &v1common.AnyValue_IntValue{IntValue: int64(USERDEFINED)}},
-					},
-					{
 						Key: "com.atlassian.properties",
 						Value: &v1common.AnyValue{
 							Value: &v1common.AnyValue_KvlistValue{
@@ -151,9 +142,6 @@ func TestTransformToLog(t *testing.T) {
 
 			if tt.titleAttrKey != "" {
 				s.titleAttrKey = tt.titleAttrKey
-			}
-			if tt.categoryAttrKey != "" {
-				s.categoryAttrKey = tt.categoryAttrKey
 			}
 			if tt.propertiesAttrKey != "" {
 				s.propertiesAttrKey = tt.propertiesAttrKey

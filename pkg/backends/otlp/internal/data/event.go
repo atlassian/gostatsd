@@ -10,21 +10,9 @@ import (
 	"github.com/atlassian/gostatsd"
 )
 
-// Category define how to display the Category.  Category enumerations need to be in sync with sfxmodel
-type Category int32
-
-const (
-	// USERDEFINED - Created by user via UI or API, e.g. a deployment event
-	USERDEFINED Category = 1000000
-
-	// ALERT - Output by anomaly detectors
-	ALERT Category = 100000
-)
-
 type OtlpEvent struct {
 	raw               *gostatsd.Event
 	titleAttrKey      string
-	categoryAttrKey   string
 	propertiesAttrKey string
 }
 
@@ -47,12 +35,6 @@ func WithTitleAttrKey(key string) func(*OtlpEvent) {
 	}
 }
 
-func WithCategoryAttrKey(key string) func(*OtlpEvent) {
-	return func(e *OtlpEvent) {
-		e.categoryAttrKey = key
-	}
-}
-
 func WithPropertiesAttrKey(key string) func(*OtlpEvent) {
 	return func(e *OtlpEvent) {
 		e.propertiesAttrKey = key
@@ -71,12 +53,6 @@ func (s *OtlpEvent) TransformToLog() *v1log.LogRecord {
 		attrs.PutStr(s.titleAttrKey, e.Title)
 	} else {
 		attrs.PutStr("title", e.Title)
-	}
-
-	if s.categoryAttrKey != "" {
-		attrs.PutInt(s.categoryAttrKey, int64(USERDEFINED))
-	} else {
-		attrs.PutInt("category", int64(USERDEFINED))
 	}
 
 	priority := e.Priority.String()
