@@ -78,6 +78,11 @@ func (*Backend) Name() string {
 }
 
 func (b *Backend) SendEvent(ctx context.Context, event *gostatsd.Event) error {
+	statser := stats.FromContext(ctx).WithTags(gostatsd.Tags{"backend:otlp"})
+	defer func() {
+		statser.Gauge("backend.dropped_events", float64(atomic.LoadUint64(&b.droppedEvents)), nil)
+	}()
+
 	se, err := data.NewOtlpEvent(
 		event,
 	)
@@ -103,9 +108,6 @@ func (b *Backend) SendEvent(ctx context.Context, event *gostatsd.Event) error {
 
 	err = data.ProcessEventsResponse(resp)
 	atomic.AddUint64(&b.droppedEvents, 1)
-
-	statser := stats.FromContext(ctx).WithTags(gostatsd.Tags{"backend:otlp"})
-	statser.Gauge("backend.dropped_events", float64(atomic.LoadUint64(&b.droppedEvents)), nil)
 
 	return err
 }
@@ -257,6 +259,11 @@ func (bd *Backend) SendMetricsAsync(ctx context.Context, mm *gostatsd.MetricMap,
 }
 
 func (c *Backend) postMetrics(ctx context.Context, resourceMetrics []data.ResourceMetrics) error {
+	statser := stats.FromContext(ctx).WithTags(gostatsd.Tags{"backend:otlp"})
+	defer func() {
+		statser.Gauge("backend.dropped", float64(atomic.LoadUint64(&c.droppedMetrics)), nil)
+	}()
+
 	req, err := data.NewMetricsRequest(ctx, c.endpoint, resourceMetrics)
 	if err != nil {
 		atomic.AddUint64(&c.droppedMetrics, uint64(len(resourceMetrics)))
@@ -272,9 +279,6 @@ func (c *Backend) postMetrics(ctx context.Context, resourceMetrics []data.Resour
 	}
 	dropped, err := data.ProcessMetricResponse(resp)
 	atomic.AddUint64(&c.droppedMetrics, uint64(dropped))
-
-	statser := stats.FromContext(ctx).WithTags(gostatsd.Tags{"backend:otlp"})
-	statser.Gauge("backend.dropped", float64(atomic.LoadUint64(&c.droppedMetrics)), nil)
 
 	return err
 }
