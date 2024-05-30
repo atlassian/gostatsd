@@ -22,30 +22,47 @@ func NewOtlpEvent(e *gostatsd.Event) (*OtlpEvent, error) {
 }
 
 func (s *OtlpEvent) TransformToLog() *v1log.LogRecord {
-	attrs := make(map[string]string)
+	attrs := make(map[string]any)
 	e := s.raw
-
-	dimensions := e.Tags.ToMap()
-	for key, value := range dimensions {
-		attrs[key] = value
-	}
 
 	attrs["title"] = e.Title
 	attrs["text"] = e.Text
 	attrs["source"] = string(e.Source)
 	attrs["priority"] = e.Priority.String()
 	attrs["alert_type"] = e.AlertType.String()
+	attrs["aggregation_key"] = e.AggregationKey
+	attrs["source_type_name"] = e.SourceTypeName
+
+	tags := NewMap()
+	for k, v := range e.Tags.ToMap() {
+		tags.Insert(k, v)
+	}
+	attrs["tags"] = tags
 
 	logAttrs := make([]*v1common.KeyValue, 0)
 	for k, v := range attrs {
-		logAttrs = append(logAttrs, &v1common.KeyValue{
-			Key: k,
-			Value: &v1common.AnyValue{
-				Value: &v1common.AnyValue_StringValue{
-					StringValue: v,
+		switch v.(type) {
+		case string:
+			logAttrs = append(logAttrs, &v1common.KeyValue{
+				Key: k,
+				Value: &v1common.AnyValue{
+					Value: &v1common.AnyValue_StringValue{
+						StringValue: v.(string),
+					},
 				},
-			},
-		})
+			})
+		case Map:
+			logAttrs = append(logAttrs, &v1common.KeyValue{
+				Key: k,
+				Value: &v1common.AnyValue{
+					Value: &v1common.AnyValue_KvlistValue{
+						KvlistValue: &v1common.KeyValueList{
+							Values: tags.unWrap(),
+						},
+					},
+				},
+			})
+		}
 	}
 
 	var ts time.Time

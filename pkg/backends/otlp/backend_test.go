@@ -303,6 +303,7 @@ func TestSendEvent(t *testing.T) {
 			event: &gostatsd.Event{
 				Title: "test title",
 				Text:  "test text",
+				Tags:  gostatsd.Tags{"service.name:my-awesome-service"},
 			},
 			wantErr: assert.NoError,
 		},

@@ -40,12 +40,21 @@ func TestTransformToLog(t *testing.T) {
 						Value: &v1common.AnyValue{Value: &v1common.AnyValue_StringValue{StringValue: "text"}},
 					},
 					{
-						Key:   "tag1",
-						Value: &v1common.AnyValue{Value: &v1common.AnyValue_StringValue{StringValue: "1"}},
-					},
-					{
-						Key:   "tag2",
-						Value: &v1common.AnyValue{Value: &v1common.AnyValue_StringValue{StringValue: "2"}},
+						Key: "tags",
+						Value: &v1common.AnyValue{Value: &v1common.AnyValue_KvlistValue{
+							KvlistValue: &v1common.KeyValueList{
+								Values: []*v1common.KeyValue{
+									{
+										Key:   "tag1",
+										Value: &v1common.AnyValue{Value: &v1common.AnyValue_StringValue{StringValue: "1"}},
+									},
+									{
+										Key:   "tag2",
+										Value: &v1common.AnyValue{Value: &v1common.AnyValue_StringValue{StringValue: "2"}},
+									},
+								},
+							},
+						}},
 					},
 					{
 						Key:   "source",
@@ -59,11 +68,19 @@ func TestTransformToLog(t *testing.T) {
 						Key:   "alert_type",
 						Value: &v1common.AnyValue{Value: &v1common.AnyValue_StringValue{StringValue: gostatsd.AlertError.String()}},
 					},
+					{
+						Key:   "aggregation_key",
+						Value: &v1common.AnyValue{Value: &v1common.AnyValue_StringValue{StringValue: ""}},
+					},
+					{
+						Key:   "source_type_name",
+						Value: &v1common.AnyValue{Value: &v1common.AnyValue_StringValue{StringValue: ""}},
+					},
 				},
 			},
 		},
 		{
-			name: "should override tags if tag collides with event attributes fields",
+			name: "should allow collision of tag names with event attributes fields",
 			gostatsdEvent: &gostatsd.Event{
 				Title:        "title",
 				Text:         "text",
@@ -85,6 +102,23 @@ func TestTransformToLog(t *testing.T) {
 						Value: &v1common.AnyValue{Value: &v1common.AnyValue_StringValue{StringValue: "text"}},
 					},
 					{
+						Key: "tags",
+						Value: &v1common.AnyValue{Value: &v1common.AnyValue_KvlistValue{
+							KvlistValue: &v1common.KeyValueList{
+								Values: []*v1common.KeyValue{
+									{
+										Key:   "text",
+										Value: &v1common.AnyValue{Value: &v1common.AnyValue_StringValue{StringValue: "1"}},
+									},
+									{
+										Key:   "title",
+										Value: &v1common.AnyValue{Value: &v1common.AnyValue_StringValue{StringValue: "1"}},
+									},
+								},
+							},
+						}},
+					},
+					{
 						Key:   "source",
 						Value: &v1common.AnyValue{Value: &v1common.AnyValue_StringValue{StringValue: "127.0.0.1"}},
 					},
@@ -95,6 +129,14 @@ func TestTransformToLog(t *testing.T) {
 					{
 						Key:   "alert_type",
 						Value: &v1common.AnyValue{Value: &v1common.AnyValue_StringValue{StringValue: gostatsd.AlertError.String()}},
+					},
+					{
+						Key:   "aggregation_key",
+						Value: &v1common.AnyValue{Value: &v1common.AnyValue_StringValue{StringValue: ""}},
+					},
+					{
+						Key:   "source_type_name",
+						Value: &v1common.AnyValue{Value: &v1common.AnyValue_StringValue{StringValue: ""}},
 					},
 				},
 			},
