@@ -40,6 +40,15 @@ type Config struct {
 	// UserAgent (Optional, default: "gostatsd") allows you to set the
 	// user agent header when making requests.
 	UserAgent string `mapstructure:"user_agent"`
+	// EventTitleAttributeKey (Optional, default: "title")
+	// OTLP backend sends event in log format, this is the key used to store the title from the event in the log attributes
+	EventTitleAttributeKey string `mapstructure:"event_title_attribute_key"`
+	// EventCategoryAttributeKey (Optional, default: "category")
+	// OTLP backend sends event in log format, this is the key used to store the category from the event in the log attributes
+	EventCategoryAttributeKey string `mapstructure:"event_category_attribute_key"`
+	// EventPropertiesAttributeKey (Optional, default: "properties")
+	// OTLP backend sends event in log format, this is the key used to store the properties from the event in the log attributes
+	EventPropertiesAttributeKey string `mapstructure:"event_properties_attribute_key"`
 }
 
 func newDefaultConfig() *Config {

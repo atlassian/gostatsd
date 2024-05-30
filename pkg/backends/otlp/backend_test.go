@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/atlassian/gostatsd/pkg/backends/otlp/internal/data"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -16,8 +17,6 @@ import (
 	v1export "go.opentelemetry.io/proto/otlp/collector/metrics/v1"
 	v1common "go.opentelemetry.io/proto/otlp/common/v1"
 	"google.golang.org/protobuf/proto"
-
-	"github.com/atlassian/gostatsd/pkg/backends/otlp/internal/data"
 
 	"github.com/atlassian/gostatsd"
 	"github.com/atlassian/gostatsd/internal/fixtures"
@@ -280,13 +279,14 @@ func TestBackendSendAsyncMetrics(t *testing.T) {
 func TestSendEvent(t *testing.T) {
 	t.Parallel()
 	for _, tc := range []struct {
-		name    string
-		handler http.HandlerFunc
-		event   *gostatsd.Event
-		wantErr assert.ErrorAssertionFunc
+		name      string
+		handler   http.HandlerFunc
+		event     *gostatsd.Event
+		configMap map[string]string
+		wantErr   assert.ErrorAssertionFunc
 	}{
 		{
-			name: "should send event as log with correct attributes",
+			name: "should send event as log with attributes in the keys configured",
 			handler: func(w http.ResponseWriter, r *http.Request) {
 				body, err := io.ReadAll(r.Body)
 				assert.NoError(t, err, "Must not error reading body")
@@ -300,10 +300,8 @@ func TestSendEvent(t *testing.T) {
 
 				assert.Equal(t, uint64(time.Date(2021, 1, 1, 0, 0, 0, 0, time.UTC).UnixNano()), record.TimeUnixNano)
 
-				// event title is stored in SFxEventType ("com.splunk.signalfx.event_type")
-				assert.Equal(t, &v1common.AnyValue_StringValue{StringValue: "test title"}, findAttrByKey(record.Attributes, data.SFxEventType))
+				assert.Equal(t, &v1common.AnyValue_StringValue{StringValue: "test title"}, findAttrByKey(record.Attributes, "com.atlassian.event_type"))
 
-				// text is stored in SFxEventProperties ("com.splunk.signalfx.event_properties")
 				assert.Equal(t, &v1common.AnyValue_KvlistValue{
 					KvlistValue: &v1common.KeyValueList{
 						Values: []*v1common.KeyValue{
@@ -313,8 +311,9 @@ func TestSendEvent(t *testing.T) {
 							},
 						},
 					},
-				}, findAttrByKey(record.Attributes, data.SFxEventPropertiesKey))
+				}, findAttrByKey(record.Attributes, "com.atlassian.event_properties"))
 
+				assert.Equal(t, &v1common.AnyValue_IntValue{IntValue: int64(data.USERDEFINED)}, findAttrByKey(record.Attributes, "com.atlassian.event_category"))
 				assert.Equal(t, &v1common.AnyValue_StringValue{StringValue: "my-tag"}, findAttrByKey(record.Attributes, "tag"))
 				assert.Equal(t, &v1common.AnyValue_StringValue{StringValue: "127.0.0.1"}, findAttrByKey(record.Attributes, "host"))
 				assert.Equal(t, &v1common.AnyValue_StringValue{StringValue: gostatsd.PriNormal.String()}, findAttrByKey(record.Attributes, "priority"))
@@ -328,6 +327,45 @@ func TestSendEvent(t *testing.T) {
 				Source:       "127.0.0.1",
 				Priority:     gostatsd.PriNormal,
 				AlertType:    gostatsd.AlertError,
+			},
+			configMap: map[string]string{
+				"otlp.event_title_attribute_key":      "com.atlassian.event_type",
+				"otlp.event_properties_attribute_key": "com.atlassian.event_properties",
+				"otlp.event_category_attribute_key":   "com.atlassian.event_category",
+			},
+			wantErr: assert.NoError,
+		},
+		{
+			name: "should send event as log with attributes in the default keys if not configured",
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				body, err := io.ReadAll(r.Body)
+				assert.NoError(t, err, "Must not error reading body")
+				assert.NotEmpty(t, body, "Must not have an empty body")
+
+				req := &v1logexport.ExportLogsServiceRequest{}
+				err = proto.Unmarshal(body, req)
+				assert.NoError(t, err, "Must not error unmarshalling body")
+
+				record := req.ResourceLogs[0].ScopeLogs[0].LogRecords[0]
+
+				assert.Equal(t, &v1common.AnyValue_StringValue{StringValue: "test title"}, findAttrByKey(record.Attributes, "title"))
+
+				assert.Equal(t, &v1common.AnyValue_KvlistValue{
+					KvlistValue: &v1common.KeyValueList{
+						Values: []*v1common.KeyValue{
+							{
+								Key:   "text",
+								Value: &v1common.AnyValue{Value: &v1common.AnyValue_StringValue{StringValue: "test text"}},
+							},
+						},
+					},
+				}, findAttrByKey(record.Attributes, "properties"))
+
+				assert.Equal(t, &v1common.AnyValue_IntValue{IntValue: int64(data.USERDEFINED)}, findAttrByKey(record.Attributes, "category"))
+			},
+			event: &gostatsd.Event{
+				Title: "test title",
+				Text:  "test text",
 			},
 			wantErr: assert.NoError,
 		},
@@ -349,6 +387,9 @@ func TestSendEvent(t *testing.T) {
 
 			v := viper.New()
 			v.Set("otlp.endpoint", s.URL)
+			for k, vv := range tc.configMap {
+				v.Set(k, vv)
+			}
 
 			logger := fixtures.NewTestLogger(t)
 

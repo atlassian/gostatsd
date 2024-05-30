@@ -9,12 +9,6 @@ import (
 	"github.com/atlassian/gostatsd"
 )
 
-const (
-	SFxEventCategoryKey   = "com.splunk.signalfx.event_category"
-	SFxEventPropertiesKey = "com.splunk.signalfx.event_properties"
-	SFxEventType          = "com.splunk.signalfx.event_type"
-)
-
 // Category define how to display the Category.  Category enumerations need to be in sync with sfxmodel
 type Category int32
 
@@ -26,43 +20,42 @@ const (
 	ALERT Category = 100000
 )
 
-type AttributeValueType int
-
-const (
-	ValueTypeString AttributeValueType = iota
-	ValueTypeInt64
-	ValueTypeMap
-)
-
-type eventAttribute struct {
-	Key       string
-	Value     any
-	ValueType AttributeValueType
+type OtlpEvent struct {
+	raw               *gostatsd.Event
+	titleAttrKey      string
+	categoryAttrKey   string
+	propertiesAttrKey string
 }
 
-type eventAttributes []*eventAttribute
-
-func (a *eventAttributes) PutStr(key string, value string) {
-	*a = append(*a, &eventAttribute{Key: key, Value: value, ValueType: ValueTypeString})
+func NewOtlpEvent(e *gostatsd.Event, opts ...Option) *OtlpEvent {
+	oe := &OtlpEvent{raw: e}
+	for _, opt := range opts {
+		opt(oe)
+	}
+	return oe
 }
 
-func (a *eventAttributes) PutInt(key string, value int64) {
-	*a = append(*a, &eventAttribute{Key: key, Value: value, ValueType: ValueTypeInt64})
+type Option func(*OtlpEvent)
+
+func WithTitleAttrKey(key string) func(*OtlpEvent) {
+	return func(e *OtlpEvent) {
+		e.titleAttrKey = key
+	}
 }
 
-func (a *eventAttributes) PutMap(key string, value Map) {
-	*a = append(*a, &eventAttribute{Key: key, Value: value, ValueType: ValueTypeMap})
+func WithCategoryAttrKey(key string) func(*OtlpEvent) {
+	return func(e *OtlpEvent) {
+		e.categoryAttrKey = key
+	}
 }
 
-type SfxEvent struct {
-	raw *gostatsd.Event
+func WithPropertiesAttrKey(key string) func(*OtlpEvent) {
+	return func(e *OtlpEvent) {
+		e.propertiesAttrKey = key
+	}
 }
 
-func NewSfxEvent(e *gostatsd.Event) *SfxEvent {
-	return &SfxEvent{e}
-}
-
-func (s *SfxEvent) TransformToLog() *v1log.LogRecord {
+func (s *OtlpEvent) TransformToLog() *v1log.LogRecord {
 	attrs := eventAttributes(make([]*eventAttribute, 0))
 	e := s.raw
 	dimensions := e.Tags.ToMap(string(e.Source))
@@ -70,8 +63,17 @@ func (s *SfxEvent) TransformToLog() *v1log.LogRecord {
 		attrs.PutStr(key, value)
 	}
 
-	attrs.PutStr(SFxEventType, e.Title)
-	attrs.PutInt(SFxEventCategoryKey, int64(USERDEFINED))
+	if s.titleAttrKey != "" {
+		attrs.PutStr(s.titleAttrKey, e.Title)
+	} else {
+		attrs.PutStr("title", e.Title)
+	}
+
+	if s.categoryAttrKey != "" {
+		attrs.PutInt(s.categoryAttrKey, int64(USERDEFINED))
+	} else {
+		attrs.PutInt("category", int64(USERDEFINED))
+	}
 
 	priority := e.Priority.String()
 	if priority != "" {
@@ -85,7 +87,12 @@ func (s *SfxEvent) TransformToLog() *v1log.LogRecord {
 
 	properties := NewMap()
 	properties.Insert("text", e.Text)
-	attrs.PutMap(SFxEventPropertiesKey, properties)
+
+	if s.propertiesAttrKey != "" {
+		attrs.PutMap(s.propertiesAttrKey, properties)
+	} else {
+		attrs.PutMap("properties", properties)
+	}
 
 	ats := make([]*v1common.KeyValue, 0)
 	for _, attr := range attrs {

@@ -41,6 +41,10 @@ type Backend struct {
 	logger            logrus.FieldLogger
 	client            *http.Client
 	requestsBufferSem chan struct{}
+
+	titleAttributeKey      string
+	categoryAttributeKey   string
+	propertiesAttributeKey string
 }
 
 var _ gostatsd.Backend = (*Backend)(nil)
@@ -62,14 +66,17 @@ func NewClientFromViper(v *viper.Viper, logger logrus.FieldLogger, pool *transpo
 	}
 
 	return &Backend{
-		endpoint:              cfg.Endpoint,
-		convertTimersToGauges: cfg.Conversion == ConversionAsGauge,
-		is:                    data.NewInstrumentationScope("gostatsd/aggregation", version),
-		resourceKeys:          cfg.ResourceKeys,
-		discarded:             cfg.TimerSubtypes,
-		client:                tc.Client,
-		logger:                logger,
-		requestsBufferSem:     make(chan struct{}, cfg.MaxRequests),
+		endpoint:               cfg.Endpoint,
+		convertTimersToGauges:  cfg.Conversion == ConversionAsGauge,
+		is:                     data.NewInstrumentationScope("gostatsd/aggregation", version),
+		resourceKeys:           cfg.ResourceKeys,
+		discarded:              cfg.TimerSubtypes,
+		client:                 tc.Client,
+		logger:                 logger,
+		requestsBufferSem:      make(chan struct{}, cfg.MaxRequests),
+		titleAttributeKey:      cfg.EventTitleAttributeKey,
+		categoryAttributeKey:   cfg.EventCategoryAttributeKey,
+		propertiesAttributeKey: cfg.EventPropertiesAttributeKey,
 	}, nil
 }
 
@@ -78,7 +85,13 @@ func (*Backend) Name() string {
 }
 
 func (b *Backend) SendEvent(ctx context.Context, event *gostatsd.Event) error {
-	se := data.NewSfxEvent(event)
+	se := data.NewOtlpEvent(
+		event,
+		data.WithTitleAttrKey(b.titleAttributeKey),
+		data.WithCategoryAttrKey(b.categoryAttributeKey),
+		data.WithPropertiesAttrKey(b.propertiesAttributeKey),
+	)
+
 	el := se.TransformToLog()
 
 	req, err := data.NewEventsRequest(ctx, b.endpoint, el)

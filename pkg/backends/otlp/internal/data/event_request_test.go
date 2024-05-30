@@ -14,7 +14,7 @@ func TestEventRequest(t *testing.T) {
 
 	req, err := NewEventsRequest(
 		context.Background(),
-		"not-a-valid-url",
+		"localhost:1234",
 		&v1log.LogRecord{},
 	)
 	assert.NoError(t, err, "Must not error creating request")

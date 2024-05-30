@@ -21,9 +21,7 @@ func NewEventsRequest(ctx context.Context, endpoint string, record *v1log.LogRec
 			},
 		},
 	}
-
 	resourceLogs = append(resourceLogs, rl)
-
 	rawReq := &v1export.ExportLogsServiceRequest{
 		ResourceLogs: resourceLogs,
 	}
