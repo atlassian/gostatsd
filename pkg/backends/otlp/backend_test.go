@@ -12,7 +12,9 @@ import (
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	v1logexport "go.opentelemetry.io/proto/otlp/collector/logs/v1"
 	v1export "go.opentelemetry.io/proto/otlp/collector/metrics/v1"
+	v1common "go.opentelemetry.io/proto/otlp/common/v1"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/atlassian/gostatsd"
@@ -271,4 +273,87 @@ func TestBackendSendAsyncMetrics(t *testing.T) {
 			b.SendMetricsAsync(context.Background(), tc.mm, tc.validate(t))
 		})
 	}
+}
+
+func TestSendEvent(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name      string
+		handler   http.HandlerFunc
+		event     *gostatsd.Event
+		configMap map[string]string
+		wantErr   assert.ErrorAssertionFunc
+	}{
+		{
+			name: "should send event as log with attributes",
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				body, err := io.ReadAll(r.Body)
+				assert.NoError(t, err, "Must not error reading body")
+				assert.NotEmpty(t, body, "Must not have an empty body")
+
+				req := &v1logexport.ExportLogsServiceRequest{}
+				err = proto.Unmarshal(body, req)
+				assert.NoError(t, err, "Must not error unmarshalling body")
+
+				record := req.ResourceLogs[0].ScopeLogs[0].LogRecords[0]
+
+				assert.Equal(t, &v1common.AnyValue_StringValue{StringValue: "test title"}, findAttrByKey(record.Attributes, "title"))
+				assert.Equal(t, &v1common.AnyValue_StringValue{StringValue: "test text"}, findAttrByKey(record.Attributes, "text"))
+			},
+			event: &gostatsd.Event{
+				Title: "test title",
+				Text:  "test text",
+				Tags:  gostatsd.Tags{"service.name:my-awesome-service"},
+			},
+			wantErr: assert.NoError,
+		},
+		{
+			name: "should return error when server returns non 2XX status code",
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				http.Error(w, "im dead", http.StatusServiceUnavailable)
+			},
+			event:   &gostatsd.Event{},
+			wantErr: assert.Error,
+		},
+		{
+			name:    "should return error when there is no event to send",
+			handler: func(w http.ResponseWriter, r *http.Request) {},
+			event:   nil,
+			wantErr: assert.Error,
+		},
+	} {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			s := httptest.NewServer(tc.handler)
+			t.Cleanup(s.Close)
+
+			v := viper.New()
+			v.Set("otlp.endpoint", s.URL)
+			for k, vv := range tc.configMap {
+				v.Set(k, vv)
+			}
+
+			logger := fixtures.NewTestLogger(t)
+
+			b, err := NewClientFromViper(
+				v,
+				logger,
+				transport.NewTransportPool(logger, v),
+			)
+			require.NoError(t, err, "Must not error creating backend")
+
+			tc.wantErr(t, b.SendEvent(context.Background(), tc.event))
+		})
+	}
+}
+
+func findAttrByKey(attributes []*v1common.KeyValue, s string) any {
+	for _, attr := range attributes {
+		if attr.Key == s {
+			return attr.Value.GetValue()
+		}
+	}
+	return nil
 }

@@ -14,6 +14,8 @@ import (
 	"github.com/spf13/viper"
 	"go.uber.org/multierr"
 
+	"github.com/atlassian/gostatsd/pkg/stats"
+
 	"github.com/atlassian/gostatsd"
 	"github.com/atlassian/gostatsd/pkg/backends/otlp/internal/data"
 	"github.com/atlassian/gostatsd/pkg/transport"
@@ -28,16 +30,17 @@ const (
 // The zero value is not safe to use.
 type Backend struct {
 	droppedMetrics uint64
+	droppedEvents  uint64
 
 	endpoint              string
 	convertTimersToGauges bool
 	is                    data.InstrumentationScope
 	resourceKeys          gostatsd.Tags
-	discarded             gostatsd.TimerSubtypes
 
-	logger logrus.FieldLogger
-	client *http.Client
-	sem    chan struct{}
+	discarded         gostatsd.TimerSubtypes
+	logger            logrus.FieldLogger
+	client            *http.Client
+	requestsBufferSem chan struct{}
 }
 
 var _ gostatsd.Backend = (*Backend)(nil)
@@ -66,7 +69,7 @@ func NewClientFromViper(v *viper.Viper, logger logrus.FieldLogger, pool *transpo
 		discarded:             cfg.TimerSubtypes,
 		client:                tc.Client,
 		logger:                logger,
-		sem:                   make(chan struct{}, cfg.MaxRequests),
+		requestsBufferSem:     make(chan struct{}, cfg.MaxRequests),
 	}, nil
 }
 
@@ -74,9 +77,39 @@ func (*Backend) Name() string {
 	return BackendName
 }
 
-func (*Backend) SendEvent(ctx context.Context, e *gostatsd.Event) error {
-	// Events are currently ignored and dropped
-	return nil
+func (b *Backend) SendEvent(ctx context.Context, event *gostatsd.Event) error {
+	statser := stats.FromContext(ctx).WithTags(gostatsd.Tags{"backend:otlp"})
+	defer func() {
+		statser.Gauge("backend.dropped_events", float64(atomic.LoadUint64(&b.droppedEvents)), nil)
+	}()
+
+	se, err := data.NewOtlpEvent(
+		event,
+	)
+	if err != nil {
+		return err
+	}
+
+	el := se.TransformToLog()
+
+	req, err := data.NewEventsRequest(ctx, b.endpoint, el)
+	if err != nil {
+		atomic.AddUint64(&b.droppedEvents, 1)
+		return err
+	}
+
+	b.requestsBufferSem <- struct{}{}
+	resp, err := b.client.Do(req)
+	<-b.requestsBufferSem
+	if err != nil {
+		atomic.AddUint64(&b.droppedEvents, 1)
+		return err
+	}
+
+	err = data.ProcessEventsResponse(resp)
+	atomic.AddUint64(&b.droppedEvents, 1)
+
+	return err
 }
 
 func (bd *Backend) SendMetricsAsync(ctx context.Context, mm *gostatsd.MetricMap, cb gostatsd.SendCallback) {
@@ -226,20 +259,26 @@ func (bd *Backend) SendMetricsAsync(ctx context.Context, mm *gostatsd.MetricMap,
 }
 
 func (c *Backend) postMetrics(ctx context.Context, resourceMetrics []data.ResourceMetrics) error {
-	req, err := data.NewMetricsRequest(ctx, c.endpoint, resourceMetrics...)
+	statser := stats.FromContext(ctx).WithTags(gostatsd.Tags{"backend:otlp"})
+	defer func() {
+		statser.Gauge("backend.dropped", float64(atomic.LoadUint64(&c.droppedMetrics)), nil)
+	}()
+
+	req, err := data.NewMetricsRequest(ctx, c.endpoint, resourceMetrics)
 	if err != nil {
 		atomic.AddUint64(&c.droppedMetrics, uint64(len(resourceMetrics)))
 		return err
 	}
 
-	c.sem <- struct{}{}
+	c.requestsBufferSem <- struct{}{}
 	resp, err := c.client.Do(req)
-	<-c.sem
+	<-c.requestsBufferSem
 	if err != nil {
 		atomic.AddUint64(&c.droppedMetrics, uint64(len(resourceMetrics)))
 		return err
 	}
 	dropped, err := data.ProcessMetricResponse(resp)
 	atomic.AddUint64(&c.droppedMetrics, uint64(dropped))
+
 	return err
 }

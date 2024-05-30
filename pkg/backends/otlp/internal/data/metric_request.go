@@ -1,7 +1,6 @@
 package data
 
 import (
-	"bytes"
 	"context"
 	"net/http"
 
@@ -10,15 +9,11 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-const (
-	metricRequestContentType = "application/x-protobuf"
-)
-
 type metricsRequest struct {
 	raw *v1export.ExportMetricsServiceRequest
 }
 
-func NewMetricsRequest(ctx context.Context, endpoint string, metrics ...ResourceMetrics) (*http.Request, error) {
+func NewMetricsRequest(ctx context.Context, endpoint string, metrics []ResourceMetrics) (*http.Request, error) {
 	mr := metricsRequest{
 		raw: &v1export.ExportMetricsServiceRequest{
 			ResourceMetrics: make([]*v1metrics.ResourceMetrics, 0, len(metrics)),
@@ -34,17 +29,5 @@ func NewMetricsRequest(ctx context.Context, endpoint string, metrics ...Resource
 		return nil, err
 	}
 
-	req, err := http.NewRequestWithContext(
-		ctx,
-		http.MethodPost,
-		endpoint,
-		bytes.NewBuffer(buf),
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Set("Content-Type", metricRequestContentType)
-
-	return req, nil
+	return createProtobufRequest(ctx, endpoint, buf)
 }
