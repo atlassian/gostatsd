@@ -378,6 +378,12 @@ func TestSendEvent(t *testing.T) {
 			event:   &gostatsd.Event{},
 			wantErr: assert.Error,
 		},
+		{
+			name:    "should return error when there is no event to send",
+			handler: func(w http.ResponseWriter, r *http.Request) {},
+			event:   nil,
+			wantErr: assert.Error,
+		},
 	} {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {

@@ -85,12 +85,15 @@ func (*Backend) Name() string {
 }
 
 func (b *Backend) SendEvent(ctx context.Context, event *gostatsd.Event) error {
-	se := data.NewOtlpEvent(
+	se, err := data.NewOtlpEvent(
 		event,
 		data.WithTitleAttrKey(b.titleAttributeKey),
 		data.WithCategoryAttrKey(b.categoryAttributeKey),
 		data.WithPropertiesAttrKey(b.propertiesAttributeKey),
 	)
+	if err != nil {
+		return err
+	}
 
 	el := se.TransformToLog()
 

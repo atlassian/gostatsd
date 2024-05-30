@@ -146,7 +146,9 @@ func TestTransformToLog(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			s := NewOtlpEvent(tt.gostatsdEvent)
+			s, err := NewOtlpEvent(tt.gostatsdEvent)
+			assert.NoError(t, err)
+
 			if tt.titleAttrKey != "" {
 				s.titleAttrKey = tt.titleAttrKey
 			}

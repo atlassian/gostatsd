@@ -1,6 +1,7 @@
 package data
 
 import (
+	"errors"
 	"time"
 
 	v1common "go.opentelemetry.io/proto/otlp/common/v1"
@@ -27,12 +28,15 @@ type OtlpEvent struct {
 	propertiesAttrKey string
 }
 
-func NewOtlpEvent(e *gostatsd.Event, opts ...Option) *OtlpEvent {
+func NewOtlpEvent(e *gostatsd.Event, opts ...Option) (*OtlpEvent, error) {
+	if e == nil {
+		return nil, errors.New("event not found")
+	}
 	oe := &OtlpEvent{raw: e}
 	for _, opt := range opts {
 		opt(oe)
 	}
-	return oe
+	return oe, nil
 }
 
 type Option func(*OtlpEvent)
