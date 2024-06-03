@@ -1,3 +1,7 @@
+39.1.4
+------
+- Fix for building the commands
+
 39.1.3
 ------
 - Add support for events in OTLP backend
