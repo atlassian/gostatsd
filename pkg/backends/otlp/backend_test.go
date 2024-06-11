@@ -2,10 +2,12 @@ package otlp
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"path"
+	"regexp"
 	"testing"
 	"time"
 
@@ -52,7 +54,17 @@ func TestNewBackend(t *testing.T) {
 		{
 			name:   "No configuration set",
 			file:   "empty.toml",
-			errVal: "no endpoint defined",
+			errVal: "no metrics endpoint defined; no logs endpoint defined",
+		},
+		{
+			name:   "metrics endpoint only",
+			file:   "metrics_endpoint_only.toml",
+			errVal: "no logs endpoint defined",
+		},
+		{
+			name:   "logs endpoint only",
+			file:   "logs_endpoint_only.toml",
+			errVal: "no metrics endpoint defined",
 		},
 	} {
 		tc := tc
@@ -256,7 +268,8 @@ func TestBackendSendAsyncMetrics(t *testing.T) {
 			t.Cleanup(s.Close)
 
 			v := viper.New()
-			v.Set("otlp.endpoint", s.URL)
+			v.Set("otlp.metrics_endpoint", fmt.Sprintf("%s/%s", s.URL, "v1/metrics"))
+			v.Set("otlp.logs_endpoint", fmt.Sprintf("%s/%s", s.URL, "v1/logs"))
 			if tc.enableHistograms {
 				v.Set("otlp.conversion", ConversionAsHistogram)
 			}
@@ -287,18 +300,25 @@ func TestSendEvent(t *testing.T) {
 		{
 			name: "should send event as log with attributes",
 			handler: func(w http.ResponseWriter, r *http.Request) {
-				body, err := io.ReadAll(r.Body)
-				assert.NoError(t, err, "Must not error reading body")
-				assert.NotEmpty(t, body, "Must not have an empty body")
+				path := r.URL.Path
+				switch {
+				case regexp.MustCompile(`^/v1/logs$`).MatchString(path):
+					body, err := io.ReadAll(r.Body)
+					assert.NoError(t, err, "Must not error reading body")
+					assert.NotEmpty(t, body, "Must not have an empty body")
 
-				req := &v1logexport.ExportLogsServiceRequest{}
-				err = proto.Unmarshal(body, req)
-				assert.NoError(t, err, "Must not error unmarshalling body")
+					req := &v1logexport.ExportLogsServiceRequest{}
+					err = proto.Unmarshal(body, req)
+					assert.NoError(t, err, "Must not error unmarshalling body")
 
-				record := req.ResourceLogs[0].ScopeLogs[0].LogRecords[0]
+					record := req.ResourceLogs[0].ScopeLogs[0].LogRecords[0]
 
-				assert.Equal(t, &v1common.AnyValue_StringValue{StringValue: "test title"}, findAttrByKey(record.Attributes, "title"))
-				assert.Equal(t, &v1common.AnyValue_StringValue{StringValue: "test text"}, findAttrByKey(record.Attributes, "text"))
+					assert.Equal(t, &v1common.AnyValue_StringValue{StringValue: "test title"}, findAttrByKey(record.Attributes, "title"))
+					assert.Equal(t, &v1common.AnyValue_StringValue{StringValue: "test text"}, findAttrByKey(record.Attributes, "text"))
+				case regexp.MustCompile(`^/v1/metrics$`).MatchString(path):
+				default:
+					http.NotFoundHandler().ServeHTTP(w, r)
+				}
 			},
 			event: &gostatsd.Event{
 				Title: "test title",
@@ -330,7 +350,8 @@ func TestSendEvent(t *testing.T) {
 			t.Cleanup(s.Close)
 
 			v := viper.New()
-			v.Set("otlp.endpoint", s.URL)
+			v.Set("otlp.metrics_endpoint", fmt.Sprintf("%s/%s", s.URL, "v1/metrics"))
+			v.Set("otlp.logs_endpoint", fmt.Sprintf("%s/%s", s.URL, "v1/logs"))
 			for k, vv := range tc.configMap {
 				v.Set(k, vv)
 			}

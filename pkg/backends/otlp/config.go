@@ -18,8 +18,10 @@ const (
 
 type Config struct {
 	gostatsd.TimerSubtypes `mapstructure:"disabled_timer_aggregations"`
-	// Endpoint (Required) is the FQDN with path for the metrics ingestion endpoint
-	Endpoint string `mapstructure:"endpoint"`
+	// MetricsEndpoint (Required) is the FQDN with path for the metrics ingestion endpoint
+	MetricsEndpoint string `mapstructure:"metrics_endpoint"`
+	// LogsEndpoint (Required) is the FQDN with path for the logs ingestion endpoint
+	LogsEndpoint string `mapstructure:"logs_endpoint"`
 	// MaxRequests (Optional, default: cpu.count * 2) is the upper limit on the number of inflight requests
 	MaxRequests int `mapstructure:"max_requests"`
 	// ResourceKeys (Optional) is used to extract values from provided tags
@@ -72,8 +74,11 @@ func NewConfig(v *viper.Viper) (*Config, error) {
 }
 
 func (c *Config) Validate() (errs error) {
-	if c.Endpoint == "" {
-		errs = multierr.Append(errs, errors.New("no endpoint defined"))
+	if c.MetricsEndpoint == "" {
+		errs = multierr.Append(errs, errors.New("no metrics endpoint defined"))
+	}
+	if c.LogsEndpoint == "" {
+		errs = multierr.Append(errs, errors.New("no logs endpoint defined"))
 	}
 	if c.MaxRequests <= 0 {
 		errs = multierr.Append(errs, errors.New("max request must be a positive value"))
