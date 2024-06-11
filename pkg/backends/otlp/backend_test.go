@@ -268,7 +268,7 @@ func TestBackendSendAsyncMetrics(t *testing.T) {
 			t.Cleanup(s.Close)
 
 			v := viper.New()
-			v.Set("otlp.endpoint", fmt.Sprintf("%s/%s", s.URL, "v1/metrics"))
+			v.Set("otlp.metrics_endpoint", fmt.Sprintf("%s/%s", s.URL, "v1/metrics"))
 			v.Set("otlp.logs_endpoint", fmt.Sprintf("%s/%s", s.URL, "v1/logs"))
 			if tc.enableHistograms {
 				v.Set("otlp.conversion", ConversionAsHistogram)
@@ -350,7 +350,7 @@ func TestSendEvent(t *testing.T) {
 			t.Cleanup(s.Close)
 
 			v := viper.New()
-			v.Set("otlp.endpoint", fmt.Sprintf("%s/%s", s.URL, "v1/metrics"))
+			v.Set("otlp.metrics_endpoint", fmt.Sprintf("%s/%s", s.URL, "v1/metrics"))
 			v.Set("otlp.logs_endpoint", fmt.Sprintf("%s/%s", s.URL, "v1/logs"))
 			for k, vv := range tc.configMap {
 				v.Set(k, vv)
