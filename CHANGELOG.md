@@ -1,3 +1,7 @@
+39.1.5
+------
+- Add endpoint for logs injection in OTLP backend
+
 39.1.4
 ------
 - Fix for building the commands
