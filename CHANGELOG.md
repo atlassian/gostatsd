@@ -1,6 +1,6 @@
 39.1.5
 ------
-- Add endpoint for logs ingestion in OTLP backend
+- Add logs ingestion endpoint to send events for OTLP backend
 
 39.1.4
 ------
