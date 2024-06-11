@@ -32,7 +32,7 @@ type Backend struct {
 	droppedMetrics uint64
 	droppedEvents  uint64
 
-	metricsEndpoint       string
+	endpoint              string
 	logsEndpoint          string
 	convertTimersToGauges bool
 	is                    data.InstrumentationScope
@@ -63,7 +63,7 @@ func NewClientFromViper(v *viper.Viper, logger logrus.FieldLogger, pool *transpo
 	}
 
 	return &Backend{
-		metricsEndpoint:       cfg.MetricsEndpoint,
+		endpoint:              cfg.Endpoint,
 		logsEndpoint:          cfg.LogsEndpoint,
 		convertTimersToGauges: cfg.Conversion == ConversionAsGauge,
 		is:                    data.NewInstrumentationScope("gostatsd/aggregation", version),
@@ -254,7 +254,7 @@ func (bd *Backend) SendMetricsAsync(ctx context.Context, mm *gostatsd.MetricMap,
 	err := bd.postMetrics(ctx, group.Values())
 	if err != nil {
 		bd.logger.WithError(err).WithFields(logrus.Fields{
-			"metricsEndpoint": bd.metricsEndpoint,
+			"endpoint": bd.endpoint,
 		}).Error("Issues trying to submit data")
 	}
 	cb(multierr.Errors(err))
@@ -266,7 +266,7 @@ func (c *Backend) postMetrics(ctx context.Context, resourceMetrics []data.Resour
 		statser.Gauge("backend.dropped", float64(atomic.LoadUint64(&c.droppedMetrics)), nil)
 	}()
 
-	req, err := data.NewMetricsRequest(ctx, c.metricsEndpoint, resourceMetrics)
+	req, err := data.NewMetricsRequest(ctx, c.endpoint, resourceMetrics)
 	if err != nil {
 		atomic.AddUint64(&c.droppedMetrics, uint64(len(resourceMetrics)))
 		return err

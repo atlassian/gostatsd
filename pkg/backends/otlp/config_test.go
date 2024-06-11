@@ -26,18 +26,18 @@ func TestNewConfig(t *testing.T) {
 			name: "min configuration defined",
 			v: func() *viper.Viper {
 				v := viper.New()
-				v.SetDefault("otlp.metrics_endpoint", "http://local/v1/metrics")
+				v.SetDefault("otlp.endpoint", "http://local/v1/metrics")
 				v.SetDefault("otlp.logs_endpoint", "http://local/v1/logs")
 				v.SetDefault("otlp.max_requests", 1)
 				return v
 			}(),
 			expect: &Config{
-				MetricsEndpoint: "http://local/v1/metrics",
-				LogsEndpoint:    "http://local/v1/logs",
-				MaxRequests:     1,
-				Conversion:      "AsGauge",
-				Transport:       "default",
-				UserAgent:       "gostatsd",
+				Endpoint:     "http://local/v1/metrics",
+				LogsEndpoint: "http://local/v1/logs",
+				MaxRequests:  1,
+				Conversion:   "AsGauge",
+				Transport:    "default",
+				UserAgent:    "gostatsd",
 			},
 			errVal: "",
 		},

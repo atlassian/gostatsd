@@ -1,2 +1,2 @@
 [otlp]
-metrics_endpoint='my-example-of-a-metrics-endpoint'
+endpoint='my-example-of-a-metrics-endpoint'
