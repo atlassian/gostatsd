@@ -1,3 +1,7 @@
+39.1.5
+------
+- Add logs ingestion endpoint to send events for OTLP backend
+
 39.1.4
 ------
 - Fix for building the commands
