@@ -20,22 +20,24 @@ func TestNewConfig(t *testing.T) {
 			name:   "empty configuration",
 			v:      viper.New(),
 			expect: nil,
-			errVal: "no endpoint defined",
+			errVal: "no metrics endpoint defined; no logs endpoint defined",
 		},
 		{
 			name: "min configuration defined",
 			v: func() *viper.Viper {
 				v := viper.New()
-				v.SetDefault("otlp.endpoint", "http://local")
+				v.SetDefault("otlp.metrics_endpoint", "http://local/v1/metrics")
+				v.SetDefault("otlp.logs_endpoint", "http://local/v1/logs")
 				v.SetDefault("otlp.max_requests", 1)
 				return v
 			}(),
 			expect: &Config{
-				Endpoint:    "http://local",
-				MaxRequests: 1,
-				Conversion:  "AsGauge",
-				Transport:   "default",
-				UserAgent:   "gostatsd",
+				MetricsEndpoint: "http://local/v1/metrics",
+				LogsEndpoint:    "http://local/v1/logs",
+				MaxRequests:     1,
+				Conversion:      "AsGauge",
+				Transport:       "default",
+				UserAgent:       "gostatsd",
 			},
 			errVal: "",
 		},
@@ -50,7 +52,7 @@ func TestNewConfig(t *testing.T) {
 				return v
 			}(),
 			expect: nil,
-			errVal: "no endpoint defined; max request must be a positive value; no transport defined; conversion must be one of [\"AsGauge\", \"AsHistogram\"]",
+			errVal: "no metrics endpoint defined; no logs endpoint defined; max request must be a positive value; no transport defined; conversion must be one of [\"AsGauge\", \"AsHistogram\"]",
 		},
 	} {
 		tc := tc
