@@ -170,9 +170,9 @@ func (bd *Backend) SendMetricsAsync(ctx context.Context, mm *gostatsd.MetricMap,
 		switch bd.convertTimersToGauges {
 		case true:
 			if len(t.Histogram) != 0 {
-				btags := data.NewMap()
-				btags.Merge(attributes)
 				for boundry, count := range t.Histogram {
+					btags := data.NewMap()
+					btags.Merge(attributes)
 					if math.IsInf(float64(boundry), 1) {
 						btags.Insert("le", "+Inf")
 					} else {
@@ -185,7 +185,7 @@ func (bd *Backend) SendMetricsAsync(ctx context.Context, mm *gostatsd.MetricMap,
 							data.NewGauge(data.NewNumberDataPoint(
 								uint64(t.Timestamp),
 								data.WithNumberDataPointMap(btags),
-								data.WithNumberDatapointIntValue(int64(count)),
+								data.WithNumberDataPointDoubleValue(float64(count)),
 							)),
 						),
 					)
