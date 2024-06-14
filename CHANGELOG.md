@@ -1,3 +1,8 @@
+39.1.6
+------
+- OTLP: Fix histogram bucket tag
+- OTLP: Align counter metric with Datadog backend
+
 39.1.5
 ------
 - Add logs ingestion endpoint to send events for OTLP backend
