@@ -209,6 +209,46 @@ func TestBackendSendAsyncMetrics(t *testing.T) {
 			},
 		},
 		{
+			name: "validate counter metric data",
+			mm: func() *gostatsd.MetricMap {
+				mm := gostatsd.NewMetricMap(false)
+				mm.Receive(&gostatsd.Metric{
+					Name:  "my-metric",
+					Value: 100,
+					Rate:  1,
+					Type:  gostatsd.COUNTER,
+				})
+				mm.Counters.Each(func(name, tagsKey string, c gostatsd.Counter) {
+					c.PerSecond = 10
+					mm.Counters[name][tagsKey] = c
+				})
+				return mm
+			}(),
+			handler: func(_ http.ResponseWriter, r *http.Request) {
+				body, err := io.ReadAll(r.Body)
+				assert.NoError(t, err, "Must not error reading body")
+				assert.NotEmpty(t, body, "Must not have an empty body")
+
+				req := &v1export.ExportMetricsServiceRequest{}
+				err = proto.Unmarshal(body, req)
+				assert.NoError(t, err, "Must not error unmarshalling body")
+
+				ms := req.GetResourceMetrics()[0].GetScopeMetrics()[0].GetMetrics()
+				dpRate := ms[0].GetGauge().DataPoints[0]
+				assert.Equal(t, 10.0, dpRate.GetAsDouble())
+
+				dpCount := ms[1].GetSum().DataPoints[0]
+				assert.Equal(t, int64(100), dpCount.GetAsInt())
+			},
+			validate: func(t *testing.T) func(errs []error) {
+				return func(errs []error) {
+					if !assert.Len(t, errs, 0, "Must not error") {
+						return
+					}
+				}
+			},
+		},
+		{
 			name: "validate metric data with gauge conversion",
 			mm: func() *gostatsd.MetricMap {
 				mm := gostatsd.NewMetricMap(false)
