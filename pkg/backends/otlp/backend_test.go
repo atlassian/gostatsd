@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"math"
 	"net/http"
 	"net/http/httptest"
 	"path"
@@ -198,6 +199,57 @@ func TestBackendSendAsyncMetrics(t *testing.T) {
 			}(),
 			handler: func(w http.ResponseWriter, r *http.Request) {
 				// Do nothing
+			},
+			validate: func(t *testing.T) func(errs []error) {
+				return func(errs []error) {
+					if !assert.Len(t, errs, 0, "Must not error") {
+						return
+					}
+				}
+			},
+		},
+		{
+			name: "validate metric data with gauge conversion",
+			mm: func() *gostatsd.MetricMap {
+				mm := gostatsd.NewMetricMap(false)
+				mm.Receive(&gostatsd.Metric{
+					Name:  "my-metric",
+					Value: 100.0,
+					Rate:  1,
+					Type:  gostatsd.TIMER,
+				})
+				mm.Timers.Each(func(name, tagsKey string, t gostatsd.Timer) {
+					t.Histogram = map[gostatsd.HistogramThreshold]int{
+						gostatsd.HistogramThreshold(math.Inf(1)): 1,
+						500:                                      1,
+					}
+					mm.Timers[name][tagsKey] = t
+				})
+				return mm
+			}(),
+			handler: func(_ http.ResponseWriter, r *http.Request) {
+				body, err := io.ReadAll(r.Body)
+				assert.NoError(t, err, "Must not error reading body")
+				assert.NotEmpty(t, body, "Must not have an empty body")
+
+				req := &v1export.ExportMetricsServiceRequest{}
+				err = proto.Unmarshal(body, req)
+				assert.NoError(t, err, "Must not error unmarshalling body")
+
+				ms := req.GetResourceMetrics()[0].GetScopeMetrics()[0].GetMetrics()
+				dp1 := ms[0].GetGauge().DataPoints[0]
+				dp2 := ms[1].GetGauge().DataPoints[0]
+
+				assert.Equal(t, 1.0, dp1.GetAsDouble())
+				assert.Equal(t, "le", dp1.GetAttributes()[0].Key)
+				assert.Equal(t, "le", dp1.GetAttributes()[0].Key)
+				assert.True(t, func() bool {
+					dp1LeTagValue := dp1.GetAttributes()[0].GetValue().GetStringValue()
+					dp2LeTagValue := dp2.GetAttributes()[0].GetValue().GetStringValue()
+
+					// we're not sure in which order the bucket tag will be put into each metrics
+					return dp1LeTagValue == "500" && dp2LeTagValue == "+Inf" || dp1LeTagValue == "+Inf" && dp2LeTagValue == "500"
+				}())
 			},
 			validate: func(t *testing.T) func(errs []error) {
 				return func(errs []error) {
