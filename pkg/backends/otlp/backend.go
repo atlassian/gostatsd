@@ -120,7 +120,17 @@ func (bd *Backend) SendMetricsAsync(ctx context.Context, mm *gostatsd.MetricMap,
 	mm.Counters.Each(func(name, _ string, cm gostatsd.Counter) {
 		resources, attributes := splitTagsByKeys(cm.Tags, bd.resourceKeys)
 
-		m := data.NewMetric(name).SetSum(
+		rate := data.NewMetric(name).SetGauge(
+			data.NewGauge(
+				data.NewNumberDataPoint(
+					uint64(cm.Timestamp),
+					data.WithNumberDataPointMap(attributes),
+					data.WithNumberDataPointDoubleValue(cm.PerSecond),
+				),
+			),
+		)
+
+		m := data.NewMetric(name + ".count").SetSum(
 			data.NewSum(
 				data.NewNumberDataPoint(
 					uint64(cm.Timestamp),
@@ -129,6 +139,8 @@ func (bd *Backend) SendMetricsAsync(ctx context.Context, mm *gostatsd.MetricMap,
 				),
 			),
 		)
+
+		group.Insert(bd.is, resources, rate)
 		group.Insert(bd.is, resources, m)
 	})
 
