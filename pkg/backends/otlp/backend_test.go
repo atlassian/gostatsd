@@ -239,11 +239,17 @@ func TestBackendSendAsyncMetrics(t *testing.T) {
 				ms := req.GetResourceMetrics()[0].GetScopeMetrics()[0].GetMetrics()
 				dp1 := ms[0].GetGauge().DataPoints[0]
 				dp2 := ms[1].GetGauge().DataPoints[0]
+
 				assert.Equal(t, 1.0, dp1.GetAsDouble())
 				assert.Equal(t, "le", dp1.GetAttributes()[0].Key)
-				assert.Equal(t, "500", dp1.GetAttributes()[0].GetValue().GetStringValue())
 				assert.Equal(t, "le", dp1.GetAttributes()[0].Key)
-				assert.Equal(t, "+Inf", dp2.GetAttributes()[0].Value.GetStringValue())
+				assert.True(t, func() bool {
+					dp1LeTagValue := dp1.GetAttributes()[0].GetValue().GetStringValue()
+					dp2LeTagValue := dp2.GetAttributes()[0].GetValue().GetStringValue()
+
+					// we're not sure in which order the bucket tag will be put into each metrics
+					return dp1LeTagValue == "500" && dp2LeTagValue == "+Inf" || dp1LeTagValue == "+Inf" && dp2LeTagValue == "500"
+				}())
 			},
 			validate: func(t *testing.T) func(errs []error) {
 				return func(errs []error) {
