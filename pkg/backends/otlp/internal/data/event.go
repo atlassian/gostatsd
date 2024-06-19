@@ -21,7 +21,7 @@ func NewOtlpEvent(e *gostatsd.Event) (*OtlpEvent, error) {
 	return &OtlpEvent{raw: e}, nil
 }
 
-func (s *OtlpEvent) TransformToLog() *v1log.LogRecord {
+func (s *OtlpEvent) TransformToLog(resourceKeys []string) (*v1log.LogRecord, Map) {
 	attrs := make(map[string]any)
 	e := s.raw
 
@@ -33,10 +33,7 @@ func (s *OtlpEvent) TransformToLog() *v1log.LogRecord {
 	attrs["aggregation_key"] = e.AggregationKey
 	attrs["source_type_name"] = e.SourceTypeName
 
-	tags := NewMap()
-	for k, v := range e.Tags.ToMap() {
-		tags.Insert(k, v)
-	}
+	resourceTags, tags := SplitEventTagsByKeys(e.Tags, resourceKeys)
 	attrs["tags"] = tags
 
 	logAttrs := make([]*v1common.KeyValue, 0)
@@ -77,5 +74,5 @@ func (s *OtlpEvent) TransformToLog() *v1log.LogRecord {
 		Attributes:   logAttrs,
 	}
 
-	return lr
+	return lr, resourceTags
 }

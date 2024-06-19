@@ -7,6 +7,8 @@ import (
 	"strings"
 
 	v1common "go.opentelemetry.io/proto/otlp/common/v1"
+
+	"github.com/atlassian/gostatsd"
 )
 
 type Map struct {
@@ -43,6 +45,15 @@ func WithDelimitedStrings[Tags ~[]string](delim string, tags Tags) func(m Map) {
 
 func WithStatsdDelimitedTags[Tags ~[]string](tags Tags) func(Map) {
 	return WithDelimitedStrings(":", tags)
+}
+
+func WithStatsdEventTags[Tags ~[]string](tags Tags) func(Map) {
+	return func(m Map) {
+		evenTags := gostatsd.Tags(tags)
+		for k, v := range evenTags.ToMap() {
+			m.Insert(k, v)
+		}
+	}
 }
 
 func (m Map) Hash() uint64 {

@@ -16,6 +16,7 @@ func TestEventRequest(t *testing.T) {
 		context.Background(),
 		"localhost:1234",
 		&v1log.LogRecord{},
+		NewMap(),
 	)
 	assert.NoError(t, err, "Must not error creating request")
 	assert.NotNil(t, req, "Must have a valid request")
