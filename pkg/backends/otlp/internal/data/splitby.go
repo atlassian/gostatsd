@@ -26,14 +26,14 @@ func SplitTagsByKeysAndConvert[S ~[]string](tags S, keys S, converter Converter[
 	return converter(matchedTags), converter(unmatchedTags)
 }
 
-func SplitMetricTagsByKeys[S ~[]string](tags S, keys S) (matched, unmatched Map) {
+func SplitMetricTagsByKeysAndConvert[S ~[]string](tags S, keys S) (matched, unmatched Map) {
 	converter := func(s S) Map {
 		return NewMap(WithStatsdDelimitedTags(s))
 	}
 	return SplitTagsByKeysAndConvert(tags, keys, converter)
 }
 
-func SplitEventTagsByKeys[S ~[]string](tags S, keys S) (matched, unmatched Map) {
+func SplitEventTagsByKeysAndConvert[S ~[]string](tags S, keys S) (matched, unmatched Map) {
 	converter := func(s S) Map {
 		return NewMap(WithStatsdEventTags(s))
 	}

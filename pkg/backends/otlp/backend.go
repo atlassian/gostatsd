@@ -118,7 +118,7 @@ func (bd *Backend) SendMetricsAsync(ctx context.Context, mm *gostatsd.MetricMap,
 	group := make(Group)
 
 	mm.Counters.Each(func(name, _ string, cm gostatsd.Counter) {
-		resources, attributes := data.SplitMetricTagsByKeys(cm.Tags, bd.resourceKeys)
+		resources, attributes := data.SplitMetricTagsByKeysAndConvert(cm.Tags, bd.resourceKeys)
 
 		rate := data.NewMetric(name).SetGauge(
 			data.NewGauge(
@@ -145,7 +145,7 @@ func (bd *Backend) SendMetricsAsync(ctx context.Context, mm *gostatsd.MetricMap,
 	})
 
 	mm.Gauges.Each(func(name, _ string, gm gostatsd.Gauge) {
-		resources, attributes := data.SplitMetricTagsByKeys(gm.Tags, bd.resourceKeys)
+		resources, attributes := data.SplitMetricTagsByKeysAndConvert(gm.Tags, bd.resourceKeys)
 
 		m := data.NewMetric(name).SetGauge(
 			data.NewGauge(
@@ -161,7 +161,7 @@ func (bd *Backend) SendMetricsAsync(ctx context.Context, mm *gostatsd.MetricMap,
 	})
 
 	mm.Sets.Each(func(name, _ string, sm gostatsd.Set) {
-		resources, attributes := data.SplitMetricTagsByKeys(sm.Tags, bd.resourceKeys)
+		resources, attributes := data.SplitMetricTagsByKeysAndConvert(sm.Tags, bd.resourceKeys)
 
 		m := data.NewMetric(name).SetGauge(
 			data.NewGauge(
@@ -177,7 +177,7 @@ func (bd *Backend) SendMetricsAsync(ctx context.Context, mm *gostatsd.MetricMap,
 	})
 
 	mm.Timers.Each(func(name, _ string, t gostatsd.Timer) {
-		resources, attributes := data.SplitMetricTagsByKeys(t.Tags, bd.resourceKeys)
+		resources, attributes := data.SplitMetricTagsByKeysAndConvert(t.Tags, bd.resourceKeys)
 
 		switch bd.convertTimersToGauges {
 		case true:

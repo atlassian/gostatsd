@@ -199,7 +199,7 @@ func TestSplitMetricTagsByKeys(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			matched, unmatched := SplitMetricTagsByKeys(tc.tags, tc.keys)
+			matched, unmatched := SplitMetricTagsByKeysAndConvert(tc.tags, tc.keys)
 
 			assert.Equal(t, tc.matched, matched, "Must match the matched values")
 			assert.Equal(t, tc.unmatched, unmatched, "Must match the unmatched values")
@@ -396,7 +396,7 @@ func TestSplitEventTagsByKeys(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			actualMatched, actualUnmatched := SplitEventTagsByKeys(tc.tags, tc.keys)
+			actualMatched, actualUnmatched := SplitEventTagsByKeysAndConvert(tc.tags, tc.keys)
 
 			assert.Equal(t, tc.matched.Hash(), actualMatched.Hash())
 			assert.Equal(t, tc.unmatched.Hash(), actualUnmatched.Hash())

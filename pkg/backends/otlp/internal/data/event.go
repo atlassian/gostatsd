@@ -33,7 +33,7 @@ func (s *OtlpEvent) TransformToLog(resourceKeys []string) (*v1log.LogRecord, Map
 	attrs["aggregation_key"] = e.AggregationKey
 	attrs["source_type_name"] = e.SourceTypeName
 
-	resourceTags, tags := SplitEventTagsByKeys(e.Tags, resourceKeys)
+	resourceTags, tags := SplitEventTagsByKeysAndConvert(e.Tags, resourceKeys)
 	attrs["tags"] = tags
 
 	logAttrs := make([]*v1common.KeyValue, 0)
