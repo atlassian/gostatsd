@@ -92,9 +92,9 @@ func (b *Backend) SendEvent(ctx context.Context, event *gostatsd.Event) error {
 		return err
 	}
 
-	el := se.TransformToLog()
+	el, rt := se.TransformToLog(b.resourceKeys)
 
-	req, err := data.NewEventsRequest(ctx, b.logsEndpoint, el)
+	req, err := data.NewEventsRequest(ctx, b.logsEndpoint, el, rt)
 	if err != nil {
 		atomic.AddUint64(&b.droppedEvents, 1)
 		return err
@@ -118,7 +118,7 @@ func (bd *Backend) SendMetricsAsync(ctx context.Context, mm *gostatsd.MetricMap,
 	group := make(Group)
 
 	mm.Counters.Each(func(name, _ string, cm gostatsd.Counter) {
-		resources, attributes := splitTagsByKeys(cm.Tags, bd.resourceKeys)
+		resources, attributes := data.SplitMetricTagsByKeysAndConvert(cm.Tags, bd.resourceKeys)
 
 		rate := data.NewMetric(name).SetGauge(
 			data.NewGauge(
@@ -145,7 +145,7 @@ func (bd *Backend) SendMetricsAsync(ctx context.Context, mm *gostatsd.MetricMap,
 	})
 
 	mm.Gauges.Each(func(name, _ string, gm gostatsd.Gauge) {
-		resources, attributes := splitTagsByKeys(gm.Tags, bd.resourceKeys)
+		resources, attributes := data.SplitMetricTagsByKeysAndConvert(gm.Tags, bd.resourceKeys)
 
 		m := data.NewMetric(name).SetGauge(
 			data.NewGauge(
@@ -161,7 +161,7 @@ func (bd *Backend) SendMetricsAsync(ctx context.Context, mm *gostatsd.MetricMap,
 	})
 
 	mm.Sets.Each(func(name, _ string, sm gostatsd.Set) {
-		resources, attributes := splitTagsByKeys(sm.Tags, bd.resourceKeys)
+		resources, attributes := data.SplitMetricTagsByKeysAndConvert(sm.Tags, bd.resourceKeys)
 
 		m := data.NewMetric(name).SetGauge(
 			data.NewGauge(
@@ -177,7 +177,7 @@ func (bd *Backend) SendMetricsAsync(ctx context.Context, mm *gostatsd.MetricMap,
 	})
 
 	mm.Timers.Each(func(name, _ string, t gostatsd.Timer) {
-		resources, attributes := splitTagsByKeys(t.Tags, bd.resourceKeys)
+		resources, attributes := data.SplitMetricTagsByKeysAndConvert(t.Tags, bd.resourceKeys)
 
 		switch bd.convertTimersToGauges {
 		case true:
