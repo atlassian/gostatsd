@@ -1,3 +1,7 @@
+39.1.7
+------
+- Copy gostatsd event tags with key in resource_keys to resource log attributes
+
 39.1.6
 ------
 - OTLP: Fix histogram bucket tag
