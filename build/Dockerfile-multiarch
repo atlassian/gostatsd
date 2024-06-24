@@ -22,7 +22,7 @@ RUN CGO_ENABLED=0 GOARCH=${TARGETARCH} \
         -X main.BuildDate=$(date +%Y-%m-%d-%H:%M)" \
         ${MAIN_PKG}
 
-FROM alpine:3.19.0
+FROM alpine:3.20.1
 
 RUN apk --no-cache add \
     ca-certificates
