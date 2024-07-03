@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"maps"
 	"net/http"
 	"strings"
 	"sync"
@@ -75,34 +76,48 @@ var (
 	_ healthcheck.DeepCheckProvider = &HttpForwarderHandlerV2{}
 )
 
+// newHTTPForwarderHandlerViperConfig defines the set of required values in order
+// to create a HTTPForwarderHandlerV2 and applies the existing overrides present
+// as part of the configuration passed through.
+func newHTTPForwarderHandlerViperConfig(overrides *viper.Viper) *viper.Viper {
+	values := map[string]any{
+		"transport":                defaultTransport,
+		"compress":                 defaultCompress,
+		"compression-type":         defaultCompressionType,
+		"compression-level":        defaultCompressionLevel,
+		"api-endpoint":             defaultApiEndpoint,
+		"max-requests":             defaultMaxRequests,
+		"max-request-elapsed-time": defaultMaxRequestElapsedTime,
+		"consolidator-slots":       gostatsd.DefaultMaxParsers,
+		"flush-interval":           defaultConsolidatorFlushInterval,
+		"concurrent-merge":         defaultConcurrentMerge,
+	}
+	maps.Copy(values, util.GetSubViper(overrides, "http-transport").AllSettings())
+
+	v := viper.New()
+	_ = v.MergeConfigMap(values)
+
+	return v
+}
+
 // NewHttpForwarderHandlerV2FromViper returns a new http API client.
 func NewHttpForwarderHandlerV2FromViper(logger logrus.FieldLogger, v *viper.Viper, pool *transport.TransportPool, fc flush.Coordinator) (*HttpForwarderHandlerV2, error) {
-	subViper := util.GetSubViper(v, "http-transport")
-	subViper.SetDefault("transport", defaultTransport)
-	subViper.SetDefault("compress", defaultCompress)
-	subViper.SetDefault("compression-type", defaultCompressionType)
-	subViper.SetDefault("compression-level", defaultCompressionLevel)
-	subViper.SetDefault("api-endpoint", defaultApiEndpoint)
-	subViper.SetDefault("max-requests", defaultMaxRequests)
-	subViper.SetDefault("max-request-elapsed-time", defaultMaxRequestElapsedTime)
-	subViper.SetDefault("consolidator-slots", v.GetInt(gostatsd.ParamMaxParsers))
-	subViper.SetDefault("flush-interval", defaultConsolidatorFlushInterval)
-	subViper.SetDefault("concurrent-merge", defaultConcurrentMerge)
+	values := newHTTPForwarderHandlerViperConfig(v)
 
 	return NewHttpForwarderHandlerV2(
 		logger,
-		subViper.GetString("transport"),
-		subViper.GetString("api-endpoint"),
-		subViper.GetInt("consolidator-slots"),
-		subViper.GetInt("max-requests"),
-		subViper.GetInt("concurrent-merge"),
-		subViper.GetBool("compress"),
-		subViper.GetString("compression-type"),
-		subViper.GetInt("compression-level"),
-		subViper.GetDuration("max-request-elapsed-time"),
-		subViper.GetDuration("flush-interval"),
-		subViper.GetStringMapString("custom-headers"),
-		subViper.GetStringSlice("dynamic-headers"),
+		values.GetString("transport"),
+		values.GetString("api-endpoint"),
+		values.GetInt("consolidator-slots"),
+		values.GetInt("max-requests"),
+		values.GetInt("concurrent-merge"),
+		values.GetBool("compress"),
+		values.GetString("compression-type"),
+		values.GetInt("compression-level"),
+		values.GetDuration("max-request-elapsed-time"),
+		values.GetDuration("flush-interval"),
+		values.GetStringMapString("custom-headers"),
+		values.GetStringSlice("dynamic-headers"),
 		pool,
 		fc,
 	)

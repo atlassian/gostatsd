@@ -28,6 +28,38 @@ import (
 	"github.com/atlassian/gostatsd/pkg/web"
 )
 
+type testServer struct {
+	s              *httptest.Server
+	called         uint64
+	pineappleCount uint64
+	derpCount      uint64
+	derpValue      int64
+}
+
+func newTestServer(tb *testing.T) *testServer {
+	t := &testServer{}
+	t.s = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		atomic.AddUint64(&t.called, 1)
+
+		buf, err := io.ReadAll(r.Body)
+		require.NoError(tb, err, "Must not error when reading request")
+
+		var data pb.RawMessageV2
+		require.NoError(tb, proto.Unmarshal(buf, &data))
+
+		counters, ok := data.GetCounters()["pineapples"]
+		if ok {
+			atomic.AddUint64(&t.pineappleCount, 1)
+			val, ok := counters.GetTagMap()["derpinton"]
+			if ok {
+				atomic.AddUint64(&t.derpCount, 1)
+				t.derpValue = val.GetValue()
+			}
+		}
+	}))
+	return t
+}
+
 func TestHttpForwarderDeepCheck(t *testing.T) {
 	t.Parallel()
 
@@ -468,34 +500,27 @@ func TestManualFlush(t *testing.T) {
 	assert.EqualValues(t, 10, atomic.LoadInt64(&ts.derpValue))
 }
 
-type testServer struct {
-	s              *httptest.Server
-	called         uint64
-	pineappleCount uint64
-	derpCount      uint64
-	derpValue      int64
-}
+func TestViperMerges(t *testing.T) {
+	t.Parallel()
 
-func newTestServer(tb *testing.T) *testServer {
-	t := &testServer{}
-	t.s = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		atomic.AddUint64(&t.called, 1)
+	overrides := viper.New()
+	overrides.SetDefault("http-transport.api-endpoint", "localhost")
 
-		buf, err := io.ReadAll(r.Body)
-		require.NoError(tb, err, "Must not error when reading request")
-
-		var data pb.RawMessageV2
-		require.NoError(tb, proto.Unmarshal(buf, &data))
-
-		counters, ok := data.GetCounters()["pineapples"]
-		if ok {
-			atomic.AddUint64(&t.pineappleCount, 1)
-			val, ok := counters.GetTagMap()["derpinton"]
-			if ok {
-				atomic.AddUint64(&t.derpCount, 1)
-				t.derpValue = val.GetValue()
-			}
-		}
-	}))
-	return t
+	values := newHTTPForwarderHandlerViperConfig(overrides)
+	assert.Equal(
+		t,
+		map[string]any{
+			"transport":                defaultTransport,
+			"compress":                 defaultCompress,
+			"compression-type":         defaultCompressionType,
+			"compression-level":        defaultCompressionLevel,
+			"api-endpoint":             "localhost",
+			"max-requests":             defaultMaxRequests,
+			"max-request-elapsed-time": defaultMaxRequestElapsedTime,
+			"consolidator-slots":       gostatsd.DefaultMaxParsers,
+			"flush-interval":           defaultConsolidatorFlushInterval,
+			"concurrent-merge":         defaultConcurrentMerge,
+		},
+		values.AllSettings(),
+	)
 }
