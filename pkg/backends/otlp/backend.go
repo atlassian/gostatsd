@@ -44,7 +44,7 @@ type Backend struct {
 	requestsBufferSem chan struct{}
 
 	// metricsPerBatch is the maximum number of metrics to send in a single batch.
-	metricsPerBatch uint
+	metricsPerBatch int
 }
 
 var _ gostatsd.Backend = (*Backend)(nil)
@@ -119,7 +119,7 @@ func (b *Backend) SendEvent(ctx context.Context, event *gostatsd.Event) error {
 }
 
 func (bd *Backend) SendMetricsAsync(ctx context.Context, mm *gostatsd.MetricMap, cb gostatsd.SendCallback) {
-	group := make(Group)
+	group := NewGroup(bd.metricsPerBatch)
 
 	mm.Counters.Each(func(name, _ string, cm gostatsd.Counter) {
 		resources, attributes := data.SplitMetricTagsByKeysAndConvert(cm.Tags, bd.resourceKeys)
@@ -264,16 +264,19 @@ func (bd *Backend) SendMetricsAsync(ctx context.Context, mm *gostatsd.MetricMap,
 				data.NewHistogram(data.NewHistogramDataPoint(uint64(t.Timestamp), opts...)),
 			))
 		}
-
 	})
 
-	err := bd.postMetrics(ctx, group.Values())
-	if err != nil {
-		bd.logger.WithError(err).WithFields(logrus.Fields{
-			"endpoint": bd.metricsEndpoint,
-		}).Error("Issues trying to submit data")
+	var errs error
+	for _, b := range group.batches {
+		err := bd.postMetrics(ctx, b.Values())
+		if err != nil {
+			bd.logger.WithError(err).WithFields(logrus.Fields{
+				"endpoint": bd.metricsEndpoint,
+			}).Error("Issues trying to submit data")
+			errs = multierr.Append(errs, err)
+		}
 	}
-	cb(multierr.Errors(err))
+	cb(multierr.Errors(errs))
 }
 
 func (c *Backend) postMetrics(ctx context.Context, resourceMetrics []data.ResourceMetrics) error {

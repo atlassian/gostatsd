@@ -28,7 +28,7 @@ type Config struct {
 	// MaxRequests (Optional, default: cpu.count * 2) is the upper limit on the number of inflight requests
 	MaxRequests int `mapstructure:"max_requests"`
 	// MetricsPerBatch (Optional, default: 1000) is the maximum number of metrics to send in a single batch.
-	MetricsPerBatch uint `mapstructure:"metrics_per_batch"`
+	MetricsPerBatch int `mapstructure:"metrics_per_batch"`
 	// ResourceKeys (Optional) is used to extract values from provided tags
 	// to apply to all values within a resource instead within each attribute.
 	// Strongly encouraged to allow down stream consumers to
@@ -71,7 +71,6 @@ func NewConfig(v *viper.Viper) (*Config, error) {
 		util.GetSubViper(v, BackendName).Unmarshal(cfg),
 		cfg.Validate(),
 	)
-
 	if err != nil {
 		return nil, err
 	}

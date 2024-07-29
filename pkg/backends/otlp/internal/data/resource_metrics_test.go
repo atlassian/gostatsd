@@ -22,10 +22,14 @@ func TestNewResourceMetrics(t *testing.T) {
 		NewResource(),
 		NewScopeMetrics(
 			NewInstrumentationScope("gostatsd/aggregation", "test"),
+			NewMetric("a metric"),
+			NewMetric("another metric"),
 		),
 		NewScopeMetrics(
 			NewInstrumentationScope("gostatsd/aggregation", "test"),
+			NewMetric("some metric"),
 		),
 	)
 	assert.Len(t, rm.raw.ScopeMetrics, 2, "Must have two scope metrics defined")
+	assert.Equal(t, 3, rm.CouneMetrics())
 }
