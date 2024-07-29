@@ -29,12 +29,14 @@ func TestNewConfig(t *testing.T) {
 				v.SetDefault("otlp.metrics_endpoint", "http://local/v1/metrics")
 				v.SetDefault("otlp.logs_endpoint", "http://local/v1/logs")
 				v.SetDefault("otlp.max_requests", 1)
+				v.SetDefault("otlp.metrics_per_batch", 999)
 				return v
 			}(),
 			expect: &Config{
 				MetricsEndpoint: "http://local/v1/metrics",
 				LogsEndpoint:    "http://local/v1/logs",
 				MaxRequests:     1,
+				MetricsPerBatch: 999,
 				Conversion:      "AsGauge",
 				Transport:       "default",
 				UserAgent:       "gostatsd",

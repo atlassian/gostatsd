@@ -14,6 +14,9 @@ import (
 const (
 	ConversionAsGauge     = "AsGauge"
 	ConversionAsHistogram = "AsHistogram"
+
+	// defaultMetricsPerBatch is the default number of metrics to send in a single batch.
+	defaultMetricsPerBatch = 1000
 )
 
 type Config struct {
@@ -24,6 +27,8 @@ type Config struct {
 	LogsEndpoint string `mapstructure:"logs_endpoint"`
 	// MaxRequests (Optional, default: cpu.count * 2) is the upper limit on the number of inflight requests
 	MaxRequests int `mapstructure:"max_requests"`
+	// MetricsPerBatch (Optional, default: 1000) is the maximum number of metrics to send in a single batch.
+	MetricsPerBatch uint `mapstructure:"metrics_per_batch"`
 	// ResourceKeys (Optional) is used to extract values from provided tags
 	// to apply to all values within a resource instead within each attribute.
 	// Strongly encouraged to allow down stream consumers to
@@ -52,10 +57,11 @@ type Config struct {
 
 func newDefaultConfig() *Config {
 	return &Config{
-		Transport:   "default",
-		MaxRequests: runtime.NumCPU() * 2,
-		Conversion:  ConversionAsGauge,
-		UserAgent:   "gostatsd",
+		Transport:       "default",
+		MaxRequests:     runtime.NumCPU() * 2,
+		MetricsPerBatch: defaultMetricsPerBatch,
+		Conversion:      ConversionAsGauge,
+		UserAgent:       "gostatsd",
 	}
 }
 
@@ -82,6 +88,9 @@ func (c *Config) Validate() (errs error) {
 	}
 	if c.MaxRequests <= 0 {
 		errs = multierr.Append(errs, errors.New("max request must be a positive value"))
+	}
+	if c.MetricsPerBatch <= 0 {
+		errs = multierr.Append(errs, errors.New("metrics per batch must be a positive value"))
 	}
 	if c.Transport == "" {
 		errs = multierr.Append(errs, errors.New("no transport defined"))

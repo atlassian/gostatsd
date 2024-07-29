@@ -42,6 +42,9 @@ type Backend struct {
 	logger            logrus.FieldLogger
 	client            *http.Client
 	requestsBufferSem chan struct{}
+
+	// metricsPerBatch is the maximum number of metrics to send in a single batch.
+	metricsPerBatch uint
 }
 
 var _ gostatsd.Backend = (*Backend)(nil)
@@ -72,6 +75,7 @@ func NewClientFromViper(v *viper.Viper, logger logrus.FieldLogger, pool *transpo
 		client:                tc.Client,
 		logger:                logger,
 		requestsBufferSem:     make(chan struct{}, cfg.MaxRequests),
+		metricsPerBatch:       cfg.MetricsPerBatch,
 	}, nil
 }
 
