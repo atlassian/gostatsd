@@ -6,31 +6,54 @@ import (
 	"github.com/atlassian/gostatsd/pkg/backends/otlp/internal/data"
 )
 
-// Group is used to ensure metrics that have the same resource attributes
-// are grouped together and it uses a fixed values to reduce potential memory
-// allocations compared to using a string value
-type Group map[uint64]data.ResourceMetrics
+type group map[uint64]data.ResourceMetrics
 
-func NewGroup() Group {
-	return make(Group)
-}
-
-func (g *Group) Values() []data.ResourceMetrics {
+func (g *group) values() []data.ResourceMetrics {
 	return maps.Values(*g)
 }
 
-func (g *Group) Insert(is data.InstrumentationScope, resources data.Map, m data.Metric) {
+func (g *group) lenMetrics() int {
+	count := 0
+	for _, rm := range *g {
+		count += rm.CountMetrics()
+	}
+	return count
+}
+
+// groups is used to ensure metrics that have the same resource attributes
+// are grouped together and it uses a fixed values to reduce potential memory
+// allocations compared to using a string value
+type groups struct {
+	batches         []group
+	metricsInserted int
+	batchSize       int
+}
+
+func newGroups(batchSize int) groups {
+	return groups{
+		batches:   []group{make(group)},
+		batchSize: batchSize,
+	}
+}
+
+func (g *groups) insert(is data.InstrumentationScope, resources data.Map, m data.Metric) {
 	key := resources.Hash()
 
-	entry, exist := (*g)[key]
+	currentBatch := g.batches[len(g.batches)-1]
+	entry, exist := (currentBatch)[key]
 	if !exist {
 		entry = data.NewResourceMetrics(
 			data.NewResource(
 				data.WithResourceMap(resources),
 			),
 		)
-		(*g)[key] = entry
+		(currentBatch)[key] = entry
 	}
-
 	entry.AppendMetric(is, m)
+	currentBatch[key] = entry
+
+	if currentBatch.lenMetrics() >= g.batchSize {
+
+		g.batches = append(g.batches, make(group))
+	}
 }

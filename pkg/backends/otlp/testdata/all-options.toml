@@ -1,27 +1,28 @@
-[ otlp ]
-metrics_endpoint      = 'an-example-of-an-awesome-hostname/with/path/to/otlp/metric/endpoint'
-logs_endpoint         = 'an-example-of-an-awesome-hostname/with/path/to/otlp/logs/endpoint'
-max_requests  = 7
-resource_keys = [ 'service.name', 'service.version', 'deployment.environment']
-conversion    = 'AsHistogram'
-transport     = 'otlp'
-user_agent    = 'gostatsd/otlp'
+[otlp]
+metrics_endpoint = 'an-example-of-an-awesome-hostname/with/path/to/otlp/metric/endpoint'
+logs_endpoint = 'an-example-of-an-awesome-hostname/with/path/to/otlp/logs/endpoint'
+max_requests = 7
+metrics_per_batch = 1000
+resource_keys = ['service.name', 'service.version', 'deployment.environment']
+conversion = 'AsHistogram'
+transport = 'otlp'
+user_agent = 'gostatsd/otlp'
 
 # While this these are valid to set, they are ignored here since conversion is
 # set to `AsHistogram` instead of `AsGauge`
-[ otlp.disabled_timer_aggregations ]
-lower           = false
-lowerpct        = false
-upper           = false
-upperpct        = false
-count           = false
-countpct        = false
-countpersecond  = false 
-mean            = false 
-meanpct         = false
-median          = false
-stddev          = false
-sum             = false 
-sumpct          = false
-sumsquares      = false
-sumsquarespct   = false
+[otlp.disabled_timer_aggregations]
+lower = false
+lowerpct = false
+upper = false
+upperpct = false
+count = false
+countpct = false
+countpersecond = false
+mean = false
+meanpct = false
+median = false
+stddev = false
+sum = false
+sumpct = false
+sumsquares = false
+sumsquarespct = false
