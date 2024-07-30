@@ -1,12 +1,23 @@
 package otlp
 
 import (
-	"golang.org/x/exp/maps"
-
 	"github.com/atlassian/gostatsd/pkg/backends/otlp/internal/data"
+	"golang.org/x/exp/maps"
 )
 
 type group map[uint64]data.ResourceMetrics
+
+func (g *group) Values() []data.ResourceMetrics {
+	return maps.Values(*g)
+}
+
+func (g *group) LenMetrics() int {
+	count := 0
+	for _, rm := range *g {
+		count += rm.CouneMetrics()
+	}
+	return count
+}
 
 // Group is used to ensure metrics that have the same resource attributes
 // are grouped together and it uses a fixed values to reduce potential memory
@@ -22,10 +33,6 @@ func NewGroup(batchSize int) Group {
 		batches:   []group{make(group)},
 		batchSize: batchSize,
 	}
-}
-
-func (g *group) Values() []data.ResourceMetrics {
-	return maps.Values(*g)
 }
 
 func (g *Group) Insert(is data.InstrumentationScope, resources data.Map, m data.Metric) {
@@ -44,7 +51,7 @@ func (g *Group) Insert(is data.InstrumentationScope, resources data.Map, m data.
 	entry.AppendMetric(is, m)
 	currentBatch[key] = entry
 
-	if len(currentBatch) == g.batchSize {
+	if currentBatch.LenMetrics() == g.batchSize {
 		g.batches = append(g.batches, make(group))
 	}
 }
