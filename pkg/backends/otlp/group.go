@@ -1,8 +1,9 @@
 package otlp
 
 import (
-	"github.com/atlassian/gostatsd/pkg/backends/otlp/internal/data"
 	"golang.org/x/exp/maps"
+
+	"github.com/atlassian/gostatsd/pkg/backends/otlp/internal/data"
 )
 
 type group map[uint64]data.ResourceMetrics
