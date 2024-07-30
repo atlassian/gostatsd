@@ -30,7 +30,7 @@ func (rm ResourceMetrics) AppendMetric(is InstrumentationScope, m Metric) {
 	rm.raw.ScopeMetrics[0].Metrics = append(rm.raw.ScopeMetrics[0].Metrics, m.raw)
 }
 
-func (rm ResourceMetrics) CouneMetrics() int {
+func (rm ResourceMetrics) CountMetrics() int {
 	c := 0
 	for _, sm := range rm.raw.ScopeMetrics {
 		c += len(sm.Metrics)

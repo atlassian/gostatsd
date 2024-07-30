@@ -15,7 +15,7 @@ func (g *group) values() []data.ResourceMetrics {
 func (g *group) lenMetrics() int {
 	count := 0
 	for _, rm := range *g {
-		count += rm.CouneMetrics()
+		count += rm.CountMetrics()
 	}
 	return count
 }

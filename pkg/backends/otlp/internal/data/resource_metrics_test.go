@@ -31,5 +31,5 @@ func TestNewResourceMetrics(t *testing.T) {
 		),
 	)
 	assert.Len(t, rm.raw.ScopeMetrics, 2, "Must have two scope metrics defined")
-	assert.Equal(t, 3, rm.CouneMetrics())
+	assert.Equal(t, 3, rm.CountMetrics())
 }
