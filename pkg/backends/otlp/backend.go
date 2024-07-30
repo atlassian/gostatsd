@@ -119,7 +119,7 @@ func (b *Backend) SendEvent(ctx context.Context, event *gostatsd.Event) error {
 }
 
 func (bd *Backend) SendMetricsAsync(ctx context.Context, mm *gostatsd.MetricMap, cb gostatsd.SendCallback) {
-	group := NewGroup(bd.metricsPerBatch)
+	group := NewGroups(bd.metricsPerBatch)
 
 	mm.Counters.Each(func(name, _ string, cm gostatsd.Counter) {
 		resources, attributes := data.SplitMetricTagsByKeysAndConvert(cm.Tags, bd.resourceKeys)

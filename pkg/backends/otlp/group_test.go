@@ -11,7 +11,7 @@ import (
 func TestGroupInsert(t *testing.T) {
 	t.Parallel()
 
-	g := NewGroup(1000)
+	g := NewGroups(1000)
 
 	is := data.NewInstrumentationScope("gostatsd/aggregation", "v1.0.0")
 
@@ -103,7 +103,7 @@ func TestGroupBatch(t *testing.T) {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			g := NewGroup(tc.batchSize)
+			g := NewGroups(tc.batchSize)
 			is := data.NewInstrumentationScope("gostatsd/aggregation", "v1.0.0")
 			for rm, metricNames := range tc.metricsAdded {
 				for _, metricName := range metricNames {
@@ -116,7 +116,7 @@ func TestGroupBatch(t *testing.T) {
 	}
 }
 
-func insertMetric(g *Group, is data.InstrumentationScope, serviceName string, metricName string) {
+func insertMetric(g *Groups, is data.InstrumentationScope, serviceName string, metricName string) {
 	g.Insert(
 		is,
 		data.NewMap(

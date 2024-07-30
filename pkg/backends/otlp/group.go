@@ -20,23 +20,23 @@ func (g *group) LenMetrics() int {
 	return count
 }
 
-// Group is used to ensure metrics that have the same resource attributes
+// Groups is used to ensure metrics that have the same resource attributes
 // are grouped together and it uses a fixed values to reduce potential memory
 // allocations compared to using a string value
-type Group struct {
+type Groups struct {
 	batches         []group
 	metricsInserted int
 	batchSize       int
 }
 
-func NewGroup(batchSize int) Group {
-	return Group{
+func NewGroups(batchSize int) Groups {
+	return Groups{
 		batches:   []group{make(group)},
 		batchSize: batchSize,
 	}
 }
 
-func (g *Group) Insert(is data.InstrumentationScope, resources data.Map, m data.Metric) {
+func (g *Groups) Insert(is data.InstrumentationScope, resources data.Map, m data.Metric) {
 	key := resources.Hash()
 
 	currentBatch := g.batches[len(g.batches)-1]
@@ -52,7 +52,8 @@ func (g *Group) Insert(is data.InstrumentationScope, resources data.Map, m data.
 	entry.AppendMetric(is, m)
 	currentBatch[key] = entry
 
-	if currentBatch.LenMetrics() == g.batchSize {
+	if currentBatch.LenMetrics() >= g.batchSize {
+		// next insertion "current batch" will be the a new batch
 		g.batches = append(g.batches, make(group))
 	}
 }
