@@ -8,11 +8,11 @@ import (
 
 type group map[uint64]data.ResourceMetrics
 
-func (g *group) Values() []data.ResourceMetrics {
+func (g *group) values() []data.ResourceMetrics {
 	return maps.Values(*g)
 }
 
-func (g *group) LenMetrics() int {
+func (g *group) lenMetrics() int {
 	count := 0
 	for _, rm := range *g {
 		count += rm.CouneMetrics()
@@ -20,23 +20,23 @@ func (g *group) LenMetrics() int {
 	return count
 }
 
-// Groups is used to ensure metrics that have the same resource attributes
+// groups is used to ensure metrics that have the same resource attributes
 // are grouped together and it uses a fixed values to reduce potential memory
 // allocations compared to using a string value
-type Groups struct {
+type groups struct {
 	batches         []group
 	metricsInserted int
 	batchSize       int
 }
 
-func NewGroups(batchSize int) Groups {
-	return Groups{
+func newGroups(batchSize int) groups {
+	return groups{
 		batches:   []group{make(group)},
 		batchSize: batchSize,
 	}
 }
 
-func (g *Groups) Insert(is data.InstrumentationScope, resources data.Map, m data.Metric) {
+func (g *groups) insert(is data.InstrumentationScope, resources data.Map, m data.Metric) {
 	key := resources.Hash()
 
 	currentBatch := g.batches[len(g.batches)-1]
@@ -52,8 +52,8 @@ func (g *Groups) Insert(is data.InstrumentationScope, resources data.Map, m data
 	entry.AppendMetric(is, m)
 	currentBatch[key] = entry
 
-	if currentBatch.LenMetrics() >= g.batchSize {
-		// next insertion "current batch" will be the a new batch
+	if currentBatch.lenMetrics() >= g.batchSize {
+
 		g.batches = append(g.batches, make(group))
 	}
 }

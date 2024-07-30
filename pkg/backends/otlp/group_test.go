@@ -11,11 +11,11 @@ import (
 func TestGroupInsert(t *testing.T) {
 	t.Parallel()
 
-	g := NewGroups(1000)
+	g := newGroups(1000)
 
 	is := data.NewInstrumentationScope("gostatsd/aggregation", "v1.0.0")
 
-	g.Insert(
+	g.insert(
 		is,
 		data.NewMap(
 			data.WithStatsdDelimitedTags(
@@ -27,7 +27,7 @@ func TestGroupInsert(t *testing.T) {
 		),
 		data.NewMetric("my-metric"),
 	)
-	g.Insert(
+	g.insert(
 		is,
 		data.NewMap(
 			data.WithStatsdDelimitedTags(
@@ -39,7 +39,7 @@ func TestGroupInsert(t *testing.T) {
 		),
 		data.NewMetric("my-metric"),
 	)
-	g.Insert(
+	g.insert(
 		is,
 		data.NewMap(
 			data.WithStatsdDelimitedTags(
@@ -52,7 +52,7 @@ func TestGroupInsert(t *testing.T) {
 		data.NewMetric("my-metric"),
 	)
 
-	assert.Len(t, g.batches[0].Values(), 2, "Must have two distinct value")
+	assert.Len(t, g.batches[0].values(), 2, "Must have two distinct value")
 }
 
 func TestGroupBatch(t *testing.T) {
@@ -103,7 +103,7 @@ func TestGroupBatch(t *testing.T) {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			g := NewGroups(tc.batchSize)
+			g := newGroups(tc.batchSize)
 			is := data.NewInstrumentationScope("gostatsd/aggregation", "v1.0.0")
 			for rm, metricNames := range tc.metricsAdded {
 				for _, metricName := range metricNames {
@@ -116,8 +116,8 @@ func TestGroupBatch(t *testing.T) {
 	}
 }
 
-func insertMetric(g *Groups, is data.InstrumentationScope, serviceName string, metricName string) {
-	g.Insert(
+func insertMetric(g *groups, is data.InstrumentationScope, serviceName string, metricName string) {
+	g.insert(
 		is,
 		data.NewMap(
 			data.WithStatsdDelimitedTags(

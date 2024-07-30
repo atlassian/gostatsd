@@ -119,7 +119,7 @@ func (b *Backend) SendEvent(ctx context.Context, event *gostatsd.Event) error {
 }
 
 func (bd *Backend) SendMetricsAsync(ctx context.Context, mm *gostatsd.MetricMap, cb gostatsd.SendCallback) {
-	group := NewGroups(bd.metricsPerBatch)
+	group := newGroups(bd.metricsPerBatch)
 
 	mm.Counters.Each(func(name, _ string, cm gostatsd.Counter) {
 		resources, attributes := data.SplitMetricTagsByKeysAndConvert(cm.Tags, bd.resourceKeys)
@@ -144,8 +144,8 @@ func (bd *Backend) SendMetricsAsync(ctx context.Context, mm *gostatsd.MetricMap,
 			),
 		)
 
-		group.Insert(bd.is, resources, rate)
-		group.Insert(bd.is, resources, m)
+		group.insert(bd.is, resources, rate)
+		group.insert(bd.is, resources, m)
 	})
 
 	mm.Gauges.Each(func(name, _ string, gm gostatsd.Gauge) {
@@ -161,7 +161,7 @@ func (bd *Backend) SendMetricsAsync(ctx context.Context, mm *gostatsd.MetricMap,
 			),
 		)
 
-		group.Insert(bd.is, resources, m)
+		group.insert(bd.is, resources, m)
 	})
 
 	mm.Sets.Each(func(name, _ string, sm gostatsd.Set) {
@@ -177,7 +177,7 @@ func (bd *Backend) SendMetricsAsync(ctx context.Context, mm *gostatsd.MetricMap,
 			),
 		)
 
-		group.Insert(bd.is, resources, m)
+		group.insert(bd.is, resources, m)
 	})
 
 	mm.Timers.Each(func(name, _ string, t gostatsd.Timer) {
@@ -194,7 +194,7 @@ func (bd *Backend) SendMetricsAsync(ctx context.Context, mm *gostatsd.MetricMap,
 					} else {
 						btags.Insert("le", strconv.FormatFloat(float64(boundry), 'f', -1, 64))
 					}
-					group.Insert(
+					group.insert(
 						bd.is,
 						resources,
 						data.NewMetric(fmt.Sprintf("%s.histogram", name)).SetGauge(
@@ -228,7 +228,7 @@ func (bd *Backend) SendMetricsAsync(ctx context.Context, mm *gostatsd.MetricMap,
 				if calc.discarded {
 					continue
 				}
-				group.Insert(
+				group.insert(
 					bd.is,
 					resources,
 					data.NewMetric(fmt.Sprintf("%s.%s", name, calc.suffix)).SetGauge(
@@ -242,7 +242,7 @@ func (bd *Backend) SendMetricsAsync(ctx context.Context, mm *gostatsd.MetricMap,
 			}
 
 			for _, pct := range t.Percentiles {
-				group.Insert(bd.is, resources, data.NewMetric(fmt.Sprintf("%s.%s", name, pct.Str)).SetGauge(
+				group.insert(bd.is, resources, data.NewMetric(fmt.Sprintf("%s.%s", name, pct.Str)).SetGauge(
 					data.NewGauge(data.NewNumberDataPoint(
 						uint64(t.Timestamp),
 						data.WithNumberDataPointMap(attributes),
@@ -260,7 +260,7 @@ func (bd *Backend) SendMetricsAsync(ctx context.Context, mm *gostatsd.MetricMap,
 			if len(t.Histogram) != 0 {
 				opts = append(opts, data.WithHistogramDataPointCumulativeBucketValues(t.Histogram))
 			}
-			group.Insert(bd.is, resources, data.NewMetric(name).SetHistogram(
+			group.insert(bd.is, resources, data.NewMetric(name).SetHistogram(
 				data.NewHistogram(data.NewHistogramDataPoint(uint64(t.Timestamp), opts...)),
 			))
 		}
@@ -268,7 +268,7 @@ func (bd *Backend) SendMetricsAsync(ctx context.Context, mm *gostatsd.MetricMap,
 
 	var errs error
 	for _, b := range group.batches {
-		err := bd.postMetrics(ctx, b.Values())
+		err := bd.postMetrics(ctx, b.values())
 		if err != nil {
 			bd.logger.WithError(err).WithFields(logrus.Fields{
 				"endpoint": bd.metricsEndpoint,
