@@ -1,3 +1,7 @@
+39.1.8
+------
+- OTLP: Fix batching support
+
 39.1.7
 ------
 - Copy gostatsd event tags with key in resource_keys to resource log attributes
