@@ -29,11 +29,12 @@ const (
 // to export values as OTLP metrics.
 // The zero value is not safe to use.
 type Backend struct {
-	batchesCreated uint64 // Accumulated number of batches created
-	batchesDropped uint64 // Accumulated number of batches aborted (data loss)
-	batchesSent    uint64 // Accumulated number of batches successfully sent
-	seriesSent     uint64 // Accumulated number of series successfully sent
-	seriesDropped  uint64 // Accumulated number of series aborted (data loss)
+	batchesCreated uint64            // Accumulated number of batches created
+	batchesDropped uint64            // Accumulated number of batches aborted (data loss)
+	batchesSent    uint64            // Accumulated number of batches successfully sent
+	batchesRetried stats.ChangeGauge // Accumulated number of batches retried (first send is not a retry)
+	seriesSent     uint64            // Accumulated number of series successfully sent
+	seriesDropped  uint64            // Accumulated number of series aborted (data loss)
 
 	eventsSent    uint64 // Accumulated number of events successfully sent
 	eventsDropped uint64 // Accumulated number of events aborted (data loss)
@@ -48,6 +49,7 @@ type Backend struct {
 	logger            logrus.FieldLogger
 	client            *http.Client
 	requestsBufferSem chan struct{}
+	maxRetries        int
 
 	// metricsPerBatch is the maximum number of metrics to send in a single batch.
 	metricsPerBatch int
@@ -81,6 +83,7 @@ func NewClientFromViper(v *viper.Viper, logger logrus.FieldLogger, pool *transpo
 		client:                tc.Client,
 		logger:                logger,
 		requestsBufferSem:     make(chan struct{}, cfg.MaxRequests),
+		maxRetries:            cfg.MaxRetries,
 		metricsPerBatch:       cfg.MetricsPerBatch,
 	}, nil
 }
@@ -133,6 +136,7 @@ func (bd *Backend) SendMetricsAsync(ctx context.Context, mm *gostatsd.MetricMap,
 		statser.Gauge("backend.sent", float64(atomic.LoadUint64(&bd.batchesSent)), nil)
 		statser.Gauge("backend.series.sent", float64(atomic.LoadUint64(&bd.seriesSent)), nil)
 		statser.Gauge("backend.series.dropped", float64(atomic.LoadUint64(&bd.seriesDropped)), nil)
+		bd.batchesRetried.SendIfChanged(statser, "backend.retried", nil)
 	}()
 
 	group := newGroups(bd.metricsPerBatch)
@@ -311,10 +315,26 @@ func (c *Backend) postMetrics(ctx context.Context, batch group) error {
 	c.requestsBufferSem <- struct{}{}
 	resp, err := c.client.Do(req)
 	<-c.requestsBufferSem
-	if err != nil {
-		atomic.AddUint64(&c.batchesDropped, 1)
-		return err
+	// OTLP standard specifies 400 will be returned if the request is non-retryable, so we don't retry on 400
+	if err != nil && resp.StatusCode != http.StatusBadRequest {
+		for i := 0; i < c.maxRetries; i++ {
+			atomic.AddUint64(&c.batchesRetried.Cur, 1)
+			if resp != nil {
+				resp.Body.Close()
+			}
+			c.requestsBufferSem <- struct{}{}
+			resp, err = c.client.Do(req)
+			<-c.requestsBufferSem
+			if err == nil {
+				break
+			} else {
+				c.logger.WithError(err).WithFields(logrus.Fields{
+					"endpoint": c.metricsEndpoint,
+				}).Error("failed while retrying")
+			}
+		}
 	}
+	defer resp.Body.Close()
 	dropped, err := data.ProcessMetricResponse(resp)
 	atomic.AddUint64(&c.seriesDropped, uint64(dropped))
 
