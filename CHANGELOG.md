@@ -1,3 +1,7 @@
+39.1.10
+------
+- OTLP: Add retries when request sending metrics failed 
+
 39.1.9
 ------
 - OTLP: Add more metrics
