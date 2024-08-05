@@ -91,7 +91,7 @@ func (c *Config) Validate() (errs error) {
 	if c.MaxRequests <= 0 {
 		errs = multierr.Append(errs, errors.New("max request must be a positive value"))
 	}
-	if c.MaxRetries <= 0 {
+	if c.MaxRetries < 0 {
 		errs = multierr.Append(errs, errors.New("max retries must be a positive value"))
 	}
 	if c.MetricsPerBatch <= 0 {
