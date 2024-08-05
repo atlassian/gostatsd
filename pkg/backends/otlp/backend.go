@@ -304,39 +304,44 @@ func (bd *Backend) SendMetricsAsync(ctx context.Context, mm *gostatsd.MetricMap,
 }
 
 func (c *Backend) postMetrics(ctx context.Context, batch group) error {
-	resourceMetrics := batch.values()
+	var (
+		retries int
+		req     *http.Request
+		resp    *http.Response
+		err     error
+	)
 
-	req, err := data.NewMetricsRequest(ctx, c.metricsEndpoint, resourceMetrics)
+	resourceMetrics := batch.values()
+	req, err = data.NewMetricsRequest(ctx, c.metricsEndpoint, resourceMetrics)
 	if err != nil {
 		atomic.AddUint64(&c.batchesDropped, 1)
 		return err
 	}
 
-	c.requestsBufferSem <- struct{}{}
-	resp, err := c.client.Do(req)
-	<-c.requestsBufferSem
-	// OTLP standard specifies 400 will be returned if the request is non-retryable, so we don't retry on 400
-	if err != nil && resp.StatusCode != http.StatusBadRequest {
-		for i := 0; i < c.maxRetries; i++ {
-			atomic.AddUint64(&c.batchesRetried.Cur, 1)
-			if resp != nil {
-				resp.Body.Close()
-			}
-			c.requestsBufferSem <- struct{}{}
-			resp, err = c.client.Do(req)
-			<-c.requestsBufferSem
+	for {
+		var dropped int64
+		c.requestsBufferSem <- struct{}{}
+		resp, err = c.client.Do(req)
+		<-c.requestsBufferSem
+		if err == nil {
+			dropped, err = data.ProcessMetricResponse(resp)
 			if err == nil {
-				break
-			} else {
-				c.logger.WithError(err).WithFields(logrus.Fields{
-					"endpoint": c.metricsEndpoint,
-				}).Error("failed while retrying")
+				return nil
+			}
+			if dropped > 0 {
+				// If partial data points were dropped, it shouldn't retry
+				atomic.AddUint64(&c.seriesDropped, uint64(dropped))
+				return err
 			}
 		}
+
+		if retries >= c.maxRetries {
+			break
+		}
+
+		retries++
+		atomic.AddUint64(&c.batchesRetried.Cur, 1)
 	}
-	defer resp.Body.Close()
-	dropped, err := data.ProcessMetricResponse(resp)
-	atomic.AddUint64(&c.seriesDropped, uint64(dropped))
 
 	return err
 }

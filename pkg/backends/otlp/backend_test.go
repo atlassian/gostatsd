@@ -380,6 +380,78 @@ func TestBackendSendAsyncMetrics(t *testing.T) {
 	}
 }
 
+func TestRetrySendMetrics(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name            string
+		numUntilSuccess int
+		maxRetries      int
+		wantAttempts    int
+		numErrs         int
+	}{
+		{
+			name:            "should retry sending metrics if it fails for the first time",
+			numUntilSuccess: 2,
+			maxRetries:      3,
+			wantAttempts:    2,
+			numErrs:         0,
+		},
+		{
+			name:            "should give up if it still fails when reach the maximum number of retries",
+			numUntilSuccess: 5,
+			maxRetries:      3,
+			wantAttempts:    4,
+			numErrs:         1,
+		},
+		{
+			name:            "should not retry if it succeeds at the first time",
+			numUntilSuccess: 1,
+			maxRetries:      3,
+			wantAttempts:    1,
+			numErrs:         0,
+		},
+		{
+			name:            "should not retry if maxRetries is 0",
+			numUntilSuccess: 5,
+			maxRetries:      0,
+			wantAttempts:    1,
+			numErrs:         1,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			attempts := 0
+			s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				attempts++
+				if attempts < tc.numUntilSuccess {
+					http.Error(w, "im dead", http.StatusServiceUnavailable)
+					return
+				}
+				w.WriteHeader(http.StatusOK)
+			}))
+			t.Cleanup(s.Close)
+
+			v := viper.New()
+			v.Set("otlp.metrics_endpoint", fmt.Sprintf("%s/%s", s.URL, "v1/metrics"))
+			v.Set("otlp.logs_endpoint", fmt.Sprintf("%s/%s", s.URL, "v1/logs"))
+			v.Set("otlp.max_retries", tc.maxRetries)
+
+			logger := fixtures.NewTestLogger(t)
+
+			b, err := NewClientFromViper(
+				v,
+				logger,
+				transport.NewTransportPool(logger, v),
+			)
+			require.NoError(t, err, "Must not error creating backend")
+
+			b.SendMetricsAsync(context.Background(), gostatsd.NewMetricMap(false), func(errs []error) {
+				assert.Equal(t, tc.numErrs, len(errs))
+				assert.Equal(t, tc.wantAttempts, attempts, "Must retry sending metrics")
+			})
+		})
+	}
+}
+
 func TestSendEvent(t *testing.T) {
 	t.Parallel()
 	for _, tc := range []struct {

@@ -1,6 +1,7 @@
 package data
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -11,6 +12,10 @@ import (
 )
 
 func ProcessMetricResponse(resp *http.Response) (dropped int64, errs error) {
+	if resp == nil {
+		return 0, errors.New("empty response")
+	}
+
 	buf, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return 0, err
