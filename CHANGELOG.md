@@ -1,3 +1,7 @@
+39.1.9
+------
+- OTLP: Add more metrics
+
 39.1.8
 ------
 - OTLP: Fix batching support
