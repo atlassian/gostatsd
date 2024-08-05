@@ -27,6 +27,8 @@ type Config struct {
 	LogsEndpoint string `mapstructure:"logs_endpoint"`
 	// MaxRequests (Optional, default: cpu.count * 2) is the upper limit on the number of inflight requests
 	MaxRequests int `mapstructure:"max_requests"`
+	// MaxRetries (Optional, default: 3) is the maximum number of retries to send a batch
+	MaxRetries int `mapstructure:"max_retries"`
 	// MetricsPerBatch (Optional, default: 1000) is the maximum number of metrics to send in a single batch.
 	MetricsPerBatch int `mapstructure:"metrics_per_batch"`
 	// ResourceKeys (Optional) is used to extract values from provided tags
@@ -59,6 +61,7 @@ func newDefaultConfig() *Config {
 	return &Config{
 		Transport:       "default",
 		MaxRequests:     runtime.NumCPU() * 2,
+		MaxRetries:      3,
 		MetricsPerBatch: defaultMetricsPerBatch,
 		Conversion:      ConversionAsGauge,
 		UserAgent:       "gostatsd",
@@ -87,6 +90,9 @@ func (c *Config) Validate() (errs error) {
 	}
 	if c.MaxRequests <= 0 {
 		errs = multierr.Append(errs, errors.New("max request must be a positive value"))
+	}
+	if c.MaxRetries <= 0 {
+		errs = multierr.Append(errs, errors.New("max retries must be a positive value"))
 	}
 	if c.MetricsPerBatch <= 0 {
 		errs = multierr.Append(errs, errors.New("metrics per batch must be a positive value"))
