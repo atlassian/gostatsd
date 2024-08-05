@@ -92,12 +92,6 @@ func (*Backend) Name() string {
 func (b *Backend) SendEvent(ctx context.Context, event *gostatsd.Event) error {
 	statser := stats.FromContext(ctx).WithTags(gostatsd.Tags{"backend:otlp"})
 	defer func() {
-		statser.Gauge("backend.created", float64(atomic.LoadUint64(&b.batchesCreated)), nil)
-		statser.Gauge("backend.dropped", float64(atomic.LoadUint64(&b.batchesDropped)), nil)
-		statser.Gauge("backend.sent", float64(atomic.LoadUint64(&b.batchesSent)), nil)
-		statser.Gauge("backend.series.sent", float64(atomic.LoadUint64(&b.seriesSent)), nil)
-		statser.Gauge("backend.series.dropped", float64(atomic.LoadUint64(&b.seriesDropped)), nil)
-
 		statser.Gauge("backend.dropped_events", float64(atomic.LoadUint64(&b.eventsDropped)), nil)
 		statser.Gauge("backend.sent_events", float64(atomic.LoadUint64(&b.eventsSent)), nil)
 	}()
@@ -134,8 +128,11 @@ func (b *Backend) SendEvent(ctx context.Context, event *gostatsd.Event) error {
 func (bd *Backend) SendMetricsAsync(ctx context.Context, mm *gostatsd.MetricMap, cb gostatsd.SendCallback) {
 	statser := stats.FromContext(ctx).WithTags(gostatsd.Tags{"backend:otlp"})
 	defer func() {
+		statser.Gauge("backend.created", float64(atomic.LoadUint64(&bd.batchesCreated)), nil)
 		statser.Gauge("backend.dropped", float64(atomic.LoadUint64(&bd.batchesDropped)), nil)
 		statser.Gauge("backend.sent", float64(atomic.LoadUint64(&bd.batchesSent)), nil)
+		statser.Gauge("backend.series.sent", float64(atomic.LoadUint64(&bd.seriesSent)), nil)
+		statser.Gauge("backend.series.dropped", float64(atomic.LoadUint64(&bd.seriesDropped)), nil)
 	}()
 
 	group := newGroups(bd.metricsPerBatch)
