@@ -362,6 +362,7 @@ func TestBackendSendAsyncMetrics(t *testing.T) {
 			v := viper.New()
 			v.Set("otlp.metrics_endpoint", fmt.Sprintf("%s/%s", s.URL, "v1/metrics"))
 			v.Set("otlp.logs_endpoint", fmt.Sprintf("%s/%s", s.URL, "v1/logs"))
+			v.Set("otlp.compress_payload", false)
 			if tc.enableHistograms {
 				v.Set("otlp.conversion", ConversionAsHistogram)
 			}

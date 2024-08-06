@@ -6,7 +6,13 @@ import (
 	"net/http"
 )
 
-func createProtobufRequest(ctx context.Context, endpoint string, buf []byte) (*http.Request, error) {
+func withHeader(key, value string) func(*http.Request) {
+	return func(req *http.Request) {
+		req.Header.Set(key, value)
+	}
+}
+
+func createProtobufRequest(ctx context.Context, endpoint string, buf []byte, option ...func(*http.Request)) (*http.Request, error) {
 	req, err := http.NewRequestWithContext(
 		ctx,
 		http.MethodPost,
@@ -18,5 +24,8 @@ func createProtobufRequest(ctx context.Context, endpoint string, buf []byte) (*h
 	}
 
 	req.Header.Set("Content-Type", RequestContentTypeProtobuf)
+	for _, opt := range option {
+		opt(req)
+	}
 	return req, nil
 }

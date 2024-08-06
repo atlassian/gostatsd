@@ -51,6 +51,7 @@ type Backend struct {
 	client            *http.Client
 	requestsBufferSem chan struct{}
 	maxRetries        int
+	CompressPayload   bool
 
 	// metricsPerBatch is the maximum number of metrics to send in a single batch.
 	metricsPerBatch int
@@ -85,6 +86,7 @@ func NewClientFromViper(v *viper.Viper, logger logrus.FieldLogger, pool *transpo
 		logger:                logger,
 		requestsBufferSem:     make(chan struct{}, cfg.MaxRequests),
 		maxRetries:            cfg.MaxRetries,
+		CompressPayload:       cfg.CompressPayload,
 		metricsPerBatch:       cfg.MetricsPerBatch,
 	}, nil
 }
@@ -318,7 +320,7 @@ func (c *Backend) postMetrics(ctx context.Context, batch group) error {
 	)
 
 	resourceMetrics := batch.values()
-	req, err = data.NewMetricsRequest(ctx, c.metricsEndpoint, resourceMetrics)
+	req, err = data.NewMetricsRequest(ctx, c.metricsEndpoint, resourceMetrics, c.CompressPayload)
 	if err != nil {
 		return err
 	}
