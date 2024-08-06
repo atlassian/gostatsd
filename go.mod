@@ -32,6 +32,8 @@ require (
 	stathat.com/c/consistent v1.0.0
 )
 
+require golang.org/x/sync v0.6.0
+
 require (
 	github.com/PuerkitoBio/purell v1.1.1 // indirect
 	github.com/PuerkitoBio/urlesc v0.0.0-20170810143723-de5bf2ad4578 // indirect
