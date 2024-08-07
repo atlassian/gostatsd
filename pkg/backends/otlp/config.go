@@ -29,6 +29,8 @@ type Config struct {
 	MaxRequests int `mapstructure:"max_requests"`
 	// MaxRetries (Optional, default: 3) is the maximum number of retries to send a batch
 	MaxRetries int `mapstructure:"max_retries"`
+	// CompressPayload (Optional, default: true) is used to enable payload compression
+	CompressPayload bool `mapstructure:"compress_payload"`
 	// MetricsPerBatch (Optional, default: 1000) is the maximum number of metrics to send in a single batch.
 	MetricsPerBatch int `mapstructure:"metrics_per_batch"`
 	// ResourceKeys (Optional) is used to extract values from provided tags
@@ -62,6 +64,7 @@ func newDefaultConfig() *Config {
 		Transport:       "default",
 		MaxRequests:     runtime.NumCPU() * 2,
 		MaxRetries:      3,
+		CompressPayload: true,
 		MetricsPerBatch: defaultMetricsPerBatch,
 		Conversion:      ConversionAsGauge,
 		UserAgent:       "gostatsd",

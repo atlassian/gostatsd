@@ -13,6 +13,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"go.uber.org/multierr"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/atlassian/gostatsd/pkg/stats"
 
@@ -50,6 +51,7 @@ type Backend struct {
 	client            *http.Client
 	requestsBufferSem chan struct{}
 	maxRetries        int
+	CompressPayload   bool
 
 	// metricsPerBatch is the maximum number of metrics to send in a single batch.
 	metricsPerBatch int
@@ -84,6 +86,7 @@ func NewClientFromViper(v *viper.Viper, logger logrus.FieldLogger, pool *transpo
 		logger:                logger,
 		requestsBufferSem:     make(chan struct{}, cfg.MaxRequests),
 		maxRetries:            cfg.MaxRetries,
+		CompressPayload:       cfg.CompressPayload,
 		metricsPerBatch:       cfg.MetricsPerBatch,
 	}, nil
 }
@@ -139,7 +142,7 @@ func (bd *Backend) SendMetricsAsync(ctx context.Context, mm *gostatsd.MetricMap,
 		bd.batchesRetried.SendIfChanged(statser, "backend.retried", nil)
 	}()
 
-	group := newGroups(bd.metricsPerBatch)
+	currentGroup := newGroups(bd.metricsPerBatch)
 
 	mm.Counters.Each(func(name, _ string, cm gostatsd.Counter) {
 		resources, attributes := data.SplitMetricTagsByKeysAndConvert(cm.Tags, bd.resourceKeys)
@@ -164,8 +167,8 @@ func (bd *Backend) SendMetricsAsync(ctx context.Context, mm *gostatsd.MetricMap,
 			),
 		)
 
-		group.insert(bd.is, resources, rate)
-		group.insert(bd.is, resources, m)
+		currentGroup.insert(bd.is, resources, rate)
+		currentGroup.insert(bd.is, resources, m)
 	})
 
 	mm.Gauges.Each(func(name, _ string, gm gostatsd.Gauge) {
@@ -181,7 +184,7 @@ func (bd *Backend) SendMetricsAsync(ctx context.Context, mm *gostatsd.MetricMap,
 			),
 		)
 
-		group.insert(bd.is, resources, m)
+		currentGroup.insert(bd.is, resources, m)
 	})
 
 	mm.Sets.Each(func(name, _ string, sm gostatsd.Set) {
@@ -197,7 +200,7 @@ func (bd *Backend) SendMetricsAsync(ctx context.Context, mm *gostatsd.MetricMap,
 			),
 		)
 
-		group.insert(bd.is, resources, m)
+		currentGroup.insert(bd.is, resources, m)
 	})
 
 	mm.Timers.Each(func(name, _ string, t gostatsd.Timer) {
@@ -214,7 +217,7 @@ func (bd *Backend) SendMetricsAsync(ctx context.Context, mm *gostatsd.MetricMap,
 					} else {
 						btags.Insert("le", strconv.FormatFloat(float64(boundry), 'f', -1, 64))
 					}
-					group.insert(
+					currentGroup.insert(
 						bd.is,
 						resources,
 						data.NewMetric(fmt.Sprintf("%s.histogram", name)).SetGauge(
@@ -248,7 +251,7 @@ func (bd *Backend) SendMetricsAsync(ctx context.Context, mm *gostatsd.MetricMap,
 				if calc.discarded {
 					continue
 				}
-				group.insert(
+				currentGroup.insert(
 					bd.is,
 					resources,
 					data.NewMetric(fmt.Sprintf("%s.%s", name, calc.suffix)).SetGauge(
@@ -262,7 +265,7 @@ func (bd *Backend) SendMetricsAsync(ctx context.Context, mm *gostatsd.MetricMap,
 			}
 
 			for _, pct := range t.Percentiles {
-				group.insert(bd.is, resources, data.NewMetric(fmt.Sprintf("%s.%s", name, pct.Str)).SetGauge(
+				currentGroup.insert(bd.is, resources, data.NewMetric(fmt.Sprintf("%s.%s", name, pct.Str)).SetGauge(
 					data.NewGauge(data.NewNumberDataPoint(
 						uint64(t.Timestamp),
 						data.WithNumberDataPointMap(attributes),
@@ -280,27 +283,32 @@ func (bd *Backend) SendMetricsAsync(ctx context.Context, mm *gostatsd.MetricMap,
 			if len(t.Histogram) != 0 {
 				opts = append(opts, data.WithHistogramDataPointCumulativeBucketValues(t.Histogram))
 			}
-			group.insert(bd.is, resources, data.NewMetric(name).SetHistogram(
+			currentGroup.insert(bd.is, resources, data.NewMetric(name).SetHistogram(
 				data.NewHistogram(data.NewHistogramDataPoint(uint64(t.Timestamp), opts...)),
 			))
 		}
 	})
 
-	var errs error
-	for _, b := range group.batches {
+	eg, ectx := errgroup.WithContext(ctx)
+	for _, b := range currentGroup.batches {
 		atomic.AddUint64(&bd.batchesCreated, 1)
-		err := bd.postMetrics(ctx, b)
-		if err != nil {
-			bd.logger.WithError(err).WithFields(logrus.Fields{
-				"endpoint": bd.metricsEndpoint,
-			}).Error("Issues trying to submit data")
-			errs = multierr.Append(errs, err)
-		} else {
-			atomic.AddUint64(&bd.batchesSent, 1)
-			atomic.AddUint64(&bd.seriesSent, uint64(b.lenMetrics()))
-		}
+		func(g group) {
+			eg.Go(func() error {
+				err := bd.postMetrics(ectx, b)
+				if err != nil {
+					bd.logger.WithError(err).WithFields(logrus.Fields{
+						"endpoint": bd.metricsEndpoint,
+					}).Error("Issues trying to submit data")
+					atomic.AddUint64(&bd.batchesDropped, 1)
+				} else {
+					atomic.AddUint64(&bd.batchesSent, 1)
+					atomic.AddUint64(&bd.seriesSent, uint64(b.lenMetrics()))
+				}
+				return err
+			})
+		}(b)
 	}
-	cb(multierr.Errors(errs))
+	cb(multierr.Errors(eg.Wait()))
 }
 
 func (c *Backend) postMetrics(ctx context.Context, batch group) error {
@@ -312,9 +320,8 @@ func (c *Backend) postMetrics(ctx context.Context, batch group) error {
 	)
 
 	resourceMetrics := batch.values()
-	req, err = data.NewMetricsRequest(ctx, c.metricsEndpoint, resourceMetrics)
+	req, err = data.NewMetricsRequest(ctx, c.metricsEndpoint, resourceMetrics, c.CompressPayload)
 	if err != nil {
-		atomic.AddUint64(&c.batchesDropped, 1)
 		return err
 	}
 
