@@ -1,3 +1,9 @@
+39.1.12
+------
+
+- OTLP: Bugfix: metrics batch sending 
+- OTLP: Added host dimension to metrics
+
 39.1.11
 ------
 
