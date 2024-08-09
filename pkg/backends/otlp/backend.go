@@ -292,9 +292,9 @@ func (bd *Backend) SendMetricsAsync(ctx context.Context, mm *gostatsd.MetricMap,
 	eg, ectx := errgroup.WithContext(ctx)
 	for _, b := range currentGroup.batches {
 		atomic.AddUint64(&bd.batchesCreated, 1)
-		func(g group) {
+		func(currentBatch group) {
 			eg.Go(func() error {
-				err := bd.postMetrics(ectx, b)
+				err := bd.postMetrics(ectx, currentBatch)
 				if err != nil {
 					bd.logger.WithError(err).WithFields(logrus.Fields{
 						"endpoint": bd.metricsEndpoint,
@@ -302,7 +302,7 @@ func (bd *Backend) SendMetricsAsync(ctx context.Context, mm *gostatsd.MetricMap,
 					atomic.AddUint64(&bd.batchesDropped, 1)
 				} else {
 					atomic.AddUint64(&bd.batchesSent, 1)
-					atomic.AddUint64(&bd.seriesSent, uint64(b.lenMetrics()))
+					atomic.AddUint64(&bd.seriesSent, uint64(currentBatch.lenMetrics()))
 				}
 				return err
 			})
