@@ -300,6 +300,91 @@ func TestBackendSendAsyncMetrics(t *testing.T) {
 			},
 		},
 		{
+			name: "valid metric data with source",
+			mm: func() *gostatsd.MetricMap {
+				mm := gostatsd.NewMetricMap(false)
+				mm.Receive(&gostatsd.Metric{
+					Name:      "my-metric",
+					Value:     100.0,
+					Rate:      1,
+					Tags:      gostatsd.Tags{"service.name:my-awesome-service"},
+					Timestamp: gostatsd.Nanotime(time.Unix(100, 0).UnixNano()),
+					Type:      gostatsd.COUNTER,
+					Source:    "fake-source",
+				})
+				return mm
+			}(),
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				body, err := io.ReadAll(r.Body)
+				assert.NoError(t, err, "Must not error reading body")
+				assert.NotEmpty(t, body, "Must not have an empty body")
+
+				req := &v1export.ExportMetricsServiceRequest{}
+				err = proto.Unmarshal(body, req)
+				assert.NoError(t, err, "Must not error unmarshalling body")
+
+				ms := req.GetResourceMetrics()[0].GetScopeMetrics()[0].GetMetrics()
+				dpCountAttrs := ms[1].GetSum().DataPoints[0].GetAttributes()
+				for _, attr := range dpCountAttrs {
+					if attr.Key == "source" {
+						assert.Equal(t, "fake-source", attr.Value.GetStringValue())
+						return
+					}
+
+					assert.Error(t, fmt.Errorf("source attribute not found"))
+				}
+			},
+			enableHistograms: false,
+			validate: func(t *testing.T) func(errs []error) {
+				return func(errs []error) {
+					if !assert.Len(t, errs, 0, "Must not error") {
+						return
+					}
+				}
+			},
+		},
+		{
+			name: "valid metric data without source",
+			mm: func() *gostatsd.MetricMap {
+				mm := gostatsd.NewMetricMap(false)
+				mm.Receive(&gostatsd.Metric{
+					Name:      "my-metric",
+					Value:     100.0,
+					Rate:      1,
+					Tags:      gostatsd.Tags{"service.name:my-awesome-service"},
+					Timestamp: gostatsd.Nanotime(time.Unix(100, 0).UnixNano()),
+					Type:      gostatsd.COUNTER,
+				})
+				return mm
+			}(),
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				body, err := io.ReadAll(r.Body)
+				assert.NoError(t, err, "Must not error reading body")
+				assert.NotEmpty(t, body, "Must not have an empty body")
+
+				req := &v1export.ExportMetricsServiceRequest{}
+				err = proto.Unmarshal(body, req)
+				assert.NoError(t, err, "Must not error unmarshalling body")
+
+				ms := req.GetResourceMetrics()[0].GetScopeMetrics()[0].GetMetrics()
+				dpCountAttrs := ms[1].GetSum().DataPoints[0].GetAttributes()
+				for _, attr := range dpCountAttrs {
+					if attr.Key == "source" {
+						assert.Error(t, fmt.Errorf("source attribute not found"))
+						return
+					}
+				}
+			},
+			enableHistograms: false,
+			validate: func(t *testing.T) func(errs []error) {
+				return func(errs []error) {
+					if !assert.Len(t, errs, 0, "Must not error") {
+						return
+					}
+				}
+			},
+		},
+		{
 			name: "valid metric data with histogram conversion",
 			mm: func() *gostatsd.MetricMap {
 				mm := gostatsd.NewMetricMap(false)
