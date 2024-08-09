@@ -326,7 +326,7 @@ func TestBackendSendAsyncMetrics(t *testing.T) {
 				ms := req.GetResourceMetrics()[0].GetScopeMetrics()[0].GetMetrics()
 				dpCountAttrs := ms[1].GetSum().DataPoints[0].GetAttributes()
 				for _, attr := range dpCountAttrs {
-					if attr.Key == "source" {
+					if attr.Key == "host" {
 						assert.Equal(t, "fake-source", attr.Value.GetStringValue())
 						return
 					}
@@ -369,7 +369,7 @@ func TestBackendSendAsyncMetrics(t *testing.T) {
 				ms := req.GetResourceMetrics()[0].GetScopeMetrics()[0].GetMetrics()
 				dpCountAttrs := ms[1].GetSum().DataPoints[0].GetAttributes()
 				for _, attr := range dpCountAttrs {
-					if attr.Key == "source" {
+					if attr.Key == "host" {
 						assert.Error(t, fmt.Errorf("source attribute not found"))
 						return
 					}
