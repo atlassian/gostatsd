@@ -145,10 +145,10 @@ func (bd *Backend) SendMetricsAsync(ctx context.Context, mm *gostatsd.MetricMap,
 	currentGroup := newGroups(bd.metricsPerBatch)
 
 	mm.Counters.Each(func(name, _ string, cm gostatsd.Counter) {
-		resources, attributes := data.SplitMetricTagsByKeysAndConvert(cm.Tags, bd.resourceKeys)
-		if cm.Source != "" {
-			attributes.Insert("source", string(cm.Source))
+		if !cm.Tags.Exists("host") && cm.Source != "" {
+			cm.Tags.Concat(gostatsd.Tags{"host:" + string(cm.Source)})
 		}
+		resources, attributes := data.SplitMetricTagsByKeysAndConvert(cm.Tags, bd.resourceKeys)
 
 		rate := data.NewMetric(name).SetGauge(
 			data.NewGauge(
@@ -175,10 +175,10 @@ func (bd *Backend) SendMetricsAsync(ctx context.Context, mm *gostatsd.MetricMap,
 	})
 
 	mm.Gauges.Each(func(name, _ string, gm gostatsd.Gauge) {
-		resources, attributes := data.SplitMetricTagsByKeysAndConvert(gm.Tags, bd.resourceKeys)
-		if gm.Source != "" {
-			attributes.Insert("source", string(gm.Source))
+		if !gm.Tags.Exists("host") && gm.Source != "" {
+			gm.Tags.Concat(gostatsd.Tags{"host:" + string(gm.Source)})
 		}
+		resources, attributes := data.SplitMetricTagsByKeysAndConvert(gm.Tags, bd.resourceKeys)
 
 		m := data.NewMetric(name).SetGauge(
 			data.NewGauge(
@@ -194,10 +194,10 @@ func (bd *Backend) SendMetricsAsync(ctx context.Context, mm *gostatsd.MetricMap,
 	})
 
 	mm.Sets.Each(func(name, _ string, sm gostatsd.Set) {
-		resources, attributes := data.SplitMetricTagsByKeysAndConvert(sm.Tags, bd.resourceKeys)
-		if sm.Source != "" {
-			attributes.Insert("source", string(sm.Source))
+		if !sm.Tags.Exists("host") && sm.Source != "" {
+			sm.Tags.Concat(gostatsd.Tags{"host:" + string(sm.Source)})
 		}
+		resources, attributes := data.SplitMetricTagsByKeysAndConvert(sm.Tags, bd.resourceKeys)
 
 		m := data.NewMetric(name).SetGauge(
 			data.NewGauge(
@@ -213,10 +213,10 @@ func (bd *Backend) SendMetricsAsync(ctx context.Context, mm *gostatsd.MetricMap,
 	})
 
 	mm.Timers.Each(func(name, _ string, t gostatsd.Timer) {
-		resources, attributes := data.SplitMetricTagsByKeysAndConvert(t.Tags, bd.resourceKeys)
-		if t.Source != "" {
-			attributes.Insert("source", string(t.Source))
+		if !t.Tags.Exists("host") && t.Source != "" {
+			t.Tags.Concat(gostatsd.Tags{"host:" + string(t.Source)})
 		}
+		resources, attributes := data.SplitMetricTagsByKeysAndConvert(t.Tags, bd.resourceKeys)
 
 		switch bd.convertTimersToGauges {
 		case true:

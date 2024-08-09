@@ -56,6 +56,17 @@ func (tags Tags) Copy() Tags {
 	return tagCopy
 }
 
+// Exists returns true if the tag exists in the tags
+func (tags Tags) Exists(tag string) bool {
+	for _, t := range tags {
+		key, _ := parseTag(t)
+		if key == tag {
+			return true
+		}
+	}
+	return false
+}
+
 // ToMap converts all the tags into a format that can be translated
 // to send to a different vendor if required.
 // - If the tag exists without a value it is converted to: "unknown:<tag>"

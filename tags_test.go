@@ -37,3 +37,11 @@ func TestTagsToMap(t *testing.T) {
 		})
 	}
 }
+
+func TestTagsExist(t *testing.T) {
+	t.Parallel()
+	tags := Tags{"a:b", "c:d"}
+	assert.True(t, tags.Exists("a"))
+	assert.True(t, tags.Exists("c"))
+	assert.False(t, tags.Exists("e"))
+}
