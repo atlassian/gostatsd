@@ -331,7 +331,7 @@ func TestBackendSendAsyncMetrics(t *testing.T) {
 						return
 					}
 
-					assert.Error(t, fmt.Errorf("source attribute not found"))
+					assert.Fail(t, "host attribute not found")
 				}
 			},
 			enableHistograms: false,
