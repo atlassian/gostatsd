@@ -146,7 +146,7 @@ func (bd *Backend) SendMetricsAsync(ctx context.Context, mm *gostatsd.MetricMap,
 
 	mm.Counters.Each(func(name, _ string, cm gostatsd.Counter) {
 		if !cm.Tags.Exists("host") && cm.Source != "" {
-			cm.Tags.Concat(gostatsd.Tags{"host:" + string(cm.Source)})
+			cm.Tags = cm.Tags.Concat(gostatsd.Tags{"host:" + string(cm.Source)})
 		}
 		resources, attributes := data.SplitMetricTagsByKeysAndConvert(cm.Tags, bd.resourceKeys)
 
@@ -176,7 +176,7 @@ func (bd *Backend) SendMetricsAsync(ctx context.Context, mm *gostatsd.MetricMap,
 
 	mm.Gauges.Each(func(name, _ string, gm gostatsd.Gauge) {
 		if !gm.Tags.Exists("host") && gm.Source != "" {
-			gm.Tags.Concat(gostatsd.Tags{"host:" + string(gm.Source)})
+			gm.Tags = gm.Tags.Concat(gostatsd.Tags{"host:" + string(gm.Source)})
 		}
 		resources, attributes := data.SplitMetricTagsByKeysAndConvert(gm.Tags, bd.resourceKeys)
 
@@ -195,7 +195,7 @@ func (bd *Backend) SendMetricsAsync(ctx context.Context, mm *gostatsd.MetricMap,
 
 	mm.Sets.Each(func(name, _ string, sm gostatsd.Set) {
 		if !sm.Tags.Exists("host") && sm.Source != "" {
-			sm.Tags.Concat(gostatsd.Tags{"host:" + string(sm.Source)})
+			sm.Tags = sm.Tags.Concat(gostatsd.Tags{"host:" + string(sm.Source)})
 		}
 		resources, attributes := data.SplitMetricTagsByKeysAndConvert(sm.Tags, bd.resourceKeys)
 
@@ -214,7 +214,7 @@ func (bd *Backend) SendMetricsAsync(ctx context.Context, mm *gostatsd.MetricMap,
 
 	mm.Timers.Each(func(name, _ string, t gostatsd.Timer) {
 		if !t.Tags.Exists("host") && t.Source != "" {
-			t.Tags.Concat(gostatsd.Tags{"host:" + string(t.Source)})
+			t.Tags = t.Tags.Concat(gostatsd.Tags{"host:" + string(t.Source)})
 		}
 		resources, attributes := data.SplitMetricTagsByKeysAndConvert(t.Tags, bd.resourceKeys)
 
