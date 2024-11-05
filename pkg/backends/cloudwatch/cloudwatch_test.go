@@ -2,11 +2,11 @@ package cloudwatch
 
 import (
 	"context"
-	"github.com/aws/aws-sdk-go-v2/service/cloudwatch/types"
 	"math"
 	"testing"
 
 	"github.com/aws/aws-sdk-go-v2/service/cloudwatch"
+	"github.com/aws/aws-sdk-go-v2/service/cloudwatch/types"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
@@ -22,7 +22,7 @@ type mockedCloudwatch struct {
 	PutMetricDataHandler func(*cloudwatch.PutMetricDataInput) (*cloudwatch.PutMetricDataOutput, error)
 }
 
-func (m *mockedCloudwatch) PutMetricData(ctx context.Context, input *cloudwatch.PutMetricDataInput, opts ...func(*cloudwatch.Options)) (*cloudwatch.PutMetricDataOutput, error) {
+func (m *mockedCloudwatch) PutMetricData(_ context.Context, input *cloudwatch.PutMetricDataInput, _ ...func(*cloudwatch.Options)) (*cloudwatch.PutMetricDataOutput, error) {
 	return m.PutMetricDataHandler(input)
 }
 

@@ -2,10 +2,12 @@ package aws
 
 import (
 	"errors"
-	"github.com/atlassian/gostatsd"
+	"testing"
+
 	ec2Types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/stretchr/testify/assert"
-	"testing"
+
+	"github.com/atlassian/gostatsd"
 )
 
 func TestAzToRegion(t *testing.T) {

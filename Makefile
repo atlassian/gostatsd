@@ -73,7 +73,7 @@ test-all: check-fmt cover test-race bench bench-race check
 test-all-full: check-fmt cover test-race-full bench-full bench-race-full check
 
 check-fmt: $(TOOLS_DIR)/goimports
-	@# Since gofmt and goimports dont return 1 on chamges, this !() stuff will trigger a build failure if theres any problems.
+	@# Since gofmt and goimports dont return 1 on changes, this !() stuff will trigger a build failure if theres any problems.
 	! (gofmt -l -s $$(find . -type f -name '*.go' -not -path "./vendor/*" -not -path "./pb/*") | grep .)
 	! ($(TOOLS_DIR)/goimports -l -local github.com/atlassian/gostatsd $$(find . -type f -name '*.go' -not -path "./vendor/*" -not -path "./pb/*") | grep .)
 
@@ -196,7 +196,7 @@ version:
 
 clean:
 	rm -rf bin/*
-	-docker rm $(docker ps -a -f 'status=exited' -q) 
+	-docker rm $(docker ps -a -f 'status=exited' -q)
 	-docker rmi $(docker images -f 'dangling=true' -q)
 
 .PHONY: build
