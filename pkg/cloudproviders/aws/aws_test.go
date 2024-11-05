@@ -3,8 +3,7 @@ package aws
 import (
 	"errors"
 	"github.com/atlassian/gostatsd"
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/ec2"
+	ec2Types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
@@ -32,37 +31,37 @@ func TestGetInterestingInstanceIP(t *testing.T) {
 	IPV4Address := "127.0.0.3"
 	IPV6Address := "2001:db8::8a2e:370:7334"
 	testCases := []struct {
-		instance       ec2.Instance
+		instance       ec2Types.Instance
 		instances      map[gostatsd.Source]*gostatsd.Instance
 		expectedResult gostatsd.Source
 	}{
 		{
-			instance: ec2.Instance{
+			instance: ec2Types.Instance{
 				PrivateIpAddress: &privateIP,
 			},
 			instances:      nil,
 			expectedResult: gostatsd.UnknownSource,
 		},
 		{
-			instance: ec2.Instance{
+			instance: ec2Types.Instance{
 				PrivateIpAddress: &privateIP,
 			},
 			instances: map[gostatsd.Source]*gostatsd.Instance{
-				gostatsd.Source(aws.StringValue(&privateIP)): {
+				gostatsd.Source(privateIP): {
 					ID: "xxxxxxx",
 					Tags: []string{
 						"tag:xxxxxx",
 					},
 				},
 			},
-			expectedResult: gostatsd.Source(aws.StringValue(&privateIP)),
+			expectedResult: gostatsd.Source(privateIP),
 		},
 		{
-			instance: ec2.Instance{
+			instance: ec2Types.Instance{
 				PrivateIpAddress: &privateIP,
-				NetworkInterfaces: []*ec2.InstanceNetworkInterface{
+				NetworkInterfaces: []ec2Types.InstanceNetworkInterface{
 					{
-						PrivateIpAddresses: []*ec2.InstancePrivateIpAddress{
+						PrivateIpAddresses: []ec2Types.InstancePrivateIpAddress{
 							{
 								PrivateIpAddress: &IPV4Address,
 							},
@@ -71,21 +70,21 @@ func TestGetInterestingInstanceIP(t *testing.T) {
 				},
 			},
 			instances: map[gostatsd.Source]*gostatsd.Instance{
-				gostatsd.Source(aws.StringValue(&IPV4Address)): {
+				gostatsd.Source(IPV4Address): {
 					ID: "xxxxxxx",
 					Tags: []string{
 						"tag:xxxxxx",
 					},
 				},
 			},
-			expectedResult: gostatsd.Source(aws.StringValue(&IPV4Address)),
+			expectedResult: gostatsd.Source(IPV4Address),
 		},
 		{
-			instance: ec2.Instance{
+			instance: ec2Types.Instance{
 				PrivateIpAddress: &privateIP,
-				NetworkInterfaces: []*ec2.InstanceNetworkInterface{
+				NetworkInterfaces: []ec2Types.InstanceNetworkInterface{
 					{
-						Ipv6Addresses: []*ec2.InstanceIpv6Address{
+						Ipv6Addresses: []ec2Types.InstanceIpv6Address{
 							{
 								Ipv6Address: &IPV6Address,
 							},
@@ -94,18 +93,18 @@ func TestGetInterestingInstanceIP(t *testing.T) {
 				},
 			},
 			instances: map[gostatsd.Source]*gostatsd.Instance{
-				gostatsd.Source(aws.StringValue(&IPV6Address)): {
+				gostatsd.Source(IPV6Address): {
 					ID: "xxxxxxx",
 					Tags: []string{
 						"tag:xxxxxx",
 					},
 				},
 			},
-			expectedResult: gostatsd.Source(aws.StringValue(&IPV6Address)),
+			expectedResult: gostatsd.Source(IPV6Address),
 		},
 	}
 	for _, testCase := range testCases {
-		result := getInterestingInstanceIP(&testCase.instance, testCase.instances)
+		result := getInterestingInstanceIP(testCase.instance, testCase.instances)
 		assert.Equal(t, testCase.expectedResult, result)
 	}
 
