@@ -98,13 +98,13 @@ func (p *Provider) Instance(ctx context.Context, IP ...gostatsd.Source) (map[gos
 	var err error
 
 	p.logger.WithField("ips", IP).Debug("Looking up instances")
-	pagesRemaining := true
-	for pagesRemaining {
+	hasPagesRemaining := true
+	for hasPagesRemaining {
 		pages++
 		page, rawErr := p.Ec2.DescribeInstances(ctx, input)
 		if rawErr != nil {
 			atomic.AddUint64(&p.describeInstanceErrors, 1)
-			pagesRemaining = false
+			hasPagesRemaining = false
 
 			if rawErr.Error() != "InvalidInstanceID.NotFound" {
 				err = fmt.Errorf("error listing AWS instances: %v", rawErr)
@@ -141,7 +141,7 @@ func (p *Provider) Instance(ctx context.Context, IP ...gostatsd.Source) (map[gos
 			}
 		}
 
-		pagesRemaining = page.NextToken != nil && *page.NextToken != ""
+		hasPagesRemaining = page.NextToken != nil && *page.NextToken != ""
 	}
 
 	atomic.AddUint64(&p.describeInstancePages, pages)
