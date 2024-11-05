@@ -41,6 +41,7 @@ type Provider struct {
 
 	logger logrus.FieldLogger
 
+	// TODO(): Doesn't seem like this is ever used
 	Metadata     *ec2metadata.EC2Metadata
 	Ec2          *ec2.EC2
 	MaxInstances int
@@ -134,9 +135,6 @@ func (p *Provider) Instance(ctx context.Context, IP ...gostatsd.Source) (map[gos
 			p.logger.WithField("ip", ip).Debug("No results looking up instance")
 		}
 	}
-
-	atomic.AddUint64(&p.describeInstancePages, pages)
-	atomic.AddUint64(&p.describeInstanceFound, instancesFound)
 
 	if err != nil {
 		atomic.AddUint64(&p.describeInstanceErrors, 1)
