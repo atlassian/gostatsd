@@ -82,12 +82,10 @@ func (p *Provider) Instance(ctx context.Context, IP ...gostatsd.Source) (map[gos
 		values[i] = string(ip)
 	}
 	privateIPFilter := "private-ip-address"
-	input := &ec2.DescribeInstancesInput{
-		Filters: []ec2Types.Filter{
-			{
-				Name:   &privateIPFilter,
-				Values: values,
-			},
+	inputFilters := []ec2Types.Filter{
+		{
+			Name:   &privateIPFilter,
+			Values: values,
 		},
 	}
 
@@ -96,12 +94,19 @@ func (p *Provider) Instance(ctx context.Context, IP ...gostatsd.Source) (map[gos
 	instancesFound := uint64(0)
 	pages := uint64(0)
 	var err error
+	var nextToken string
 
 	p.logger.WithField("ips", IP).Debug("Looking up instances")
 	hasPagesRemaining := true
 	for hasPagesRemaining {
 		pages++
+		input := &ec2.DescribeInstancesInput{
+			Filters:   inputFilters,
+			NextToken: &nextToken,
+		}
+
 		page, rawErr := p.Ec2.DescribeInstances(ctx, input)
+		nextToken = *page.NextToken
 		if rawErr != nil {
 			atomic.AddUint64(&p.describeInstanceErrors, 1)
 			hasPagesRemaining = false
