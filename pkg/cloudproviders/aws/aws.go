@@ -44,8 +44,6 @@ type Provider struct {
 
 	logger logrus.FieldLogger
 
-	// TODO: Figure out what type I should be
-	Metadata     any
 	Ec2          Ec2Client
 	MaxInstances int
 }
@@ -107,7 +105,7 @@ func (p *Provider) Instance(ctx context.Context, IP ...gostatsd.Source) (map[gos
 		if rawErr != nil {
 			atomic.AddUint64(&p.describeInstanceErrors, 1)
 			pagesRemaining = false
-			// TODO: Assess if this is valid, we don't have awserrors utility anymore
+
 			if rawErr.Error() != "InvalidInstanceID.NotFound" {
 				err = fmt.Errorf("error listing AWS instances: %v", rawErr)
 			}
@@ -266,7 +264,6 @@ func NewProviderFromViper(v *viper.Viper, logger logrus.FieldLogger, _ string) (
 		return nil, fmt.Errorf("error creating a new EC2 session: %v", err)
 	}
 	return &Provider{
-		Metadata:     nil,
 		Ec2:          ec2.NewFromConfig(ec2config),
 		MaxInstances: maxInstances,
 		logger:       logger,
