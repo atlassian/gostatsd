@@ -242,22 +242,22 @@ func NewProviderFromViper(v *viper.Viper, logger logrus.FieldLogger, _ string) (
 		return nil, err
 	}
 
-	cfg, err := config.LoadDefaultConfig(context.TODO(),
+	cfg, err := config.LoadDefaultConfig(context.Background(),
 		config.WithHTTPClient(&http.Client{
 			Transport: transport,
 			Timeout:   httpTimeout,
 		}),
-		config.WithRetryMaxAttempts(5),
+		config.WithRetryMaxAttempts(a.GetInt("max_retries")),
 	)
 
 	metadataClient := imds.NewFromConfig(cfg)
 
-	region, err := metadataClient.GetRegion(context.TODO(), nil)
+	region, err := metadataClient.GetRegion(context.Background(), nil)
 	if err != nil {
 		return nil, fmt.Errorf("error getting AWS region: %v", err)
 	}
 
-	ec2config, err := config.LoadDefaultConfig(context.TODO(),
+	ec2config, err := config.LoadDefaultConfig(context.Background(),
 		config.WithHTTPClient(&http.Client{
 			Transport: transport,
 			Timeout:   httpTimeout,

@@ -17,7 +17,7 @@ import (
 )
 
 type mockedCloudwatch struct {
-	ApiClient
+	CloudwatchClient
 
 	PutMetricDataHandler func(*cloudwatch.PutMetricDataInput) (*cloudwatch.PutMetricDataOutput, error)
 }

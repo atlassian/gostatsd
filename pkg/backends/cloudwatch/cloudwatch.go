@@ -25,7 +25,7 @@ const MAX_DIMENSIONS = 10
 // BackendName is the name of this backend.
 const BackendName = "cloudwatch"
 
-type ApiClient interface {
+type CloudwatchClient interface {
 	PutMetricData(context.Context, *cloudwatch.PutMetricDataInput, ...func(*cloudwatch.Options)) (*cloudwatch.PutMetricDataOutput, error)
 }
 
@@ -33,7 +33,7 @@ type ApiClient interface {
 type Client struct {
 	logger logrus.FieldLogger
 
-	cloudwatch ApiClient
+	cloudwatch CloudwatchClient
 	namespace  string
 
 	disabledSubtypes gostatsd.TimerSubtypes
@@ -60,7 +60,7 @@ func NewClient(namespace, transport string, disabled gostatsd.TimerSubtypes, log
 	if err != nil {
 		return nil, err
 	}
-	cfg, err := config.LoadDefaultConfig(context.TODO(), config.WithHTTPClient(httpClient.Client))
+	cfg, err := config.LoadDefaultConfig(context.Background(), config.WithHTTPClient(httpClient.Client))
 	if err != nil {
 		return nil, err
 	}
