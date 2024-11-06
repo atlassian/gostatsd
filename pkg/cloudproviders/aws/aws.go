@@ -70,7 +70,7 @@ func (p *Provider) RunMetrics(ctx context.Context, statser stats.Statser) {
 // Instance returns instances details from AWS.
 // ip -> nil pointer if instance was not found.
 // map is returned even in case of errors because it may contain partial data.
-func (p *Provider) Instance(_ context.Context, IP ...gostatsd.Source) (map[gostatsd.Source]*gostatsd.Instance, error) {
+func (p *Provider) Instance(ctx context.Context, IP ...gostatsd.Source) (map[gostatsd.Source]*gostatsd.Instance, error) {
 	instances := make(map[gostatsd.Source]*gostatsd.Instance, len(IP))
 	values := make([]string, len(IP))
 	for i, ip := range IP {
@@ -99,7 +99,7 @@ func (p *Provider) Instance(_ context.Context, IP ...gostatsd.Source) (map[gosta
 	for paginator.HasMorePages() {
 		pages++
 
-		page, rawErr := paginator.NextPage(context.Background())
+		page, rawErr := paginator.NextPage(ctx)
 		if rawErr != nil {
 			atomic.AddUint64(&p.describeInstanceErrors, 1)
 
