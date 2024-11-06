@@ -106,7 +106,6 @@ func (p *Provider) Instance(ctx context.Context, IP ...gostatsd.Source) (map[gos
 		}
 
 		page, rawErr := p.Ec2.DescribeInstances(ctx, input)
-		nextToken = *page.NextToken
 		if rawErr != nil {
 			atomic.AddUint64(&p.describeInstanceErrors, 1)
 			hasPagesRemaining = false
@@ -114,6 +113,7 @@ func (p *Provider) Instance(ctx context.Context, IP ...gostatsd.Source) (map[gos
 			if rawErr.Error() != "InvalidInstanceID.NotFound" {
 				err = fmt.Errorf("error listing AWS instances: %v", rawErr)
 			}
+			break
 		}
 		for _, reservation := range page.Reservations {
 			for _, instance := range reservation.Instances {
@@ -145,7 +145,7 @@ func (p *Provider) Instance(ctx context.Context, IP ...gostatsd.Source) (map[gos
 				}).Debug("Added tags")
 			}
 		}
-
+		nextToken = *page.NextToken
 		hasPagesRemaining = page.NextToken != nil && *page.NextToken != ""
 	}
 
