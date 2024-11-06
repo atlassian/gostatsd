@@ -30,10 +30,6 @@ const (
 	defaultMaxInstancesBatch = 32
 )
 
-type Ec2Client interface {
-	DescribeInstances(ctx context.Context, params *ec2.DescribeInstancesInput, optFns ...func(*ec2.Options)) (*ec2.DescribeInstancesOutput, error)
-}
-
 // Provider represents an AWS provider.
 type Provider struct {
 	describeInstanceCount     uint64 // The cumulative number of times DescribeInstancesPagesWithContext has been called
@@ -44,7 +40,7 @@ type Provider struct {
 
 	logger logrus.FieldLogger
 
-	Ec2          Ec2Client
+	Ec2          ec2.DescribeInstancesAPIClient
 	MaxInstances int
 }
 
@@ -74,7 +70,7 @@ func (p *Provider) RunMetrics(ctx context.Context, statser stats.Statser) {
 // Instance returns instances details from AWS.
 // ip -> nil pointer if instance was not found.
 // map is returned even in case of errors because it may contain partial data.
-func (p *Provider) Instance(ctx context.Context, IP ...gostatsd.Source) (map[gostatsd.Source]*gostatsd.Instance, error) {
+func (p *Provider) Instance(_ context.Context, IP ...gostatsd.Source) (map[gostatsd.Source]*gostatsd.Instance, error) {
 	instances := make(map[gostatsd.Source]*gostatsd.Instance, len(IP))
 	values := make([]string, len(IP))
 	for i, ip := range IP {
@@ -94,21 +90,18 @@ func (p *Provider) Instance(ctx context.Context, IP ...gostatsd.Source) (map[gos
 	instancesFound := uint64(0)
 	pages := uint64(0)
 	var err error
-	var nextToken string
+	input := &ec2.DescribeInstancesInput{
+		Filters: inputFilters,
+	}
 
 	p.logger.WithField("ips", IP).Debug("Looking up instances")
-	hasPagesRemaining := true
-	for hasPagesRemaining {
+	paginator := ec2.NewDescribeInstancesPaginator(p.Ec2, input)
+	for paginator.HasMorePages() {
 		pages++
-		input := &ec2.DescribeInstancesInput{
-			Filters:   inputFilters,
-			NextToken: &nextToken,
-		}
 
-		page, rawErr := p.Ec2.DescribeInstances(ctx, input)
+		page, rawErr := paginator.NextPage(context.Background())
 		if rawErr != nil {
 			atomic.AddUint64(&p.describeInstanceErrors, 1)
-			hasPagesRemaining = false
 
 			if rawErr.Error() != "InvalidInstanceID.NotFound" {
 				err = fmt.Errorf("error listing AWS instances: %v", rawErr)
@@ -145,8 +138,6 @@ func (p *Provider) Instance(ctx context.Context, IP ...gostatsd.Source) (map[gos
 				}).Debug("Added tags")
 			}
 		}
-		nextToken = *page.NextToken
-		hasPagesRemaining = page.NextToken != nil && *page.NextToken != ""
 	}
 
 	atomic.AddUint64(&p.describeInstancePages, pages)
