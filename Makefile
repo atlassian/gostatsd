@@ -36,7 +36,7 @@ $(TOOLS_DIR):
 	rm protoc-$(PROTOBUF_VERSION)-linux-x86_64.zip
 
 pb/gostatsd.pb.go: pb/gostatsd.proto .tools/bin/protoc
-	GOPATH="$(TOOLS_DIR):$(shell go env GOPATH)/bin" $(TOOLS_DIR)/bin/protoc --go_out=.\
+	GOPATH="$(TOOLS_DIR):$(shell go env GOPATH)/bin" $(TOOLS_DIR)/protoc --go_out=.\
 		--go_opt=paths=source_relative $<
 
 build: pb/gostatsd.pb.go
