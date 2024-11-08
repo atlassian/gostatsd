@@ -5,7 +5,7 @@ go 1.21.4
 require (
 	github.com/alicebob/miniredis/v2 v2.23.0
 	github.com/ash2k/stager v0.0.0-20170622123058-6e9c7b0eacd4
-	github.com/aws/aws-sdk-go v1.44.126
+	github.com/aws/aws-sdk-go-v2 v1.32.3 // indirect
 	github.com/cenkalti/backoff v2.2.1+incompatible
 	github.com/go-redis/redis/v8 v8.11.5
 	github.com/gorilla/mux v1.8.0
@@ -32,12 +32,28 @@ require (
 	stathat.com/c/consistent v1.0.0
 )
 
-require golang.org/x/sync v0.6.0
+require (
+	github.com/aws/aws-sdk-go-v2/config v1.26.2
+	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.14.10
+	github.com/aws/aws-sdk-go-v2/service/cloudwatch v1.42.3
+	github.com/aws/aws-sdk-go-v2/service/ec2 v1.187.0
+	golang.org/x/sync v0.6.0
+)
 
 require (
 	github.com/PuerkitoBio/purell v1.1.1 // indirect
 	github.com/PuerkitoBio/urlesc v0.0.0-20170810143723-de5bf2ad4578 // indirect
 	github.com/alicebob/gopher-json v0.0.0-20200520072559-a9ecdc9d1d3a // indirect
+	github.com/aws/aws-sdk-go-v2/credentials v1.16.13 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/configsources v1.3.22 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.6.22 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/ini v1.7.2 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.12.0 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.12.3 // indirect
+	github.com/aws/aws-sdk-go-v2/service/sso v1.18.5 // indirect
+	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.21.5 // indirect
+	github.com/aws/aws-sdk-go-v2/service/sts v1.26.6 // indirect
+	github.com/aws/smithy-go v1.22.0 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
