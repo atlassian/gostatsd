@@ -1,7 +1,12 @@
+39.1.13
+------
+
+- Decouple build command in Makefile from compiling `pb/gostatsd.proto`, can still be compiled using `make build-all`
+
 39.1.12
 ------
 
-- OTLP: Bugfix: metrics batch sending 
+- OTLP: Bugfix: metrics batch sending
 - OTLP: Added host dimension to metrics
 
 39.1.11
