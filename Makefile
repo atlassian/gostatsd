@@ -39,7 +39,7 @@ pb/gostatsd.pb.go: pb/gostatsd.proto .tools/bin/protoc
 	GOPATH="$(TOOLS_DIR):$(shell go env GOPATH)/bin" $(TOOLS_DIR)/bin/protoc --go_out=.\
 		--go_opt=paths=source_relative $<
 
-build: pb/gostatsd.pb.go
+build:
 	CGO_ENABLED=$(CGO_ENABLED) GOEXPERIMENT=boringcrypto \
 		go build  \
 			-v \
