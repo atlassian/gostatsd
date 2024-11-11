@@ -5,8 +5,8 @@ import (
 	"math"
 	"testing"
 
-	"github.com/aws/aws-sdk-go/service/cloudwatch"
-	"github.com/aws/aws-sdk-go/service/cloudwatch/cloudwatchiface"
+	"github.com/aws/aws-sdk-go-v2/service/cloudwatch"
+	"github.com/aws/aws-sdk-go-v2/service/cloudwatch/types"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
@@ -17,12 +17,12 @@ import (
 )
 
 type mockedCloudwatch struct {
-	cloudwatchiface.CloudWatchAPI
+	CloudwatchClient
 
 	PutMetricDataHandler func(*cloudwatch.PutMetricDataInput) (*cloudwatch.PutMetricDataOutput, error)
 }
 
-func (m *mockedCloudwatch) PutMetricData(input *cloudwatch.PutMetricDataInput) (*cloudwatch.PutMetricDataOutput, error) {
+func (m *mockedCloudwatch) PutMetricData(_ context.Context, input *cloudwatch.PutMetricDataInput, _ ...func(*cloudwatch.Options)) (*cloudwatch.PutMetricDataOutput, error) {
 	return m.PutMetricDataHandler(input)
 }
 
@@ -64,7 +64,7 @@ func TestSendMetrics(t *testing.T) {
 
 			for idx, row := range expected {
 				assert.Equal(t, row.Name, *input.MetricData[idx].MetricName)
-				assert.Equal(t, row.Unit, *input.MetricData[idx].Unit)
+				assert.Equal(t, types.StandardUnit(row.Unit), input.MetricData[idx].Unit)
 				assert.Equal(t, row.Value, *input.MetricData[idx].Value)
 			}
 
@@ -240,15 +240,15 @@ func TestSendHistogram(t *testing.T) {
 	}
 }
 
-func findMetricDatum(input *cloudwatch.PutMetricDataInput, name string, dimenensionName string, dimensionValue string) *cloudwatch.MetricDatum {
+func findMetricDatum(input *cloudwatch.PutMetricDataInput, name string, dimensionName string, dimensionValue string) *types.MetricDatum {
 	for _, data := range input.MetricData {
 		MetricName := *data.MetricName
 		if MetricName != name {
 			continue
 		}
 		for _, dimension := range data.Dimensions {
-			if *dimension.Name == dimenensionName && *dimension.Value == dimensionValue {
-				return data
+			if *dimension.Name == dimensionName && *dimension.Value == dimensionValue {
+				return &data
 			}
 		}
 	}

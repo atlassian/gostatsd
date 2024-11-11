@@ -7,10 +7,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/cloudwatch"
-	"github.com/aws/aws-sdk-go/service/cloudwatch/cloudwatchiface"
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/cloudwatch"
+	"github.com/aws/aws-sdk-go-v2/service/cloudwatch/types"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 
@@ -26,11 +25,15 @@ const MAX_DIMENSIONS = 10
 // BackendName is the name of this backend.
 const BackendName = "cloudwatch"
 
+type CloudwatchClient interface {
+	PutMetricData(context.Context, *cloudwatch.PutMetricDataInput, ...func(*cloudwatch.Options)) (*cloudwatch.PutMetricDataOutput, error)
+}
+
 // Client is an object that is used to send messages to AWS CloudWatch.
 type Client struct {
 	logger logrus.FieldLogger
 
-	cloudwatch cloudwatchiface.CloudWatchAPI
+	cloudwatch CloudwatchClient
 	namespace  string
 
 	disabledSubtypes gostatsd.TimerSubtypes
@@ -57,9 +60,7 @@ func NewClient(namespace, transport string, disabled gostatsd.TimerSubtypes, log
 	if err != nil {
 		return nil, err
 	}
-	sess, err := session.NewSession(&aws.Config{
-		HTTPClient: httpClient.Client,
-	})
+	cfg, err := config.LoadDefaultConfig(context.Background(), config.WithHTTPClient(httpClient.Client))
 	if err != nil {
 		return nil, err
 	}
@@ -67,15 +68,15 @@ func NewClient(namespace, transport string, disabled gostatsd.TimerSubtypes, log
 	return &Client{
 		logger: logger,
 
-		cloudwatch: cloudwatch.New(sess),
+		cloudwatch: cloudwatch.NewFromConfig(cfg),
 		namespace:  namespace,
 
 		disabledSubtypes: disabled,
 	}, nil
 }
 
-func (client *Client) extractDimensions(tags gostatsd.Tags) (dimensions []*cloudwatch.Dimension) {
-	dimensions = []*cloudwatch.Dimension{}
+func (client *Client) extractDimensions(tags gostatsd.Tags) (dimensions []types.Dimension) {
+	dimensions = []types.Dimension{}
 
 	for _, tag := range tags {
 		key := tag
@@ -87,7 +88,7 @@ func (client *Client) extractDimensions(tags gostatsd.Tags) (dimensions []*cloud
 			value = segments[1]
 		}
 
-		dimensions = append(dimensions, &cloudwatch.Dimension{
+		dimensions = append(dimensions, types.Dimension{
 			Name:  &key,
 			Value: &value,
 		})
@@ -106,10 +107,10 @@ func (client *Client) extractDimensions(tags gostatsd.Tags) (dimensions []*cloud
 	return dimensions
 }
 
-func (client *Client) buildMetricData(metrics *gostatsd.MetricMap) (metricData []*cloudwatch.MetricDatum) {
+func (client *Client) buildMetricData(metrics *gostatsd.MetricMap) (metricData []types.MetricDatum) {
 	disabled := client.disabledSubtypes
 
-	metricData = []*cloudwatch.MetricDatum{}
+	metricData = []types.MetricDatum{}
 	now := time.Now()
 	prefix := ""
 
@@ -117,10 +118,10 @@ func (client *Client) buildMetricData(metrics *gostatsd.MetricMap) (metricData [
 		dimensions := client.extractDimensions(tags)
 		key = prefix + key
 
-		metricData = append(metricData, &cloudwatch.MetricDatum{
+		metricData = append(metricData, types.MetricDatum{
 			MetricName: &key,
 			Timestamp:  &now,
-			Unit:       &unit,
+			Unit:       types.StandardUnit(unit),
 			Value:      &value,
 			Dimensions: dimensions,
 		})
@@ -224,7 +225,7 @@ func (client *Client) SendMetricsAsync(ctx context.Context, metrics *gostatsd.Me
 			data := metricData[start:end]
 			start = end
 
-			_, err := api.PutMetricData(&cloudwatch.PutMetricDataInput{
+			_, err := api.PutMetricData(ctx, &cloudwatch.PutMetricDataInput{
 				MetricData: data,
 				Namespace:  &client.namespace,
 			})

@@ -10,11 +10,10 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/awserr"
-	"github.com/aws/aws-sdk-go/aws/ec2metadata"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/ec2"
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/feature/ec2/imds"
+	"github.com/aws/aws-sdk-go-v2/service/ec2"
+	ec2Types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"golang.org/x/net/http2"
@@ -41,8 +40,7 @@ type Provider struct {
 
 	logger logrus.FieldLogger
 
-	Metadata     *ec2metadata.EC2Metadata
-	Ec2          *ec2.EC2
+	Ec2          ec2.DescribeInstancesAPIClient
 	MaxInstances int
 }
 
@@ -74,17 +72,16 @@ func (p *Provider) RunMetrics(ctx context.Context, statser stats.Statser) {
 // map is returned even in case of errors because it may contain partial data.
 func (p *Provider) Instance(ctx context.Context, IP ...gostatsd.Source) (map[gostatsd.Source]*gostatsd.Instance, error) {
 	instances := make(map[gostatsd.Source]*gostatsd.Instance, len(IP))
-	values := make([]*string, len(IP))
+	values := make([]string, len(IP))
 	for i, ip := range IP {
 		instances[ip] = nil // initialize map. Used for lookups to see if info for IP was requested
-		values[i] = aws.String(string(ip))
+		values[i] = string(ip)
 	}
-	input := &ec2.DescribeInstancesInput{
-		Filters: []*ec2.Filter{
-			{
-				Name:   aws.String("private-ip-address"),
-				Values: values,
-			},
+	privateIPFilter := "private-ip-address"
+	inputFilters := []ec2Types.Filter{
+		{
+			Name:   &privateIPFilter,
+			Values: values,
 		},
 	}
 
@@ -92,10 +89,25 @@ func (p *Provider) Instance(ctx context.Context, IP ...gostatsd.Source) (map[gos
 	atomic.AddUint64(&p.describeInstanceInstances, uint64(len(IP)))
 	instancesFound := uint64(0)
 	pages := uint64(0)
+	var err error
+	input := &ec2.DescribeInstancesInput{
+		Filters: inputFilters,
+	}
 
 	p.logger.WithField("ips", IP).Debug("Looking up instances")
-	err := p.Ec2.DescribeInstancesPagesWithContext(ctx, input, func(page *ec2.DescribeInstancesOutput, lastPage bool) bool {
+	paginator := ec2.NewDescribeInstancesPaginator(p.Ec2, input)
+	for paginator.HasMorePages() {
 		pages++
+
+		page, rawErr := paginator.NextPage(ctx)
+		if rawErr != nil {
+			atomic.AddUint64(&p.describeInstanceErrors, 1)
+
+			if rawErr.Error() != "InvalidInstanceID.NotFound" {
+				err = fmt.Errorf("error listing AWS instances: %v", rawErr)
+			}
+			break
+		}
 		for _, reservation := range page.Reservations {
 			for _, instance := range reservation.Instances {
 				ip := getInterestingInstanceIP(instance, instances)
@@ -104,19 +116,19 @@ func (p *Provider) Instance(ctx context.Context, IP ...gostatsd.Source) (map[gos
 					continue
 				}
 				instancesFound++
-				region, err := azToRegion(aws.StringValue(instance.Placement.AvailabilityZone))
+				region, err := azToRegion(*instance.Placement.AvailabilityZone)
 				if err != nil {
 					p.logger.Errorf("Error getting instance region: %v", err)
 				}
 				tags := make(gostatsd.Tags, len(instance.Tags)+1)
 				for idx, tag := range instance.Tags {
 					tags[idx] = fmt.Sprintf("%s:%s",
-						gostatsd.NormalizeTagKey(aws.StringValue(tag.Key)),
-						aws.StringValue(tag.Value))
+						gostatsd.NormalizeTagKey(*tag.Key),
+						*tag.Value)
 				}
 				tags[len(tags)-1] = "region:" + region
 				instances[ip] = &gostatsd.Instance{
-					ID:   gostatsd.Source(aws.StringValue(instance.InstanceId)),
+					ID:   gostatsd.Source(*instance.InstanceId),
 					Tags: tags,
 				}
 				p.logger.WithFields(logrus.Fields{
@@ -126,34 +138,22 @@ func (p *Provider) Instance(ctx context.Context, IP ...gostatsd.Source) (map[gos
 				}).Debug("Added tags")
 			}
 		}
-		return true
-	})
+	}
+
+	atomic.AddUint64(&p.describeInstancePages, pages)
+	atomic.AddUint64(&p.describeInstanceFound, instancesFound)
 
 	for ip, instance := range instances {
 		if instance == nil {
 			p.logger.WithField("ip", ip).Debug("No results looking up instance")
 		}
 	}
-
-	atomic.AddUint64(&p.describeInstancePages, pages)
-	atomic.AddUint64(&p.describeInstanceFound, instancesFound)
-
-	if err != nil {
-		atomic.AddUint64(&p.describeInstanceErrors, 1)
-
-		// Avoid spamming logs if instance id is not visible yet due to eventual consistency.
-		// https://docs.aws.amazon.com/AWSEC2/latest/APIReference/errors-overview.html#CommonErrors
-		if awsErr, ok := err.(awserr.Error); ok && awsErr.Code() == "InvalidInstanceID.NotFound" {
-			return instances, nil
-		}
-		return instances, fmt.Errorf("error listing AWS instances: %v", err)
-	}
-	return instances, nil
+	return instances, err
 }
 
-func getInterestingInstanceIP(instance *ec2.Instance, instances map[gostatsd.Source]*gostatsd.Instance) gostatsd.Source {
+func getInterestingInstanceIP(instance ec2Types.Instance, instances map[gostatsd.Source]*gostatsd.Instance) gostatsd.Source {
 	// Check primary private IPv4 address
-	ip := gostatsd.Source(aws.StringValue(instance.PrivateIpAddress))
+	ip := gostatsd.Source(*instance.PrivateIpAddress)
 	if _, ok := instances[ip]; ok {
 		return ip
 	}
@@ -161,14 +161,14 @@ func getInterestingInstanceIP(instance *ec2.Instance, instances map[gostatsd.Sou
 	for _, iface := range instance.NetworkInterfaces {
 		// Check private IPv4 addresses on interface
 		for _, privateIP := range iface.PrivateIpAddresses {
-			ip = gostatsd.Source(aws.StringValue(privateIP.PrivateIpAddress))
+			ip = gostatsd.Source(*privateIP.PrivateIpAddress)
 			if _, ok := instances[ip]; ok {
 				return ip
 			}
 		}
 		// Check private IPv6 addresses on interface
 		for _, IPv6 := range iface.Ipv6Addresses {
-			ip = gostatsd.Source(aws.StringValue(IPv6.Ipv6Address))
+			ip = gostatsd.Source(*IPv6.Ipv6Address)
 			if _, ok := instances[ip]; ok {
 				return ip
 			}
@@ -232,30 +232,35 @@ func NewProviderFromViper(v *viper.Viper, logger logrus.FieldLogger, _ string) (
 	if err := http2.ConfigureTransport(transport); err != nil {
 		return nil, err
 	}
-	sharedConfig := aws.NewConfig().
-		WithHTTPClient(&http.Client{
+
+	cfg, err := config.LoadDefaultConfig(context.Background(),
+		config.WithHTTPClient(&http.Client{
 			Transport: transport,
 			Timeout:   httpTimeout,
-		}).
-		WithMaxRetries(a.GetInt("max_retries"))
-	metadataSession, err := session.NewSession(sharedConfig)
-	if err != nil {
-		return nil, fmt.Errorf("error creating a new Metadata session: %v", err)
-	}
-	metadata := ec2metadata.New(metadataSession)
-	region, err := metadata.Region()
+		}),
+		config.WithRetryMaxAttempts(a.GetInt("max_retries")),
+	)
+
+	metadataClient := imds.NewFromConfig(cfg)
+
+	region, err := metadataClient.GetRegion(context.Background(), nil)
 	if err != nil {
 		return nil, fmt.Errorf("error getting AWS region: %v", err)
 	}
-	ec2config := sharedConfig.Copy().
-		WithRegion(region)
-	ec2Session, err := session.NewSession(ec2config)
+
+	ec2config, err := config.LoadDefaultConfig(context.Background(),
+		config.WithHTTPClient(&http.Client{
+			Transport: transport,
+			Timeout:   httpTimeout,
+		}),
+		config.WithRetryMaxAttempts(a.GetInt("max_retries")),
+		config.WithRegion(region.Region),
+	)
 	if err != nil {
 		return nil, fmt.Errorf("error creating a new EC2 session: %v", err)
 	}
 	return &Provider{
-		Metadata:     metadata,
-		Ec2:          ec2.New(ec2Session),
+		Ec2:          ec2.NewFromConfig(ec2config),
 		MaxInstances: maxInstances,
 		logger:       logger,
 	}, nil
