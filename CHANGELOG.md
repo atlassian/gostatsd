@@ -1,3 +1,12 @@
+40.0.0
+------
+
+- Upgrade aws-sdk to v2
+- removes `metadata: ec2Metadata` from the provider struct
+- changes apply to `pkg/backends/cloudwatch/cloudwatch.go` and `pkg/cloudproviders/aws/aws.go`
+- Note: other interfaces may be changed also as AWS does not guarantee a 1 to 1 mapping between historical and current types
+
+
 39.1.13
 ------
 
