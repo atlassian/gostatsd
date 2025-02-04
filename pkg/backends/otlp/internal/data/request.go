@@ -23,6 +23,7 @@ func createProtobufRequest(ctx context.Context, endpoint string, buf []byte, opt
 		return nil, err
 	}
 
+	req.Close = true
 	req.Header.Set("Content-Type", RequestContentTypeProtobuf)
 	for _, opt := range option {
 		opt(req)
