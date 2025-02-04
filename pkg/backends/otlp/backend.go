@@ -352,6 +352,10 @@ func (c *Backend) postMetrics(ctx context.Context, batch group) error {
 				atomic.AddUint64(&c.seriesDropped, uint64(dropped))
 				return err
 			}
+		} else {
+			c.logger.WithError(err).WithFields(logrus.Fields{
+				"endpoint": c.metricsEndpoint,
+			}).Error("Issues trying to submit data")
 		}
 
 		if retries >= c.maxRetries {
