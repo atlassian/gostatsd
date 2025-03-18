@@ -104,20 +104,8 @@ func (m *manager) Run(parent context.Context) error {
 		return err
 	}
 
-	// Start telemetry server
 	ctx, cancel := context.WithCancel(parent)
 	defer cancel()
-
-	if m.telemetryEnabled() {
-		wg.StartWithContext(ctx, func(c context.Context) {
-			chErrs <- m.telemetryServer.Start(c)
-		})
-
-		if err := m.subscribeToTelemetry(ctx); err != nil {
-			m.log.WithError(err).Error("error subscribing to lambda telemetry endpoint")
-			return err
-		}
-	}
 
 	// Start gostatsd server
 	wg.StartWithContext(ctx, func(c context.Context) {
@@ -129,6 +117,18 @@ func (m *manager) Run(parent context.Context) error {
 			chErrs <- err
 		}
 	})
+
+	// Start telemetry server
+	if m.telemetryEnabled() {
+		wg.StartWithContext(ctx, func(c context.Context) {
+			chErrs <- m.telemetryServer.Start(c)
+		})
+
+		if err := m.subscribeToTelemetry(ctx); err != nil {
+			m.log.WithError(err).Error("error subscribing to lambda telemetry endpoint")
+			return err
+		}
+	}
 
 	select {
 	case err := <-chErrs:
