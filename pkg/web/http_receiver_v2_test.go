@@ -45,7 +45,7 @@ func TestForwardingEndToEndV2(t *testing.T) {
 			ctx = clock.Context(ctx, mockClock)
 
 			ch := &channeledHandler{
-				chMaps: make(chan *gostatsd.MetricMap),
+				chMaps: make(chan *gostatsd.MetricMap, 1),
 			}
 
 			hs, err := web.NewHttpServer(
