@@ -3,8 +3,10 @@ package telemetry
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"net"
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 
@@ -75,6 +77,10 @@ func TestRuntimeDoneHook(t *testing.T) {
 			defer cancel()
 			go s.Start(ctx)
 
+			if err := waitForListener(l.Addr().String(), 1*time.Second); err != nil {
+				panic(err)
+			}
+
 			res, err := http.Post(s.Endpoint(), "application/json", bytes.NewReader(p))
 			require.NoError(t, err)
 			defer res.Body.Close()
@@ -83,6 +89,21 @@ func TestRuntimeDoneHook(t *testing.T) {
 			assert.Equal(t, tc.hookCalled, callbackInvoked)
 		})
 	}
+}
+
+func waitForListener(addr string, timeout time.Duration) error {
+	stop := time.Now().Add(timeout)
+	var err error
+	for time.Now().Before(stop) {
+		var c net.Conn
+		if c, err = net.Dial("tcp", addr); err == nil {
+			_ = c.Close()
+			return nil
+		} else if !strings.Contains(err.Error(), "connection refused") {
+			return err
+		}
+	}
+	return fmt.Errorf("timed out waiting for listener: %w", err)
 }
 
 func TestServerReturnsCorrectEndpoint(t *testing.T) {
