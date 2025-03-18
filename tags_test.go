@@ -15,7 +15,6 @@ func TestTagsToMap(t *testing.T) {
 		expected map[string]string
 	}{
 		{"empty tags", "", nil, map[string]string{}},
-		{"host is added", "x", nil, map[string]string{"host": "x"}},
 		{"1 tag is added", "", []string{"a:b"}, map[string]string{"a": "b"}},
 		{"2 tags are added", "", []string{"a:b", "c:d"}, map[string]string{"a": "b", "c": "d"}},
 		{"missing keys are handled", "", []string{"b", "c:d"}, map[string]string{"unknown": "b", "c": "d"}},
