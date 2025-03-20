@@ -308,7 +308,7 @@ func (hfh *HttpForwarderHandlerV2) sendNop(ctx context.Context) {
 
 func (hfh *HttpForwarderHandlerV2) Run(ctx context.Context) {
 	var wg wait.Group
-	wg.StartWithContext(ctx, hfh.sendNop)
+	hfh.sendNop(ctx)
 	wg.Start(func() {
 		for metricMaps := range hfh.consolidatedMetrics {
 			hfh.acquireMergingSem()

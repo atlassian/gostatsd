@@ -1,3 +1,8 @@
+40.0.1
+------
+- Fixes a race condition in the lambda extension
+- Misc test race fixes
+
 40.0.0
 ------
 

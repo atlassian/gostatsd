@@ -494,7 +494,9 @@ func TestManualFlush(t *testing.T) {
 
 	wg.Wait()
 
-	assert.Equal(t, uint64(2), atomic.LoadUint64(&ts.called), "Handler must have been called")
+	// First is for the "nop" (see HttpForwarderHandlerV2.Run + HttpForwarderHandlerV2.sendNop)
+	// Second is for the actual flush.
+	assert.Equal(t, uint64(1+1), atomic.LoadUint64(&ts.called), "Handler must have been called")
 	assert.EqualValues(t, 1, atomic.LoadUint64(&ts.pineappleCount))
 	assert.EqualValues(t, 1, atomic.LoadUint64(&ts.derpCount))
 	assert.EqualValues(t, 10, atomic.LoadInt64(&ts.derpValue))
