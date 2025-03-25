@@ -469,11 +469,13 @@ func TestBackendSendAsyncMetrics(t *testing.T) {
 func TestRetrySendMetrics(t *testing.T) {
 	t.Parallel()
 	for _, tc := range []struct {
-		name            string
-		numUntilSuccess int
-		maxRetries      int
-		wantAttempts    int
-		numErrs         int
+		name                 string
+		numUntilSuccess      int
+		maxRetries           int
+		maxRequestElapseTime int
+		wantAttempts         int
+		approxAttempts       bool // because of randomness of the retry interval
+		numErrs              int
 	}{
 		{
 			name:            "should retry sending metrics if it fails for the first time",
@@ -503,6 +505,23 @@ func TestRetrySendMetrics(t *testing.T) {
 			wantAttempts:    1,
 			numErrs:         1,
 		},
+		{
+			name:                 "should not retry if maxRetries reached",
+			numUntilSuccess:      5,
+			maxRetries:           3,
+			maxRequestElapseTime: 100,
+			wantAttempts:         4,
+			numErrs:              1,
+		},
+		{
+			name:                 "should stop retry if maxRequestElapseTime reached",
+			numUntilSuccess:      5,
+			maxRetries:           100,
+			maxRequestElapseTime: 1,
+			wantAttempts:         3,
+			approxAttempts:       true,
+			numErrs:              1,
+		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			attempts := 0
@@ -520,6 +539,7 @@ func TestRetrySendMetrics(t *testing.T) {
 			v.Set("otlp.metrics_endpoint", fmt.Sprintf("%s/%s", s.URL, "v1/metrics"))
 			v.Set("otlp.logs_endpoint", fmt.Sprintf("%s/%s", s.URL, "v1/logs"))
 			v.Set("otlp.max_retries", tc.maxRetries)
+			v.Set("otlp.max_request_elapsed_time", tc.maxRequestElapseTime)
 
 			logger := fixtures.NewTestLogger(t)
 
@@ -532,7 +552,12 @@ func TestRetrySendMetrics(t *testing.T) {
 
 			b.SendMetricsAsync(context.Background(), gostatsd.NewMetricMap(false), func(errs []error) {
 				assert.Equal(t, tc.numErrs, len(errs))
-				assert.Equal(t, tc.wantAttempts, attempts, "Must retry sending metrics")
+				if tc.approxAttempts {
+					assert.InDelta(t, tc.wantAttempts, attempts, 1, "Must retry sending metrics")
+				} else {
+					assert.Equal(t, tc.wantAttempts, attempts, "Must retry sending metrics")
+				}
+
 			})
 		})
 	}

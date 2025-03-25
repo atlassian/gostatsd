@@ -30,6 +30,7 @@ type Config struct {
 	// MaxRetries (Optional, default: 3) is the maximum number of retries to send a batch
 	MaxRetries int `mapstructure:"max_retries"`
 	// MaxRequestElapsedTime (Optional, default: 15) is the maximum time in seconds to wait for a request to complete
+	// 0 means it never stop until reaches MaxRetries
 	MaxRequestElapsedTime int `mapstructure:"max_request_elapsed_time"`
 	// CompressPayload (Optional, default: true) is used to enable payload compression
 	CompressPayload bool `mapstructure:"compress_payload"`
@@ -100,8 +101,8 @@ func (c *Config) Validate() (errs error) {
 	if c.MaxRetries < 0 {
 		errs = multierr.Append(errs, errors.New("max retries must be a positive value"))
 	}
-	if c.MaxRequestElapsedTime <= 0 {
-		errs = multierr.Append(errs, errors.New("max request elapsed time must be a positive value"))
+	if c.MaxRequestElapsedTime < 0 {
+		errs = multierr.Append(errs, errors.New("max request elapsed time must >= 0"))
 	}
 	if c.MetricsPerBatch <= 0 {
 		errs = multierr.Append(errs, errors.New("metrics per batch must be a positive value"))
