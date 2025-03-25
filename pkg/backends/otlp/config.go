@@ -29,6 +29,8 @@ type Config struct {
 	MaxRequests int `mapstructure:"max_requests"`
 	// MaxRetries (Optional, default: 3) is the maximum number of retries to send a batch
 	MaxRetries int `mapstructure:"max_retries"`
+	// MaxRequestElapsedTime (Optional, default: 15) is the maximum time in seconds to wait for a request to complete
+	MaxRequestElapsedTime int `mapstructure:"max_request_elapsed_time"`
 	// CompressPayload (Optional, default: true) is used to enable payload compression
 	CompressPayload bool `mapstructure:"compress_payload"`
 	// MetricsPerBatch (Optional, default: 1000) is the maximum number of metrics to send in a single batch.
@@ -61,13 +63,14 @@ type Config struct {
 
 func newDefaultConfig() *Config {
 	return &Config{
-		Transport:       "default",
-		MaxRequests:     runtime.NumCPU() * 2,
-		MaxRetries:      3,
-		CompressPayload: true,
-		MetricsPerBatch: defaultMetricsPerBatch,
-		Conversion:      ConversionAsGauge,
-		UserAgent:       "gostatsd",
+		Transport:             "default",
+		MaxRequests:           runtime.NumCPU() * 2,
+		MaxRetries:            3,
+		MaxRequestElapsedTime: 15,
+		CompressPayload:       true,
+		MetricsPerBatch:       defaultMetricsPerBatch,
+		Conversion:            ConversionAsGauge,
+		UserAgent:             "gostatsd",
 	}
 }
 
@@ -96,6 +99,9 @@ func (c *Config) Validate() (errs error) {
 	}
 	if c.MaxRetries < 0 {
 		errs = multierr.Append(errs, errors.New("max retries must be a positive value"))
+	}
+	if c.MaxRequestElapsedTime <= 0 {
+		errs = multierr.Append(errs, errors.New("max request elapsed time must be a positive value"))
 	}
 	if c.MetricsPerBatch <= 0 {
 		errs = multierr.Append(errs, errors.New("metrics per batch must be a positive value"))
