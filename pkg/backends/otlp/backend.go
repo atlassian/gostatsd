@@ -89,7 +89,7 @@ func NewClientFromViper(v *viper.Viper, logger logrus.FieldLogger, pool *transpo
 		logger:                logger,
 		requestsBufferSem:     make(chan struct{}, cfg.MaxRequests),
 		maxRetries:            cfg.MaxRetries,
-		maxRequestElapsedTime: time.Duration(cfg.MaxRequestElapsedTime) * time.Second,
+		maxRequestElapsedTime: cfg.MaxRequestElapsedTime,
 		CompressPayload:       cfg.CompressPayload,
 		metricsPerBatch:       cfg.MetricsPerBatch,
 	}, nil

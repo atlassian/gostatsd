@@ -472,7 +472,7 @@ func TestRetrySendMetrics(t *testing.T) {
 		name                 string
 		numUntilSuccess      int
 		maxRetries           int
-		maxRequestElapseTime int
+		maxRequestElapseTime string
 		wantAttempts         int
 		approxAttempts       bool // because of randomness of the retry interval
 		numErrs              int
@@ -509,7 +509,7 @@ func TestRetrySendMetrics(t *testing.T) {
 			name:                 "should not retry if maxRetries reached",
 			numUntilSuccess:      5,
 			maxRetries:           3,
-			maxRequestElapseTime: 100,
+			maxRequestElapseTime: "100s",
 			wantAttempts:         4,
 			numErrs:              1,
 		},
@@ -517,7 +517,7 @@ func TestRetrySendMetrics(t *testing.T) {
 			name:                 "should stop retry if maxRequestElapseTime reached",
 			numUntilSuccess:      5,
 			maxRetries:           100,
-			maxRequestElapseTime: 1,
+			maxRequestElapseTime: "1s",
 			wantAttempts:         3,
 			approxAttempts:       true,
 			numErrs:              1,
@@ -539,7 +539,9 @@ func TestRetrySendMetrics(t *testing.T) {
 			v.Set("otlp.metrics_endpoint", fmt.Sprintf("%s/%s", s.URL, "v1/metrics"))
 			v.Set("otlp.logs_endpoint", fmt.Sprintf("%s/%s", s.URL, "v1/logs"))
 			v.Set("otlp.max_retries", tc.maxRetries)
-			v.Set("otlp.max_request_elapsed_time", tc.maxRequestElapseTime)
+			if tc.maxRequestElapseTime != "" {
+				v.Set("otlp.max_request_elapsed_time", tc.maxRequestElapseTime)
+			}
 
 			logger := fixtures.NewTestLogger(t)
 

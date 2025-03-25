@@ -3,6 +3,7 @@ package otlp
 import (
 	"errors"
 	"runtime"
+	"time"
 
 	"github.com/spf13/viper"
 	"go.uber.org/multierr"
@@ -31,7 +32,7 @@ type Config struct {
 	MaxRetries int `mapstructure:"max_retries"`
 	// MaxRequestElapsedTime (Optional, default: 15) is the maximum time in seconds to wait for a request to complete
 	// 0 means it never stop until reaches MaxRetries
-	MaxRequestElapsedTime int `mapstructure:"max_request_elapsed_time"`
+	MaxRequestElapsedTime time.Duration `mapstructure:"max_request_elapsed_time"`
 	// CompressPayload (Optional, default: true) is used to enable payload compression
 	CompressPayload bool `mapstructure:"compress_payload"`
 	// MetricsPerBatch (Optional, default: 1000) is the maximum number of metrics to send in a single batch.
@@ -67,7 +68,7 @@ func newDefaultConfig() *Config {
 		Transport:             "default",
 		MaxRequests:           runtime.NumCPU() * 2,
 		MaxRetries:            3,
-		MaxRequestElapsedTime: 15,
+		MaxRequestElapsedTime: time.Second * 15,
 		CompressPayload:       true,
 		MetricsPerBatch:       defaultMetricsPerBatch,
 		Conversion:            ConversionAsGauge,

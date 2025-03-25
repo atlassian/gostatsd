@@ -2,6 +2,7 @@ package otlp
 
 import (
 	"testing"
+	"time"
 
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
@@ -30,7 +31,7 @@ func TestNewConfig(t *testing.T) {
 				v.SetDefault("otlp.logs_endpoint", "http://local/v1/logs")
 				v.SetDefault("otlp.max_requests", 1)
 				v.SetDefault("otlp.max_retries", 3)
-				v.SetDefault("otlp.max_request_elapsed_time", 15)
+				v.SetDefault("otlp.max_request_elapsed_time", "15s")
 				v.SetDefault("otlp.compress_payload", true)
 				v.SetDefault("otlp.metrics_per_batch", 999)
 				return v
@@ -40,7 +41,7 @@ func TestNewConfig(t *testing.T) {
 				LogsEndpoint:          "http://local/v1/logs",
 				MaxRequests:           1,
 				MaxRetries:            3,
-				MaxRequestElapsedTime: 15,
+				MaxRequestElapsedTime: time.Second * 15,
 				CompressPayload:       true,
 				MetricsPerBatch:       999,
 				Conversion:            "AsGauge",
