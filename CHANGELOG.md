@@ -1,3 +1,7 @@
+40.0.2
+------
+- Add backoff to retries in the OTLP backend
+
 40.0.1
 ------
 - Fixes a race condition in the lambda extension
