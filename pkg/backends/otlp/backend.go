@@ -9,16 +9,18 @@ import (
 	"runtime/debug"
 	"strconv"
 	"sync/atomic"
+	"time"
 
+	"github.com/cenkalti/backoff"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
+	"github.com/tilinna/clock"
 	"go.uber.org/multierr"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/atlassian/gostatsd/pkg/stats"
-
 	"github.com/atlassian/gostatsd"
 	"github.com/atlassian/gostatsd/pkg/backends/otlp/internal/data"
+	"github.com/atlassian/gostatsd/pkg/stats"
 	"github.com/atlassian/gostatsd/pkg/transport"
 )
 
@@ -54,7 +56,8 @@ type Backend struct {
 	CompressPayload   bool
 
 	// metricsPerBatch is the maximum number of metrics to send in a single batch.
-	metricsPerBatch int
+	metricsPerBatch       int
+	maxRequestElapsedTime time.Duration
 }
 
 var _ gostatsd.Backend = (*Backend)(nil)
@@ -86,6 +89,7 @@ func NewClientFromViper(v *viper.Viper, logger logrus.FieldLogger, pool *transpo
 		logger:                logger,
 		requestsBufferSem:     make(chan struct{}, cfg.MaxRequests),
 		maxRetries:            cfg.MaxRetries,
+		maxRequestElapsedTime: cfg.MaxRequestElapsedTime,
 		CompressPayload:       cfg.CompressPayload,
 		metricsPerBatch:       cfg.MetricsPerBatch,
 	}, nil
@@ -337,6 +341,12 @@ func (c *Backend) postMetrics(ctx context.Context, batch group) error {
 		return err
 	}
 
+	b := backoff.NewExponentialBackOff()
+	clck := clock.FromContext(ctx)
+	b.Clock = clck
+	b.Reset()
+	b.MaxElapsedTime = c.maxRequestElapsedTime
+
 	for {
 		var dropped int64
 		c.requestsBufferSem <- struct{}{}
@@ -354,13 +364,27 @@ func (c *Backend) postMetrics(ctx context.Context, batch group) error {
 			}
 		}
 
-		if retries >= c.maxRetries {
-			break
+		next := b.NextBackOff()
+		if next == backoff.Stop || retries >= c.maxRetries {
+			atomic.AddUint64(&c.batchesDropped, 1)
+			return err
 		}
 
+		c.logger.WithFields(logrus.Fields{
+			"sleep": next,
+			"error": err,
+		}).Warn("failed to send metrics, will retry")
+
 		retries++
+
+		timer := clck.NewTimer(next)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return ctx.Err()
+		case <-timer.C:
+		}
+
 		atomic.AddUint64(&c.batchesRetried.Cur, 1)
 	}
-
-	return err
 }
