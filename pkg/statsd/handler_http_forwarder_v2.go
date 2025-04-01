@@ -464,11 +464,16 @@ func (hfh *HttpForwarderHandlerV2) post(ctx context.Context, message proto.Messa
 	b := backoff.NewExponentialBackOff()
 	b.MaxElapsedTime = hfh.maxRequestElapsedTime
 
+	statser := stats.FromContext(ctx)
 	for {
+		startTime := clock.Now(ctx)
 		if err = post(); err == nil {
 			atomic.AddUint64(&hfh.messagesSent, 1)
 			hfh.lastSuccessfulSend.Store(clock.Now(ctx).UnixNano())
+			statser.TimingDuration("http.forwarder.post_duration", clock.Since(ctx, startTime), gostatsd.Tags{"status:success"})
 			return
+		} else {
+			statser.TimingDuration("http.forwarder.post_duration", clock.Since(ctx, startTime), gostatsd.Tags{"status:fail"})
 		}
 
 		next := b.NextBackOff()
