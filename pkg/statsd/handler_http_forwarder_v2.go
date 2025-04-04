@@ -473,7 +473,7 @@ func (hfh *HttpForwarderHandlerV2) post(ctx context.Context, statser stats.Stats
 			statser.TimingDuration("http.forwarder.post_duration", clock.Since(ctx, startTime), gostatsd.Tags{"status:success"})
 			return
 		} else {
-			statser.TimingDuration("http.forwarder.post_duration", clock.Since(ctx, startTime), gostatsd.Tags{"status:fail"})
+			statser.TimingDuration("http.forwarder.post_duration", clock.Since(ctx, startTime), gostatsd.Tags{"status:failure"})
 		}
 
 		next := b.NextBackOff()
