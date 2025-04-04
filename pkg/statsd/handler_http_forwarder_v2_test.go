@@ -24,6 +24,7 @@ import (
 	"github.com/atlassian/gostatsd/internal/flush"
 	"github.com/atlassian/gostatsd/pb"
 	"github.com/atlassian/gostatsd/pkg/healthcheck"
+	"github.com/atlassian/gostatsd/pkg/stats"
 	"github.com/atlassian/gostatsd/pkg/transport"
 	"github.com/atlassian/gostatsd/pkg/web"
 )
@@ -93,7 +94,7 @@ func TestHttpForwarderDeepCheck(t *testing.T) {
 	t.Logf("%s\n", msg)
 	assert.Equal(t, healthcheck.Unhealthy, isHealthy)
 
-	hfh.sendNop(context.Background())
+	hfh.sendNop(context.Background(), stats.FromContext(context.Background()))
 
 	msg, isHealthy = deepChecks[0]()
 	t.Logf("%s\n", msg)
