@@ -302,13 +302,14 @@ func (hfh *HttpForwarderHandlerV2) emitMetrics(statser stats.Statser) {
 }
 
 // sendNop sends an empty metric map downstream.  It's used to "prime the pump" for the deepcheck.
-func (hfh *HttpForwarderHandlerV2) sendNop(ctx context.Context) {
-	hfh.postMetrics(ctx, gostatsd.NewMetricMap(false), "", 0)
+func (hfh *HttpForwarderHandlerV2) sendNop(ctx context.Context, statser stats.Statser) {
+	hfh.postMetrics(ctx, statser, gostatsd.NewMetricMap(false), "", 0)
 }
 
 func (hfh *HttpForwarderHandlerV2) Run(ctx context.Context) {
+	statser := stats.FromContext(ctx)
 	var wg wait.Group
-	hfh.sendNop(ctx)
+	hfh.sendNop(ctx, statser)
 	wg.Start(func() {
 		for metricMaps := range hfh.consolidatedMetrics {
 			hfh.acquireMergingSem()
@@ -326,7 +327,7 @@ func (hfh *HttpForwarderHandlerV2) Run(ctx context.Context) {
 					hfh.acquireSem()
 					postId := atomic.AddUint64(&hfh.postId, 1) - 1
 					go func(postId uint64, metricMap *gostatsd.MetricMap, dynHeaderTags string) {
-						hfh.postMetrics(context.Background(), metricMap, dynHeaderTags, postId)
+						hfh.postMetrics(context.Background(), statser, metricMap, dynHeaderTags, postId)
 						hfh.notifyFlush()
 						hfh.releaseSem()
 					}(postId, mm, dynHeaderTags)
@@ -441,12 +442,12 @@ func translateToProtobufV2(metricMap *gostatsd.MetricMap) *pb.RawMessageV2 {
 	return &pbMetricMap
 }
 
-func (hfh *HttpForwarderHandlerV2) postMetrics(ctx context.Context, metricMap *gostatsd.MetricMap, dynHeaderTags string, batchId uint64) {
+func (hfh *HttpForwarderHandlerV2) postMetrics(ctx context.Context, statser stats.Statser, metricMap *gostatsd.MetricMap, dynHeaderTags string, batchId uint64) {
 	message := translateToProtobufV2(metricMap)
-	hfh.post(ctx, message, dynHeaderTags, batchId, "metrics", "/v2/raw")
+	hfh.post(ctx, statser, message, dynHeaderTags, batchId, "metrics", "/v2/raw")
 }
 
-func (hfh *HttpForwarderHandlerV2) post(ctx context.Context, message proto.Message, dynHeaderTags string, id uint64, endpointType, endpoint string) {
+func (hfh *HttpForwarderHandlerV2) post(ctx context.Context, statser stats.Statser, message proto.Message, dynHeaderTags string, id uint64, endpointType, endpoint string) {
 	logger := hfh.logger.WithFields(logrus.Fields{
 		"id":   id,
 		"type": endpointType,
@@ -464,7 +465,6 @@ func (hfh *HttpForwarderHandlerV2) post(ctx context.Context, message proto.Messa
 	b := backoff.NewExponentialBackOff()
 	b.MaxElapsedTime = hfh.maxRequestElapsedTime
 
-	statser := stats.FromContext(ctx)
 	for {
 		startTime := clock.Now(ctx)
 		if err = post(); err == nil {
@@ -639,7 +639,8 @@ func (hfh *HttpForwarderHandlerV2) dispatchEvent(ctx context.Context, e *gostats
 		message.Type = pb.EventV2_Success
 	}
 
-	hfh.post(ctx, message, "", postId, "event", "/v2/event")
+	statser := stats.FromContext(ctx)
+	hfh.post(ctx, statser, message, "", postId, "event", "/v2/event")
 
 	defer hfh.eventWg.Done()
 }
