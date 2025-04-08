@@ -60,7 +60,8 @@ Metrics:
 | http.forwarder.sent                         | counter               |                              | The number of batches successfully forwarded
 | http.forwarder.retried                      | counter               |                              | The number of retries sending a batch
 | http.forwarder.dropped                      | counter               |                              | The number of batches dropped due to inability to forward upstream
-| http.forwarder.post_duration                | gauge (time)          | status                       | The time taken to forward a batch, and the status of the request
+| http.forwarder.post_latency.avg             | gauge (time)          |                              | The average time taken to forward a batch in the flush interval
+| http.forwarder.post_latency.max             | gauge (time)          |                              | The maximum time taken to forward a batch in the flush interval
 | http.incoming                               | counter               | server-name, result, failure | The number of batches forwarded to the server, and the results of processing them
 | http.incoming.metrics                       | counter               | server-name                  | The number of metrics received over http
   
@@ -72,7 +73,6 @@ Metrics:
 | commit        | The short git commit of the build
 | backend       | The backend sending a particular metric
 | type          | Either metric or event for cloudprovider.hosts_queued, or event for cloudprovider.items_queued
-| status        | Success to indicate a batch of metrics was successfully forwarded, failure to indicate a batch of metrics was not forwarded
 | result        | Success to indicate a batch of metrics was successfully processed, failure to indicate a batch of metrics was not processed, with additional failure tag for why)
 | failure       | The reason a batch of metrics was not processed
 | server-name   | The name of an http-server as specified in the config file
