@@ -44,12 +44,15 @@ const (
 
 // HttpForwarderHandlerV2 is a PipelineHandler which sends metrics to another gostatsd instance
 type HttpForwarderHandlerV2 struct {
-	postId             uint64 // atomic - used for an id in logs
-	messagesInvalid    uint64 // atomic - messages which failed to be created
-	messagesCreated    uint64 // atomic - messages which were created
-	messagesSent       uint64 // atomic - messages successfully sent
-	messagesRetried    uint64 // atomic - retries (first send is not a retry, final failure is not a retry)
-	messagesDropped    uint64 // atomic - final failure
+	postId           uint64       // atomic - used for an id in logs
+	messagesInvalid  uint64       // atomic - messages which failed to be created
+	messagesCreated  uint64       // atomic - messages which were created
+	messagesSent     uint64       // atomic - messages successfully sent
+	messagesRetried  uint64       // atomic - retries (first send is not a retry, final failure is not a retry)
+	messagesDropped  uint64       // atomic - final failure
+	postLatencyTotal int64        // atomic - total of the time taken to send messages in a flush interval
+	postLatencyMax   atomic.Int64 // atomic - maximum time taken to send a message in a flush interval
+
 	lastSuccessfulSend atomic.Int64
 
 	logger                logrus.FieldLogger
@@ -299,17 +302,18 @@ func (hfh *HttpForwarderHandlerV2) emitMetrics(statser stats.Statser) {
 	statser.Report("http.forwarder.sent", &hfh.messagesSent, nil)
 	statser.Report("http.forwarder.retried", &hfh.messagesRetried, nil)
 	statser.Report("http.forwarder.dropped", &hfh.messagesDropped, nil)
+	statser.TimingMS("http.forwarded.post_latency.max", float64(hfh.postLatencyMax.Load()), nil)
+	statser.TimingMS("http.forwarded.post_latency.avg", float64(hfh.postLatencyTotal)/float64(hfh.messagesSent), nil)
 }
 
 // sendNop sends an empty metric map downstream.  It's used to "prime the pump" for the deepcheck.
-func (hfh *HttpForwarderHandlerV2) sendNop(ctx context.Context, statser stats.Statser) {
-	hfh.postMetrics(ctx, statser, gostatsd.NewMetricMap(false), "", 0)
+func (hfh *HttpForwarderHandlerV2) sendNop(ctx context.Context) {
+	hfh.postMetrics(ctx, gostatsd.NewMetricMap(false), "", 0)
 }
 
 func (hfh *HttpForwarderHandlerV2) Run(ctx context.Context) {
-	statser := stats.FromContext(ctx)
 	var wg wait.Group
-	hfh.sendNop(ctx, statser)
+	hfh.sendNop(ctx)
 	wg.Start(func() {
 		for metricMaps := range hfh.consolidatedMetrics {
 			hfh.acquireMergingSem()
@@ -327,7 +331,7 @@ func (hfh *HttpForwarderHandlerV2) Run(ctx context.Context) {
 					hfh.acquireSem()
 					postId := atomic.AddUint64(&hfh.postId, 1) - 1
 					go func(postId uint64, metricMap *gostatsd.MetricMap, dynHeaderTags string) {
-						hfh.postMetrics(context.Background(), statser, metricMap, dynHeaderTags, postId)
+						hfh.postMetrics(context.Background(), metricMap, dynHeaderTags, postId)
 						hfh.notifyFlush()
 						hfh.releaseSem()
 					}(postId, mm, dynHeaderTags)
@@ -442,12 +446,12 @@ func translateToProtobufV2(metricMap *gostatsd.MetricMap) *pb.RawMessageV2 {
 	return &pbMetricMap
 }
 
-func (hfh *HttpForwarderHandlerV2) postMetrics(ctx context.Context, statser stats.Statser, metricMap *gostatsd.MetricMap, dynHeaderTags string, batchId uint64) {
+func (hfh *HttpForwarderHandlerV2) postMetrics(ctx context.Context, metricMap *gostatsd.MetricMap, dynHeaderTags string, batchId uint64) {
 	message := translateToProtobufV2(metricMap)
-	hfh.post(ctx, statser, message, dynHeaderTags, batchId, "metrics", "/v2/raw")
+	hfh.post(ctx, message, dynHeaderTags, batchId, "metrics", "/v2/raw")
 }
 
-func (hfh *HttpForwarderHandlerV2) post(ctx context.Context, statser stats.Statser, message proto.Message, dynHeaderTags string, id uint64, endpointType, endpoint string) {
+func (hfh *HttpForwarderHandlerV2) post(ctx context.Context, message proto.Message, dynHeaderTags string, id uint64, endpointType, endpoint string) {
 	logger := hfh.logger.WithFields(logrus.Fields{
 		"id":   id,
 		"type": endpointType,
@@ -470,10 +474,13 @@ func (hfh *HttpForwarderHandlerV2) post(ctx context.Context, statser stats.Stats
 		if err = post(); err == nil {
 			atomic.AddUint64(&hfh.messagesSent, 1)
 			hfh.lastSuccessfulSend.Store(clock.Now(ctx).UnixNano())
-			statser.TimingDuration("http.forwarder.post_duration", clock.Since(ctx, startTime), gostatsd.Tags{"status:success"})
+
+			postLatency := clock.Since(ctx, startTime)
+			atomic.AddInt64(&hfh.postLatencyTotal, postLatency.Milliseconds())
+			if postLatency.Milliseconds() > hfh.postLatencyMax.Load() {
+				hfh.postLatencyMax.Store(postLatency.Milliseconds())
+			}
 			return
-		} else {
-			statser.TimingDuration("http.forwarder.post_duration", clock.Since(ctx, startTime), gostatsd.Tags{"status:failure"})
 		}
 
 		next := b.NextBackOff()
@@ -639,8 +646,7 @@ func (hfh *HttpForwarderHandlerV2) dispatchEvent(ctx context.Context, e *gostats
 		message.Type = pb.EventV2_Success
 	}
 
-	statser := stats.FromContext(ctx)
-	hfh.post(ctx, statser, message, "", postId, "event", "/v2/event")
+	hfh.post(ctx, message, "", postId, "event", "/v2/event")
 
 	defer hfh.eventWg.Done()
 }
