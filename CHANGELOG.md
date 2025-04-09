@@ -1,3 +1,7 @@
+40.0.3
+------
+- Upgrade oauth2 from 0.17 to 0.28
+
 40.0.2
 ------
 - Add backoff to retries in the OTLP backend
