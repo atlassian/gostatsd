@@ -302,8 +302,8 @@ func (hfh *HttpForwarderHandlerV2) emitMetrics(statser stats.Statser) {
 	statser.Report("http.forwarder.sent", &hfh.messagesSent, nil)
 	statser.Report("http.forwarder.retried", &hfh.messagesRetried, nil)
 	statser.Report("http.forwarder.dropped", &hfh.messagesDropped, nil)
-	statser.TimingMS("http.forwarded.post_latency.max", float64(hfh.postLatencyMax.Load()), nil)
-	statser.TimingMS("http.forwarded.post_latency.avg", float64(hfh.postLatencyTotal)/float64(hfh.messagesSent), nil)
+	statser.TimingMS("http.forwarder.post_latency.max", float64(hfh.postLatencyMax.Load()), nil)
+	statser.TimingMS("http.forwarder.post_latency.avg", float64(hfh.postLatencyTotal)/float64(hfh.messagesSent), nil)
 }
 
 // sendNop sends an empty metric map downstream.  It's used to "prime the pump" for the deepcheck.
