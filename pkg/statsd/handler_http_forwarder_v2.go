@@ -50,8 +50,8 @@ type HttpForwarderHandlerV2 struct {
 	messagesSent     uint64       // atomic - messages successfully sent
 	messagesRetried  uint64       // atomic - retries (first send is not a retry, final failure is not a retry)
 	messagesDropped  uint64       // atomic - final failure
-	postLatencyTotal int64        // atomic - total of the time taken to send messages in a flush interval
-	postLatencyMax   atomic.Int64 // atomic - maximum time taken to send a message in a flush interval
+	postLatencyTotal atomic.Int64 // total of the time taken to send messages in a flush interval
+	postLatencyMax   atomic.Int64 // maximum time taken to send a message in a flush interval
 
 	lastSuccessfulSend atomic.Int64
 
@@ -302,8 +302,11 @@ func (hfh *HttpForwarderHandlerV2) emitMetrics(statser stats.Statser) {
 	statser.Report("http.forwarder.sent", &hfh.messagesSent, nil)
 	statser.Report("http.forwarder.retried", &hfh.messagesRetried, nil)
 	statser.Report("http.forwarder.dropped", &hfh.messagesDropped, nil)
-	statser.TimingMS("http.forwarder.post_latency.max", float64(hfh.postLatencyMax.Load()), nil)
-	statser.TimingMS("http.forwarder.post_latency.avg", float64(hfh.postLatencyTotal)/float64(hfh.messagesSent), nil)
+
+	postLatencyMax := hfh.postLatencyMax.Swap(0)
+	postLatencyTotal := hfh.postLatencyTotal.Swap(0)
+	statser.Gauge("http.forwarder.post_latency.max", float64(postLatencyMax), nil)
+	statser.Count("http.forwarder.post_latency.sum", float64(postLatencyTotal), nil)
 }
 
 // sendNop sends an empty metric map downstream.  It's used to "prime the pump" for the deepcheck.
@@ -475,10 +478,12 @@ func (hfh *HttpForwarderHandlerV2) post(ctx context.Context, message proto.Messa
 			atomic.AddUint64(&hfh.messagesSent, 1)
 			hfh.lastSuccessfulSend.Store(clock.Now(ctx).UnixNano())
 
-			postLatency := clock.Since(ctx, startTime)
-			atomic.AddInt64(&hfh.postLatencyTotal, postLatency.Milliseconds())
-			if postLatency.Milliseconds() > hfh.postLatencyMax.Load() {
-				hfh.postLatencyMax.Store(postLatency.Milliseconds())
+			postLatency := clock.Since(ctx, startTime).Milliseconds()
+			hfh.postLatencyTotal.Add(postLatency)
+			for old := hfh.postLatencyMax.Load(); old < postLatency; old = hfh.postLatencyMax.Load() {
+				if hfh.postLatencyMax.CompareAndSwap(old, postLatency) {
+					break
+				}
 			}
 			return
 		}
