@@ -11,7 +11,7 @@ Metric types:
 | gauge (cumulative) | An internal counter sent as a gauge with the value never resetting
 | gauge (sparse)     | The same as a cumulative gauge, but data is only sent on change
 | counter            | An internal counter, reset on flush
-| reported           | The type will be emitted as a guage for services in stand alone mode, otherwise as counters for forwarders.
+| reported           | The type will be emitted as a gauge for services in stand alone mode, otherwise as counters for forwarders.
 
 
 Metrics:
@@ -60,6 +60,8 @@ Metrics:
 | http.forwarder.sent                         | counter               |                              | The number of batches successfully forwarded
 | http.forwarder.retried                      | counter               |                              | The number of retries sending a batch
 | http.forwarder.dropped                      | counter               |                              | The number of batches dropped due to inability to forward upstream
+| http.forwarder.post_latency.sum             | counter               |                              | The total of the time taken to forward a batch in the flush interval
+| http.forwarder.post_latency.max             | gauge (flush)         |                              | The maximum time taken to forward a batch in the flush interval
 | http.incoming                               | counter               | server-name, result, failure | The number of batches forwarded to the server, and the results of processing them
 | http.incoming.metrics                       | counter               | server-name                  | The number of metrics received over http
   

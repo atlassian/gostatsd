@@ -44,12 +44,15 @@ const (
 
 // HttpForwarderHandlerV2 is a PipelineHandler which sends metrics to another gostatsd instance
 type HttpForwarderHandlerV2 struct {
-	postId             uint64 // atomic - used for an id in logs
-	messagesInvalid    uint64 // atomic - messages which failed to be created
-	messagesCreated    uint64 // atomic - messages which were created
-	messagesSent       uint64 // atomic - messages successfully sent
-	messagesRetried    uint64 // atomic - retries (first send is not a retry, final failure is not a retry)
-	messagesDropped    uint64 // atomic - final failure
+	postId           uint64       // atomic - used for an id in logs
+	messagesInvalid  uint64       // atomic - messages which failed to be created
+	messagesCreated  uint64       // atomic - messages which were created
+	messagesSent     uint64       // atomic - messages successfully sent
+	messagesRetried  uint64       // atomic - retries (first send is not a retry, final failure is not a retry)
+	messagesDropped  uint64       // atomic - final failure
+	postLatencyTotal atomic.Int64 // total of the time taken to send messages in a flush interval
+	postLatencyMax   atomic.Int64 // maximum time taken to send a message in a flush interval
+
 	lastSuccessfulSend atomic.Int64
 
 	logger                logrus.FieldLogger
@@ -299,6 +302,11 @@ func (hfh *HttpForwarderHandlerV2) emitMetrics(statser stats.Statser) {
 	statser.Report("http.forwarder.sent", &hfh.messagesSent, nil)
 	statser.Report("http.forwarder.retried", &hfh.messagesRetried, nil)
 	statser.Report("http.forwarder.dropped", &hfh.messagesDropped, nil)
+
+	postLatencyMax := hfh.postLatencyMax.Swap(0)
+	postLatencyTotal := hfh.postLatencyTotal.Swap(0)
+	statser.Gauge("http.forwarder.post_latency.max", float64(postLatencyMax), nil)
+	statser.Count("http.forwarder.post_latency.sum", float64(postLatencyTotal), nil)
 }
 
 // sendNop sends an empty metric map downstream.  It's used to "prime the pump" for the deepcheck.
@@ -465,9 +473,18 @@ func (hfh *HttpForwarderHandlerV2) post(ctx context.Context, message proto.Messa
 	b.MaxElapsedTime = hfh.maxRequestElapsedTime
 
 	for {
+		startTime := clock.Now(ctx)
 		if err = post(); err == nil {
 			atomic.AddUint64(&hfh.messagesSent, 1)
 			hfh.lastSuccessfulSend.Store(clock.Now(ctx).UnixNano())
+
+			postLatency := clock.Since(ctx, startTime).Milliseconds()
+			hfh.postLatencyTotal.Add(postLatency)
+			for old := hfh.postLatencyMax.Load(); old < postLatency; old = hfh.postLatencyMax.Load() {
+				if hfh.postLatencyMax.CompareAndSwap(old, postLatency) {
+					break
+				}
+			}
 			return
 		}
 
