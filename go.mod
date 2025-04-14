@@ -22,7 +22,7 @@ require (
 	go.opentelemetry.io/proto/otlp v1.0.0
 	go.uber.org/multierr v1.11.0
 	golang.org/x/exp v0.0.0-20230905200255-921286631fa9
-	golang.org/x/net v0.35.0
+	golang.org/x/net v0.39.0
 	golang.org/x/time v0.3.0
 	google.golang.org/protobuf v1.34.1
 	k8s.io/api v0.25.2
@@ -37,7 +37,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.14.10
 	github.com/aws/aws-sdk-go-v2/service/cloudwatch v1.42.3
 	github.com/aws/aws-sdk-go-v2/service/ec2 v1.187.0
-	golang.org/x/sync v0.11.0
+	golang.org/x/sync v0.13.0
 )
 
 require (
@@ -91,9 +91,9 @@ require (
 	github.com/subosito/gotenv v1.6.0 // indirect
 	github.com/yuin/gopher-lua v0.0.0-20210529063254-f4c35e4016d9 // indirect
 	golang.org/x/oauth2 v0.28.0 // indirect
-	golang.org/x/sys v0.30.0 // indirect
-	golang.org/x/term v0.29.0 // indirect
-	golang.org/x/text v0.22.0 // indirect
+	golang.org/x/sys v0.32.0 // indirect
+	golang.org/x/term v0.31.0 // indirect
+	golang.org/x/text v0.24.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20240227224415-6ceb2ff114de // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240227224415-6ceb2ff114de // indirect
 	google.golang.org/grpc v1.63.2 // indirect
