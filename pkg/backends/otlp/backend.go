@@ -136,7 +136,7 @@ func (b *Backend) SendEvent(ctx context.Context, event *gostatsd.Event) error {
 }
 
 func (bd *Backend) SendMetricsAsync(ctx context.Context, mm *gostatsd.MetricMap, cb gostatsd.SendCallback) {
-	now := clock.FromContext(ctx).Now().Unix()
+	now := clock.FromContext(ctx).Now().UnixNano()
 	statser := stats.FromContext(ctx).WithTags(gostatsd.Tags{"backend:otlp"})
 	defer func() {
 		statser.Gauge("backend.created", float64(atomic.LoadUint64(&bd.batchesCreated)), nil)
