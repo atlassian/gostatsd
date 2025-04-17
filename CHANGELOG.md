@@ -1,3 +1,8 @@
+40.0.4
+------
+- Emit latency metrics for forwarder requests
+- Use flush timestamp instead of each individual metric's timestamp for OTLP backend
+
 40.0.3
 ------
 - Upgrade oauth2 from 0.17 to 0.28
