@@ -136,6 +136,7 @@ func (b *Backend) SendEvent(ctx context.Context, event *gostatsd.Event) error {
 }
 
 func (bd *Backend) SendMetricsAsync(ctx context.Context, mm *gostatsd.MetricMap, cb gostatsd.SendCallback) {
+	now := clock.FromContext(ctx).Now().UnixNano()
 	statser := stats.FromContext(ctx).WithTags(gostatsd.Tags{"backend:otlp"})
 	defer func() {
 		statser.Gauge("backend.created", float64(atomic.LoadUint64(&bd.batchesCreated)), nil)
@@ -157,7 +158,7 @@ func (bd *Backend) SendMetricsAsync(ctx context.Context, mm *gostatsd.MetricMap,
 		rate := data.NewMetric(name).SetGauge(
 			data.NewGauge(
 				data.NewNumberDataPoint(
-					uint64(cm.Timestamp),
+					uint64(now),
 					data.WithNumberDataPointMap(attributes),
 					data.WithNumberDataPointDoubleValue(cm.PerSecond),
 				),
@@ -167,7 +168,7 @@ func (bd *Backend) SendMetricsAsync(ctx context.Context, mm *gostatsd.MetricMap,
 		m := data.NewMetric(name + ".count").SetSum(
 			data.NewSum(
 				data.NewNumberDataPoint(
-					uint64(cm.Timestamp),
+					uint64(now),
 					data.WithNumberDataPointMap(attributes),
 					data.WithNumberDatapointIntValue(cm.Value),
 				),
@@ -187,7 +188,7 @@ func (bd *Backend) SendMetricsAsync(ctx context.Context, mm *gostatsd.MetricMap,
 		m := data.NewMetric(name).SetGauge(
 			data.NewGauge(
 				data.NewNumberDataPoint(
-					uint64(gm.Timestamp),
+					uint64(now),
 					data.WithNumberDataPointMap(attributes),
 					data.WithNumberDataPointDoubleValue(gm.Value),
 				),
@@ -206,7 +207,7 @@ func (bd *Backend) SendMetricsAsync(ctx context.Context, mm *gostatsd.MetricMap,
 		m := data.NewMetric(name).SetGauge(
 			data.NewGauge(
 				data.NewNumberDataPoint(
-					uint64(sm.Timestamp),
+					uint64(now),
 					data.WithNumberDataPointMap(attributes),
 					data.WithNumberDatapointIntValue(int64(len(sm.Values))),
 				),
@@ -238,7 +239,7 @@ func (bd *Backend) SendMetricsAsync(ctx context.Context, mm *gostatsd.MetricMap,
 						resources,
 						data.NewMetric(fmt.Sprintf("%s.histogram", name)).SetGauge(
 							data.NewGauge(data.NewNumberDataPoint(
-								uint64(t.Timestamp),
+								uint64(now),
 								data.WithNumberDataPointMap(btags),
 								data.WithNumberDataPointDoubleValue(float64(count)),
 							)),
@@ -272,7 +273,7 @@ func (bd *Backend) SendMetricsAsync(ctx context.Context, mm *gostatsd.MetricMap,
 					resources,
 					data.NewMetric(fmt.Sprintf("%s.%s", name, calc.suffix)).SetGauge(
 						data.NewGauge(data.NewNumberDataPoint(
-							uint64(t.Timestamp),
+							uint64(now),
 							data.WithNumberDataPointMap(attributes),
 							calc.value,
 						)),
@@ -283,7 +284,7 @@ func (bd *Backend) SendMetricsAsync(ctx context.Context, mm *gostatsd.MetricMap,
 			for _, pct := range t.Percentiles {
 				currentGroup.insert(bd.is, resources, data.NewMetric(fmt.Sprintf("%s.%s", name, pct.Str)).SetGauge(
 					data.NewGauge(data.NewNumberDataPoint(
-						uint64(t.Timestamp),
+						uint64(now),
 						data.WithNumberDataPointMap(attributes),
 						data.WithNumberDataPointDoubleValue(pct.Float),
 					)),
@@ -300,7 +301,7 @@ func (bd *Backend) SendMetricsAsync(ctx context.Context, mm *gostatsd.MetricMap,
 				opts = append(opts, data.WithHistogramDataPointCumulativeBucketValues(t.Histogram))
 			}
 			currentGroup.insert(bd.is, resources, data.NewMetric(name).SetHistogram(
-				data.NewHistogram(data.NewHistogramDataPoint(uint64(t.Timestamp), opts...)),
+				data.NewHistogram(data.NewHistogramDataPoint(uint64(now), opts...)),
 			))
 		}
 	})
