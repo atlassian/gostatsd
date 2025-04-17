@@ -483,7 +483,7 @@ func (hfh *HttpForwarderHandlerV2) post(ctx context.Context, message proto.Messa
 			for old := hfh.postLatencyMax.Load(); old < postLatency; old = hfh.postLatencyMax.Load() {
 				// Multiple goroutines could attempt to update postLatencyMax, so CompareAndSwap to ensure checking against the latest stored value.
 				// If the stored value and old value are equal and the new value is greater than the stored value, the stored value is updated with the new value.
-				// Otherwise, the goroutine reads the old value again and checks against the new value.
+				// Otherwise, the goroutine loads the old value again and checks against the new value.
 				if hfh.postLatencyMax.CompareAndSwap(old, postLatency) {
 					break
 				}
