@@ -1,3 +1,8 @@
+40.0.5
+------
+- Clean up a bunch of old stuff in the repo
+- Bumps some library versions
+
 40.0.4
 ------
 - Emit latency metrics for forwarder requests
