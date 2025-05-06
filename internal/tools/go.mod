@@ -1,6 +1,6 @@
 module github.com/atlassian/gostatsd/internal/tools
 
-go 1.23.6
+go 1.24.2
 
 require (
 	github.com/dvyukov/go-fuzz v0.0.0-20231019021653-5581da83c52f
