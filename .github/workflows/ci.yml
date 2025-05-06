@@ -14,12 +14,10 @@ jobs:
         with:
           # Go version needs to be the same in: CI config, README, Dockerfiles, and Makefile
           go-version: 1.24.2
-      - name: Setup CI
-        run: make tools
       - name: Test
         run: |
           make check-fmt
-          make build-all
+          make build
           make check
           make test-race
           make bench-race

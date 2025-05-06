@@ -17,27 +17,24 @@ LAMBDA_PKG          := github.com/atlassian/gostatsd/cmd/lambda-extension
 PROTOBUF_VERSION    ?= 26.1
 PROJECT_ROOT_DIR    := $(realpath $(dir $(abspath $(lastword $(MAKEFILE_LIST)))))
 TOOLS_DIR           := $(PROJECT_ROOT_DIR)/.tools
-TOOLS_SRC_DIR       := $(PROJECT_ROOT_DIR)/internal/tools
-ALL_TOOLS_PACKAGES  := $(shell grep -E '(^|\s)_\s+\".*\"$$' < $(TOOLS_SRC_DIR)/tools.go | tr -d '"' | awk '{print $$2;}')
-ALL_TOOLS_COMMAND   := $(sort $(addprefix $(TOOLS_DIR)/,$(notdir $(ALL_TOOLS_PACKAGES))))
-
-.PHONY: tools
-tools: $(ALL_TOOLS_COMMAND)
-
-$(ALL_TOOLS_COMMAND): $(TOOLS_DIR) $(TOOLS_SRC_DIR)/go.mod
-	cd $(TOOLS_SRC_DIR) && CGO_ENABLED=0 go build -o $(TOOLS_DIR)/$(notdir $@) $(filter %/$(notdir $@),$(ALL_TOOLS_PACKAGES))
-
-$(TOOLS_DIR):
-	mkdir -p $(TOOLS_DIR)
 
 .tools/bin/protoc:
+	mkdir -p $(TOOLS_DIR)
 	curl -L -O https://github.com/protocolbuffers/protobuf/releases/download/v$(PROTOBUF_VERSION)/protoc-$(PROTOBUF_VERSION)-linux-x86_64.zip
 	unzip -o -d $(TOOLS_DIR) protoc-$(PROTOBUF_VERSION)-linux-x86_64.zip
 	rm protoc-$(PROTOBUF_VERSION)-linux-x86_64.zip
 
 pb/gostatsd.pb.go: pb/gostatsd.proto .tools/bin/protoc
-	GOPATH="$(TOOLS_DIR):$(shell go env GOPATH)/bin" $(TOOLS_DIR)/bin/protoc --go_out=.\
-		--go_opt=paths=source_relative $<
+	@# protoc requires the protoc-gen-go plugin to be on the PATH.  In order to maintain the
+	@# usage of `go tool` and properly pinned versions, we install protoc-gen-go to a temporary
+	@# directory, run protoc, then clean up the temporary directory.
+	@#
+	@# Note: go install will use the version defined in go.mod
+	@TMPBIN=$(shell pwd)/$(shell mktemp -d protoc-gen-go.XXXXXXXXXX)                          ; \
+	GOBIN=$$TMPBIN go install google.golang.org/protobuf/cmd/protoc-gen-go                    ; \
+	PATH=$$TMPBIN:$$PATH $(TOOLS_DIR)/bin/protoc --go_out=. --go_opt=paths=source_relative $< ; \
+	rm $$TMPBIN/protoc-gen-go                                                                 ; \
+	rmdir $$TMPBIN
 
 build:
 	CGO_ENABLED=$(CGO_ENABLED) GOEXPERIMENT=boringcrypto \
@@ -66,20 +63,23 @@ build-gostatsd-fips:
 build-lambda-fips:
 	@$(MAKE) build PKG=$(LAMBDA_PKG) BINARY_NAME="lambda-extension" GOBUILD_OPTIONAL_FLAGS="-tags fips"
 
-build-all: pb/gostatsd.pb.go tools
-
 test-all: check-fmt cover test-race bench bench-race check
 
 test-all-full: check-fmt cover test-race-full bench-full bench-race-full check
 
-check-fmt: $(TOOLS_DIR)/goimports
-	@# Since gofmt and goimports dont return 1 on changes, this !() stuff will trigger a build failure if theres any problems.
-	! (gofmt -l -s $$(find . -type f -name '*.go' -not -path "./vendor/*" -not -path "./pb/*") | grep .)
-	! ($(TOOLS_DIR)/goimports -l -local github.com/atlassian/gostatsd $$(find . -type f -name '*.go' -not -path "./vendor/*" -not -path "./pb/*") | grep .)
+check-fmt:
+	@# This has three quirks:
+	@# 1. gci reads from stdin if it's not a character device (ie, if it's a file).  By redirecting /dev/null, it won't read from it
+	@# 2. gofmt and gci don't return 1 for failure, so the `| ( ! grep . )` will return 1 if there is any output at all, failing the step
+	@# 3. if there's actual errors being printed, we want the stderr to go to stdout so it triggers #2
+	@go mod tidy
+	@echo Checking for any changes...
+	gofmt -d $$(find . -type f -name '*.go' -not -path "./vendor/*" -not -path "./pb/*")                                    2>&1 | ( ! grep .)
+	go tool github.com/daixiang0/gci diff . -s standard -s default -s localmodule --skip-generated --skip-vendor </dev/null 2>&1 | ( ! grep .)
 
 fix-fmt:
-	gofmt -w -s $$(find . -type f -name '*.go' -not -path "./vendor/*" -not -path "./pb/*")
-	go run golang.org/x/tools/cmd/goimports -w -l -local github.com/atlassian/gostatsd $$(find . -type f -name '*.go' -not -path "./vendor/*" -not -path "./pb/*")
+	gofmt -w $$(find . -type f -name '*.go' -not -path "./vendor/*" -not -path "./pb/*")
+	go tool github.com/daixiang0/gci diff . -s standard -s default -s localmodule --skip-generated --skip-vendor
 
 test-full: pb/gostatsd.pb.go
 	go test ./...
@@ -110,12 +110,8 @@ cover: pb/gostatsd.pb.go
 	go tool cover -func=coverage.out
 	go tool cover -html=coverage.out
 
-coveralls: $(TOOLS_DIR)/goveralls pb/gostatsd.pb.go
-	./cover.sh
-	$(TOOLS_DIR)/goveralls -coverprofile=coverage.out -service=travis-ci
-
 junit-test: build
-	go test -short -v ./... | go-junit-report > test-report.xml
+	go test -short -v ./... | go tool github.com/jstemmer/go-junit-report > test-report.xml
 
 check: pb/gostatsd.pb.go
 	go install ./cmd/gostatsd
@@ -125,9 +121,9 @@ check-all: pb/gostatsd.pb.go
 	go install ./cmd/gostatsd
 	go install ./cmd/tester
 
-fuzz: $(TOOLS_DIR)/go-fuzz-build $(TOOLS_DIR)/go-fuzz
-	$(TOOLS_DIR)/go-fuzz-build github.com/atlassian/gostatsd/pkg/statsd
-	$(TOOLS_DIR)/go-fuzz -bin=./statsd-fuzz.zip -workdir=test_fixtures/lexer_fuzz
+fuzz:
+	go tool github.com/dvyukov/go-fuzz/go-fuzz-build github.com/atlassian/gostatsd/internal/lexer
+	go tool github.com/dvyukov/go-fuzz/go-fuzz -bin=./lexer-fuzz.zip -workdir=test_fixtures/lexer_fuzz
 
 git-hook:
 	cp dev/push-hook.sh .git/hooks/pre-push

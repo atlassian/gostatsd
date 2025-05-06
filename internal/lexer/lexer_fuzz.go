@@ -12,7 +12,7 @@ func Fuzz(data []byte) int {
 	l := Lexer{
 		MetricPool: pool.NewMetricPool(0),
 	}
-	metric, event, err := l.run(data, "")
+	metric, event, err := l.Run(data, "")
 	if err != nil {
 		return 0
 	}

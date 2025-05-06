@@ -1,10 +1,9 @@
 package gostatsd
 
 import (
-	"testing"
-
 	"regexp"
 	"strings"
+	"testing"
 
 	"github.com/stretchr/testify/assert"
 )
