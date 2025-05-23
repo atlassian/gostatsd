@@ -109,6 +109,7 @@ func TestStatsdThroughput(t *testing.T) {
 		PercentThreshold:      gostatsd.DefaultPercentThreshold,
 		HeartbeatEnabled:      gostatsd.DefaultHeartbeatEnabled,
 		ReceiveBatchSize:      gostatsd.DefaultReceiveBatchSize,
+		ReceiveBufferSize:     gostatsd.DefaultReceiveBufferSize,
 		MaxConcurrentEvents:   2,
 		ServerMode:            "standalone",
 		Viper:                 viper.New(),

@@ -79,6 +79,8 @@ const (
 	DefaultHeartbeatEnabled = false
 	// DefaultReceiveBatchSize is the number of datagrams to read in each receive batch
 	DefaultReceiveBatchSize = 50
+	// DefaultReceiveBufferSize is the number of size of a buffer for each datagram during reads
+	DefaultReceiveBufferSize = 0xffff
 	// DefaultEstimatedTags is the estimated number of expected tags on an individual metric submitted externally
 	DefaultEstimatedTags = 4
 	// DefaultConnPerReader is the default for whether to create a connection per reader
@@ -162,6 +164,8 @@ const (
 	ParamHeartbeatEnabled = "heartbeat-enabled"
 	// ParamReceiveBatchSize is the name of the parameter with the number of datagrams to read in each receive batch
 	ParamReceiveBatchSize = "receive-batch-size"
+	// ParamReceiveBufferSize is the name of the parameter with the number that defines size of buffer of each datagram during reads
+	ParamReceiveBufferSize = "receive-buffer-size"
 	// ParamConnPerReader is the name of the parameter indicating whether to create a connection per reader
 	ParamConnPerReader = "conn-per-reader"
 	// ParamBadLineRateLimitPerMinute is the name of the parameter indicating how many bad lines can be logged per minute
@@ -215,7 +219,8 @@ func AddFlags(fs *pflag.FlagSet) {
 	fs.String(ParamStatserType, DefaultStatserType, "Statser type to be used for sending metrics")
 	fs.String(ParamPercentThreshold, strings.Join(toStringSlice(DefaultPercentThreshold), " "), "Space separated list of percentiles")
 	fs.Bool(ParamHeartbeatEnabled, DefaultHeartbeatEnabled, "Enables heartbeat")
-	fs.Int(ParamReceiveBatchSize, DefaultReceiveBatchSize, "The number of datagrams to read in each receive batch")
+	fs.Int(ParamReceiveBatchSize, DefaultReceiveBatchSize, "The number that defines size of buffer of each datagram during reads")
+	fs.Int(ParamReceiveBufferSize, DefaultReceiveBufferSize, "The number of datagrams to read in each receive batch")
 	fs.Bool(ParamConnPerReader, DefaultConnPerReader, "Create a separate connection per reader (requires system support for reusing addresses)")
 	fs.String(ParamServerMode, DefaultServerMode, "The server mode to run in")
 	fs.String(ParamHostname, getHost(), "overrides the hostname of the server")

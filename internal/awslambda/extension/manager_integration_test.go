@@ -128,6 +128,7 @@ func createStatsDServer(apiAddr string, fc flush.Coordinator, log logrus.FieldLo
 		MaxParsers:                1,
 		MaxWorkers:                1,
 		ReceiveBatchSize:          50,
+		ReceiveBufferSize:         0xffff,
 		MetricsAddr:               l.LocalAddr().String(),
 		ServerMode:                "forwarder",
 		Viper:                     v,
