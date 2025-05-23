@@ -166,6 +166,7 @@ func constructServer(v *viper.Viper) (*statsd.Server, error) {
 		PercentThreshold:      pt,
 		HeartbeatEnabled:      v.GetBool(gostatsd.ParamHeartbeatEnabled),
 		ReceiveBatchSize:      v.GetInt(gostatsd.ParamReceiveBatchSize),
+		ReceiveBufferSize:     v.GetInt(gostatsd.ParamReceiveBufferSize),
 		ConnPerReader:         v.GetBool(gostatsd.ParamConnPerReader),
 		ServerMode:            v.GetString(gostatsd.ParamServerMode),
 		LogRawMetric:          v.GetBool(gostatsd.ParamLogRawMetric),

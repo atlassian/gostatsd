@@ -87,6 +87,7 @@ func NewServer(v *viper.Viper, logger logrus.FieldLogger) *statsd.Server {
 		StatserType:       v.GetString(gostatsd.ParamStatserType),
 		HeartbeatEnabled:  v.GetBool(gostatsd.ParamHeartbeatEnabled),
 		ReceiveBatchSize:  v.GetInt(gostatsd.ParamReceiveBatchSize),
+		ReceiveBufferSize: v.GetInt(gostatsd.ParamReceiveBufferSize),
 		ConnPerReader:     v.GetBool(gostatsd.ParamConnPerReader),
 		ServerMode:        GostatsdForwarderMode,
 		LogRawMetric:      v.GetBool(gostatsd.ParamLogRawMetric),

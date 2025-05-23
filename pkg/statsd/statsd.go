@@ -54,6 +54,7 @@ type Server struct {
 	HeartbeatEnabled          bool
 	HeartbeatTags             gostatsd.Tags
 	ReceiveBatchSize          int
+	ReceiveBufferSize         int
 	DisabledSubTypes          gostatsd.TimerSubtypes
 	HistogramLimit            uint32
 	BadLineRateLimitPerSecond rate.Limit
@@ -196,7 +197,7 @@ func (s *Server) RunWithCustomSocket(ctx context.Context, sf SocketFactory) erro
 	}
 
 	// Create the Receiver
-	receiver := NewDatagramReceiver(datagrams, sf, s.MaxReaders, s.ReceiveBatchSize)
+	receiver := NewDatagramReceiver(datagrams, sf, s.MaxReaders, s.ReceiveBatchSize, s.ReceiveBufferSize)
 	runnables = gostatsd.MaybeAppendRunnable(runnables, receiver)
 
 	// Create the Statser
