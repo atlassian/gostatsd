@@ -49,6 +49,7 @@ func main() {
 			MaxQueueSize:          gostatsd.DefaultMaxQueueSize,
 			PercentThreshold:      gostatsd.DefaultPercentThreshold,
 			ReceiveBatchSize:      gostatsd.DefaultReceiveBatchSize,
+			ReceiveBufferSize:     gostatsd.DefaultReceiveBufferSize,
 			Viper:                 viper.New(),
 		}
 		ctx, cancelFunc := context.WithTimeout(context.Background(), time.Duration(s.Benchmark)*time.Second)

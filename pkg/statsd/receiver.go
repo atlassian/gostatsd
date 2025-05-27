@@ -16,10 +16,6 @@ import (
 	"github.com/atlassian/gostatsd/pkg/stats"
 )
 
-// ip packet size is stored in two bytes and that is how big in theory the packet can be.
-// In practice it is highly unlikely but still possible to get packets bigger than usual MTU of 1500.
-const packetSizeUDP = 0xffff
-
 // DatagramReceiver receives datagrams on its PacketConn and passes them off to be parsed
 type DatagramReceiver struct {
 	// Counter fields below must be read/written only using atomic instructions.
@@ -31,20 +27,26 @@ type DatagramReceiver struct {
 	bufPool *pool.DatagramBufferPool
 
 	receiveBatchSize int // The number of datagrams to read in each batch
-	numReaders       int
-	socketFactory    SocketFactory
+
+	// ip packet size is stored in two bytes and that is how big in theory the packet can be.
+	// In practice it is highly unlikely but still possible to get packets bigger than usual MTU of 1500.
+	// Defaults to 64kB
+	receiveBufferSize int // size of each buffer used to read datagrams
+	numReaders        int
+	socketFactory     SocketFactory
 
 	out chan<- []*Datagram // Output chan of read datagram batches
 }
 
 // NewDatagramReceiver initialises a new DatagramReceiver.
-func NewDatagramReceiver(out chan<- []*Datagram, sf SocketFactory, numReaders, receiveBatchSize int) *DatagramReceiver {
+func NewDatagramReceiver(out chan<- []*Datagram, sf SocketFactory, numReaders, receiveBatchSize int, receiveBufferSize int) *DatagramReceiver {
 	return &DatagramReceiver{
-		out:              out,
-		receiveBatchSize: receiveBatchSize,
-		numReaders:       numReaders,
-		socketFactory:    sf,
-		bufPool:          pool.NewDatagramBufferPool(packetSizeUDP),
+		out:               out,
+		receiveBatchSize:  receiveBatchSize,
+		receiveBufferSize: receiveBufferSize,
+		numReaders:        numReaders,
+		socketFactory:     sf,
+		bufPool:           pool.NewDatagramBufferPool(receiveBufferSize),
 	}
 }
 

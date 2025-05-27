@@ -98,6 +98,8 @@ This configuration mode allows the following configuration options:
   Defaults to `false`.
 - `receive-batch-size`: the number of datagrams to attempt to read.  It is more CPU efficient to read multiple, however
   it takes extra memory.  See [Memory allocation for read buffers] section below for details.  Defaults to 50.
+- `receive-buffer-size`: the size of single buffer that's used to store datagram during read. Number of buffers is defined
+   by `receive-batch-size`. Default to 65535 what is theoretical maximum UDP packet size.
 - `conn-per-reader`: attempts to create a connection for every UDP receiver.  Not supported by all OS versions. It will
   be ignored when unix sockets are used for the connection.
   Defaults to `false`.
@@ -398,7 +400,7 @@ Memory allocation for read buffers
 By default `gostatsd` will batch read multiple packets to optimise read performance. The amount of memory allocated
 for these read buffers is determined by the config options:
 
-    max-readers * receive-batch-size * 64KB (max packet size)
+    max-readers * receive-batch-size * receive-buffer-size
 
 The metric `avg_packets_in_batch` can be used to track the average number of datagrams received per batch, and the
 `--receive-batch-size` flag used to tune it.  There may be some benefit to tuning the `--max-readers` flag as well.

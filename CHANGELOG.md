@@ -1,3 +1,7 @@
+40.1.0
+------
+- Add support for configuration of receiver's buffer size - `receive-buffer-size`
+
 40.0.5
 ------
 - Clean up a bunch of old stuff in the repo

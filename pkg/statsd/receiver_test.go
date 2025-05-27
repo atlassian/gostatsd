@@ -28,7 +28,7 @@ func BenchmarkReceive(b *testing.B) {
 	//
 	// ... so this is pretty arbitrary.
 	ch := make(chan []*Datagram, 5000)
-	mr := NewDatagramReceiver(ch, nil, 0, gostatsd.DefaultReceiveBatchSize)
+	mr := NewDatagramReceiver(ch, nil, 0, gostatsd.DefaultReceiveBatchSize, gostatsd.DefaultReceiveBufferSize)
 	c, done := fakesocket.NewCountedFakePacketConn(uint64(b.N))
 
 	var wg sync.WaitGroup
@@ -74,7 +74,7 @@ func BenchmarkReceive(b *testing.B) {
 
 func TestDatagramReceiver_Receive(t *testing.T) {
 	ch := make(chan []*Datagram, 1)
-	mr := NewDatagramReceiver(ch, nil, 0, 2)
+	mr := NewDatagramReceiver(ch, nil, 0, 2, gostatsd.DefaultReceiveBufferSize)
 	c := fakesocket.NewFakePacketConn()
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -103,7 +103,7 @@ func TestDatagramReceiver_UnixSocketConnection(t *testing.T) {
 
 	// Datagram receiver listening in Unix Domain Socket
 	socketPath := os.TempDir() + "/gostatsd_receiver_test_receive_uds.sock"
-	mr := NewDatagramReceiver(ch, socketFactory(socketPath, false), 1, 2)
+	mr := NewDatagramReceiver(ch, socketFactory(socketPath, false), 1, 2, gostatsd.DefaultReceiveBatchSize)
 	ctx, cancel := context.WithCancel(context.Background())
 
 	var wg sync.WaitGroup
@@ -137,7 +137,7 @@ func TestDatagramReceiver_UnixSocketIsRemovedOnContextCancellation(t *testing.T)
 	ch := make(chan []*Datagram, 1)
 
 	socketPath := os.TempDir() + "/gostatsd_receiver_test_receive_uds.sock"
-	mr := NewDatagramReceiver(ch, socketFactory(socketPath, false), 1, 2)
+	mr := NewDatagramReceiver(ch, socketFactory(socketPath, false), 1, 2, gostatsd.DefaultReceiveBatchSize)
 	ctx, cancel := context.WithCancel(context.Background())
 
 	var wg sync.WaitGroup
