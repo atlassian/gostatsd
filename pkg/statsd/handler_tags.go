@@ -2,6 +2,7 @@ package statsd
 
 import (
 	"context"
+	"slices"
 
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
@@ -36,7 +37,7 @@ func NewTagHandlerFromViper(v *viper.Viper, handler gostatsd.PipelineHandler, ta
 // NewTagHandler initialises a new handler which adds unique tags, and sends metrics/events to the next handler based
 // on filter rules.
 func NewTagHandler(handler gostatsd.PipelineHandler, tags gostatsd.Tags, filters []Filter) *TagHandler {
-	tags = uniqueTags(tags, gostatsd.Tags{}) // de-dupe tags
+	tags = uniqueTagsSimple(tags, gostatsd.Tags{}) // de-dupe tags
 	return &TagHandler{
 		handler:       handler,
 		tags:          tags,
@@ -147,7 +148,7 @@ func (th *TagHandler) DispatchMetricMap(ctx context.Context, mm *gostatsd.Metric
 // Returns true if the metric should be processed further, or false to drop it.
 func (th *TagHandler) uniqueFilterAndAddTags(mName string, mHostname *gostatsd.Source, mTags *gostatsd.Tags) bool {
 	if len(th.filters) == 0 {
-		*mTags = uniqueTags(*mTags, th.tags)
+		*mTags = uniqueTagsSimple(*mTags, th.tags)
 		return true
 	}
 
@@ -193,7 +194,7 @@ func (th *TagHandler) uniqueFilterAndAddTags(mName string, mHostname *gostatsd.S
 
 // DispatchEvent adds the unique tags from the TagHandler to the event and passes it to the next stage in the pipeline
 func (th *TagHandler) DispatchEvent(ctx context.Context, e *gostatsd.Event) {
-	e.Tags = uniqueTags(e.Tags, th.tags)
+	e.Tags = uniqueTagsSimple(e.Tags, th.tags)
 	th.handler.DispatchEvent(ctx, e)
 }
 
@@ -202,12 +203,40 @@ func (th *TagHandler) WaitForEvents() {
 	th.handler.WaitForEvents()
 }
 
-// uniqueTags returns the set of t1 | t2.  It may modify the contents of t1 and t2.
-func uniqueTags(t1 gostatsd.Tags, t2 gostatsd.Tags) gostatsd.Tags {
-	return uniqueTagsWithSeen(map[string]struct{}{}, t1, t2)
+// uniqueTagsSimple returns the set of t1 | t2.  It may modify the contents of t1.  It will not modify the contents
+// of t2.
+func uniqueTagsSimple(t1 gostatsd.Tags, t2 gostatsd.Tags) gostatsd.Tags {
+	// This originally tracked seen tags in a map, however as the number of tags is relatively small, it's actually
+	// faster to do a linear scan than to put things in a map, even if the map is pre-allocated.  The break-even
+	// point is approximately 20 unique items.
+	//
+	// Benchmarking against the https://github.com/golang/go/wiki/SliceTricks style of filtering a slice shows
+	// this is slightly faster, at the expense of breaking "nearly sorted" ordering.  Benchmarking with a
+	// `.SortedString()` on the output shows that this is still better.
+
+	last := len(t1)
+	for idx := 1; idx < last; { // start at 1 because we know the first item will be unique.
+		if slices.Contains(t1[:idx-1], t1[idx]) {
+			// Delete the current item by copying the last item in to this slot, and "shrinking" the slice.
+			last--
+			t1[idx] = t1[last]
+		} else {
+			idx++
+		}
+	}
+	t1 = t1[:last]
+
+	for _, tag := range t2 {
+		if !slices.Contains(t1, tag) {
+			t1 = append(t1, tag)
+		}
+	}
+
+	return t1
 }
 
-// uniqueTags returns the set of (t1 | t2) - seen.  It may modify the contents of t1, t2, and seen.
+// uniqueTagsWithSeen returns the set of (t1 | t2) - seen.  It may modify the contents of t1 and seen.  It will not
+// modify the contents of t2.
 func uniqueTagsWithSeen(seen map[string]struct{}, t1 gostatsd.Tags, t2 gostatsd.Tags) gostatsd.Tags {
 	last := len(t1)
 	for idx := 0; idx < last; {

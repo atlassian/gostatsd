@@ -1,3 +1,7 @@
+40.1.1
+------
+- Optimize an internal code path, no user facing changes.
+
 40.1.0
 ------
 - Add support for configuration of receiver's buffer size - `receive-buffer-size`
