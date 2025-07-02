@@ -3,10 +3,13 @@ package statsd
 import (
 	"bytes"
 	"context"
+	"slices"
 	"sort"
+	"strconv"
 	"strings"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -14,6 +17,74 @@ import (
 	"github.com/atlassian/gostatsd"
 	. "github.com/atlassian/gostatsd/internal/fixtures"
 )
+
+func benchmarkUnique(b *testing.B, t1 gostatsd.Tags, t2 gostatsd.Tags) {
+	// Sanity check.
+	u1 := uniqueTagsSimple(slices.Clone(t1), slices.Clone(t2))
+	u2 := uniqueTagsWithSeen(map[string]struct{}{}, slices.Clone(t1), slices.Clone(t2))
+	u3 := uniqueTagsWithSeen(make(map[string]struct{}, len(t1)), slices.Clone(t1), slices.Clone(t2))
+	require.Equal(b, u1.SortedString(), u2.SortedString())
+	require.Equal(b, u1.SortedString(), u3.SortedString())
+
+	runBenchmark := func(name string, f func(t1, t2 gostatsd.Tags) gostatsd.Tags) {
+		b.Run(name, func(b *testing.B) {
+			b.ReportAllocs()
+			for b.Loop() {
+				_ = f(slices.Clone(t1), slices.Clone(t2))
+				// This can be used to measure the cost of sorting.
+				//_ = f(slices.Clone(t1), slices.Clone(t2)).SortedString()
+			}
+		})
+	}
+
+	runBenchmark("original", func(t1, t2 gostatsd.Tags) gostatsd.Tags {
+		return uniqueTagsWithSeen(map[string]struct{}{}, t1, t2)
+	})
+
+	runBenchmark("prealloc", func(t1, t2 gostatsd.Tags) gostatsd.Tags {
+		return uniqueTagsWithSeen(make(map[string]struct{}, len(t1)), t1, t2)
+	})
+
+	runBenchmark("array-search", func(t1, t2 gostatsd.Tags) gostatsd.Tags {
+		return uniqueTagsSimple(t1, t2)
+	})
+}
+
+func BenchmarkUniqueTagsPractical(b *testing.B) {
+	// Generate 5 tags.  These are the tags emitted at the call-site, and are dynamic.
+	dynamicTags := gostatsd.Tags{
+		uuid.New().String() + ":" + uuid.New().String(),
+		uuid.New().String() + ":" + uuid.New().String(),
+		uuid.New().String() + ":" + uuid.New().String(),
+		uuid.New().String() + ":" + uuid.New().String(),
+		uuid.New().String() + ":" + uuid.New().String(),
+	}
+
+	// Generate 1 overlapping tag, and 3 unique tags.  These are the tags added by TagHandler, and are static.
+	staticTags := gostatsd.Tags{
+		dynamicTags[0],
+		uuid.New().String() + ":" + uuid.New().String(),
+		uuid.New().String() + ":" + uuid.New().String(),
+		uuid.New().String() + ":" + uuid.New().String(),
+	}
+	benchmarkUnique(b, dynamicTags, staticTags)
+}
+
+func BenchmarkUniqueTagsWithSeen(b *testing.B) {
+	for tagCount := range 30 {
+		b.Run(strconv.Itoa(tagCount)+"-tags", func(b *testing.B) {
+			originalTags := gostatsd.Tags{}
+			for i := 0; i < tagCount; i++ {
+				originalTags = append(originalTags, uuid.New().String()+":"+uuid.New().String())
+			}
+			originalTags2 := slices.Clone(originalTags)
+			for i := tagCount / 2; i < tagCount; i++ {
+				originalTags2[i] = uuid.New().String() + ":" + uuid.New().String()
+			}
+			benchmarkUnique(b, originalTags, originalTags2)
+		})
+	}
+}
 
 func TestTagStripMergesCounters(t *testing.T) {
 	t.Parallel()
