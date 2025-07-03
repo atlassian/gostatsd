@@ -72,7 +72,7 @@ func (is *InternalStatser) NotifyFlush(ctx context.Context, d time.Duration) {
 func (is *InternalStatser) Gauge(name string, value float64, tags gostatsd.Tags) {
 	g := &gostatsd.Metric{
 		Name:   name,
-		Value:  value,
+		Values: []float64{value},
 		Tags:   tags,
 		Source: is.hostname,
 		Rate:   1,
@@ -85,7 +85,7 @@ func (is *InternalStatser) Gauge(name string, value float64, tags gostatsd.Tags)
 func (is *InternalStatser) Count(name string, amount float64, tags gostatsd.Tags) {
 	c := &gostatsd.Metric{
 		Name:   name,
-		Value:  amount,
+		Values: []float64{amount},
 		Tags:   tags,
 		Source: is.hostname,
 		Rate:   1,
@@ -113,7 +113,7 @@ func (is *InternalStatser) Report(name string, value *uint64, tags gostatsd.Tags
 func (is *InternalStatser) TimingMS(name string, ms float64, tags gostatsd.Tags) {
 	c := &gostatsd.Metric{
 		Name:   name,
-		Value:  ms,
+		Values: []float64{ms},
 		Tags:   tags,
 		Source: is.hostname,
 		Rate:   1,

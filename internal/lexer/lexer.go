@@ -5,6 +5,7 @@ import (
 	"errors"
 	"math"
 	"strconv"
+	"strings"
 
 	"github.com/atlassian/gostatsd"
 	"github.com/atlassian/gostatsd/internal/pool"
@@ -101,14 +102,26 @@ func (l *Lexer) Run(input []byte, namespace string) (*gostatsd.Metric, *gostatsd
 	if l.m != nil {
 		l.m.Rate = l.sampling
 		if l.m.Type != gostatsd.SET {
-			v, err := strconv.ParseFloat(l.m.StringValue, 64)
-			if err != nil {
-				return nil, nil, err
+			// Count number of colons to preallocate array
+			count := 1
+			for i := 0; i < len(l.m.StringValue); i++ {
+				if l.m.StringValue[i] == ':' {
+					count++
+				}
 			}
-			if math.IsNaN(v) {
-				return nil, nil, errNaN
+			values := make([]float64, 0, count)
+
+			for _, stringValue := range strings.Split(l.m.StringValue, ":") {
+				v, err := strconv.ParseFloat(stringValue, 64)
+				if err != nil {
+					return nil, nil, err
+				}
+				if math.IsNaN(v) {
+					return nil, nil, errNaN
+				}
+				values = append(values, v)
 			}
-			l.m.Value = v
+			l.m.Values = values
 			l.m.StringValue = ""
 		}
 		l.m.Tags = l.tags

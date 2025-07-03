@@ -140,7 +140,7 @@ func TestCloudHandlerDispatch(t *testing.T) {
 	expectedMetrics := []*gostatsd.Metric{
 		{
 			Name:   "t1",
-			Value:  42,
+			Values: []float64{42},
 			Rate:   1,
 			Tags:   gostatsd.Tags{"a1", "region:us-west-3", "tag1", "tag2:234"},
 			Source: "i-1.2.3.4",
@@ -148,7 +148,7 @@ func TestCloudHandlerDispatch(t *testing.T) {
 		},
 		{
 			Name:   "t1",
-			Value:  45,
+			Values: []float64{45},
 			Rate:   1,
 			Tags:   gostatsd.Tags{"a4", "region:us-west-3", "tag1", "tag2:234"},
 			Source: "i-1.2.3.4",
@@ -266,7 +266,7 @@ func doCheck(
 func sm1() *gostatsd.Metric {
 	return &gostatsd.Metric{
 		Name:   "t1",
-		Value:  42,
+		Values: []float64{42},
 		Rate:   1,
 		Tags:   gostatsd.Tags{"a1"},
 		Source: "1.2.3.4",
@@ -277,7 +277,7 @@ func sm1() *gostatsd.Metric {
 func sm2() *gostatsd.Metric {
 	return &gostatsd.Metric{
 		Name:   "t1",
-		Value:  45,
+		Values: []float64{45},
 		Rate:   1,
 		Tags:   gostatsd.Tags{"a4"},
 		Source: "1.2.3.4",

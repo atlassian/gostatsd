@@ -10,24 +10,24 @@ import (
 
 func metricsFixtures() []*Metric {
 	ms := []*Metric{
-		{Name: "foo.bar.baz", Value: 2, Type: COUNTER, Timestamp: 10},
-		{Name: "abc.def.g", Value: 3, Type: GAUGE, Timestamp: 10},
-		{Name: "abc.def.g", Value: 8, Type: GAUGE, Tags: Tags{"foo:bar", "baz"}, Timestamp: 10},
-		{Name: "def.g", Value: 10, Type: TIMER, Timestamp: 10},
-		{Name: "def.g", Value: 1, Type: TIMER, Tags: Tags{"foo:bar", "baz"}, Timestamp: 10},
-		{Name: "smp.rte", Value: 50, Type: COUNTER, Timestamp: 10},
-		{Name: "smp.rte", Value: 50, Type: COUNTER, Tags: Tags{"foo:bar", "baz"}, Timestamp: 10},
-		{Name: "smp.rte", Value: 5, Type: COUNTER, Tags: Tags{"foo:bar", "baz"}, Timestamp: 10},
+		{Name: "foo.bar.baz", Values: []float64{2}, Type: COUNTER, Timestamp: 10},
+		{Name: "abc.def.g", Values: []float64{3}, Type: GAUGE, Timestamp: 10},
+		{Name: "abc.def.g", Values: []float64{8}, Type: GAUGE, Tags: Tags{"foo:bar", "baz"}, Timestamp: 10},
+		{Name: "def.g", Values: []float64{10}, Type: TIMER, Timestamp: 10},
+		{Name: "def.g", Values: []float64{1}, Type: TIMER, Tags: Tags{"foo:bar", "baz"}, Timestamp: 10},
+		{Name: "smp.rte", Values: []float64{50}, Type: COUNTER, Timestamp: 10},
+		{Name: "smp.rte", Values: []float64{50}, Type: COUNTER, Tags: Tags{"foo:bar", "baz"}, Timestamp: 10},
+		{Name: "smp.rte", Values: []float64{5}, Type: COUNTER, Tags: Tags{"foo:bar", "baz"}, Timestamp: 10},
 		{Name: "uniq.usr", StringValue: "joe", Type: SET, Timestamp: 10},
 		{Name: "uniq.usr", StringValue: "joe", Type: SET, Timestamp: 10},
 		{Name: "uniq.usr", StringValue: "bob", Type: SET, Timestamp: 10},
 		{Name: "uniq.usr", StringValue: "john", Type: SET, Timestamp: 10},
 		{Name: "uniq.usr", StringValue: "john", Type: SET, Tags: Tags{"foo:bar", "baz"}, Timestamp: 10},
-		{Name: "timer_sampling", Value: 10, Type: TIMER, Rate: 0.1, Timestamp: 10},
-		{Name: "timer_sampling", Value: 30, Type: TIMER, Rate: 0.1, Timestamp: 10},
-		{Name: "timer_sampling", Value: 50, Type: TIMER, Rate: 0.1, Timestamp: 10},
-		{Name: "counter_sampling", Value: 2, Type: COUNTER, Rate: 0.25, Timestamp: 10},
-		{Name: "counter_sampling", Value: 5, Type: COUNTER, Rate: 0.25, Timestamp: 10},
+		{Name: "timer_sampling", Values: []float64{10}, Type: TIMER, Rate: 0.1, Timestamp: 10},
+		{Name: "timer_sampling", Values: []float64{30}, Type: TIMER, Rate: 0.1, Timestamp: 10},
+		{Name: "timer_sampling", Values: []float64{50}, Type: TIMER, Rate: 0.1, Timestamp: 10},
+		{Name: "counter_sampling", Values: []float64{2}, Type: COUNTER, Rate: 0.25, Timestamp: 10},
+		{Name: "counter_sampling", Values: []float64{5}, Type: COUNTER, Rate: 0.25, Timestamp: 10},
 	}
 	for i, m := range ms {
 		if ms[i].Rate == 0.0 {
@@ -115,15 +115,15 @@ func benchmarkReceive(metric Metric, b *testing.B) {
 }
 
 func BenchmarkReceiveCounter(b *testing.B) {
-	benchmarkReceive(Metric{Name: "foo.bar.baz", Value: 2, Type: COUNTER}, b)
+	benchmarkReceive(Metric{Name: "foo.bar.baz", Values: []float64{2}, Type: COUNTER}, b)
 }
 
 func BenchmarkReceiveGauge(b *testing.B) {
-	benchmarkReceive(Metric{Name: "abc.def.g", Value: 3, Type: GAUGE}, b)
+	benchmarkReceive(Metric{Name: "abc.def.g", Values: []float64{3}, Type: GAUGE}, b)
 }
 
 func BenchmarkReceiveTimer(b *testing.B) {
-	benchmarkReceive(Metric{Name: "def.g", Value: 10, Type: TIMER}, b)
+	benchmarkReceive(Metric{Name: "def.g", Values: []float64{10}, Type: TIMER}, b)
 }
 
 func BenchmarkReceiveSet(b *testing.B) {
@@ -152,17 +152,15 @@ func TestMetricMapDispatch(t *testing.T) {
 	actual := mm.AsMetrics()
 
 	expected := []*Metric{
-		{Name: "abc.def.g", Value: 3, Rate: 1, Type: GAUGE, Timestamp: 10},
-		{Name: "abc.def.g", Value: 8, Rate: 1, TagsKey: "baz,foo:bar", Tags: Tags{"baz", "foo:bar"}, Type: GAUGE, Timestamp: 10},
-		{Name: "counter_sampling", Value: (2 + 5) / 0.25, Rate: 1, Type: COUNTER, Timestamp: 10},
-		{Name: "def.g", Value: 10, Rate: 1, Type: TIMER, Timestamp: 10},
-		{Name: "def.g", Value: 1, Rate: 1, TagsKey: "baz,foo:bar", Tags: Tags{"baz", "foo:bar"}, Type: TIMER, Timestamp: 10},
-		{Name: "foo.bar.baz", Value: 2, Rate: 1, Type: COUNTER, Timestamp: 10},
-		{Name: "smp.rte", Value: 50, Rate: 1, Type: COUNTER, Timestamp: 10},
-		{Name: "smp.rte", Value: 50 + 5, Rate: 1, TagsKey: "baz,foo:bar", Tags: Tags{"baz", "foo:bar"}, Type: COUNTER, Timestamp: 10},
-		{Name: "timer_sampling", Value: 10, Rate: 0.1, Type: TIMER, Timestamp: 10},
-		{Name: "timer_sampling", Value: 30, Rate: 0.1, Type: TIMER, Timestamp: 10},
-		{Name: "timer_sampling", Value: 50, Rate: 0.1, Type: TIMER, Timestamp: 10},
+		{Name: "abc.def.g", Values: []float64{3}, Rate: 1, Type: GAUGE, Timestamp: 10},
+		{Name: "abc.def.g", Values: []float64{8}, Rate: 1, TagsKey: "baz,foo:bar", Tags: Tags{"baz", "foo:bar"}, Type: GAUGE, Timestamp: 10},
+		{Name: "counter_sampling", Values: []float64{(2 + 5) / 0.25}, Rate: 1, Type: COUNTER, Timestamp: 10},
+		{Name: "def.g", Values: []float64{10}, Rate: 1, Type: TIMER, Timestamp: 10},
+		{Name: "def.g", Values: []float64{1}, Rate: 1, TagsKey: "baz,foo:bar", Tags: Tags{"baz", "foo:bar"}, Type: TIMER, Timestamp: 10},
+		{Name: "foo.bar.baz", Values: []float64{2}, Rate: 1, Type: COUNTER, Timestamp: 10},
+		{Name: "smp.rte", Values: []float64{50}, Rate: 1, Type: COUNTER, Timestamp: 10},
+		{Name: "smp.rte", Values: []float64{50 + 5}, Rate: 1, TagsKey: "baz,foo:bar", Tags: Tags{"baz", "foo:bar"}, Type: COUNTER, Timestamp: 10},
+		{Name: "timer_sampling", Values: []float64{10, 30, 50}, Rate: 0.1, Type: TIMER, Timestamp: 10},
 		{Name: "uniq.usr", StringValue: "bob", Rate: 1, Type: SET, Timestamp: 10},
 		{Name: "uniq.usr", StringValue: "joe", Rate: 1, Type: SET, Timestamp: 10},
 		{Name: "uniq.usr", StringValue: "john", Rate: 1, Type: SET, Timestamp: 10},
@@ -183,7 +181,7 @@ func SortCompare(ms []*Metric) func(i, j int) bool {
 				if ms[i].Type == SET {
 					return ms[i].StringValue < ms[j].StringValue
 				} else {
-					return ms[i].Value < ms[j].Value
+					return ms[i].Values[0] < ms[j].Values[0]
 				}
 			}
 			return len(ms[i].Tags) < len(ms[j].Tags)
@@ -194,17 +192,17 @@ func SortCompare(ms []*Metric) func(i, j int) bool {
 
 func TestMetricMapMerge(t *testing.T) {
 	metrics1 := []*Metric{
-		{Name: "TestMetricMapMerge.counter", Value: 10, Rate: 1, Type: COUNTER, Timestamp: 10},
-		{Name: "TestMetricMapMerge.gauge", Value: 10, Type: GAUGE, Timestamp: 10},
-		{Name: "TestMetricMapMerge.timer", Value: 10, Rate: 1, Type: TIMER, Timestamp: 10},
-		{Name: "TestMetricMapMerge.timer", Value: 10, Rate: 0.1, Type: TIMER, Timestamp: 10},
+		{Name: "TestMetricMapMerge.counter", Values: []float64{10}, Rate: 1, Type: COUNTER, Timestamp: 10},
+		{Name: "TestMetricMapMerge.gauge", Values: []float64{10}, Type: GAUGE, Timestamp: 10},
+		{Name: "TestMetricMapMerge.timer", Values: []float64{10}, Rate: 1, Type: TIMER, Timestamp: 10},
+		{Name: "TestMetricMapMerge.timer", Values: []float64{10}, Rate: 0.1, Type: TIMER, Timestamp: 10},
 		{Name: "TestMetricMapMerge.set", StringValue: "abc", Type: SET, Timestamp: 10},
 	}
 	metrics2 := []*Metric{
-		{Name: "TestMetricMapMerge.counter", Value: 20, Rate: 0.1, Type: COUNTER, Timestamp: 20},
-		{Name: "TestMetricMapMerge.gauge", Value: 20, Type: GAUGE, Timestamp: 20},
-		{Name: "TestMetricMapMerge.timer", Value: 20, Rate: 1, Type: TIMER, Timestamp: 20},
-		{Name: "TestMetricMapMerge.timer", Value: 20, Rate: 0.1, Type: TIMER, Timestamp: 20},
+		{Name: "TestMetricMapMerge.counter", Values: []float64{20}, Rate: 0.1, Type: COUNTER, Timestamp: 20},
+		{Name: "TestMetricMapMerge.gauge", Values: []float64{20}, Type: GAUGE, Timestamp: 20},
+		{Name: "TestMetricMapMerge.timer", Values: []float64{20}, Rate: 1, Type: TIMER, Timestamp: 20},
+		{Name: "TestMetricMapMerge.timer", Values: []float64{20}, Rate: 0.1, Type: TIMER, Timestamp: 20},
 		{Name: "TestMetricMapMerge.set", StringValue: "def", Type: SET, Timestamp: 20},
 	}
 
