@@ -390,6 +390,17 @@ A simple way to test your installation or send metrics from a script is to use
 
     echo 'abc.def.g:10|c' | nc -w1 -u localhost 8125
 
+Since 41.0.0, server supports value packing from [DogStatsD protocol v1.1](https://docs.datadoghq.com/developers/dogstatsd/datagram_shell/?tab=metrics#dogstatsd-protocol-v11)
+It means it's possible to send multiple values within single line, for example when you do pre-consolidation on client side.
+It support all metric types except `SET`
+
+The format of value-packing is:
+
+    <bucket name>:<value1>:<value2>,<value3>|<type>\n
+
+You can send as much values as you would like, however remember to not exceed single packet size limits (usually size of MTU)
+as it will cause packets fragmentation and can lead to worse performance or lost packets.
+
 Monitoring
 ----------
 Many metrics for the internal processes are emitted.  See METRICS.md for details.  Go expvar is also

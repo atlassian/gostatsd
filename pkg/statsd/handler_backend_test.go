@@ -129,10 +129,10 @@ func TestDispatchMetricMapShouldDistributeMetrics(t *testing.T) {
 	mm := gostatsd.NewMetricMap(false)
 	for i := 0; i < numAggregators*100; i++ {
 		m := &gostatsd.Metric{
-			Type:  gostatsd.COUNTER,
-			Name:  fmt.Sprintf("counter.metric.%d", r.Int63()),
-			Tags:  nil,
-			Value: r.Float64(),
+			Type:   gostatsd.COUNTER,
+			Name:   fmt.Sprintf("counter.metric.%d", r.Int63()),
+			Tags:   nil,
+			Values: []float64{r.Float64()},
 		}
 		m.TagsKey = m.FormatTagsKey()
 		mm.Receive(m)
@@ -164,7 +164,7 @@ func TestBackendHandlerDispatchMetricMapTerminates(t *testing.T) {
 	mm := gostatsd.NewMetricMap(false)
 	mm.Receive(&gostatsd.Metric{
 		Name:      "metric",
-		Value:     1,
+		Values:    []float64{1},
 		Rate:      1,
 		Timestamp: 1,
 		Type:      gostatsd.COUNTER,

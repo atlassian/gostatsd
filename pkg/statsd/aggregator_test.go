@@ -400,7 +400,7 @@ func TestDisabledCount(t *testing.T) {
 	ma := newFakeAggregator()
 	ma.disabledSubtypes.CountPct = true
 	mm := gostatsd.NewMetricMap(false)
-	mm.Receive(&gostatsd.Metric{Name: "x", Value: 1, Type: gostatsd.TIMER})
+	mm.Receive(&gostatsd.Metric{Name: "x", Values: []float64{1}, Type: gostatsd.TIMER})
 	ma.ReceiveMap(mm)
 	ma.Flush(1 * time.Second)
 	for _, pct := range ma.metricMap.Timers["x"][""].Percentiles {
@@ -415,7 +415,7 @@ func TestDisabledMean(t *testing.T) {
 	ma := newFakeAggregator()
 	ma.disabledSubtypes.MeanPct = true
 	mm := gostatsd.NewMetricMap(false)
-	mm.Receive(&gostatsd.Metric{Name: "x", Value: 1, Type: gostatsd.TIMER})
+	mm.Receive(&gostatsd.Metric{Name: "x", Values: []float64{1}, Type: gostatsd.TIMER})
 	ma.ReceiveMap(mm)
 	ma.Flush(1 * time.Second)
 	for _, pct := range ma.metricMap.Timers["x"][""].Percentiles {
@@ -430,7 +430,7 @@ func TestDisabledSum(t *testing.T) {
 	ma := newFakeAggregator()
 	ma.disabledSubtypes.SumPct = true
 	mm := gostatsd.NewMetricMap(false)
-	mm.Receive(&gostatsd.Metric{Name: "x", Value: 1, Type: gostatsd.TIMER})
+	mm.Receive(&gostatsd.Metric{Name: "x", Values: []float64{1}, Type: gostatsd.TIMER})
 	ma.ReceiveMap(mm)
 	ma.Flush(1 * time.Second)
 	for _, pct := range ma.metricMap.Timers["x"][""].Percentiles {
@@ -445,7 +445,7 @@ func TestDisabledSumSquares(t *testing.T) {
 	ma := newFakeAggregator()
 	ma.disabledSubtypes.SumSquaresPct = true
 	mm := gostatsd.NewMetricMap(false)
-	mm.Receive(&gostatsd.Metric{Name: "x", Value: 1, Type: gostatsd.TIMER})
+	mm.Receive(&gostatsd.Metric{Name: "x", Values: []float64{1}, Type: gostatsd.TIMER})
 	ma.ReceiveMap(mm)
 	ma.Flush(1 * time.Second)
 	for _, pct := range ma.metricMap.Timers["x"][""].Percentiles {
@@ -460,7 +460,7 @@ func TestDisabledUpper(t *testing.T) {
 	ma := newFakeAggregator()
 	ma.disabledSubtypes.UpperPct = true
 	mm := gostatsd.NewMetricMap(false)
-	mm.Receive(&gostatsd.Metric{Name: "x", Value: 1, Type: gostatsd.TIMER})
+	mm.Receive(&gostatsd.Metric{Name: "x", Values: []float64{1}, Type: gostatsd.TIMER})
 	ma.ReceiveMap(mm)
 	ma.Flush(1 * time.Second)
 	for _, pct := range ma.metricMap.Timers["x"][""].Percentiles {
@@ -483,7 +483,7 @@ func TestDisabledLower(t *testing.T) {
 	)
 	ma.disabledSubtypes.LowerPct = true
 	mm := gostatsd.NewMetricMap(false)
-	mm.Receive(&gostatsd.Metric{Name: "x", Value: 1, Type: gostatsd.TIMER})
+	mm.Receive(&gostatsd.Metric{Name: "x", Values: []float64{1}, Type: gostatsd.TIMER})
 	ma.ReceiveMap(mm)
 	ma.Flush(1 * time.Second)
 	for _, pct := range ma.metricMap.Timers["x"][""].Percentiles {

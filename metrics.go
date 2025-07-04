@@ -36,12 +36,12 @@ func (m MetricType) String() string {
 
 // Metric represents a single data collected datapoint.
 type Metric struct {
-	Name        string  // The name of the metric
-	Value       float64 // The numeric value of the metric
-	Rate        float64 // The sampling rate of the metric
-	Tags        Tags    // The tags for the metric
-	TagsKey     string  // The tags rendered as a string to uniquely identify the tagset in a map.  Sort of a cache.  Will be removed at some point.
-	StringValue string  // The string value for some metrics e.g. Set
+	Name        string    // The name of the metric
+	Values      []float64 // The numeric values of the metric
+	Rate        float64   // The sampling rate of the metric
+	Tags        Tags      // The tags for the metric
+	TagsKey     string    // The tags rendered as a string to uniquely identify the tagset in a map.  Sort of a cache.  Will be removed at some point.
+	StringValue string    // The string value for some metrics e.g. Set
 	// Source is the source of the metric, its lifecycle is:
 	// - If ignore-host is set, it will be set to the `host` tag if present, otherwise blank.  If ignore-host is not set, it will be set to the sending IP
 	// - If the cloud provider is enabled, it will attempt to perform a lookup of this value to find a new value (instance ID, pod ID, etc)
@@ -56,7 +56,7 @@ type Metric struct {
 // Reset is used to reset a metric to as clean state, called on re-use from the pool.
 func (m *Metric) Reset() {
 	m.Name = ""
-	m.Value = 0
+	m.Values = m.Values[:0]
 	m.Rate = 1
 	m.Tags = m.Tags[:0]
 	m.TagsKey = ""
@@ -74,7 +74,7 @@ func Bucket(metricName string, source string, max int) int {
 }
 
 func (m *Metric) String() string {
-	return fmt.Sprintf("{%s, %s, %f, %s, %v}", m.Type, m.Name, m.Value, m.StringValue, m.Tags)
+	return fmt.Sprintf("{%s, %s, %f, %s, %v}", m.Type, m.Name, m.Values, m.StringValue, m.Tags)
 }
 
 // Done invokes DoneFunc if it's set, returning the metric to the pool.
