@@ -63,7 +63,16 @@ func TestMetricsLexer(t *testing.T) {
 		"new.mid.empty:1|g|#,||c:xyz":                 {Name: "new.mid.empty", Values: []float64{1}, Type: gostatsd.GAUGE, Rate: 1.0},
 		"new.mid.colon:1|g|#|:|c:xyz":                 {Name: "new.mid.colon", Values: []float64{1}, Type: gostatsd.GAUGE, Rate: 1.0},
 		// Value packing tests
-		"a.packing:1:2|ms|#|:|c:xyz": {Name: "a.packing", Values: []float64{1, 2}, Type: gostatsd.TIMER, Rate: 1.0},
+		"a.packing:1:2|ms|#|:|c:xyz":   {Name: "a.packing", Values: []float64{1, 2}, Type: gostatsd.TIMER, Rate: 1.0},
+		"a.packing:1:2:3|ms|#|:|c:xyz": {Name: "a.packing", Values: []float64{1, 2, 3}, Type: gostatsd.TIMER, Rate: 1.0},
+		"a.packing:1:2:|ms|#|:|c:xyz":  {Name: "a.packing", Values: []float64{1, 2}, Type: gostatsd.TIMER, Rate: 1.0},
+		"a.packing:|ms|#|:|c:xyz":      {Name: "a.packing", Values: []float64{}, Type: gostatsd.TIMER, Rate: 1.0},
+		"a.packing:1:2|c|#|:|c:xyz":    {Name: "a.packing", Values: []float64{1, 2}, Type: gostatsd.COUNTER, Rate: 1.0},
+		"a.packing:1:2:3|c|#|:|c:xyz":  {Name: "a.packing", Values: []float64{1, 2, 3}, Type: gostatsd.COUNTER, Rate: 1.0},
+		"a.packing:1:2:|c|#|:|c:xyz":   {Name: "a.packing", Values: []float64{1, 2}, Type: gostatsd.COUNTER, Rate: 1.0},
+		"a.packing:1:2|g|#|:|c:xyz":    {Name: "a.packing", Values: []float64{1, 2}, Type: gostatsd.GAUGE, Rate: 1.0},
+		"a.packing:1:2:3|g|#|:|c:xyz":  {Name: "a.packing", Values: []float64{1, 2, 3}, Type: gostatsd.GAUGE, Rate: 1.0},
+		"a.packing:1:2:|g|#|:|c:xyz":   {Name: "a.packing", Values: []float64{1, 2}, Type: gostatsd.GAUGE, Rate: 1.0},
 	}
 
 	compareMetric(t, tests, "")

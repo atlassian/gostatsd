@@ -112,6 +112,10 @@ func (l *Lexer) Run(input []byte, namespace string) (*gostatsd.Metric, *gostatsd
 			values := make([]float64, 0, count)
 
 			for _, stringValue := range strings.Split(l.m.StringValue, ":") {
+				if stringValue == "" {
+					// SKip the value, it could be something like a.packing:1:2:|ms|#|:|c:xyz
+					continue
+				}
 				v, err := strconv.ParseFloat(stringValue, 64)
 				if err != nil {
 					return nil, nil, err

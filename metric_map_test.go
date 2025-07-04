@@ -28,6 +28,9 @@ func metricsFixtures() []*Metric {
 		{Name: "timer_sampling", Values: []float64{50}, Type: TIMER, Rate: 0.1, Timestamp: 10},
 		{Name: "counter_sampling", Values: []float64{2}, Type: COUNTER, Rate: 0.25, Timestamp: 10},
 		{Name: "counter_sampling", Values: []float64{5}, Type: COUNTER, Rate: 0.25, Timestamp: 10},
+		{Name: "value_packing_timer", Values: []float64{5, 3, 2, 1}, Type: TIMER, Timestamp: 10},
+		{Name: "value_packing_gauge", Values: []float64{5, 3, 2, 1}, Type: GAUGE, Timestamp: 10},
+		{Name: "value_packing_counter", Values: []float64{5, 3, 2, 1}, Type: COUNTER, Timestamp: 10},
 	}
 	for i, m := range ms {
 		if ms[i].Rate == 0.0 {
@@ -60,6 +63,9 @@ func TestReceive(t *testing.T) {
 		"counter_sampling": map[string]Counter{
 			"": {Value: 28, Timestamp: 10},
 		},
+		"value_packing_counter": map[string]Counter{
+			"": {Value: 11, Timestamp: 10},
+		},
 	}
 	assrt.Equal(expectedCounters, mm.Counters)
 
@@ -67,6 +73,9 @@ func TestReceive(t *testing.T) {
 		"abc.def.g": map[string]Gauge{
 			"":            {Value: 3, Timestamp: 10},
 			"baz,foo:bar": {Value: 8, Timestamp: 10, Tags: Tags{"baz", "foo:bar"}},
+		},
+		"value_packing_gauge": map[string]Gauge{
+			"": {Value: 1, Timestamp: 10},
 		},
 	}
 	assrt.Equal(expectedGauges, mm.Gauges)
@@ -78,6 +87,9 @@ func TestReceive(t *testing.T) {
 		},
 		"timer_sampling": map[string]Timer{
 			"": {Values: []float64{10, 30, 50}, Timestamp: 10, SampledCount: 30},
+		},
+		"value_packing_timer": map[string]Timer{
+			"": {Values: []float64{5, 3, 2, 1}, Timestamp: 10, SampledCount: 1},
 		},
 	}
 	assrt.Equal(expectedTimers, mm.Timers)
@@ -165,6 +177,9 @@ func TestMetricMapDispatch(t *testing.T) {
 		{Name: "uniq.usr", StringValue: "joe", Rate: 1, Type: SET, Timestamp: 10},
 		{Name: "uniq.usr", StringValue: "john", Rate: 1, Type: SET, Timestamp: 10},
 		{Name: "uniq.usr", StringValue: "john", Rate: 1, TagsKey: "baz,foo:bar", Tags: Tags{"baz", "foo:bar"}, Type: SET, Timestamp: 10},
+		{Name: "value_packing_timer", Values: []float64{5, 3, 2, 1}, Rate: 4, Type: TIMER, Timestamp: 10},
+		{Name: "value_packing_gauge", Values: []float64{1}, Rate: 1, Type: GAUGE, Timestamp: 10},
+		{Name: "value_packing_counter", Values: []float64{11}, Rate: 1, Type: COUNTER, Timestamp: 10},
 	}
 
 	sort.Slice(actual, SortCompare(actual))

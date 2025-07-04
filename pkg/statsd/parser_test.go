@@ -177,6 +177,36 @@ func TestParseDatagramIgnoreHost(t *testing.T) {
 				{Title: "a", Text: "b", Source: "127.0.0.1"},
 			},
 		},
+		"f:2:2|c\nx:3:3|c\n": {
+			metrics: []*gostatsd.Metric{
+				{Name: "f", Values: []float64{4}, Type: gostatsd.COUNTER, Rate: 1},
+				{Name: "x", Values: []float64{6}, Type: gostatsd.COUNTER, Rate: 1},
+			},
+		},
+		"f:2:2|ms\nx:3:3|ms\n": {
+			metrics: []*gostatsd.Metric{
+				{Name: "f", Values: []float64{2, 2}, Type: gostatsd.TIMER, Rate: 2},
+				{Name: "x", Values: []float64{3, 3}, Type: gostatsd.TIMER, Rate: 2},
+			},
+		},
+		"f:1:3|ms\nx:2|ms\n": {
+			metrics: []*gostatsd.Metric{
+				{Name: "f", Values: []float64{1, 3}, Type: gostatsd.TIMER, Rate: 2},
+				{Name: "x", Values: []float64{2}, Type: gostatsd.TIMER, Rate: 1},
+			},
+		},
+		"f:3:3:1|g\nx:2|g\n": {
+			metrics: []*gostatsd.Metric{
+				{Name: "f", Values: []float64{1}, Type: gostatsd.GAUGE, Rate: 1},
+				{Name: "x", Values: []float64{2}, Type: gostatsd.GAUGE, Rate: 1},
+			},
+		},
+		"f:3:|g\nx:2|g\n": {
+			metrics: []*gostatsd.Metric{
+				{Name: "f", Values: []float64{3}, Type: gostatsd.GAUGE, Rate: 1},
+				{Name: "x", Values: []float64{2}, Type: gostatsd.GAUGE, Rate: 1},
+			},
+		},
 	}
 	for datagram, mAndE := range input {
 		datagram := datagram
