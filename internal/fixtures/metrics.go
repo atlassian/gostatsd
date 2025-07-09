@@ -70,7 +70,7 @@ func SortCompare(ms []*gostatsd.Metric) func(i, j int) bool {
 				if ms[i].Type == gostatsd.SET {
 					return ms[i].StringValue < ms[j].StringValue
 				} else {
-					return ms[i].Value < ms[j].Value
+					return ms[i].Values[0] < ms[j].Values[0]
 				}
 			}
 			return len(ms[i].Tags) < len(ms[j].Tags)

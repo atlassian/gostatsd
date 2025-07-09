@@ -91,40 +91,40 @@ func TestForwardingEndToEndV2(t *testing.T) {
 			defer cancel() // cancel must occur before waiting for the wg
 
 			m1 := &gostatsd.Metric{
-				Name:  "counter",
-				Type:  gostatsd.COUNTER,
-				Value: 10,
-				Rate:  1,
+				Name:   "counter",
+				Type:   gostatsd.COUNTER,
+				Values: []float64{10},
+				Rate:   1,
 			}
 			m2 := &gostatsd.Metric{
-				Name:  "counter",
-				Type:  gostatsd.COUNTER,
-				Value: 10,
-				Rate:  0.1,
+				Name:   "counter",
+				Type:   gostatsd.COUNTER,
+				Values: []float64{10},
+				Rate:   0.1,
 			}
 			m3 := &gostatsd.Metric{
-				Name:  "timer",
-				Type:  gostatsd.TIMER,
-				Value: 10,
-				Rate:  1,
+				Name:   "timer",
+				Type:   gostatsd.TIMER,
+				Values: []float64{10},
+				Rate:   1,
 			}
 			m4 := &gostatsd.Metric{
-				Name:  "timer",
-				Type:  gostatsd.TIMER,
-				Value: 10,
-				Rate:  0.1,
+				Name:   "timer",
+				Type:   gostatsd.TIMER,
+				Values: []float64{10},
+				Rate:   0.1,
 			}
 			m5 := &gostatsd.Metric{
-				Name:  "gauge",
-				Type:  gostatsd.GAUGE,
-				Value: 10,
-				Rate:  1,
+				Name:   "gauge",
+				Type:   gostatsd.GAUGE,
+				Values: []float64{10},
+				Rate:   1,
 			}
 			m6 := &gostatsd.Metric{
-				Name:  "gauge",
-				Type:  gostatsd.GAUGE,
-				Value: 10,
-				Rate:  0.1,
+				Name:   "gauge",
+				Type:   gostatsd.GAUGE,
+				Values: []float64{10},
+				Rate:   0.1,
 			}
 			m7 := &gostatsd.Metric{
 				Name:        "set",
@@ -158,13 +158,12 @@ func TestForwardingEndToEndV2(t *testing.T) {
 			mockClock.Add(1 * time.Second) // Make sure everything gets scheduled
 
 			expected := []*gostatsd.Metric{
-				{Name: "counter", Type: gostatsd.COUNTER, Value: (100 * 10) + (100 * 10 / 0.1), Rate: 1},
-				{Name: "gauge", Type: gostatsd.GAUGE, Value: 10, Rate: 1},
+				{Name: "counter", Type: gostatsd.COUNTER, Values: []float64{(100 * 10) + (100 * 10 / 0.1)}, Rate: 1},
+				{Name: "gauge", Type: gostatsd.GAUGE, Values: []float64{10}, Rate: 1},
 				// 10 = the sample count for the timer where rate=0.1
 				// 1 = the sample count for the timer where rate=1
 				// 2 = number of timers
-				{Name: "timer", Type: gostatsd.TIMER, Value: 10, Rate: 1.0 / ((10.0 + 1.0) / 2.0)},
-				{Name: "timer", Type: gostatsd.TIMER, Value: 10, Rate: 1.0 / ((10.0 + 1.0) / 2.0)},
+				{Name: "timer", Type: gostatsd.TIMER, Values: []float64{10, 10}, Rate: 1.0 / ((10.0 + 1.0) / 2.0)},
 				{Name: "set", Type: gostatsd.SET, StringValue: "abc", Rate: 1},
 				{Name: "set", Type: gostatsd.SET, StringValue: "def", Rate: 1},
 			}

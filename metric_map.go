@@ -275,7 +275,11 @@ func (mm *MetricMap) SplitByTags(tagNames []string) map[string]*MetricMap {
 }
 
 func (mm *MetricMap) receiveCounter(m *Metric, tagsKey string) {
-	value := int64(m.Value / m.Rate)
+	valueSum := 0.0
+	for _, v := range m.Values {
+		valueSum += v
+	}
+	value := int64(valueSum / m.Rate)
 	v, ok := mm.Counters[m.Name]
 	if ok {
 		c, ok := v[tagsKey]
@@ -297,20 +301,23 @@ func (mm *MetricMap) receiveCounter(m *Metric, tagsKey string) {
 
 func (mm *MetricMap) receiveGauge(m *Metric, tagsKey string) {
 	v, ok := mm.Gauges[m.Name]
+	// Assuming here that the last value in value packing chain came as last
+	// It might be incorrect if sender sorts the array before sending but why would they
+	lastValues := m.Values[len(m.Values)-1]
 	if ok {
 		g, ok := v[tagsKey]
 		if ok {
 			if m.Timestamp > g.Timestamp {
-				g.Value = m.Value
+				g.Value = lastValues
 				g.Timestamp = m.Timestamp
 			}
 		} else {
-			g = NewGauge(m.Timestamp, m.Value, m.Source, m.Tags)
+			g = NewGauge(m.Timestamp, lastValues, m.Source, m.Tags)
 		}
 		v[tagsKey] = g
 	} else {
 		mm.Gauges[m.Name] = map[string]Gauge{
-			tagsKey: NewGauge(m.Timestamp, m.Value, m.Source, m.Tags),
+			tagsKey: NewGauge(m.Timestamp, lastValues, m.Source, m.Tags),
 		}
 	}
 }
@@ -320,18 +327,18 @@ func (mm *MetricMap) receiveTimer(m *Metric, tagsKey string) {
 	if ok {
 		t, ok := v[tagsKey]
 		if ok {
-			t.Values = append(t.Values, m.Value)
+			t.Values = append(t.Values, m.Values...)
 			if m.Timestamp > t.Timestamp {
 				t.Timestamp = m.Timestamp
 			}
 			t.SampledCount += 1.0 / m.Rate
 		} else {
-			t = NewTimer(m.Timestamp, []float64{m.Value}, m.Source, m.Tags)
+			t = NewTimer(m.Timestamp, m.Values, m.Source, m.Tags)
 			t.SampledCount = 1.0 / m.Rate
 		}
 		v[tagsKey] = t
 	} else {
-		t := NewTimer(m.Timestamp, []float64{m.Value}, m.Source, m.Tags)
+		t := NewTimer(m.Timestamp, m.Values, m.Source, m.Tags)
 		t.SampledCount = 1.0 / m.Rate
 
 		mm.Timers[m.Name] = map[string]Timer{
@@ -389,7 +396,7 @@ func (mm *MetricMap) AsMetrics() []*Metric {
 		m := &Metric{
 			Name:      metricName,
 			Type:      COUNTER,
-			Value:     float64(c.Value),
+			Values:    []float64{float64(c.Value)},
 			Rate:      1,
 			Tags:      c.Tags.Copy(),
 			TagsKey:   tagsKey,
@@ -403,7 +410,7 @@ func (mm *MetricMap) AsMetrics() []*Metric {
 		m := &Metric{
 			Name:      metricName,
 			Type:      GAUGE,
-			Value:     g.Value,
+			Values:    []float64{g.Value},
 			Rate:      1,
 			Tags:      g.Tags.Copy(),
 			TagsKey:   tagsKey,
@@ -417,19 +424,17 @@ func (mm *MetricMap) AsMetrics() []*Metric {
 		// Compensate for t.SampledCount so the final handler will multiply it back out.  This whole thing will
 		// disappear once the backend aggregator is refactored (issue #210)
 		rate := float64(len(t.Values)) / t.SampledCount
-		for _, value := range t.Values {
-			m := &Metric{
-				Name:      metricName,
-				Type:      TIMER,
-				Value:     value,
-				Rate:      rate,
-				Tags:      t.Tags.Copy(),
-				TagsKey:   tagsKey,
-				Timestamp: t.Timestamp,
-				Source:    t.Source,
-			}
-			metrics = append(metrics, m)
+		m := &Metric{
+			Name:      metricName,
+			Type:      TIMER,
+			Values:    t.Values,
+			Rate:      rate,
+			Tags:      t.Tags.Copy(),
+			TagsKey:   tagsKey,
+			Timestamp: t.Timestamp,
+			Source:    t.Source,
 		}
+		metrics = append(metrics, m)
 	})
 
 	mm.Sets.Each(func(metricName string, tagsKey string, s Set) {

@@ -106,7 +106,7 @@ func TestHttpForwarderV2Translation(t *testing.T) {
 	metrics := []*gostatsd.Metric{
 		{
 			Name:   "TestHttpForwarderTranslation.gauge",
-			Value:  12345,
+			Values: []float64{12345},
 			Tags:   gostatsd.Tags{"TestHttpForwarderTranslation.gauge.tag1", "TestHttpForwarderTranslation.gauge.tag2"},
 			Source: "TestHttpForwarderTranslation.gauge.host",
 			Rate:   1,
@@ -114,7 +114,7 @@ func TestHttpForwarderV2Translation(t *testing.T) {
 		},
 		{
 			Name:   "TestHttpForwarderTranslation.gaugerate",
-			Value:  12346,
+			Values: []float64{12346},
 			Tags:   gostatsd.Tags{"TestHttpForwarderTranslation.gaugerate.tag1", "TestHttpForwarderTranslation.gaugerate.tag2"},
 			Source: "TestHttpForwarderTranslation.gaugerate.host",
 			Rate:   0.1, // ignored
@@ -122,7 +122,7 @@ func TestHttpForwarderV2Translation(t *testing.T) {
 		},
 		{
 			Name:   "TestHttpForwarderTranslation.counter",
-			Value:  12347,
+			Values: []float64{12347},
 			Tags:   gostatsd.Tags{"TestHttpForwarderTranslation.counter.tag1", "TestHttpForwarderTranslation.counter.tag2"},
 			Source: "TestHttpForwarderTranslation.counter.host",
 			Rate:   1,
@@ -130,7 +130,7 @@ func TestHttpForwarderV2Translation(t *testing.T) {
 		},
 		{
 			Name:   "TestHttpForwarderTranslation.counterrate",
-			Value:  12348,
+			Values: []float64{12348},
 			Tags:   gostatsd.Tags{"TestHttpForwarderTranslation.counterrate.tag1", "TestHttpForwarderTranslation.counterrate.tag2"},
 			Source: "TestHttpForwarderTranslation.counterrate.host",
 			Rate:   0.1, // multiplied out
@@ -138,7 +138,7 @@ func TestHttpForwarderV2Translation(t *testing.T) {
 		},
 		{
 			Name:   "TestHttpForwarderTranslation.timer",
-			Value:  12349,
+			Values: []float64{12349},
 			Tags:   gostatsd.Tags{"TestHttpForwarderTranslation.timer.tag1", "TestHttpForwarderTranslation.timer.tag2"},
 			Source: "TestHttpForwarderTranslation.timer.host",
 			Rate:   1,
@@ -146,7 +146,7 @@ func TestHttpForwarderV2Translation(t *testing.T) {
 		},
 		{
 			Name:   "TestHttpForwarderTranslation.timerrate",
-			Value:  12350,
+			Values: []float64{12350},
 			Tags:   gostatsd.Tags{"TestHttpForwarderTranslation.timerrate.tag1", "TestHttpForwarderTranslation.timerrate.tag2"},
 			Source: "TestHttpForwarderTranslation.timerrate.host",
 			Rate:   0.1, // propagated
@@ -275,7 +275,7 @@ func createMetricMapTestFixture() *gostatsd.MetricMap {
 	for i := 0; i < 1000; i++ {
 		metrics = append(metrics, &gostatsd.Metric{
 			Name:        "bench.metric",
-			Value:       123.456,
+			Values:      []float64{123.456},
 			StringValue: "123.456",
 			Tags:        gostatsd.Tags{"tag1", "tag2"},
 			Source:      "hostname",

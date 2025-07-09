@@ -11,7 +11,7 @@ func TestMetricReset(t *testing.T) {
 	// so that if the fields change it will cause a compiler error.
 	m := &Metric{
 		"metric",
-		10,
+		[]float64{10},
 		1,
 		Tags{"tag"},
 		"something",
@@ -25,7 +25,7 @@ func TestMetricReset(t *testing.T) {
 	// Tags needs to be an empty slice, not a nil slice, because half the reason
 	// behind having the MetricPool and Reset is to re-use the Tags slice. Therefore
 	// we don't nil it.
-	require.EqualValues(t, &Metric{Tags: Tags{}, Rate: 1}, m)
+	require.EqualValues(t, &Metric{Tags: Tags{}, Rate: 1, Values: []float64{}}, m)
 }
 
 func TestMetricString(t *testing.T) {

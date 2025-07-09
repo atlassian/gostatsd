@@ -21,14 +21,14 @@ func TestConsolidation(t *testing.T) {
 	m1 := &Metric{
 		Name:      "foo",
 		Type:      COUNTER,
-		Value:     1,
+		Values:    []float64{1},
 		Rate:      1,
 		Timestamp: 10,
 	}
 	m2 := &Metric{
 		Name:      "foo",
 		Type:      COUNTER,
-		Value:     3,
+		Values:    []float64{3},
 		Rate:      0.1,
 		Timestamp: 20,
 	}
@@ -76,7 +76,7 @@ func randomMetric(seed, variations int) *Metric {
 	if m.Type == SET {
 		m.StringValue = fmt.Sprintf("%d", seed)
 	} else {
-		m.Value = float64(seed)
+		m.Values = []float64{float64(seed)}
 		m.Rate = 1
 	}
 	m.Timestamp = 10

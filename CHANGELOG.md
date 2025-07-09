@@ -1,3 +1,7 @@
+41.0.0
+------
+- Add support for [DogStatsD protocol v1.1](https://docs.datadoghq.com/developers/dogstatsd/datagram_shell/?tab=metrics#dogstatsd-protocol-v11) - value packing.
+
 40.1.0
 ------
 - Add support for configuration of receiver's buffer size - `receive-buffer-size`
