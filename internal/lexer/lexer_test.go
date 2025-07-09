@@ -73,6 +73,7 @@ func TestMetricsLexer(t *testing.T) {
 		"a.packing:1:2|g|#|:|c:xyz":    {Name: "a.packing", Values: []float64{1, 2}, Type: gostatsd.GAUGE, Rate: 1.0},
 		"a.packing:1:2:3|g|#|:|c:xyz":  {Name: "a.packing", Values: []float64{1, 2, 3}, Type: gostatsd.GAUGE, Rate: 1.0},
 		"a.packing:1:2:|g|#|:|c:xyz":   {Name: "a.packing", Values: []float64{1, 2}, Type: gostatsd.GAUGE, Rate: 1.0},
+		"a.packing:::|g|#|:|c:xyz":     {Name: "a.packing", Values: []float64{}, Type: gostatsd.GAUGE, Rate: 1.0},
 	}
 
 	compareMetric(t, tests, "")

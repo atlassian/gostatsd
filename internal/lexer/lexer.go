@@ -102,15 +102,19 @@ func (l *Lexer) Run(input []byte, namespace string) (*gostatsd.Metric, *gostatsd
 	if l.m != nil {
 		l.m.Rate = l.sampling
 		if l.m.Type != gostatsd.SET {
-			// Count number of colons to preallocate array
-			count := 1
-			for i := 0; i < len(l.m.StringValue); i++ {
-				if l.m.StringValue[i] == ':' {
-					count++
+			// Count number of values by checking colons to preallocate array
+			var values []float64
+			if l.m.StringValue == "" {
+				values = make([]float64, 0, 0)
+			} else {
+				count := 1
+				for i := 0; i < len(l.m.StringValue); i++ {
+					if l.m.StringValue[i] == ':' {
+						count++
+					}
 				}
+				values = make([]float64, 0, count)
 			}
-			values := make([]float64, 0, count)
-
 			for _, stringValue := range strings.Split(l.m.StringValue, ":") {
 				if stringValue == "" {
 					// SKip the value, it could be something like a.packing:1:2:|ms|#|:|c:xyz
