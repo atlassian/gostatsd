@@ -23,9 +23,9 @@ func TestTagStripMergesCounters(t *testing.T) {
 	})
 
 	mm := gostatsd.NewMetricMap(false)
-	mm.Receive(&gostatsd.Metric{Type: gostatsd.COUNTER, Name: "metric", Timestamp: 10, Tags: gostatsd.Tags{"key:value"}, Value: 20, Rate: 1})                              // Will merge in to metric with TS 20
-	mm.Receive(&gostatsd.Metric{Type: gostatsd.COUNTER, Name: "metric", Timestamp: 20, Tags: gostatsd.Tags{"key:value", "key2:value2"}, Value: 1, Rate: 0.1})              // key2:value2 will be dropped, and TS 10 will merge in to it
-	mm.Receive(&gostatsd.Metric{Type: gostatsd.COUNTER, Name: "metric", Timestamp: 30, Tags: gostatsd.Tags{"key:value", "key2:value2", "key3:value3"}, Value: 1, Rate: 1}) // key2:value2 will be dropped, but it won't merge in to anything
+	mm.Receive(&gostatsd.Metric{Type: gostatsd.COUNTER, Name: "metric", Timestamp: 10, Tags: gostatsd.Tags{"key:value"}, Values: []float64{20}, Rate: 1})                              // Will merge in to metric with TS 20
+	mm.Receive(&gostatsd.Metric{Type: gostatsd.COUNTER, Name: "metric", Timestamp: 20, Tags: gostatsd.Tags{"key:value", "key2:value2"}, Values: []float64{1}, Rate: 0.1})              // key2:value2 will be dropped, and TS 10 will merge in to it
+	mm.Receive(&gostatsd.Metric{Type: gostatsd.COUNTER, Name: "metric", Timestamp: 30, Tags: gostatsd.Tags{"key:value", "key2:value2", "key3:value3"}, Values: []float64{1}, Rate: 1}) // key2:value2 will be dropped, but it won't merge in to anything
 
 	expected := gostatsd.NewMetricMap(false)
 	expected.Counters["metric"] = map[string]gostatsd.Counter{
@@ -50,9 +50,9 @@ func TestTagStripMergesGauges(t *testing.T) {
 	})
 
 	mm := gostatsd.NewMetricMap(false)
-	mm.Receive(&gostatsd.Metric{Type: gostatsd.GAUGE, Name: "metric", Timestamp: 10, Tags: gostatsd.Tags{"key:value"}, Value: 10})                               // Will merge in to metric with TS 20
-	mm.Receive(&gostatsd.Metric{Type: gostatsd.GAUGE, Name: "metric", Timestamp: 20, Tags: gostatsd.Tags{"key:value", "key2:value2"}, Value: 20})                // key2:value2 will be dropped, and TS 10 will merge in to it
-	mm.Receive(&gostatsd.Metric{Type: gostatsd.GAUGE, Name: "metric", Timestamp: 30, Tags: gostatsd.Tags{"key:value", "key2:value2", "key3:value3"}, Value: 30}) // key2:value2 will be dropped, but it won't merge in to anything
+	mm.Receive(&gostatsd.Metric{Type: gostatsd.GAUGE, Name: "metric", Timestamp: 10, Tags: gostatsd.Tags{"key:value"}, Values: []float64{10}})                               // Will merge in to metric with TS 20
+	mm.Receive(&gostatsd.Metric{Type: gostatsd.GAUGE, Name: "metric", Timestamp: 20, Tags: gostatsd.Tags{"key:value", "key2:value2"}, Values: []float64{20}})                // key2:value2 will be dropped, and TS 10 will merge in to it
+	mm.Receive(&gostatsd.Metric{Type: gostatsd.GAUGE, Name: "metric", Timestamp: 30, Tags: gostatsd.Tags{"key:value", "key2:value2", "key3:value3"}, Values: []float64{30}}) // key2:value2 will be dropped, but it won't merge in to anything
 
 	expected := gostatsd.NewMetricMap(false)
 	expected.Gauges["metric"] = map[string]gostatsd.Gauge{
@@ -77,9 +77,9 @@ func TestTagStripMergesTimers(t *testing.T) {
 	})
 
 	mm := gostatsd.NewMetricMap(false)
-	mm.Receive(&gostatsd.Metric{Type: gostatsd.TIMER, Name: "metric", Timestamp: 10, Tags: gostatsd.Tags{"key:value"}, Value: 10, Rate: 1})                               // Will merge in to metric with TS 20
-	mm.Receive(&gostatsd.Metric{Type: gostatsd.TIMER, Name: "metric", Timestamp: 20, Tags: gostatsd.Tags{"key:value", "key2:value2"}, Value: 20, Rate: 1})                // key2:value2 will be dropped, and TS 10 will merge in to it
-	mm.Receive(&gostatsd.Metric{Type: gostatsd.TIMER, Name: "metric", Timestamp: 30, Tags: gostatsd.Tags{"key:value", "key2:value2", "key3:value3"}, Value: 30, Rate: 1}) // key2:value2 will be dropped, but it won't merge in to anything
+	mm.Receive(&gostatsd.Metric{Type: gostatsd.TIMER, Name: "metric", Timestamp: 10, Tags: gostatsd.Tags{"key:value"}, Values: []float64{10}, Rate: 1})                               // Will merge in to metric with TS 20
+	mm.Receive(&gostatsd.Metric{Type: gostatsd.TIMER, Name: "metric", Timestamp: 20, Tags: gostatsd.Tags{"key:value", "key2:value2"}, Values: []float64{20}, Rate: 1})                // key2:value2 will be dropped, and TS 10 will merge in to it
+	mm.Receive(&gostatsd.Metric{Type: gostatsd.TIMER, Name: "metric", Timestamp: 30, Tags: gostatsd.Tags{"key:value", "key2:value2", "key3:value3"}, Values: []float64{30}, Rate: 1}) // key2:value2 will be dropped, but it won't merge in to anything
 
 	expected := gostatsd.NewMetricMap(false)
 	expected.Timers["metric"] = map[string]gostatsd.Timer{

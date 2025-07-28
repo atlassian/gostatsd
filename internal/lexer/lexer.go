@@ -5,6 +5,7 @@ import (
 	"errors"
 	"math"
 	"strconv"
+	"strings"
 
 	"github.com/atlassian/gostatsd"
 	"github.com/atlassian/gostatsd/internal/pool"
@@ -101,14 +102,34 @@ func (l *Lexer) Run(input []byte, namespace string) (*gostatsd.Metric, *gostatsd
 	if l.m != nil {
 		l.m.Rate = l.sampling
 		if l.m.Type != gostatsd.SET {
-			v, err := strconv.ParseFloat(l.m.StringValue, 64)
-			if err != nil {
-				return nil, nil, err
+			// Count number of values by checking colons to preallocate array
+			var values []float64
+			if l.m.StringValue == "" {
+				values = make([]float64, 0, 0)
+			} else {
+				count := 1
+				for i := 0; i < len(l.m.StringValue); i++ {
+					if l.m.StringValue[i] == ':' {
+						count++
+					}
+				}
+				values = make([]float64, 0, count)
 			}
-			if math.IsNaN(v) {
-				return nil, nil, errNaN
+			for _, stringValue := range strings.Split(l.m.StringValue, ":") {
+				if stringValue == "" {
+					// SKip the value, it could be something like a.packing:1:2:|ms|#|:|c:xyz
+					continue
+				}
+				v, err := strconv.ParseFloat(stringValue, 64)
+				if err != nil {
+					return nil, nil, err
+				}
+				if math.IsNaN(v) {
+					return nil, nil, errNaN
+				}
+				values = append(values, v)
 			}
-			l.m.Value = v
+			l.m.Values = values
 			l.m.StringValue = ""
 		}
 		l.m.Tags = l.tags

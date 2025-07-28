@@ -165,7 +165,7 @@ func TestBackendSendAsyncMetrics(t *testing.T) {
 				mm := gostatsd.NewMetricMap(false)
 				mm.Receive(&gostatsd.Metric{
 					Name:      "my-metric",
-					Value:     100.0,
+					Values:    []float64{100.0},
 					Rate:      1,
 					Tags:      gostatsd.Tags{"service.name:my-awesome-service"},
 					Timestamp: gostatsd.Nanotime(time.Unix(100, 0).UnixNano()),
@@ -173,7 +173,7 @@ func TestBackendSendAsyncMetrics(t *testing.T) {
 				})
 				mm.Receive(&gostatsd.Metric{
 					Name:      "my-metric",
-					Value:     100.0,
+					Values:    []float64{100.0},
 					Rate:      1,
 					Tags:      gostatsd.Tags{"service.name:my-awesome-service"},
 					Timestamp: gostatsd.Nanotime(time.Unix(100, 0).UnixNano()),
@@ -181,7 +181,7 @@ func TestBackendSendAsyncMetrics(t *testing.T) {
 				})
 				mm.Receive(&gostatsd.Metric{
 					Name:      "my-metric",
-					Value:     100.0,
+					Values:    []float64{100.0},
 					Rate:      1,
 					Tags:      gostatsd.Tags{"service.name:my-awesome-service"},
 					Timestamp: gostatsd.Nanotime(time.Unix(100, 0).UnixNano()),
@@ -189,7 +189,7 @@ func TestBackendSendAsyncMetrics(t *testing.T) {
 				})
 				mm.Receive(&gostatsd.Metric{
 					Name:      "my-metric",
-					Value:     100.0,
+					Values:    []float64{100.0},
 					Rate:      1,
 					Tags:      gostatsd.Tags{"service.name:my-awesome-service"},
 					Timestamp: gostatsd.Nanotime(time.Unix(100, 0).UnixNano()),
@@ -213,10 +213,10 @@ func TestBackendSendAsyncMetrics(t *testing.T) {
 			mm: func() *gostatsd.MetricMap {
 				mm := gostatsd.NewMetricMap(false)
 				mm.Receive(&gostatsd.Metric{
-					Name:  "my-metric",
-					Value: 100,
-					Rate:  1,
-					Type:  gostatsd.COUNTER,
+					Name:   "my-metric",
+					Values: []float64{100},
+					Rate:   1,
+					Type:   gostatsd.COUNTER,
 				})
 				mm.Counters.Each(func(name, tagsKey string, c gostatsd.Counter) {
 					c.PerSecond = 10
@@ -253,10 +253,10 @@ func TestBackendSendAsyncMetrics(t *testing.T) {
 			mm: func() *gostatsd.MetricMap {
 				mm := gostatsd.NewMetricMap(false)
 				mm.Receive(&gostatsd.Metric{
-					Name:  "my-metric",
-					Value: 100.0,
-					Rate:  1,
-					Type:  gostatsd.TIMER,
+					Name:   "my-metric",
+					Values: []float64{100.0},
+					Rate:   1,
+					Type:   gostatsd.TIMER,
 				})
 				mm.Timers.Each(func(name, tagsKey string, t gostatsd.Timer) {
 					t.Histogram = map[gostatsd.HistogramThreshold]int{
@@ -305,7 +305,7 @@ func TestBackendSendAsyncMetrics(t *testing.T) {
 				mm := gostatsd.NewMetricMap(false)
 				mm.Receive(&gostatsd.Metric{
 					Name:      "my-metric",
-					Value:     100.0,
+					Values:    []float64{100.0},
 					Rate:      1,
 					Tags:      gostatsd.Tags{"service.name:my-awesome-service"},
 					Timestamp: gostatsd.Nanotime(time.Unix(100, 0).UnixNano()),
@@ -349,7 +349,7 @@ func TestBackendSendAsyncMetrics(t *testing.T) {
 				mm := gostatsd.NewMetricMap(false)
 				mm.Receive(&gostatsd.Metric{
 					Name:      "my-metric",
-					Value:     100.0,
+					Values:    []float64{100.0},
 					Rate:      1,
 					Tags:      gostatsd.Tags{"service.name:my-awesome-service"},
 					Timestamp: gostatsd.Nanotime(time.Unix(100, 0).UnixNano()),
@@ -390,7 +390,7 @@ func TestBackendSendAsyncMetrics(t *testing.T) {
 				mm := gostatsd.NewMetricMap(false)
 				mm.Receive(&gostatsd.Metric{
 					Name:      "my-metric",
-					Value:     100.0,
+					Values:    []float64{100.0},
 					Rate:      1,
 					Tags:      gostatsd.Tags{"service.name:my-awesome-service"},
 					Timestamp: gostatsd.Nanotime(time.Unix(100, 0).UnixNano()),
@@ -398,7 +398,7 @@ func TestBackendSendAsyncMetrics(t *testing.T) {
 				})
 				mm.Receive(&gostatsd.Metric{
 					Name:      "my-metric",
-					Value:     100.0,
+					Values:    []float64{100.0},
 					Rate:      1,
 					Tags:      gostatsd.Tags{"service.name:my-awesome-service"},
 					Timestamp: gostatsd.Nanotime(time.Unix(100, 0).UnixNano()),
@@ -406,7 +406,7 @@ func TestBackendSendAsyncMetrics(t *testing.T) {
 				})
 				mm.Receive(&gostatsd.Metric{
 					Name:      "my-metric",
-					Value:     100.0,
+					Values:    []float64{100.0},
 					Rate:      1,
 					Tags:      gostatsd.Tags{"service.name:my-awesome-service"},
 					Timestamp: gostatsd.Nanotime(time.Unix(100, 0).UnixNano()),
@@ -414,7 +414,7 @@ func TestBackendSendAsyncMetrics(t *testing.T) {
 				})
 				mm.Receive(&gostatsd.Metric{
 					Name:      "my-metric",
-					Value:     100.0,
+					Values:    []float64{100.0},
 					Rate:      1,
 					Tags:      gostatsd.Tags{"service.name:my-awesome-service"},
 					Timestamp: gostatsd.Nanotime(time.Unix(100, 0).UnixNano()),

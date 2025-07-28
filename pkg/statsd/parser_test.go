@@ -58,39 +58,39 @@ func TestParseDatagram(t *testing.T) {
 	input := map[string]metricAndEvent{
 		"f:2|c": {
 			metrics: []*gostatsd.Metric{
-				{Name: "f", Value: 2, Source: "127.0.0.1", Type: gostatsd.COUNTER, Rate: 1},
+				{Name: "f", Values: []float64{2}, Source: "127.0.0.1", Type: gostatsd.COUNTER, Rate: 1},
 			},
 		},
 		"f:2|c\n": {
 			metrics: []*gostatsd.Metric{
-				{Name: "f", Value: 2, Source: "127.0.0.1", Type: gostatsd.COUNTER, Rate: 1},
+				{Name: "f", Values: []float64{2}, Source: "127.0.0.1", Type: gostatsd.COUNTER, Rate: 1},
 			},
 		},
 		"f:2|c|#t": {
 			metrics: []*gostatsd.Metric{
-				{Name: "f", Value: 2, Source: "127.0.0.1", Type: gostatsd.COUNTER, Rate: 1, Tags: gostatsd.Tags{"t"}},
+				{Name: "f", Values: []float64{2}, Source: "127.0.0.1", Type: gostatsd.COUNTER, Rate: 1, Tags: gostatsd.Tags{"t"}},
 			},
 		},
 		"f:2|c|#host:h": {
 			metrics: []*gostatsd.Metric{
-				{Name: "f", Value: 2, Source: "127.0.0.1", Type: gostatsd.COUNTER, Rate: 1, Tags: gostatsd.Tags{"host:h"}},
+				{Name: "f", Values: []float64{2}, Source: "127.0.0.1", Type: gostatsd.COUNTER, Rate: 1, Tags: gostatsd.Tags{"host:h"}},
 			},
 		},
 		"f:2|c\nx:3|c": {
 			metrics: []*gostatsd.Metric{
-				{Name: "f", Value: 2, Source: "127.0.0.1", Type: gostatsd.COUNTER, Rate: 1},
-				{Name: "x", Value: 3, Source: "127.0.0.1", Type: gostatsd.COUNTER, Rate: 1},
+				{Name: "f", Values: []float64{2}, Source: "127.0.0.1", Type: gostatsd.COUNTER, Rate: 1},
+				{Name: "x", Values: []float64{3}, Source: "127.0.0.1", Type: gostatsd.COUNTER, Rate: 1},
 			},
 		},
 		"f:2|c\nx:3|c\n": {
 			metrics: []*gostatsd.Metric{
-				{Name: "f", Value: 2, Source: "127.0.0.1", Type: gostatsd.COUNTER, Rate: 1},
-				{Name: "x", Value: 3, Source: "127.0.0.1", Type: gostatsd.COUNTER, Rate: 1},
+				{Name: "f", Values: []float64{2}, Source: "127.0.0.1", Type: gostatsd.COUNTER, Rate: 1},
+				{Name: "x", Values: []float64{3}, Source: "127.0.0.1", Type: gostatsd.COUNTER, Rate: 1},
 			},
 		},
 		"_e{1,1}:a|b\nf:6|c": {
 			metrics: []*gostatsd.Metric{
-				{Name: "f", Value: 6, Source: "127.0.0.1", Type: gostatsd.COUNTER, Rate: 1},
+				{Name: "f", Values: []float64{6}, Source: "127.0.0.1", Type: gostatsd.COUNTER, Rate: 1},
 			},
 			events: gostatsd.Events{
 				{Title: "a", Text: "b", Source: "127.0.0.1"},
@@ -134,47 +134,77 @@ func TestParseDatagramIgnoreHost(t *testing.T) {
 	input := map[string]metricAndEvent{
 		"f:2|c": {
 			metrics: []*gostatsd.Metric{
-				{Name: "f", Value: 2, Type: gostatsd.COUNTER, Rate: 1},
+				{Name: "f", Values: []float64{2}, Type: gostatsd.COUNTER, Rate: 1},
 			},
 		},
 		"f:2|c\n": {
 			metrics: []*gostatsd.Metric{
-				{Name: "f", Value: 2, Type: gostatsd.COUNTER, Rate: 1},
+				{Name: "f", Values: []float64{2}, Type: gostatsd.COUNTER, Rate: 1},
 			},
 		},
 		"f:2|c|#t": {
 			metrics: []*gostatsd.Metric{
-				{Name: "f", Value: 2, Type: gostatsd.COUNTER, Rate: 1, Tags: gostatsd.Tags{"t"}},
+				{Name: "f", Values: []float64{2}, Type: gostatsd.COUNTER, Rate: 1, Tags: gostatsd.Tags{"t"}},
 			},
 		},
 		"f:2|c|#host:h": {
 			metrics: []*gostatsd.Metric{
-				{Name: "f", Value: 2, Source: "h", Type: gostatsd.COUNTER, Rate: 1},
+				{Name: "f", Values: []float64{2}, Source: "h", Type: gostatsd.COUNTER, Rate: 1},
 			},
 		},
 		"f:2|c|#host:h1,host:h2": {
 			metrics: []*gostatsd.Metric{
-				{Name: "f", Value: 2, Source: "h1", Type: gostatsd.COUNTER, Rate: 1, Tags: gostatsd.Tags{"host:h2"}},
+				{Name: "f", Values: []float64{2}, Source: "h1", Type: gostatsd.COUNTER, Rate: 1, Tags: gostatsd.Tags{"host:h2"}},
 			},
 		},
 		"f:2|c\nx:3|c": {
 			metrics: []*gostatsd.Metric{
-				{Name: "f", Value: 2, Type: gostatsd.COUNTER, Rate: 1},
-				{Name: "x", Value: 3, Type: gostatsd.COUNTER, Rate: 1},
+				{Name: "f", Values: []float64{2}, Type: gostatsd.COUNTER, Rate: 1},
+				{Name: "x", Values: []float64{3}, Type: gostatsd.COUNTER, Rate: 1},
 			},
 		},
 		"f:2|c\nx:3|c\n": {
 			metrics: []*gostatsd.Metric{
-				{Name: "f", Value: 2, Type: gostatsd.COUNTER, Rate: 1},
-				{Name: "x", Value: 3, Type: gostatsd.COUNTER, Rate: 1},
+				{Name: "f", Values: []float64{2}, Type: gostatsd.COUNTER, Rate: 1},
+				{Name: "x", Values: []float64{3}, Type: gostatsd.COUNTER, Rate: 1},
 			},
 		},
 		"_e{1,1}:a|b\nf:6|c": {
 			metrics: []*gostatsd.Metric{
-				{Name: "f", Value: 6, Type: gostatsd.COUNTER, Rate: 1},
+				{Name: "f", Values: []float64{6}, Type: gostatsd.COUNTER, Rate: 1},
 			},
 			events: gostatsd.Events{
 				{Title: "a", Text: "b", Source: "127.0.0.1"},
+			},
+		},
+		"f:2:2|c\nx:3:3|c\n": {
+			metrics: []*gostatsd.Metric{
+				{Name: "f", Values: []float64{4}, Type: gostatsd.COUNTER, Rate: 1},
+				{Name: "x", Values: []float64{6}, Type: gostatsd.COUNTER, Rate: 1},
+			},
+		},
+		"f:2:2|ms\nx:3:3|ms\n": {
+			metrics: []*gostatsd.Metric{
+				{Name: "f", Values: []float64{2, 2}, Type: gostatsd.TIMER, Rate: 2},
+				{Name: "x", Values: []float64{3, 3}, Type: gostatsd.TIMER, Rate: 2},
+			},
+		},
+		"f:1:3|ms\nx:2|ms\n": {
+			metrics: []*gostatsd.Metric{
+				{Name: "f", Values: []float64{1, 3}, Type: gostatsd.TIMER, Rate: 2},
+				{Name: "x", Values: []float64{2}, Type: gostatsd.TIMER, Rate: 1},
+			},
+		},
+		"f:3:3:1|g\nx:2|g\n": {
+			metrics: []*gostatsd.Metric{
+				{Name: "f", Values: []float64{1}, Type: gostatsd.GAUGE, Rate: 1},
+				{Name: "x", Values: []float64{2}, Type: gostatsd.GAUGE, Rate: 1},
+			},
+		},
+		"f:3:|g\nx:2|g\n": {
+			metrics: []*gostatsd.Metric{
+				{Name: "f", Values: []float64{3}, Type: gostatsd.GAUGE, Rate: 1},
+				{Name: "x", Values: []float64{2}, Type: gostatsd.GAUGE, Rate: 1},
 			},
 		},
 	}
