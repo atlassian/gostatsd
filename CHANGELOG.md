@@ -1,3 +1,7 @@
+41.0.2
+------
+- Bumping go version to 1.24.6
+
 41.0.1
 ------
 - Bumping go version to 1.24.5
