@@ -1,6 +1,6 @@
 module github.com/atlassian/gostatsd
 
-go 1.25.3
+go 1.25.5
 
 require (
 	github.com/alicebob/miniredis/v2 v2.23.0
@@ -17,7 +17,7 @@ require (
 	github.com/libp2p/go-reuseport v0.2.0
 	github.com/magiconair/properties v1.8.7
 	github.com/pierrec/lz4/v4 v4.1.19
-	github.com/sirupsen/logrus v1.9.0
+	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/pflag v1.0.6
 	github.com/spf13/viper v1.17.0
 	github.com/stretchr/testify v1.9.0
