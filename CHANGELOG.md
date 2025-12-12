@@ -1,3 +1,12 @@
+41.0.4
+------
+- Bumping go version to 1.25.5
+- Bumping logrus to 1.9.3
+
+41.0.3
+------
+- Bumping go version to 1.25.3
+
 41.0.2
 ------
 - Bumping go version to 1.24.6
