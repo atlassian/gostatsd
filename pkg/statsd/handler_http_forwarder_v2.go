@@ -3,11 +3,14 @@ package statsd
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"maps"
 	"net/http"
+	"net/url"
+	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -41,6 +44,20 @@ const (
 	defaultConcurrentMerge           = 1
 	defaultTransport                 = "default"
 )
+
+var (
+	NonRetryableErrorCodes = []int{301, 304, 400, 402, 403, 404, 405, 409, 410, 422}
+)
+
+type RequestError struct {
+	StatusCode int
+	Retryable  bool
+	Err        error
+}
+
+func (r *RequestError) Error() string {
+	return fmt.Sprintf("status %d: retryable %t: err %v", r.StatusCode, r.Retryable, r.Err)
+}
 
 // HttpForwarderHandlerV2 is a PipelineHandler which sends metrics to another gostatsd instance
 type HttpForwarderHandlerV2 struct {
@@ -460,7 +477,7 @@ func (hfh *HttpForwarderHandlerV2) post(ctx context.Context, message proto.Messa
 		"type": endpointType,
 	})
 
-	post, err := hfh.constructPost(ctx, logger, hfh.apiEndpoint+endpoint, message, dynHeaderTags)
+	postInstanceFn, err := hfh.constructPost(ctx, logger, hfh.apiEndpoint+endpoint, message, dynHeaderTags)
 	if err != nil {
 		atomic.AddUint64(&hfh.messagesInvalid, 1)
 		logger.WithError(err).Error("failed to create request")
@@ -474,7 +491,7 @@ func (hfh *HttpForwarderHandlerV2) post(ctx context.Context, message proto.Messa
 
 	for {
 		startTime := clock.Now(ctx)
-		if err = post(); err == nil {
+		if err = postInstanceFn(); err == nil {
 			atomic.AddUint64(&hfh.messagesSent, 1)
 			hfh.lastSuccessfulSend.Store(clock.Now(ctx).UnixNano())
 
@@ -492,7 +509,10 @@ func (hfh *HttpForwarderHandlerV2) post(ctx context.Context, message proto.Messa
 		}
 
 		next := b.NextBackOff()
-		if next == backoff.Stop {
+		// All errors coming back from postInstanceFn() should be a RequestError
+		var reqErr *RequestError
+		_ = errors.As(err, &reqErr)
+		if !reqErr.Retryable || next == backoff.Stop {
 			atomic.AddUint64(&hfh.messagesDropped, 1)
 			logger.WithError(err).Info("failed to send, giving up")
 			return
@@ -593,7 +613,14 @@ func (hfh *HttpForwarderHandlerV2) constructPost(ctx context.Context, logger log
 		req.Header.Set("Content-Encoding", encoding)
 		resp, err := hfh.client.Do(req)
 		if err != nil {
-			return fmt.Errorf("error POSTing: %v", err)
+			// Any error returned from client.Do returns *url.Error
+			// Documentation Ref: https://pkg.go.dev/net/http#Client.Do
+			var urlErr *url.Error
+			errors.As(err, &urlErr)
+			return &RequestError{
+				Retryable: urlErr.Temporary(),
+				Err:       err,
+			}
 		}
 		defer func() {
 			_, _ = io.Copy(ioutil.Discard, resp.Body)
@@ -605,7 +632,11 @@ func (hfh *HttpForwarderHandlerV2) constructPost(ctx context.Context, logger log
 				"status": resp.StatusCode,
 				"body":   string(bodyStart),
 			}).Info("failed request")
-			return fmt.Errorf("received bad status code %d", resp.StatusCode)
+			return &RequestError{
+				StatusCode: resp.StatusCode,
+				Retryable:  !slices.Contains(NonRetryableErrorCodes, resp.StatusCode),
+				Err:        err,
+			}
 		}
 		return nil
 	}, nil

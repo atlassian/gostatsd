@@ -3,6 +3,7 @@ package statsd
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -525,4 +526,381 @@ func TestViperMerges(t *testing.T) {
 		},
 		values.AllSettings(),
 	)
+}
+
+func TestConstructPostWithNonRetryableErrorCodes(t *testing.T) {
+	t.Parallel()
+
+	logger := logrus.New()
+	pool := transport.NewTransportPool(logger, viper.New())
+
+	for _, errorCode := range NonRetryableErrorCodes {
+		t.Run(fmt.Sprintf("status_%d_should_not_be_retryable", errorCode), func(t *testing.T) {
+			ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(errorCode)
+				_, _ = w.Write([]byte("error response body"))
+			}))
+			t.Cleanup(ts.Close)
+
+			forwarder, err := NewHttpForwarderHandlerV2(
+				logger,
+				"default",
+				ts.URL,
+				1, 1, 1,
+				false, "", 0,
+				100*time.Millisecond,
+				100*time.Millisecond,
+				map[string]string{},
+				[]string{},
+				pool,
+				nil,
+			)
+			require.NoError(t, err)
+
+			ctx := context.Background()
+			mm := gostatsd.NewMetricMap(false)
+			message := translateToProtobufV2(mm)
+
+			postFn, err := forwarder.constructPost(ctx, logger, ts.URL, message, "")
+			require.NoError(t, err, "constructPost should not error during setup")
+			require.NotNil(t, postFn)
+
+			err = postFn()
+			require.Error(t, err, "postFn should return an error for non-retryable status code")
+
+			var reqErr *RequestError
+			ok := errors.As(err, &reqErr)
+			require.True(t, ok, "error should be a RequestError")
+			assert.Equal(t, errorCode, reqErr.StatusCode, "StatusCode should match the response code")
+			assert.False(t, reqErr.Retryable, "should not be retryable for status code %d", errorCode)
+		})
+	}
+}
+
+func TestConstructPostWithRetryableErrorCodes(t *testing.T) {
+	t.Parallel()
+
+	logger := logrus.New()
+	pool := transport.NewTransportPool(logger, viper.New())
+
+	retryableErrorCodes := []int{500, 502, 503, 429, 408}
+
+	for _, errorCode := range retryableErrorCodes {
+		t.Run(fmt.Sprintf("status_%d_should_be_retryable", errorCode), func(t *testing.T) {
+			ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(errorCode)
+				_, _ = w.Write([]byte("temporary error"))
+			}))
+			t.Cleanup(ts.Close)
+
+			forwarder, err := NewHttpForwarderHandlerV2(
+				logger,
+				"default",
+				ts.URL,
+				1, 1, 1,
+				false, "", 0,
+				100*time.Millisecond,
+				100*time.Millisecond,
+				map[string]string{},
+				[]string{},
+				pool,
+				nil,
+			)
+			require.NoError(t, err)
+
+			ctx := context.Background()
+			mm := gostatsd.NewMetricMap(false)
+			message := translateToProtobufV2(mm)
+
+			postFn, err := forwarder.constructPost(ctx, logger, ts.URL, message, "")
+			require.NoError(t, err, "constructPost should not error during setup")
+			require.NotNil(t, postFn)
+
+			err = postFn()
+			require.Error(t, err, "postFn should return an error for error status code")
+
+			var reqErr *RequestError
+			ok := errors.As(err, &reqErr)
+			require.True(t, ok, "error should be a RequestError")
+			assert.Equal(t, errorCode, reqErr.StatusCode, "StatusCode should match the response code")
+			assert.True(t, reqErr.Retryable, "should be retryable for status code %d", errorCode)
+		})
+	}
+}
+
+func TestConstructPostWithSuccessfulResponse(t *testing.T) {
+	t.Parallel()
+
+	logger := logrus.New()
+	pool := transport.NewTransportPool(logger, viper.New())
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("success"))
+	}))
+	t.Cleanup(ts.Close)
+
+	forwarder, err := NewHttpForwarderHandlerV2(
+		logger,
+		"default",
+		ts.URL,
+		1, 1, 1,
+		false, "", 0,
+		100*time.Millisecond,
+		100*time.Millisecond,
+		map[string]string{},
+		[]string{},
+		pool,
+		nil,
+	)
+	require.NoError(t, err)
+
+	ctx := context.Background()
+	mm := gostatsd.NewMetricMap(false)
+	message := translateToProtobufV2(mm)
+
+	postFn, err := forwarder.constructPost(ctx, logger, ts.URL, message, "")
+	require.NoError(t, err, "constructPost should not error during setup")
+	require.NotNil(t, postFn)
+
+	err = postFn()
+	assert.NoError(t, err, "postFn should not error for successful response")
+}
+
+func TestConstructPostWithStatus204NoContent(t *testing.T) {
+	t.Parallel()
+
+	logger := logrus.New()
+	pool := transport.NewTransportPool(logger, viper.New())
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	t.Cleanup(ts.Close)
+
+	forwarder, err := NewHttpForwarderHandlerV2(
+		logger,
+		"default",
+		ts.URL,
+		1, 1, 1,
+		false, "", 0,
+		100*time.Millisecond,
+		100*time.Millisecond,
+		map[string]string{},
+		[]string{},
+		pool,
+		nil,
+	)
+	require.NoError(t, err)
+
+	ctx := context.Background()
+	mm := gostatsd.NewMetricMap(false)
+	message := translateToProtobufV2(mm)
+
+	postFn, err := forwarder.constructPost(ctx, logger, ts.URL, message, "")
+	require.NoError(t, err, "constructPost should not error during setup")
+	require.NotNil(t, postFn)
+
+	err = postFn()
+	assert.NoError(t, err, "postFn should not error for 204 No Content response")
+}
+
+func TestPostFunctionWithNonRetryableError(t *testing.T) {
+	t.Parallel()
+
+	logger := logrus.New()
+	pool := transport.NewTransportPool(logger, viper.New())
+
+	// Return 404 - a non-retryable error
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	t.Cleanup(ts.Close)
+
+	forwarder, err := NewHttpForwarderHandlerV2(
+		logger,
+		"default",
+		ts.URL,
+		1, 1, 1,
+		false, "", 0,
+		100*time.Millisecond,
+		100*time.Millisecond,
+		map[string]string{},
+		[]string{},
+		pool,
+		nil,
+	)
+	require.NoError(t, err)
+
+	ctx := context.Background()
+	mockClock := clock.NewMock(time.Unix(1000, 0))
+	ctx = clock.Context(ctx, mockClock)
+
+	initialTimerCount := mockClock.Len()
+
+	mm := gostatsd.NewMetricMap(false)
+	message := translateToProtobufV2(mm)
+
+	// Call post directly - it should return immediately without creating a timer
+	forwarder.post(ctx, message, "", 0, "metrics", "/v2/raw")
+
+	// Verify no timers were created
+	finalTimerCount := mockClock.Len()
+	assert.Equal(t, initialTimerCount, finalTimerCount, "no new timers should be created for non-retryable errors")
+
+	// Verify messagesDropped was incremented
+	assert.EqualValues(t, 1, atomic.LoadUint64(&forwarder.messagesDropped))
+	// Verify messagesRetried was NOT incremented
+	assert.EqualValues(t, 0, atomic.LoadUint64(&forwarder.messagesRetried))
+}
+
+func TestPostFunctionWithMultipleNonRetryableErrors(t *testing.T) {
+	t.Parallel()
+
+	logger := logrus.New()
+	pool := transport.NewTransportPool(logger, viper.New())
+
+	testCases := []struct {
+		name       string
+		statusCode int
+	}{
+		{"404_not_found", http.StatusNotFound},
+		{"403_forbidden", http.StatusForbidden},
+		{"400_bad_request", http.StatusBadRequest},
+		{"410_gone", http.StatusGone},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(tc.statusCode)
+			}))
+			t.Cleanup(ts.Close)
+
+			forwarder, err := NewHttpForwarderHandlerV2(
+				logger,
+				"default",
+				ts.URL,
+				1, 1, 1,
+				false, "", 0,
+				100*time.Millisecond,
+				100*time.Millisecond,
+				map[string]string{},
+				[]string{},
+				pool,
+				nil,
+			)
+			require.NoError(t, err)
+
+			ctx := context.Background()
+			mockClock := clock.NewMock(time.Unix(1000, 0))
+			ctx = clock.Context(ctx, mockClock)
+
+			initialTimerCount := mockClock.Len()
+
+			mm := gostatsd.NewMetricMap(false)
+			message := translateToProtobufV2(mm)
+
+			forwarder.post(ctx, message, "", 0, "metrics", "/v2/raw")
+
+			// Verify no timers were created for non-retryable error
+			finalTimerCount := mockClock.Len()
+			assert.Equal(t, initialTimerCount, finalTimerCount, "no timers should be created for status %d", tc.statusCode)
+
+			// Verify the message was dropped
+			assert.EqualValues(t, 1, atomic.LoadUint64(&forwarder.messagesDropped), "status %d should result in drop", tc.statusCode)
+			assert.EqualValues(t, 0, atomic.LoadUint64(&forwarder.messagesRetried), "status %d should not result in retry", tc.statusCode)
+		})
+	}
+}
+
+func TestPostFunctionWithRetryableErrorAttemptsRetry(t *testing.T) {
+	t.Parallel()
+
+	logger := logrus.New()
+	pool := transport.NewTransportPool(logger, viper.New())
+
+	// Return 500 - a retryable error
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	t.Cleanup(ts.Close)
+
+	forwarder, err := NewHttpForwarderHandlerV2(
+		logger,
+		"default",
+		ts.URL,
+		1, 1, 1,
+		false, "", 0,
+		10*time.Millisecond, // maxRequestElapsedTime - very short so backoff exhausts quickly
+		10*time.Millisecond, // flushInterval
+		map[string]string{},
+		[]string{},
+		pool,
+		nil,
+	)
+	require.NoError(t, err)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+
+	mm := gostatsd.NewMetricMap(false)
+	message := translateToProtobufV2(mm)
+
+	// Run post in a goroutine so we can cancel it after it tries a few times
+	done := make(chan struct{})
+	go func() {
+		forwarder.post(ctx, message, "", 0, "metrics", "/v2/raw")
+		close(done)
+	}()
+
+	// Let it attempt a few times, then cancel
+	time.Sleep(5 * time.Millisecond)
+	cancel()
+
+	// Wait for post to return
+	<-done
+
+	// Verify messagesRetried was incremented (at least one retry attempt was made)
+	// This proves that for retryable errors, the code tries again rather than returning immediately
+	assert.Greater(t, atomic.LoadUint64(&forwarder.messagesRetried), uint64(0), "retryable errors should increment retry counter")
+}
+
+func TestPostFunctionReturnsImmediatelyOnNonRetryableWithoutBackoff(t *testing.T) {
+	t.Parallel()
+
+	logger := logrus.New()
+	pool := transport.NewTransportPool(logger, viper.New())
+
+	// Return 404 - non-retryable (StatusNotFound is in NonRetryableErrorCodes)
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	t.Cleanup(ts.Close)
+
+	forwarder, err := NewHttpForwarderHandlerV2(
+		logger,
+		"default",
+		ts.URL,
+		1, 1, 1,
+		false, "", 0,
+		10*time.Hour, // Very long maxRequestElapsedTime - should not matter
+		10*time.Hour, // Very long flushInterval
+		map[string]string{},
+		[]string{},
+		pool,
+		nil,
+	)
+	require.NoError(t, err)
+
+	ctx := context.Background()
+	mm := gostatsd.NewMetricMap(false)
+	message := translateToProtobufV2(mm)
+
+	// Call post - it should return immediately without waiting
+	forwarder.post(ctx, message, "", 0, "metrics", "/v2/raw")
+
+	// Verify that the message was dropped immediately
+	assert.EqualValues(t, 1, atomic.LoadUint64(&forwarder.messagesDropped))
+	assert.EqualValues(t, 0, atomic.LoadUint64(&forwarder.messagesRetried))
 }
