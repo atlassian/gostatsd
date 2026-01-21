@@ -3,11 +3,14 @@ package statsd
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"maps"
 	"net/http"
+	"net/url"
+	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -31,27 +34,43 @@ import (
 )
 
 const (
-	defaultConsolidatorFlushInterval = 1 * time.Second
-	defaultCompress                  = true
-	defaultCompressionType           = "zlib"
-	defaultCompressionLevel          = 9
-	defaultApiEndpoint               = ""
-	defaultMaxRequestElapsedTime     = 30 * time.Second
-	defaultMaxRequests               = 1000
-	defaultConcurrentMerge           = 1
-	defaultTransport                 = "default"
+	defaultConsolidatorFlushInterval   = 1 * time.Second
+	defaultCompress                    = true
+	defaultCompressionType             = "zlib"
+	defaultCompressionLevel            = 9
+	defaultApiEndpoint                 = ""
+	defaultMaxRequestElapsedTime       = 30 * time.Second
+	defaultMaxRequests                 = 1000
+	defaultConcurrentMerge             = 1
+	defaultTransport                   = "default"
+	defaultFastFailOnNonRetryableError = false
 )
+
+var (
+	RetryableErrorCodes = []int{408, 429, 500, 502, 503, 504}
+)
+
+type RequestError struct {
+	StatusCode int
+	Retryable  bool
+	Err        error
+}
+
+func (r *RequestError) Error() string {
+	return fmt.Sprintf("status %d: retryable %t: err %v", r.StatusCode, r.Retryable, r.Err)
+}
 
 // HttpForwarderHandlerV2 is a PipelineHandler which sends metrics to another gostatsd instance
 type HttpForwarderHandlerV2 struct {
-	postId           uint64       // atomic - used for an id in logs
-	messagesInvalid  uint64       // atomic - messages which failed to be created
-	messagesCreated  uint64       // atomic - messages which were created
-	messagesSent     uint64       // atomic - messages successfully sent
-	messagesRetried  uint64       // atomic - retries (first send is not a retry, final failure is not a retry)
-	messagesDropped  uint64       // atomic - final failure
-	postLatencyTotal atomic.Int64 // total of the time taken to send messages in a flush interval
-	postLatencyMax   atomic.Int64 // maximum time taken to send a message in a flush interval
+	postId                  uint64       // atomic - used for an id in logs
+	messagesInvalid         uint64       // atomic - messages which failed to be created
+	messagesCreated         uint64       // atomic - messages which were created
+	messagesSent            uint64       // atomic - messages successfully sent
+	messagesRetried         uint64       // atomic - retries (first send is not a retry, final failure is not a retry)
+	messagesDroppedFastFail uint64       // atomic - messages which failed due to non-retryable errors
+	messagesDropped         uint64       // atomic - final failure
+	postLatencyTotal        atomic.Int64 // total of the time taken to send messages in a flush interval
+	postLatencyMax          atomic.Int64 // maximum time taken to send a message in a flush interval
 
 	lastSuccessfulSend atomic.Int64
 
@@ -72,7 +91,8 @@ type HttpForwarderHandlerV2 struct {
 	consolidator        *gostatsd.MetricConsolidator
 	consolidatedMetrics chan []*gostatsd.MetricMap
 
-	flushCoordinator flush.Coordinator
+	flushCoordinator             flush.Coordinator
+	fastFailOnNonRetryableErrors bool
 }
 
 var (
@@ -84,16 +104,17 @@ var (
 // as part of the configuration passed through.
 func newHTTPForwarderHandlerViperConfig(overrides *viper.Viper) *viper.Viper {
 	values := map[string]any{
-		"transport":                defaultTransport,
-		"compress":                 defaultCompress,
-		"compression-type":         defaultCompressionType,
-		"compression-level":        defaultCompressionLevel,
-		"api-endpoint":             defaultApiEndpoint,
-		"max-requests":             defaultMaxRequests,
-		"max-request-elapsed-time": defaultMaxRequestElapsedTime,
-		"consolidator-slots":       gostatsd.DefaultMaxParsers,
-		"flush-interval":           defaultConsolidatorFlushInterval,
-		"concurrent-merge":         defaultConcurrentMerge,
+		"transport":                         defaultTransport,
+		"compress":                          defaultCompress,
+		"compression-type":                  defaultCompressionType,
+		"compression-level":                 defaultCompressionLevel,
+		"api-endpoint":                      defaultApiEndpoint,
+		"max-requests":                      defaultMaxRequests,
+		"max-request-elapsed-time":          defaultMaxRequestElapsedTime,
+		"consolidator-slots":                gostatsd.DefaultMaxParsers,
+		"flush-interval":                    defaultConsolidatorFlushInterval,
+		"concurrent-merge":                  defaultConcurrentMerge,
+		"fast-fail-on-non-retryable-errors": defaultFastFailOnNonRetryableError,
 	}
 	maps.Copy(values, util.GetSubViper(overrides, "http-transport").AllSettings())
 
@@ -123,6 +144,7 @@ func NewHttpForwarderHandlerV2FromViper(logger logrus.FieldLogger, v *viper.Vipe
 		values.GetStringSlice("dynamic-headers"),
 		pool,
 		fc,
+		values.GetBool("fast-fail-on-non-retryable-errors"),
 	)
 }
 
@@ -143,6 +165,7 @@ func NewHttpForwarderHandlerV2(
 	dynHeaderNames []string,
 	pool *transport.TransportPool,
 	fc flush.Coordinator,
+	failFastOnNonRetryableErrors bool,
 ) (*HttpForwarderHandlerV2, error) {
 	if apiEndpoint == "" {
 		return nil, fmt.Errorf("api-endpoint is required")
@@ -178,14 +201,15 @@ func NewHttpForwarderHandlerV2(
 	}
 
 	logger.WithFields(logrus.Fields{
-		"api-endpoint":             apiEndpoint,
-		"compress":                 compress,
-		"compression-type":         compressionTypeStr,
-		"compression-level":        compressionLevel,
-		"max-request-elapsed-time": maxRequestElapsedTime,
-		"max-requests":             maxRequests,
-		"consolidator-slots":       consolidatorSlots,
-		"flush-interval":           flushInterval,
+		"api-endpoint":                      apiEndpoint,
+		"compress":                          compress,
+		"compression-type":                  compressionTypeStr,
+		"compression-level":                 compressionLevel,
+		"max-request-elapsed-time":          maxRequestElapsedTime,
+		"max-requests":                      maxRequests,
+		"consolidator-slots":                consolidatorSlots,
+		"flush-interval":                    flushInterval,
+		"fast-fail-on-non-retryable-errors": failFastOnNonRetryableErrors,
 	}).Info("created HttpForwarderHandler")
 
 	// Default set of headers used for the forwarder
@@ -232,21 +256,22 @@ func NewHttpForwarderHandlerV2(
 	}
 
 	return &HttpForwarderHandlerV2{
-		logger:                logger.WithField("component", "http-forwarder-handler-v2"),
-		apiEndpoint:           apiEndpoint,
-		maxRequestElapsedTime: maxRequestElapsedTime,
-		metricsSem:            metricsSem,
-		metricsMergingSem:     metricsMergingSem,
-		compress:              compress,
-		compressionType:       compressionType,
-		compressionLevel:      compressionLevel,
-		consolidator:          consolidator,
-		consolidatedMetrics:   ch,
-		client:                httpClient.Client,
-		headers:               headers,
-		dynHeaderNames:        dynHeaderNamesWithColon,
-		done:                  make(chan struct{}),
-		flushCoordinator:      fc,
+		logger:                       logger.WithField("component", "http-forwarder-handler-v2"),
+		apiEndpoint:                  apiEndpoint,
+		maxRequestElapsedTime:        maxRequestElapsedTime,
+		metricsSem:                   metricsSem,
+		metricsMergingSem:            metricsMergingSem,
+		compress:                     compress,
+		compressionType:              compressionType,
+		compressionLevel:             compressionLevel,
+		consolidator:                 consolidator,
+		consolidatedMetrics:          ch,
+		client:                       httpClient.Client,
+		headers:                      headers,
+		dynHeaderNames:               dynHeaderNamesWithColon,
+		done:                         make(chan struct{}),
+		flushCoordinator:             fc,
+		fastFailOnNonRetryableErrors: failFastOnNonRetryableErrors,
 	}, nil
 }
 
@@ -460,7 +485,7 @@ func (hfh *HttpForwarderHandlerV2) post(ctx context.Context, message proto.Messa
 		"type": endpointType,
 	})
 
-	post, err := hfh.constructPost(ctx, logger, hfh.apiEndpoint+endpoint, message, dynHeaderTags)
+	postInstanceFn, err := hfh.constructPost(ctx, logger, hfh.apiEndpoint+endpoint, message, dynHeaderTags)
 	if err != nil {
 		atomic.AddUint64(&hfh.messagesInvalid, 1)
 		logger.WithError(err).Error("failed to create request")
@@ -474,7 +499,7 @@ func (hfh *HttpForwarderHandlerV2) post(ctx context.Context, message proto.Messa
 
 	for {
 		startTime := clock.Now(ctx)
-		if err = post(); err == nil {
+		if err = postInstanceFn(); err == nil {
 			atomic.AddUint64(&hfh.messagesSent, 1)
 			hfh.lastSuccessfulSend.Store(clock.Now(ctx).UnixNano())
 
@@ -488,6 +513,15 @@ func (hfh *HttpForwarderHandlerV2) post(ctx context.Context, message proto.Messa
 					break
 				}
 			}
+			return
+		}
+
+		// All errors coming back from postInstanceFn() should be a RequestError
+		var reqErr *RequestError
+		ok := errors.As(err, &reqErr)
+		if ok && !reqErr.Retryable && hfh.fastFailOnNonRetryableErrors {
+			atomic.AddUint64(&hfh.messagesDroppedFastFail, 1)
+			logger.WithError(err).Info("failed to send due to non-retryable error giving up")
 			return
 		}
 
@@ -593,7 +627,21 @@ func (hfh *HttpForwarderHandlerV2) constructPost(ctx context.Context, logger log
 		req.Header.Set("Content-Encoding", encoding)
 		resp, err := hfh.client.Do(req)
 		if err != nil {
-			return fmt.Errorf("error POSTing: %v", err)
+			// Any error returned from client.Do returns *url.Error
+			// Documentation Ref: https://pkg.go.dev/net/http#Client.Do
+			var urlErr *url.Error
+			ok := errors.As(err, &urlErr)
+			if ok {
+				return &RequestError{
+					Retryable: urlErr.Temporary(),
+					Err:       err,
+				}
+			}
+
+			return &RequestError{
+				Retryable: false,
+				Err:       err,
+			}
 		}
 		defer func() {
 			_, _ = io.Copy(ioutil.Discard, resp.Body)
@@ -605,7 +653,11 @@ func (hfh *HttpForwarderHandlerV2) constructPost(ctx context.Context, logger log
 				"status": resp.StatusCode,
 				"body":   string(bodyStart),
 			}).Info("failed request")
-			return fmt.Errorf("received bad status code %d", resp.StatusCode)
+			return &RequestError{
+				StatusCode: resp.StatusCode,
+				Retryable:  slices.Contains(RetryableErrorCodes, resp.StatusCode),
+				Err:        err,
+			}
 		}
 		return nil
 	}, nil

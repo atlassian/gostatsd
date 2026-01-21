@@ -146,6 +146,11 @@ following configuration options:
   in both `custom-header` and `dynamic-header`, the vaule set by `custom-header` takes precedence. Not required, default
   is empty. Example: `--dynamic-headers='["region", "service"]'`.
   This is an experimental feature and it may be removed or changed in future versions.
+- `fail-fast-on-non-retryable-errors`: boolean flag that controls whether to immediately drop messages that encounter
+  non-retryable HTTP errors (e.g., 4xx status codes indicating client errors). When set to `true`, non-retryable errors
+  immediately drop the message without retry attempts. When set to `false`, even non-retryable errors will attempt retries
+  via exponential backoff up to the `max-request-elapsed-time` limit. Note: Some errors (e.g., TLS certificate validation
+  failures) are always treated as non-retryable. Defaults to `false`.
 
 The following settings from the previous section are also supported:
 - `expiry-*`

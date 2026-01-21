@@ -97,6 +97,8 @@ const (
 	DefaultLogRawMetric = false
 	// DefaultDisableInternalEvents is the default value for disabling internal events being sent
 	DefaultDisableInternalEvents = false
+	// DefaultFastFailOnNonRetryableErrors is the default value for whether to forego exponential backoff on non-retryable errors
+	DefaultFastFailOnNonRetryableErrors = false
 )
 
 const (
@@ -184,6 +186,8 @@ const (
 	ParamLambdaExtensionManualFlush = "lambda-extension-manual-flush"
 	// ParamLambdaExtensionTelemetryAddress enables the manual flushing of metrics in forwarder mode, the flush interval is ignored
 	ParamLambdaExtensionTelemetryAddress = "lambda-extension-telemetry-address"
+	// ParamFastFailOnNonRetryableErrors disables exponential backoff on http client errors and non retryable http status codes
+	ParamFastFailOnNonRetryableErrors = "fast-fail-on-non-retryable-errors"
 )
 
 // AddFlags adds flags to the specified FlagSet.
@@ -227,6 +231,8 @@ func AddFlags(fs *pflag.FlagSet) {
 	fs.Uint32(ParamTimerHistogramLimit, DefaultTimerHistogramLimit, "upper limit of timer histogram buckets (MaxUint32 by default)")
 	fs.Bool(ParamLogRawMetric, DefaultLogRawMetric, "Print metrics received from network to stdout in JSON format")
 	fs.Bool(ParamDisableInternalEvents, DefaultDisableInternalEvents, "Disables sending internal events from gostatsd")
+	fs.Bool(ParamFastFailOnNonRetryableErrors, DefaultFastFailOnNonRetryableErrors, "Disables exponential backoff and retry on non-retryable http statuses and client errors if true.")
+
 }
 
 func minInt(a, b int) int {
