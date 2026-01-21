@@ -508,25 +508,30 @@ func (hfh *HttpForwarderHandlerV2) post(ctx context.Context, message proto.Messa
 			return
 		}
 
-		next := b.NextBackOff()
 		// All errors coming back from postInstanceFn() should be a RequestError
 		var reqErr *RequestError
 		ok := errors.As(err, &reqErr)
-		if (ok && !reqErr.Retryable) || next == backoff.Stop {
-			atomic.AddUint64(&hfh.messagesDropped, 1)
-			logger.WithError(err).Info("failed to send, giving up")
-			return
-		}
+		if ok && reqErr.Retryable {
+			next := b.NextBackOff()
+			if next == backoff.Stop {
+				atomic.AddUint64(&hfh.messagesDropped, 1)
+				logger.WithError(err).Info("failed to send, giving up")
+				return
+			}
 
-		atomic.AddUint64(&hfh.messagesRetried, 1)
+			atomic.AddUint64(&hfh.messagesRetried, 1)
 
-		timer := clock.NewTimer(ctx, next)
-		select {
-		case <-ctx.Done():
-			timer.Stop()
-			return
-		case <-timer.C:
+			timer := clock.NewTimer(ctx, next)
+			select {
+			case <-ctx.Done():
+				timer.Stop()
+				return
+			case <-timer.C:
+			}
 		}
+		atomic.AddUint64(&hfh.messagesDropped, 1)
+		logger.WithError(err).Info("failed to send due to non-retryable error giving up")
+		return
 	}
 }
 
