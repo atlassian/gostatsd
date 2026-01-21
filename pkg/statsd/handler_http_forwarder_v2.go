@@ -61,14 +61,15 @@ func (r *RequestError) Error() string {
 
 // HttpForwarderHandlerV2 is a PipelineHandler which sends metrics to another gostatsd instance
 type HttpForwarderHandlerV2 struct {
-	postId           uint64       // atomic - used for an id in logs
-	messagesInvalid  uint64       // atomic - messages which failed to be created
-	messagesCreated  uint64       // atomic - messages which were created
-	messagesSent     uint64       // atomic - messages successfully sent
-	messagesRetried  uint64       // atomic - retries (first send is not a retry, final failure is not a retry)
-	messagesDropped  uint64       // atomic - final failure
-	postLatencyTotal atomic.Int64 // total of the time taken to send messages in a flush interval
-	postLatencyMax   atomic.Int64 // maximum time taken to send a message in a flush interval
+	postId                  uint64       // atomic - used for an id in logs
+	messagesInvalid         uint64       // atomic - messages which failed to be created
+	messagesCreated         uint64       // atomic - messages which were created
+	messagesSent            uint64       // atomic - messages successfully sent
+	messagesRetried         uint64       // atomic - retries (first send is not a retry, final failure is not a retry)
+	messagesDroppedFastFail uint64       // atomic - messages which failed due to non-retryable errors
+	messagesDropped         uint64       // atomic - final failure
+	postLatencyTotal        atomic.Int64 // total of the time taken to send messages in a flush interval
+	postLatencyMax          atomic.Int64 // maximum time taken to send a message in a flush interval
 
 	lastSuccessfulSend atomic.Int64
 
@@ -512,7 +513,7 @@ func (hfh *HttpForwarderHandlerV2) post(ctx context.Context, message proto.Messa
 		var reqErr *RequestError
 		ok := errors.As(err, &reqErr)
 		if ok && !reqErr.Retryable {
-			atomic.AddUint64(&hfh.messagesDropped, 1)
+			atomic.AddUint64(&hfh.messagesDroppedFastFail, 1)
 			logger.WithError(err).Info("failed to send due to non-retryable error giving up")
 			return
 		}

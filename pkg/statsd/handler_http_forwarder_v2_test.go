@@ -748,8 +748,8 @@ func TestPostFunctionWithNonRetryableError(t *testing.T) {
 	finalTimerCount := mockClock.Len()
 	assert.Equal(t, initialTimerCount, finalTimerCount, "no new timers should be created for non-retryable errors")
 
-	// Verify messagesDropped was incremented
-	assert.EqualValues(t, 1, atomic.LoadUint64(&forwarder.messagesDropped))
+	// Verify messagesDroppedFastFail was incremented
+	assert.EqualValues(t, 1, atomic.LoadUint64(&forwarder.messagesDroppedFastFail))
 	// Verify messagesRetried was NOT incremented
 	assert.EqualValues(t, 0, atomic.LoadUint64(&forwarder.messagesRetried))
 }
@@ -808,7 +808,7 @@ func TestPostFunctionWithMultipleNonRetryableErrors(t *testing.T) {
 			assert.Equal(t, initialTimerCount, finalTimerCount, "no timers should be created for status %d", tc.statusCode)
 
 			// Verify the message was dropped
-			assert.EqualValues(t, 1, atomic.LoadUint64(&forwarder.messagesDropped), "status %d should result in drop", tc.statusCode)
+			assert.EqualValues(t, 1, atomic.LoadUint64(&forwarder.messagesDroppedFastFail), "status %d should result in fast drop", tc.statusCode)
 			assert.EqualValues(t, 0, atomic.LoadUint64(&forwarder.messagesRetried), "status %d should not result in retry", tc.statusCode)
 		})
 	}
@@ -862,6 +862,7 @@ func TestPostFunctionWithRetryableErrorAttemptsRetry(t *testing.T) {
 	<-done
 
 	// Verify messagesRetried was incremented (at least one retry attempt was made)
+	assert.EqualValues(t, 0, atomic.LoadUint64(&forwarder.messagesDroppedFastFail), "retryable errors should not increment fast fail counter")
 	// This proves that for retryable errors, the code tries again rather than returning immediately
 	assert.Greater(t, atomic.LoadUint64(&forwarder.messagesRetried), uint64(0), "retryable errors should increment retry counter")
 }
@@ -901,7 +902,7 @@ func TestPostFunctionReturnsImmediatelyOnNonRetryableWithoutBackoff(t *testing.T
 	forwarder.post(ctx, message, "", 0, "metrics", "/v2/raw")
 
 	// Verify that the message was dropped immediately
-	assert.EqualValues(t, 1, atomic.LoadUint64(&forwarder.messagesDropped))
+	assert.EqualValues(t, 1, atomic.LoadUint64(&forwarder.messagesDroppedFastFail))
 	assert.EqualValues(t, 0, atomic.LoadUint64(&forwarder.messagesRetried))
 }
 
@@ -960,7 +961,7 @@ func TestBackOffNotTriggeredWithBadCert(t *testing.T) {
 	assert.Equal(t, initialTimerCount, finalTimerCount, "no timers should be created for invalid certificates")
 
 	// Verify the message was dropped
-	assert.EqualValues(t, 1, atomic.LoadUint64(&forwarder.messagesDropped), "invalid certificate should result in drop")
+	assert.EqualValues(t, 1, atomic.LoadUint64(&forwarder.messagesDroppedFastFail), "invalid certificate should result in drop")
 	assert.EqualValues(t, 0, atomic.LoadUint64(&forwarder.messagesRetried), "invalid certificate should not result in retry")
 
 	assert.Equal(t, atomic.LoadUint64(&called), uint64(0), "Handler must not have been called as cert verification should fail")
