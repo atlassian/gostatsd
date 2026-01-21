@@ -46,7 +46,7 @@ const (
 )
 
 var (
-	NonRetryableErrorCodes = []int{301, 304, 400, 402, 403, 404, 405, 409, 410, 422}
+	RetryableErrorCodes = []int{408, 429, 500, 502, 503, 504}
 )
 
 type RequestError struct {
@@ -511,8 +511,8 @@ func (hfh *HttpForwarderHandlerV2) post(ctx context.Context, message proto.Messa
 		next := b.NextBackOff()
 		// All errors coming back from postInstanceFn() should be a RequestError
 		var reqErr *RequestError
-		_ = errors.As(err, &reqErr)
-		if !reqErr.Retryable || next == backoff.Stop {
+		ok := errors.As(err, &reqErr)
+		if (ok && !reqErr.Retryable) || next == backoff.Stop {
 			atomic.AddUint64(&hfh.messagesDropped, 1)
 			logger.WithError(err).Info("failed to send, giving up")
 			return
@@ -616,11 +616,15 @@ func (hfh *HttpForwarderHandlerV2) constructPost(ctx context.Context, logger log
 			// Any error returned from client.Do returns *url.Error
 			// Documentation Ref: https://pkg.go.dev/net/http#Client.Do
 			var urlErr *url.Error
-			errors.As(err, &urlErr)
-			return &RequestError{
-				Retryable: urlErr.Temporary(),
-				Err:       err,
+			ok := errors.As(err, &urlErr)
+			if ok {
+				return &RequestError{
+					Retryable: urlErr.Temporary(),
+					Err:       err,
+				}
 			}
+
+			return fmt.Errorf("error POSTing: %v", err)
 		}
 		defer func() {
 			_, _ = io.Copy(ioutil.Discard, resp.Body)
@@ -634,7 +638,7 @@ func (hfh *HttpForwarderHandlerV2) constructPost(ctx context.Context, logger log
 			}).Info("failed request")
 			return &RequestError{
 				StatusCode: resp.StatusCode,
-				Retryable:  !slices.Contains(NonRetryableErrorCodes, resp.StatusCode),
+				Retryable:  slices.Contains(RetryableErrorCodes, resp.StatusCode),
 				Err:        err,
 			}
 		}

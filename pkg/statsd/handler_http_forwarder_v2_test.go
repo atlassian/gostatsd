@@ -533,8 +533,8 @@ func TestConstructPostWithNonRetryableErrorCodes(t *testing.T) {
 
 	logger := logrus.New()
 	pool := transport.NewTransportPool(logger, viper.New())
-
-	for _, errorCode := range NonRetryableErrorCodes {
+	nonRetryableErrorCodes := []int{301, 304, 400, 402, 403, 404, 405, 409, 410, 422}
+	for _, errorCode := range nonRetryableErrorCodes {
 		t.Run(fmt.Sprintf("status_%d_should_not_be_retryable", errorCode), func(t *testing.T) {
 			ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(errorCode)
