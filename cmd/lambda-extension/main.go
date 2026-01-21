@@ -95,9 +95,10 @@ func NewServer(v *viper.Viper, logger logrus.FieldLogger) *statsd.Server {
 			fmt.Sprintf("version:%s", Version),
 			fmt.Sprintf("commit:%s", GitCommit),
 		},
-		BadLineRateLimitPerSecond: rate.Limit(v.GetFloat64(gostatsd.ParamBadLinesPerMinute) / 60.0),
-		Viper:                     v,
-		TransportPool:             transport.NewTransportPool(logger, v),
+		BadLineRateLimitPerSecond:    rate.Limit(v.GetFloat64(gostatsd.ParamBadLinesPerMinute) / 60.0),
+		Viper:                        v,
+		TransportPool:                transport.NewTransportPool(logger, v),
+		FastFailOnNonRetryableErrors: v.GetBool(gostatsd.ParamFastFailOnNonRetryableErrors),
 	}
 
 	if v.GetBool(gostatsd.ParamLambdaExtensionManualFlush) {

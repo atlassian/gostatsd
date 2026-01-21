@@ -174,12 +174,13 @@ func constructServer(v *viper.Viper) (*statsd.Server, error) {
 			fmt.Sprintf("version:%s", Version),
 			fmt.Sprintf("commit:%s", GitCommit),
 		},
-		DisabledSubTypes:          gostatsd.DisabledSubMetrics(v),
-		BadLineRateLimitPerSecond: rate.Limit(v.GetFloat64(gostatsd.ParamBadLinesPerMinute) / 60.0),
-		HistogramLimit:            v.GetUint32(gostatsd.ParamTimerHistogramLimit),
-		DisableInternalEvents:     v.GetBool(gostatsd.ParamDisableInternalEvents),
-		Viper:                     v,
-		TransportPool:             pool,
+		DisabledSubTypes:             gostatsd.DisabledSubMetrics(v),
+		BadLineRateLimitPerSecond:    rate.Limit(v.GetFloat64(gostatsd.ParamBadLinesPerMinute) / 60.0),
+		HistogramLimit:               v.GetUint32(gostatsd.ParamTimerHistogramLimit),
+		DisableInternalEvents:        v.GetBool(gostatsd.ParamDisableInternalEvents),
+		Viper:                        v,
+		TransportPool:                pool,
+		FastFailOnNonRetryableErrors: v.GetBool(gostatsd.ParamFastFailOnNonRetryableErrors),
 	}, nil
 }
 

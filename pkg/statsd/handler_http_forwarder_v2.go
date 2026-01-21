@@ -34,15 +34,16 @@ import (
 )
 
 const (
-	defaultConsolidatorFlushInterval = 1 * time.Second
-	defaultCompress                  = true
-	defaultCompressionType           = "zlib"
-	defaultCompressionLevel          = 9
-	defaultApiEndpoint               = ""
-	defaultMaxRequestElapsedTime     = 30 * time.Second
-	defaultMaxRequests               = 1000
-	defaultConcurrentMerge           = 1
-	defaultTransport                 = "default"
+	defaultConsolidatorFlushInterval   = 1 * time.Second
+	defaultCompress                    = true
+	defaultCompressionType             = "zlib"
+	defaultCompressionLevel            = 9
+	defaultApiEndpoint                 = ""
+	defaultMaxRequestElapsedTime       = 30 * time.Second
+	defaultMaxRequests                 = 1000
+	defaultConcurrentMerge             = 1
+	defaultTransport                   = "default"
+	defaultFastFailOnNonRetryableError = false
 )
 
 var (
@@ -90,7 +91,8 @@ type HttpForwarderHandlerV2 struct {
 	consolidator        *gostatsd.MetricConsolidator
 	consolidatedMetrics chan []*gostatsd.MetricMap
 
-	flushCoordinator flush.Coordinator
+	flushCoordinator             flush.Coordinator
+	fastFailOnNonRetryableErrors bool
 }
 
 var (
@@ -102,16 +104,17 @@ var (
 // as part of the configuration passed through.
 func newHTTPForwarderHandlerViperConfig(overrides *viper.Viper) *viper.Viper {
 	values := map[string]any{
-		"transport":                defaultTransport,
-		"compress":                 defaultCompress,
-		"compression-type":         defaultCompressionType,
-		"compression-level":        defaultCompressionLevel,
-		"api-endpoint":             defaultApiEndpoint,
-		"max-requests":             defaultMaxRequests,
-		"max-request-elapsed-time": defaultMaxRequestElapsedTime,
-		"consolidator-slots":       gostatsd.DefaultMaxParsers,
-		"flush-interval":           defaultConsolidatorFlushInterval,
-		"concurrent-merge":         defaultConcurrentMerge,
+		"transport":                         defaultTransport,
+		"compress":                          defaultCompress,
+		"compression-type":                  defaultCompressionType,
+		"compression-level":                 defaultCompressionLevel,
+		"api-endpoint":                      defaultApiEndpoint,
+		"max-requests":                      defaultMaxRequests,
+		"max-request-elapsed-time":          defaultMaxRequestElapsedTime,
+		"consolidator-slots":                gostatsd.DefaultMaxParsers,
+		"flush-interval":                    defaultConsolidatorFlushInterval,
+		"concurrent-merge":                  defaultConcurrentMerge,
+		"fast-fail-on-non-retryable-errors": defaultFastFailOnNonRetryableError,
 	}
 	maps.Copy(values, util.GetSubViper(overrides, "http-transport").AllSettings())
 
@@ -141,6 +144,7 @@ func NewHttpForwarderHandlerV2FromViper(logger logrus.FieldLogger, v *viper.Vipe
 		values.GetStringSlice("dynamic-headers"),
 		pool,
 		fc,
+		values.GetBool("fast-fail-on-non-retryable-errors"),
 	)
 }
 
@@ -161,6 +165,7 @@ func NewHttpForwarderHandlerV2(
 	dynHeaderNames []string,
 	pool *transport.TransportPool,
 	fc flush.Coordinator,
+	failFastOnNonRetryableErrors bool,
 ) (*HttpForwarderHandlerV2, error) {
 	if apiEndpoint == "" {
 		return nil, fmt.Errorf("api-endpoint is required")
@@ -196,14 +201,15 @@ func NewHttpForwarderHandlerV2(
 	}
 
 	logger.WithFields(logrus.Fields{
-		"api-endpoint":             apiEndpoint,
-		"compress":                 compress,
-		"compression-type":         compressionTypeStr,
-		"compression-level":        compressionLevel,
-		"max-request-elapsed-time": maxRequestElapsedTime,
-		"max-requests":             maxRequests,
-		"consolidator-slots":       consolidatorSlots,
-		"flush-interval":           flushInterval,
+		"api-endpoint":                      apiEndpoint,
+		"compress":                          compress,
+		"compression-type":                  compressionTypeStr,
+		"compression-level":                 compressionLevel,
+		"max-request-elapsed-time":          maxRequestElapsedTime,
+		"max-requests":                      maxRequests,
+		"consolidator-slots":                consolidatorSlots,
+		"flush-interval":                    flushInterval,
+		"fast-fail-on-non-retryable-errors": failFastOnNonRetryableErrors,
 	}).Info("created HttpForwarderHandler")
 
 	// Default set of headers used for the forwarder
@@ -250,21 +256,22 @@ func NewHttpForwarderHandlerV2(
 	}
 
 	return &HttpForwarderHandlerV2{
-		logger:                logger.WithField("component", "http-forwarder-handler-v2"),
-		apiEndpoint:           apiEndpoint,
-		maxRequestElapsedTime: maxRequestElapsedTime,
-		metricsSem:            metricsSem,
-		metricsMergingSem:     metricsMergingSem,
-		compress:              compress,
-		compressionType:       compressionType,
-		compressionLevel:      compressionLevel,
-		consolidator:          consolidator,
-		consolidatedMetrics:   ch,
-		client:                httpClient.Client,
-		headers:               headers,
-		dynHeaderNames:        dynHeaderNamesWithColon,
-		done:                  make(chan struct{}),
-		flushCoordinator:      fc,
+		logger:                       logger.WithField("component", "http-forwarder-handler-v2"),
+		apiEndpoint:                  apiEndpoint,
+		maxRequestElapsedTime:        maxRequestElapsedTime,
+		metricsSem:                   metricsSem,
+		metricsMergingSem:            metricsMergingSem,
+		compress:                     compress,
+		compressionType:              compressionType,
+		compressionLevel:             compressionLevel,
+		consolidator:                 consolidator,
+		consolidatedMetrics:          ch,
+		client:                       httpClient.Client,
+		headers:                      headers,
+		dynHeaderNames:               dynHeaderNamesWithColon,
+		done:                         make(chan struct{}),
+		flushCoordinator:             fc,
+		fastFailOnNonRetryableErrors: failFastOnNonRetryableErrors,
 	}, nil
 }
 
@@ -512,7 +519,7 @@ func (hfh *HttpForwarderHandlerV2) post(ctx context.Context, message proto.Messa
 		// All errors coming back from postInstanceFn() should be a RequestError
 		var reqErr *RequestError
 		ok := errors.As(err, &reqErr)
-		if ok && !reqErr.Retryable {
+		if ok && !reqErr.Retryable && hfh.fastFailOnNonRetryableErrors {
 			atomic.AddUint64(&hfh.messagesDroppedFastFail, 1)
 			logger.WithError(err).Info("failed to send due to non-retryable error giving up")
 			return
