@@ -630,7 +630,10 @@ func (hfh *HttpForwarderHandlerV2) constructPost(ctx context.Context, logger log
 				}
 			}
 
-			return fmt.Errorf("error POSTing: %v", err)
+			return &RequestError{
+				Retryable: false,
+				Err:       err,
+			}
 		}
 		defer func() {
 			_, _ = io.Copy(ioutil.Discard, resp.Body)
