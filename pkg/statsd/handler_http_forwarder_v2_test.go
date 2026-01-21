@@ -904,3 +904,64 @@ func TestPostFunctionReturnsImmediatelyOnNonRetryableWithoutBackoff(t *testing.T
 	assert.EqualValues(t, 1, atomic.LoadUint64(&forwarder.messagesDropped))
 	assert.EqualValues(t, 0, atomic.LoadUint64(&forwarder.messagesRetried))
 }
+
+func TestBackOffNotTriggeredWithBadCert(t *testing.T) {
+	t.Parallel()
+
+	// Track if handler was called (should remain 0 due to cert verification failure)
+	called := uint64(0)
+	// Create a TLS test server with self-signed certificate
+	ts := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		atomic.AddUint64(&called, 1)
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("success"))
+	}))
+	t.Cleanup(ts.Close)
+
+	log := logrus.New().WithField("testcase", t.Name())
+	pool := transport.NewTransportPool(log, viper.New())
+
+	// Create a forwarder pointing to a TLS server with an untrusted certificate.
+	// This test verifies that TLS certificate errors are treated as non-retryable.
+	forwarder, err := NewHttpForwarderHandlerV2(
+		log,
+		"default",
+		// We use a TLS Server in this instance with inadequate configuration to verify the certificate
+		ts.URL,
+		1,
+		1,
+		1,
+		false,
+		"",
+		0,
+		100*time.Millisecond, // maxRequestElapsedTime
+		100*time.Millisecond, // flushInterval
+		map[string]string{},
+		[]string{},
+		pool,
+		nil,
+	)
+
+	require.NoError(t, err)
+
+	ctx := context.Background()
+	mockClock := clock.NewMock(time.Unix(1000, 0))
+	ctx = clock.Context(ctx, mockClock)
+
+	initialTimerCount := mockClock.Len()
+
+	mm := gostatsd.NewMetricMap(false)
+	message := translateToProtobufV2(mm)
+
+	forwarder.post(ctx, message, "", 0, "metrics", "/v2/raw")
+
+	// Verify no timers were created for non-retryable error
+	finalTimerCount := mockClock.Len()
+	assert.Equal(t, initialTimerCount, finalTimerCount, "no timers should be created for invalid certificates")
+
+	// Verify the message was dropped
+	assert.EqualValues(t, 1, atomic.LoadUint64(&forwarder.messagesDropped), "invalid certificate should result in drop")
+	assert.EqualValues(t, 0, atomic.LoadUint64(&forwarder.messagesRetried), "invalid certificate should not result in retry")
+
+	assert.Equal(t, atomic.LoadUint64(&called), uint64(0), "Handler must not have been called as cert verification should fail")
+}
