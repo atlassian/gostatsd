@@ -1,3 +1,8 @@
+41.1.0
+------
+- Adding opt-in behavior to fail fast on non-retryable errors in `handler_http_forwarder_v2`.
+
+
 41.0.4
 ------
 - Bumping go version to 1.25.5
