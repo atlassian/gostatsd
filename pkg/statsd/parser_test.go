@@ -110,7 +110,7 @@ func TestParseDatagram(t *testing.T) {
 			}
 			for i, e := range ch.events {
 				if e.DateHappened <= 0 {
-					t.Errorf("%q: DateHappened should be positive", e)
+					t.Errorf("%v: DateHappened should be positive", e)
 				}
 				ch.events[i].DateHappened = 0
 			}
@@ -217,7 +217,7 @@ func TestParseDatagramIgnoreHost(t *testing.T) {
 			metrics, _, _ := mr.handleDatagram(context.Background(), lex(), 0, fakeIP, []byte(datagram))
 			for i, e := range ch.events {
 				if e.DateHappened <= 0 {
-					t.Errorf("%q: DateHappened should be positive", e)
+					t.Errorf("%v: DateHappened should be positive", e)
 				}
 				ch.events[i].DateHappened = 0
 			}
