@@ -1,3 +1,8 @@
+41.1.1
+------
+- Bumping go version to 1.26.0
+- Bumping alpine to 3.23.3
+
 41.1.0
 ------
 - Adding opt-in behavior to fail fast on non-retryable errors in `handler_http_forwarder_v2`.
