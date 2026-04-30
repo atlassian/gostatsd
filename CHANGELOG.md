@@ -1,3 +1,12 @@
+41.1.3
+------
+- Bumping go version to 1.26.2
+- Bumping alpine to 3.23.4
+
+41.1.2
+------
+- Bumping go mods 
+
 41.1.1
 ------
 - Bumping go version to 1.26.0
