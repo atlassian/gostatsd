@@ -18,7 +18,7 @@ ADD . /build
 # https://github.com/golang/go/issues/51235
 RUN make build CPU_ARCH=${TARGETARCH} CGO_ENABLED=1 PKG=${MAIN_PKG}
 
-FROM ubuntu:22.04
+FROM ubuntu:24.04
 
 RUN export DEBIAN_FRONTEND=noninteractive && \
     apt-get update && \
