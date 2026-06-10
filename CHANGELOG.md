@@ -1,3 +1,7 @@
+41.1.4
+------
+- Bump go/net to v0.55.0
+
 41.1.3
 ------
 - Bumping go version to 1.26.2
