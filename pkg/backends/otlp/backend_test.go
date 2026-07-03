@@ -214,7 +214,7 @@ func TestBackendSendAsyncMetrics(t *testing.T) {
 				mm := gostatsd.NewMetricMap(false)
 				mm.Receive(&gostatsd.Metric{
 					Name:   "my-metric",
-					Values: []float64{100},
+					Values: []float64{100.5},
 					Rate:   1,
 					Type:   gostatsd.COUNTER,
 				})
@@ -238,7 +238,7 @@ func TestBackendSendAsyncMetrics(t *testing.T) {
 				assert.Equal(t, 10.0, dpRate.GetAsDouble())
 
 				dpCount := ms[1].GetSum().DataPoints[0]
-				assert.Equal(t, int64(100), dpCount.GetAsInt())
+				assert.Equal(t, 100.5, dpCount.GetAsDouble())
 			},
 			validate: func(t *testing.T) func(errs []error) {
 				return func(errs []error) {
