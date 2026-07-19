@@ -86,6 +86,12 @@ func TestInvalidMetricsLexer(t *testing.T) {
 		"foo.bar.baz:1|q",
 		"NaN.should.be:NaN|g",
 		"bad.sampling:1|g|@",
+		// A sample rate is used as a divisor when aggregating, so values which
+		// are not a positive finite number produce corrupt counters and timers.
+		"bad.sampling.zero:1|c|@0",
+		"bad.sampling.negative:1|c|@-1",
+		"bad.sampling.nan:1|c|@NaN",
+		"bad.sampling.inf:1|c|@+Inf",
 	}
 	for _, tc := range failing {
 		tc := tc
