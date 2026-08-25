@@ -203,7 +203,12 @@ func lexDatadogSpecial(l *Lexer) stateFn {
 }
 
 func lexEventBody(l *Lexer) stateFn {
-	if l.len-l.pos < l.eventTitleLen+1+l.eventTextLen {
+	// The title and text lengths are attacker-controlled and each may be as large
+	// as math.MaxUint32. Computing the required length in uint32 can overflow and
+	// wrap to a small value, bypassing this bounds check and causing the slice
+	// operations below to panic (slice bounds out of range). Do the arithmetic and
+	// comparison in uint64 so the check cannot be bypassed.
+	if uint64(l.len-l.pos) < uint64(l.eventTitleLen)+1+uint64(l.eventTextLen) {
 		l.err = errNotEnoughData
 		return nil
 	}

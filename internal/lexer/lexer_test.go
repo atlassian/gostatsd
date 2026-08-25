@@ -183,6 +183,12 @@ func TestInvalidEventsLexer(t *testing.T) {
 		"_e:a|b":                             errInvalidFormat,
 		"_e{999999999999999999999999,1}:a|b": errOverflow,
 		"_e{1,999999999999999999999999}:a|b": errOverflow,
+		// Lengths at/near math.MaxUint32 pass the per-field overflow check but
+		// previously overflowed the uint32 (title+1+text) sum in lexEventBody,
+		// bypassing the bounds check and panicking with a slice out-of-range.
+		"_e{0,4294967295}:|foo":         errNotEnoughData,
+		"_e{4294967295,0}:foo|":         errNotEnoughData,
+		"_e{4294967295,4294967295}:a|b": errNotEnoughData,
 	}
 	for input, expectedErr := range failing {
 		input := input
