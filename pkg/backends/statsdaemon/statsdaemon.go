@@ -111,7 +111,7 @@ func (client *Client) processMetrics(metrics *gostatsd.MetricMap, handler overfl
 	metrics.Counters.Each(func(key, tagsKey string, counter gostatsd.Counter) {
 		// do not send statsd stats as they will be recalculated on the master instead
 		if !strings.HasPrefix(key, "statsd.") {
-			writeLine("%s:%d|c", key, tagsKey, counter.Value)
+			writeLine("%s:%g|c", key, tagsKey, counter.Value)
 		}
 	})
 	metrics.Timers.Each(func(key, tagsKey string, timer gostatsd.Timer) {
