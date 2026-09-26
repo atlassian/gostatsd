@@ -42,6 +42,7 @@ var (
 	errOverflow          = errors.New("overflow")
 	errNotEnoughData     = errors.New("not enough data")
 	errNaN               = errors.New("invalid value NaN")
+	errNoValue           = errors.New("no value")
 )
 
 var escapedNewline = []byte("\\n")
@@ -128,6 +129,9 @@ func (l *Lexer) Run(input []byte, namespace string) (*gostatsd.Metric, *gostatsd
 					return nil, nil, errNaN
 				}
 				values = append(values, v)
+			}
+			if len(values) == 0 {
+				return nil, nil, errNoValue
 			}
 			l.m.Values = values
 			l.m.StringValue = ""
