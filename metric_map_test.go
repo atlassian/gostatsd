@@ -28,6 +28,8 @@ func metricsFixtures() []*Metric {
 		{Name: "timer_sampling", Values: []float64{50}, Type: TIMER, Rate: 0.1, Timestamp: 10},
 		{Name: "counter_sampling", Values: []float64{2}, Type: COUNTER, Rate: 0.25, Timestamp: 10},
 		{Name: "counter_sampling", Values: []float64{5}, Type: COUNTER, Rate: 0.25, Timestamp: 10},
+		{Name: "float_counter", Values: []float64{1.25}, Type: COUNTER, Timestamp: 10},
+		{Name: "float_counter", Values: []float64{2.5}, Type: COUNTER, Rate: 0.5, Timestamp: 10},
 		{Name: "value_packing_timer", Values: []float64{5, 3, 2, 1}, Type: TIMER, Timestamp: 10},
 		{Name: "value_packing_gauge", Values: []float64{5, 3, 2, 1}, Type: GAUGE, Timestamp: 10},
 		{Name: "value_packing_counter", Values: []float64{5, 3, 2, 1}, Type: COUNTER, Timestamp: 10},
@@ -62,6 +64,9 @@ func TestReceive(t *testing.T) {
 		},
 		"counter_sampling": map[string]Counter{
 			"": {Value: 28, Timestamp: 10},
+		},
+		"float_counter": map[string]Counter{
+			"": {Value: 6.25, Timestamp: 10},
 		},
 		"value_packing_counter": map[string]Counter{
 			"": {Value: 11, Timestamp: 10},
@@ -169,6 +174,7 @@ func TestMetricMapDispatch(t *testing.T) {
 		{Name: "counter_sampling", Values: []float64{(2 + 5) / 0.25}, Rate: 1, Type: COUNTER, Timestamp: 10},
 		{Name: "def.g", Values: []float64{10}, Rate: 1, Type: TIMER, Timestamp: 10},
 		{Name: "def.g", Values: []float64{1}, Rate: 1, TagsKey: "baz,foo:bar", Tags: Tags{"baz", "foo:bar"}, Type: TIMER, Timestamp: 10},
+		{Name: "float_counter", Values: []float64{6.25}, Rate: 1, Type: COUNTER, Timestamp: 10},
 		{Name: "foo.bar.baz", Values: []float64{2}, Rate: 1, Type: COUNTER, Timestamp: 10},
 		{Name: "smp.rte", Values: []float64{50}, Rate: 1, Type: COUNTER, Timestamp: 10},
 		{Name: "smp.rte", Values: []float64{50 + 5}, Rate: 1, TagsKey: "baz,foo:bar", Tags: Tags{"baz", "foo:bar"}, Type: COUNTER, Timestamp: 10},
