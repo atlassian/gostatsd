@@ -1,3 +1,7 @@
+41.1.10
+------
+- Bump golang.org/x/net from v0.58.0 to v0.61.0 
+
 41.1.6
 ------
 - Bump go/net to v0.57.0
