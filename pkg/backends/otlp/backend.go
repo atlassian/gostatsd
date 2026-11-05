@@ -110,6 +110,7 @@ func (b *Backend) SendEvent(ctx context.Context, event *gostatsd.Event) error {
 		event,
 	)
 	if err != nil {
+		atomic.AddUint64(&b.eventsDropped, 1)
 		return err
 	}
 
@@ -130,9 +131,13 @@ func (b *Backend) SendEvent(ctx context.Context, event *gostatsd.Event) error {
 	}
 
 	err = data.ProcessEventsResponse(resp)
-	atomic.AddUint64(&b.eventsDropped, 1)
+	if err != nil {
+		atomic.AddUint64(&b.eventsDropped, 1)
+		return err
+	}
+	atomic.AddUint64(&b.eventsSent, 1)
 
-	return err
+	return nil
 }
 
 func (bd *Backend) SendMetricsAsync(ctx context.Context, mm *gostatsd.MetricMap, cb gostatsd.SendCallback) {
@@ -367,7 +372,6 @@ func (c *Backend) postMetrics(ctx context.Context, batch group) error {
 
 		next := b.NextBackOff()
 		if next == backoff.Stop || retries >= c.maxRetries {
-			atomic.AddUint64(&c.batchesDropped, 1)
 			return err
 		}
 
