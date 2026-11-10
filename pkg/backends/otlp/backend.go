@@ -170,7 +170,7 @@ func (bd *Backend) SendMetricsAsync(ctx context.Context, mm *gostatsd.MetricMap,
 				data.NewNumberDataPoint(
 					uint64(now),
 					data.WithNumberDataPointMap(attributes),
-					data.WithNumberDatapointIntValue(cm.Value),
+					data.WithNumberDataPointDoubleValue(cm.Value),
 				),
 			),
 		)

@@ -435,9 +435,10 @@ func translateToProtobufV2(metricMap *gostatsd.MetricMap) *pb.RawMessageV2 {
 		pbMetricMap.Counters[metricName] = &pb.CounterTagV2{TagMap: map[string]*pb.RawCounterV2{}}
 		for tagsKey, metric := range m {
 			pbMetricMap.Counters[metricName].TagMap[tagsKey] = &pb.RawCounterV2{
-				Tags:     metric.Tags,
-				Hostname: string(metric.Source),
-				Value:    metric.Value,
+				Tags:       metric.Tags,
+				Hostname:   string(metric.Source),
+				Value:      int64(metric.Value),
+				FloatValue: metric.Value,
 			}
 		}
 	}

@@ -169,7 +169,7 @@ func (d *Client) processMetrics(now float64, metrics *gostatsd.MetricMap, cb fun
 
 	metrics.Counters.Each(func(key, tagsKey string, counter gostatsd.Counter) {
 		fl.addMetric(rate, counter.PerSecond, counter.Source, counter.Tags, key)
-		fl.addMetricf(gauge, float64(counter.Value), counter.Source, counter.Tags, "%s.count", key)
+		fl.addMetricf(gauge, counter.Value, counter.Source, counter.Tags, "%s.count", key)
 		fl.maybeFlush()
 	})
 

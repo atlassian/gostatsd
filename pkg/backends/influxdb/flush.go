@@ -144,9 +144,9 @@ func writeName(w io.Writer, name string, tags gostatsd.Tags) {
 	_, _ = w.Write([]byte(formatNameTags(name, tags)))
 }
 
-func (f *flush) addCounter(name string, tags gostatsd.Tags, count int64, rate float64) {
+func (f *flush) addCounter(name string, tags gostatsd.Tags, count float64, rate float64) {
 	writeName(f.writer, name, tags)
-	_, _ = f.writer.Write([]byte(fmt.Sprintf("count=%d,rate=%g %d\n", count, rate, f.timestampSeconds)))
+	_, _ = f.writer.Write([]byte(fmt.Sprintf("count=%g,rate=%g %d\n", count, rate, f.timestampSeconds)))
 	f.metricCount++
 	f.maybeFlush()
 }

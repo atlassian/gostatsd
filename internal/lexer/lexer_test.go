@@ -15,6 +15,7 @@ func TestMetricsLexer(t *testing.T) {
 	t.Parallel()
 	tests := map[string]gostatsd.Metric{
 		"foo.bar.baz:2|c":                             {Name: "foo.bar.baz", Values: []float64{2}, Type: gostatsd.COUNTER, Rate: 1.0},
+		"float.counter:1.25|c":                        {Name: "float.counter", Values: []float64{1.25}, Type: gostatsd.COUNTER, Rate: 1.0},
 		"abc.def.g:3|g":                               {Name: "abc.def.g", Values: []float64{3}, Type: gostatsd.GAUGE, Rate: 1.0},
 		"def.g:10|ms":                                 {Name: "def.g", Values: []float64{10}, Type: gostatsd.TIMER, Rate: 1.0},
 		"def.h:10|h":                                  {Name: "def.h", Values: []float64{10}, Type: gostatsd.TIMER, Rate: 1.0},

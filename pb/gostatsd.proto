@@ -33,6 +33,7 @@ message RawCounterV2 {
     repeated string Tags = 1;
     string Hostname = 2;
     int64 Value = 3; // the count of counters is multiplied out before forwarding, rate is not required
+    double FloatValue = 4; // fractional counter value; Value is kept for older receivers
 }
 
 message RawGaugeV2 {
