@@ -42,6 +42,7 @@ var (
 	errOverflow          = errors.New("overflow")
 	errNotEnoughData     = errors.New("not enough data")
 	errNaN               = errors.New("invalid value NaN")
+	errInvalidSampleRate = errors.New("invalid sample rate")
 )
 
 var escapedNewline = []byte("\\n")
@@ -484,6 +485,13 @@ func lexMetricAttribute(l *Lexer) stateFn {
 		v, err := strconv.ParseFloat(string(input), 64)
 		if err != nil {
 			l.err = err
+			return nil
+		}
+		// The sample rate is used as a divisor when the metric is aggregated, so a
+		// rate which is not a positive finite number produces a corrupt counter or
+		// timer rather than a wrong-but-plausible one.
+		if math.IsNaN(v) || math.IsInf(v, 0) || v <= 0 {
+			l.err = errInvalidSampleRate
 			return nil
 		}
 		l.sampling = v
