@@ -131,8 +131,12 @@ func (a *MetricAggregator) Flush(flushInterval time.Duration) {
 						sumSquares = cumulSumSquaresValues[numInThreshold-1]
 					} else {
 						thresholdBoundary = timer.Values[n-numInThreshold]
-						sum = cumulativeValues[n-1] - cumulativeValues[n-numInThreshold-1]
-						sumSquares = cumulSumSquaresValues[n-1] - cumulSumSquaresValues[n-numInThreshold-1]
+						sum = cumulativeValues[n-1]
+						sumSquares = cumulSumSquaresValues[n-1]
+						if numInThreshold < n {
+							sum -= cumulativeValues[n-numInThreshold-1]
+							sumSquares -= cumulSumSquaresValues[n-numInThreshold-1]
+						}
 					}
 					mean = sum / float64(numInThreshold)
 				}

@@ -492,3 +492,31 @@ func TestDisabledLower(t *testing.T) {
 		}
 	}
 }
+
+func TestFlushNegativePercentileAllValues(t *testing.T) {
+	t.Parallel()
+	assrt := assert.New(t)
+
+	ma := NewMetricAggregator(
+		[]float64{-90},
+		5*time.Minute,
+		5*time.Minute,
+		5*time.Minute,
+		5*time.Minute,
+		gostatsd.TimerSubtypes{},
+		math.MaxUint32,
+	)
+	ma.metricMap.Timers["some"] = make(map[string]gostatsd.Timer)
+	// round(0.9 * 3) == 3, so the -90 threshold covers every value.
+	ma.metricMap.Timers["some"]["thing"] = gostatsd.NewTimerValues([]float64{2, 4, 12})
+
+	ma.Flush(10 * time.Second)
+
+	expPct := gostatsd.Percentiles{}
+	expPct.Set("count_-90", float64(3))
+	expPct.Set("mean_-90", float64(6))
+	expPct.Set("sum_-90", float64(18))
+	expPct.Set("sum_squares_-90", float64(164))
+	expPct.Set("lower_-90", float64(2))
+	assrt.Equal(expPct, ma.metricMap.Timers["some"]["thing"].Percentiles)
+}
