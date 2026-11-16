@@ -151,12 +151,12 @@ func (client *Client) preparePayload(metrics *gostatsd.MetricMap, ts time.Time) 
 	now := ts.Unix()
 	if client.legacyNamespace {
 		metrics.Counters.Each(func(key, tagsKey string, counter gostatsd.Counter) {
-			_, _ = fmt.Fprintf(buf, "%s %d %d\n", client.prepareName("stats_counts", key, "", counter.Source, counter.Tags), counter.Value, now)
+			_, _ = fmt.Fprintf(buf, "%s %g %d\n", client.prepareName("stats_counts", key, "", counter.Source, counter.Tags), counter.Value, now)
 			_, _ = fmt.Fprintf(buf, "%s %f %d\n", client.prepareName(client.counterNamespace, key, "", counter.Source, counter.Tags), counter.PerSecond, now)
 		})
 	} else {
 		metrics.Counters.Each(func(key, tagsKey string, counter gostatsd.Counter) {
-			_, _ = fmt.Fprintf(buf, "%s %d %d\n", client.prepareName(client.counterNamespace, key, "count", counter.Source, counter.Tags), counter.Value, now)
+			_, _ = fmt.Fprintf(buf, "%s %g %d\n", client.prepareName(client.counterNamespace, key, "count", counter.Source, counter.Tags), counter.Value, now)
 			_, _ = fmt.Fprintf(buf, "%s %f %d\n", client.prepareName(client.counterNamespace, key, "rate", counter.Source, counter.Tags), counter.PerSecond, now)
 		})
 	}

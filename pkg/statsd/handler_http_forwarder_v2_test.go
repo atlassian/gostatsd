@@ -139,6 +139,14 @@ func TestHttpForwarderV2Translation(t *testing.T) {
 			Type:   gostatsd.COUNTER,
 		},
 		{
+			Name:   "TestHttpForwarderTranslation.floatcounter",
+			Values: []float64{1.25},
+			Tags:   gostatsd.Tags{"TestHttpForwarderTranslation.floatcounter.tag1", "TestHttpForwarderTranslation.floatcounter.tag2"},
+			Source: "TestHttpForwarderTranslation.floatcounter.host",
+			Rate:   0.5,
+			Type:   gostatsd.COUNTER,
+		},
+		{
 			Name:   "TestHttpForwarderTranslation.timer",
 			Values: []float64{12349},
 			Tags:   gostatsd.Tags{"TestHttpForwarderTranslation.timer.tag1", "TestHttpForwarderTranslation.timer.tag2"},
@@ -204,18 +212,30 @@ func TestHttpForwarderV2Translation(t *testing.T) {
 			"TestHttpForwarderTranslation.counter": {
 				TagMap: map[string]*pb.RawCounterV2{
 					"TestHttpForwarderTranslation.counter.tag1,TestHttpForwarderTranslation.counter.tag2,s:TestHttpForwarderTranslation.counter.host": {
-						Tags:     []string{"TestHttpForwarderTranslation.counter.tag1", "TestHttpForwarderTranslation.counter.tag2"},
-						Hostname: "TestHttpForwarderTranslation.counter.host",
-						Value:    12347,
+						Tags:       []string{"TestHttpForwarderTranslation.counter.tag1", "TestHttpForwarderTranslation.counter.tag2"},
+						Hostname:   "TestHttpForwarderTranslation.counter.host",
+						Value:      12347,
+						FloatValue: 12347,
 					},
 				},
 			},
 			"TestHttpForwarderTranslation.counterrate": {
 				TagMap: map[string]*pb.RawCounterV2{
 					"TestHttpForwarderTranslation.counterrate.tag1,TestHttpForwarderTranslation.counterrate.tag2,s:TestHttpForwarderTranslation.counterrate.host": {
-						Tags:     []string{"TestHttpForwarderTranslation.counterrate.tag1", "TestHttpForwarderTranslation.counterrate.tag2"},
-						Hostname: "TestHttpForwarderTranslation.counterrate.host",
-						Value:    123480, // rate is multipled out
+						Tags:       []string{"TestHttpForwarderTranslation.counterrate.tag1", "TestHttpForwarderTranslation.counterrate.tag2"},
+						Hostname:   "TestHttpForwarderTranslation.counterrate.host",
+						Value:      123480, // rate is multipled out
+						FloatValue: 123480,
+					},
+				},
+			},
+			"TestHttpForwarderTranslation.floatcounter": {
+				TagMap: map[string]*pb.RawCounterV2{
+					"TestHttpForwarderTranslation.floatcounter.tag1,TestHttpForwarderTranslation.floatcounter.tag2,s:TestHttpForwarderTranslation.floatcounter.host": {
+						Tags:       []string{"TestHttpForwarderTranslation.floatcounter.tag1", "TestHttpForwarderTranslation.floatcounter.tag2"},
+						Hostname:   "TestHttpForwarderTranslation.floatcounter.host",
+						Value:      2,
+						FloatValue: 2.5,
 					},
 				},
 			},

@@ -139,6 +139,12 @@ func TestForwardingEndToEndV2(t *testing.T) {
 				StringValue: "def",
 				Rate:        0.1,
 			}
+			m9 := &gostatsd.Metric{
+				Name:   "floatcounter",
+				Type:   gostatsd.COUNTER,
+				Values: []float64{1.25},
+				Rate:   0.5,
+			}
 
 			mm := gostatsd.NewMetricMap(false)
 
@@ -149,6 +155,7 @@ func TestForwardingEndToEndV2(t *testing.T) {
 				mm.Receive(m6)
 				mm.Receive(m7)
 				mm.Receive(m8)
+				mm.Receive(m9)
 			}
 			// only do timers once, because they're very noisy in the output.
 			mm.Receive(m3)
@@ -160,6 +167,7 @@ func TestForwardingEndToEndV2(t *testing.T) {
 
 			expected := []*gostatsd.Metric{
 				{Name: "counter", Type: gostatsd.COUNTER, Values: []float64{(100 * 10) + (100 * 10 / 0.1)}, Rate: 1},
+				{Name: "floatcounter", Type: gostatsd.COUNTER, Values: []float64{100 * 1.25 / 0.5}, Rate: 1},
 				{Name: "gauge", Type: gostatsd.GAUGE, Values: []float64{10}, Rate: 1},
 				// 10 = the sample count for the timer where rate=0.1
 				// 1 = the sample count for the timer where rate=1

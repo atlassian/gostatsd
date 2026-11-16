@@ -209,8 +209,12 @@ func translateFromProtobufV2(pbMetricMap *pb.RawMessageV2) *gostatsd.MetricMap {
 	for metricName, tagMap := range pbMetricMap.Counters {
 		mm.Counters[metricName] = map[string]gostatsd.Counter{}
 		for tagsKey, counter := range tagMap.TagMap {
+			value := float64(counter.Value)
+			if counter.FloatValue != 0 {
+				value = counter.FloatValue
+			}
 			mm.Counters[metricName][tagsKey] = gostatsd.Counter{
-				Value:     counter.Value,
+				Value:     value,
 				Timestamp: now,
 				Tags:      counter.Tags,
 				Source:    gostatsd.Source(counter.Hostname),

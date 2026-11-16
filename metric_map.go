@@ -279,7 +279,7 @@ func (mm *MetricMap) receiveCounter(m *Metric, tagsKey string) {
 	for _, v := range m.Values {
 		valueSum += v
 	}
-	value := int64(valueSum / m.Rate)
+	value := valueSum / m.Rate
 	v, ok := mm.Counters[m.Name]
 	if ok {
 		c, ok := v[tagsKey]
@@ -370,7 +370,7 @@ func (mm *MetricMap) receiveSet(m *Metric, tagsKey string) {
 func (mm *MetricMap) String() string {
 	buf := new(bytes.Buffer)
 	mm.Counters.Each(func(k, tags string, counter Counter) {
-		_, _ = fmt.Fprintf(buf, "stats.counter.%s: %d tags=%s\n", k, counter.Value, tags)
+		_, _ = fmt.Fprintf(buf, "stats.counter.%s: %g tags=%s\n", k, counter.Value, tags)
 	})
 	mm.Timers.Each(func(k, tags string, timer Timer) {
 		for _, value := range timer.Values {
@@ -396,7 +396,7 @@ func (mm *MetricMap) AsMetrics() []*Metric {
 		m := &Metric{
 			Name:      metricName,
 			Type:      COUNTER,
-			Values:    []float64{float64(c.Value)},
+			Values:    []float64{c.Value},
 			Rate:      1,
 			Tags:      c.Tags.Copy(),
 			TagsKey:   tagsKey,

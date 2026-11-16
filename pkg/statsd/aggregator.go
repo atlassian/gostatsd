@@ -86,7 +86,7 @@ func (a *MetricAggregator) Flush(flushInterval time.Duration) {
 	flushInSeconds := float64(flushInterval) / float64(time.Second)
 
 	a.metricMap.Counters.Each(func(key, tagsKey string, counter gostatsd.Counter) {
-		counter.PerSecond = float64(counter.Value) / flushInSeconds
+		counter.PerSecond = counter.Value / flushInSeconds
 		a.metricMap.Counters[key][tagsKey] = counter
 	})
 

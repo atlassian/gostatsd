@@ -129,7 +129,7 @@ func (client *Client) buildMetricData(metrics *gostatsd.MetricMap) (metricData [
 
 	prefix = "stats.counter."
 	metrics.Counters.Each(func(key, tagsKey string, counter gostatsd.Counter) {
-		addMetricData(key+".count", "Count", float64(counter.Value), counter.Tags)
+		addMetricData(key+".count", "Count", counter.Value, counter.Tags)
 		addMetricData(key+".per_second", "Count/Second", counter.PerSecond, counter.Tags)
 	})
 
