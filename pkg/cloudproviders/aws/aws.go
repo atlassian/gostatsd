@@ -240,6 +240,9 @@ func NewProviderFromViper(v *viper.Viper, logger logrus.FieldLogger, _ string) (
 		}),
 		config.WithRetryMaxAttempts(a.GetInt("max_retries")),
 	)
+	if err != nil {
+		return nil, err
+	}
 
 	metadataClient := imds.NewFromConfig(cfg)
 
