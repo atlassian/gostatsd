@@ -1,6 +1,7 @@
-FROM alpine:3.24.2
+FROM alpine:3.24.4
 
-RUN apk --no-cache add \
+RUN apk --no-cache upgrade && \
+    apk --no-cache add \
     ca-certificates
 
 ADD bin/linux/gostatsd /bin/gostatsd
