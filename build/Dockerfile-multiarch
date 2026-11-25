@@ -1,5 +1,5 @@
 # Go version needs to be the same in: CI config, README, Dockerfiles, and Makefile
-FROM golang:1.26.10 AS build
+FROM golang:1.27.4 AS build
 WORKDIR /build
 
 # Install dependencies first to take advantage of the docker build cache.
@@ -22,9 +22,10 @@ RUN CGO_ENABLED=0 GOARCH=${TARGETARCH} \
         -X main.BuildDate=$(date +%Y-%m-%d-%H:%M)" \
         ${MAIN_PKG}
 
-FROM alpine:3.24.2
+FROM alpine:3.24.4
 
-RUN apk --no-cache add \
+RUN apk --no-cache upgrade && \
+    apk --no-cache add \
     ca-certificates
 
 ARG TARGETARCH
