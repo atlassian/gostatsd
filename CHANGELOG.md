@@ -1,3 +1,7 @@
+41.1.12
+------
+- Bump go version to 1.27.4 and alpine to 3.24.4
+
 41.1.10
 ------
 - Bump golang.org/x/net from v0.58.0 to v0.61.0 
