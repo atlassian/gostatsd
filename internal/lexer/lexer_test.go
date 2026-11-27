@@ -66,14 +66,12 @@ func TestMetricsLexer(t *testing.T) {
 		"a.packing:1:2|ms|#|:|c:xyz":   {Name: "a.packing", Values: []float64{1, 2}, Type: gostatsd.TIMER, Rate: 1.0},
 		"a.packing:1:2:3|ms|#|:|c:xyz": {Name: "a.packing", Values: []float64{1, 2, 3}, Type: gostatsd.TIMER, Rate: 1.0},
 		"a.packing:1:2:|ms|#|:|c:xyz":  {Name: "a.packing", Values: []float64{1, 2}, Type: gostatsd.TIMER, Rate: 1.0},
-		"a.packing:|ms|#|:|c:xyz":      {Name: "a.packing", Values: []float64{}, Type: gostatsd.TIMER, Rate: 1.0},
 		"a.packing:1:2|c|#|:|c:xyz":    {Name: "a.packing", Values: []float64{1, 2}, Type: gostatsd.COUNTER, Rate: 1.0},
 		"a.packing:1:2:3|c|#|:|c:xyz":  {Name: "a.packing", Values: []float64{1, 2, 3}, Type: gostatsd.COUNTER, Rate: 1.0},
 		"a.packing:1:2:|c|#|:|c:xyz":   {Name: "a.packing", Values: []float64{1, 2}, Type: gostatsd.COUNTER, Rate: 1.0},
 		"a.packing:1:2|g|#|:|c:xyz":    {Name: "a.packing", Values: []float64{1, 2}, Type: gostatsd.GAUGE, Rate: 1.0},
 		"a.packing:1:2:3|g|#|:|c:xyz":  {Name: "a.packing", Values: []float64{1, 2, 3}, Type: gostatsd.GAUGE, Rate: 1.0},
 		"a.packing:1:2:|g|#|:|c:xyz":   {Name: "a.packing", Values: []float64{1, 2}, Type: gostatsd.GAUGE, Rate: 1.0},
-		"a.packing:::|g|#|:|c:xyz":     {Name: "a.packing", Values: []float64{}, Type: gostatsd.GAUGE, Rate: 1.0},
 	}
 
 	compareMetric(t, tests, "")
@@ -86,6 +84,10 @@ func TestInvalidMetricsLexer(t *testing.T) {
 		"foo.bar.baz:1|q",
 		"NaN.should.be:NaN|g",
 		"bad.sampling:1|g|@",
+		"a.packing:|ms|#|:|c:xyz",
+		"a.packing:::|g|#|:|c:xyz",
+		"empty.gauge:|g",
+		"empty.counter:|c",
 	}
 	for _, tc := range failing {
 		tc := tc

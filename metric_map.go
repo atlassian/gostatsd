@@ -275,6 +275,10 @@ func (mm *MetricMap) SplitByTags(tagNames []string) map[string]*MetricMap {
 }
 
 func (mm *MetricMap) receiveCounter(m *Metric, tagsKey string) {
+	if len(m.Values) == 0 {
+		logrus.StandardLogger().Errorf("Dropping counter %s with no values (tags=%s source=%s)", m.Name, tagsKey, m.Source)
+		return
+	}
 	valueSum := 0.0
 	for _, v := range m.Values {
 		valueSum += v
@@ -300,6 +304,10 @@ func (mm *MetricMap) receiveCounter(m *Metric, tagsKey string) {
 }
 
 func (mm *MetricMap) receiveGauge(m *Metric, tagsKey string) {
+	if len(m.Values) == 0 {
+		logrus.StandardLogger().Errorf("Dropping gauge %s with no values (tags=%s source=%s)", m.Name, tagsKey, m.Source)
+		return
+	}
 	v, ok := mm.Gauges[m.Name]
 	// Assuming here that the last value in value packing chain came as last
 	// It might be incorrect if sender sorts the array before sending but why would they
