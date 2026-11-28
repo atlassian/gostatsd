@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"path"
 	"regexp"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -559,7 +560,8 @@ func TestRetrySendMetrics(t *testing.T) {
 				} else {
 					assert.Equal(t, tc.wantAttempts, attempts, "Must retry sending metrics")
 				}
-
+				bk := b.(*Backend)
+				assert.Equal(t, uint64(tc.numErrs), atomic.LoadUint64(&bk.batchesDropped), "Batches dropped must match number of failed batches without double counting")
 			})
 		})
 	}
@@ -568,11 +570,13 @@ func TestRetrySendMetrics(t *testing.T) {
 func TestSendEvent(t *testing.T) {
 	t.Parallel()
 	for _, tc := range []struct {
-		name      string
-		handler   http.HandlerFunc
-		event     *gostatsd.Event
-		configMap map[string]string
-		wantErr   assert.ErrorAssertionFunc
+		name        string
+		handler     http.HandlerFunc
+		event       *gostatsd.Event
+		configMap   map[string]string
+		wantErr     assert.ErrorAssertionFunc
+		wantSent    uint64
+		wantDropped uint64
 	}{
 		{
 			name: "should send event as log with attributes",
@@ -602,21 +606,27 @@ func TestSendEvent(t *testing.T) {
 				Text:  "test text",
 				Tags:  gostatsd.Tags{"service.name:my-awesome-service"},
 			},
-			wantErr: assert.NoError,
+			wantErr:     assert.NoError,
+			wantSent:    1,
+			wantDropped: 0,
 		},
 		{
 			name: "should return error when server returns non 2XX status code",
 			handler: func(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, "im dead", http.StatusServiceUnavailable)
 			},
-			event:   &gostatsd.Event{},
-			wantErr: assert.Error,
+			event:       &gostatsd.Event{},
+			wantErr:     assert.Error,
+			wantSent:    0,
+			wantDropped: 1,
 		},
 		{
-			name:    "should return error when there is no event to send",
-			handler: func(w http.ResponseWriter, r *http.Request) {},
-			event:   nil,
-			wantErr: assert.Error,
+			name:        "should return error when there is no event to send",
+			handler:     func(w http.ResponseWriter, r *http.Request) {},
+			event:       nil,
+			wantErr:     assert.Error,
+			wantSent:    0,
+			wantDropped: 1,
 		},
 	} {
 		tc := tc
@@ -643,6 +653,9 @@ func TestSendEvent(t *testing.T) {
 			require.NoError(t, err, "Must not error creating backend")
 
 			tc.wantErr(t, b.SendEvent(context.Background(), tc.event))
+			bk := b.(*Backend)
+			assert.Equal(t, tc.wantSent, atomic.LoadUint64(&bk.eventsSent), "Must match expected sent events")
+			assert.Equal(t, tc.wantDropped, atomic.LoadUint64(&bk.eventsDropped), "Must match expected dropped events")
 		})
 	}
 }
